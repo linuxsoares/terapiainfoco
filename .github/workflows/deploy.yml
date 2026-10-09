@@ -35,7 +35,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Compilar projeto (Vite build)
-        run: bun run build
+        run: bun run build:landing
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
@@ -45,7 +45,7 @@ jobs:
       - name: Upload dos arquivos compilados (dist)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './apps/landingpage/dist'
 
       - name: Publicar no GitHub Pages
         id: deployment
