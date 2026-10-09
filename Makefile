@@ -37,6 +37,27 @@ dev-frontend: ## Inicia o Painel Clínico Frontend com Vite (Porta 5174)
 dev-landing: ## Inicia a Landing Page com Vite (Porta 5173)
 	bun run dev:landing
 
+##@ Banco de Dados (PostgreSQL & Drizzle)
+.PHONY: db-generate
+db-generate: ## Gera novos arquivos de migração SQL a partir do schema da RFC
+	bun --filter @terapiainfoco/backend exec drizzle-kit generate
+
+.PHONY: db-migrate
+db-migrate: ## Aplica as migrações SQL no banco PostgreSQL
+	bun --filter @terapiainfoco/backend exec drizzle-kit migrate
+
+.PHONY: db-studio
+db-studio: ## Abre o Drizzle Studio para inspecionar tabelas e dados no navegador
+	bun --filter @terapiainfoco/backend exec drizzle-kit studio
+
+.PHONY: docker-up
+docker-up: ## Inicia o container PostgreSQL 16 via Docker Compose
+	docker compose up -d
+
+.PHONY: docker-down
+docker-down: ## Para os containers do Docker Compose
+	docker compose down
+
 ##@ Testes & Verificação
 .PHONY: test
 test: ## Executa todos os testes automatizados (Criptografia & Backend API)
