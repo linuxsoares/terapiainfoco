@@ -85,7 +85,8 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
     expect(appRes1.status).toBe(201);
     const { appointment } = await appRes1.json();
-    expect(appointment.meetUrl).toContain('https://meet.google.com/');
+    expect(appointment.meetUrl).toMatch(/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/);
+    expect(appointment.meetAccessCode).toMatch(/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/);
     expect(appointment.status).toBe(AppointmentStatus.CONFIRMADA);
 
     // 2. Tenta agendar colado sem respeitar o buffer de 10 min

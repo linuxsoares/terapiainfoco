@@ -14,6 +14,7 @@ export interface CreateAppointmentDTO {
   scheduledStart: string; // ISO string
   scheduledEnd: string;   // ISO string
   bufferMinutes?: number;
+  meetUrl?: string;
 }
 
 export interface UpdateAppointmentStatusDTO {

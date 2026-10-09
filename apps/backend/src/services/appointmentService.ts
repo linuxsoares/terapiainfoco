@@ -12,6 +12,22 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { config } from '../config';
 
+/**
+ * Gera um código válido e estritamente formatado do Google Meet: xxx-yyyy-zzz (3-4-3 letras minúsculas)
+ * Exemplo: abc-defg-hij
+ */
+export function generateGoogleMeetCode(): string {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  const getChunk = (len: number) => {
+    let chunk = '';
+    for (let i = 0; i < len; i++) {
+      chunk += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    return chunk;
+  };
+  return `${getChunk(3)}-${getChunk(4)}-${getChunk(3)}`;
+}
+
 export class AppointmentService {
   /**
    * Agenda uma consulta validando buffers e gerando link do Google Meet (§3.1, §3.2)
@@ -29,9 +45,23 @@ export class AppointmentService {
     this.validateScheduleConflicts(therapistId, start, end, bufferMin);
 
     const id = randomUUID();
-    // Simula geração de sala do Google Meet com restrição de knocking (§3.2)
-    const meetCode = `mt-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 6)}`;
-    const rawMeetUrl = `https://meet.google.com/${meetCode}`;
+    
+    // Gera código estritamente no formato Google Meet: xxx-yyyy-zzz (3-4-3 letras minúsculas)
+    let meetCode: string;
+    let rawMeetUrl: string;
+
+    if (dto.meetUrl?.trim()) {
+      let customUrl = dto.meetUrl.trim();
+      if (!customUrl.startsWith('http')) {
+        customUrl = `https://meet.google.com/${customUrl}`;
+      }
+      const match = customUrl.match(/meet\.google\.com\/([a-z0-9-]+)/i);
+      meetCode = match ? match[1].toLowerCase() : 'custom';
+      rawMeetUrl = customUrl;
+    } else {
+      meetCode = generateGoogleMeetCode();
+      rawMeetUrl = `https://meet.google.com/${meetCode}`;
+    }
 
     const storedAppointment: StoredAppointment = {
       id,
