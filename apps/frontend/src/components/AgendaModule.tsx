@@ -25,6 +25,7 @@ export function AgendaModule() {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('14:00');
   const [bufferMin, setBufferMin] = useState(10);
+  const [customMeetUrl, setCustomMeetUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchAppointments = async () => {
@@ -57,7 +58,8 @@ export function AgendaModule() {
         patientId,
         scheduledStart: start.toISOString(),
         scheduledEnd: end.toISOString(),
-        bufferMinutes: Number(bufferMin)
+        bufferMinutes: Number(bufferMin),
+        meetUrl: customMeetUrl.trim() || undefined
       });
 
       setSuccessMsg('Consulta agendada com sucesso! Link seguro do Google Meet gerado.');
@@ -350,6 +352,45 @@ export function AgendaModule() {
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
                   A API bloqueará agendamentos conflitantes que invadam esta janela (RFC §3.1).
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-slate-300">
+                    Link da Sala do Google Meet
+                  </label>
+                  <a
+                    href="https://meet.google.com/new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-teal-400 hover:text-teal-300 font-medium flex items-center gap-1 underline underline-offset-2"
+                    title="Abre o Google Meet para criar uma reunião real e ativa no Google"
+                  >
+                    <span>+ Abrir Google Meet para Criar Sala</span>
+                  </a>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Cole seu link (ex: meet.google.com/xxx-yyyy-zzz) ou use o botão ao lado"
+                    value={customMeetUrl}
+                    onChange={(e) => setCustomMeetUrl(e.target.value)}
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-teal-500 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCustomMeetUrl('https://meet.google.com/new')}
+                    className="px-3 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-medium transition-colors shrink-0"
+                    title="Preenche com link de criação instantânea do Google Meet"
+                  >
+                    ⚡ Sala Instantânea
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                  💡 <strong>Por que colar uma sala real?</strong> No Google Meet, salas só funcionam se criadas nos servidores do Google (via Google Calendar ou <code className="text-teal-300">meet.google.com/new</code>). Clique no link acima para abrir sua sala real ou use o botão de sala instantânea.
                 </p>
               </div>
 
