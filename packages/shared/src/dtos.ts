@@ -39,3 +39,23 @@ export interface GenerateDocumentDTO {
   title: string;
   content: string;
 }
+
+export interface SignDocumentDTO {
+  documentId: string;
+}
+
+export interface ValidateDocumentResponse {
+  valid: boolean;
+  document?: {
+    id: string;
+    type: DocumentType;
+    title: string;
+    therapistName: string;
+    therapistCrp: string;
+    patientInitials: string;
+    issuedAt: string;
+    signaturePadesHash: string;
+    regulationReference: string;
+  };
+  message?: string;
+}

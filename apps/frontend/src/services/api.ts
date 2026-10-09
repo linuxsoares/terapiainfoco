@@ -6,6 +6,9 @@ import type {
   AppointmentStatus,
   UpdateSoapNoteDTO,
   DecryptedClinicalRecord,
+  GenerateDocumentDTO,
+  DecryptedPsychologicalDocument,
+  ValidateDocumentResponse,
   AuditLog
 } from '@terapiainfoco/shared';
 
@@ -108,5 +111,32 @@ export const api = {
   async getAuditLogs(): Promise<AuditLog[]> {
     const res = await request<{ success: boolean; logs: AuditLog[] }>('/audit');
     return res.logs;
+  },
+
+  // 5. Documentos Psicológicos (Módulo 5 - CFP nº 006/2019)
+  async createDocumentDraft(dto: GenerateDocumentDTO): Promise<DecryptedPsychologicalDocument> {
+    const res = await request<{ success: boolean; document: DecryptedPsychologicalDocument }>('/documents/draft', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.document;
+  },
+
+  async signDocument(documentId: string): Promise<DecryptedPsychologicalDocument> {
+    const res = await request<{ success: boolean; document: DecryptedPsychologicalDocument }>('/documents/sign', {
+      method: 'POST',
+      body: JSON.stringify({ documentId })
+    });
+    return res.document;
+  },
+
+  async getDocuments(): Promise<DecryptedPsychologicalDocument[]> {
+    const res = await request<{ success: boolean; documents: DecryptedPsychologicalDocument[] }>('/documents');
+    return res.documents;
+  },
+
+  async validateDocumentToken(token: string): Promise<ValidateDocumentResponse> {
+    const res = await request<ValidateDocumentResponse>(`/documents/validate/${token}`);
+    return res;
   }
 };

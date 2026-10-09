@@ -126,3 +126,31 @@ export const auditLogs = pgTable('audit_logs', {
   userAgent: text('user_agent'),
   timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull()
 });
+
+/**
+ * 7. DOCUMENTOS PSICOLÓGICOS (RFC §5.2, Resolução CFP nº 006/2019)
+ */
+export const psychologicalDocuments = pgTable('psychological_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
+  patientId: uuid('patient_id').notNull().references(() => patients.id),
+  type: varchar('type', { length: 30 }).notNull(), // DECLARACAO, ATESTADO, RELATORIO, LAUDO
+  title: varchar('title', { length: 255 }).notNull(),
+  regulationReference: varchar('regulation_reference', { length: 100 }).notNull().default('Resolução CFP nº 006/2019'),
+
+  /** Conteúdo textual protegido por Field-Level Encryption (AES-256-GCM) */
+  encryptedContent: jsonb('encrypted_content').$type<EncryptedPayload>().notNull(),
+  pdfStoragePath: varchar('pdf_storage_path', { length: 500 }),
+
+  /** Token criptográfico público para verificação via QR Code */
+  validationToken: varchar('validation_token', { length: 64 }).notNull().unique(),
+
+  isSigned: boolean('is_signed').notNull().default(false),
+  signedAt: timestamp('signed_at', { withTimezone: true }),
+  signaturePadesHash: varchar('signature_pades_hash', { length: 128 }),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  index('idx_documents_patient').on(table.patientId),
+  index('idx_documents_token').on(table.validationToken)
+]);

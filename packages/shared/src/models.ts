@@ -165,6 +165,12 @@ export interface PsychologicalDocument {
   createdAt: Date | string;
 }
 
+export interface StoredPsychologicalDocument extends Omit<PsychologicalDocument, 'content'> {
+  encryptedContent: EncryptedPayload;
+}
+
+export interface DecryptedPsychologicalDocument extends PsychologicalDocument {}
+
 /**
  * 7. AUDITORIA IMUTÁVEL (Seção 4.4 - LGPD & CFP)
  */

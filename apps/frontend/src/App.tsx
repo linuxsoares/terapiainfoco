@@ -3,6 +3,7 @@ import {
   Calendar, 
   Users, 
   Sparkles, 
+  FileText,
   ShieldCheck, 
   Lock,
   Activity,
@@ -11,11 +12,12 @@ import {
 import { AgendaModule } from './components/AgendaModule';
 import { PatientsModule } from './components/PatientsModule';
 import { SoapModule } from './components/SoapModule';
+import { DocumentsModule } from './components/DocumentsModule';
 import { AuditModule } from './components/AuditModule';
 import { ThemeToggle } from './components/ThemeToggle';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'agenda' | 'patients' | 'soap' | 'audit' | 'security'>('agenda');
+  const [activeTab, setActiveTab] = useState<'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security'>('agenda');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
@@ -102,6 +104,18 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => setActiveTab('documents')}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'documents'
+                ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            <span>5. Documentos CFP</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('audit')}
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'audit'
@@ -134,6 +148,7 @@ export default function App() {
             {activeTab === 'agenda' && <AgendaModule />}
             {activeTab === 'patients' && <PatientsModule />}
             {activeTab === 'soap' && <SoapModule />}
+            {activeTab === 'documents' && <DocumentsModule />}
             {activeTab === 'audit' && <AuditModule />}
 
             {activeTab === 'security' && (
