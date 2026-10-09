@@ -204,4 +204,76 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(auditData.logs[0].action).toBe('CREATE');
     expect(auditData.logs[0].resourceType).toBe('PATIENT');
   });
+
+  it('Emissão, Assinatura Digital e Validação Pública de Documentos Psicológicos (Módulo 5 - CFP nº 006/2019)', async () => {
+    // 1. Cadastra paciente para o documento
+    const patientRes = await app.request('/api/patients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        name: 'Roberto Carlos Braga',
+        email: 'roberto@email.com',
+        phone: '11988887777',
+        cpf: '987.654.321-99',
+        consentTranscriptionSigned: true
+      })
+    });
+    const patientData = await patientRes.json();
+    const patientId = patientData.patient.id;
+
+    // 2. Emite rascunho de Atestado Psicológico
+    const draftRes = await app.request('/api/documents/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patientId,
+        type: 'ATESTADO',
+        title: 'Atestado Psicológico para Fins de Afastamento',
+        content: 'Atesto para os devidos fins que o paciente encontra-se em acompanhamento psicológico.'
+      })
+    });
+
+    expect(draftRes.status).toBe(201);
+    const doc = await draftRes.json();
+    expect(doc.id).toBeDefined();
+    expect(doc.validationToken).toBeDefined();
+    expect(doc.isSigned).toBe(false);
+
+    // 3. Validação pública antes da assinatura deve falhar
+    const invalidValidateRes = await app.request(`/api/documents/validate/${doc.validationToken}`);
+    expect(invalidValidateRes.status).toBe(404);
+
+    // 4. Assina digitalmente o documento
+    const signRes = await app.request('/api/documents/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: doc.id })
+    });
+
+    expect(signRes.status).toBe(200);
+    const signedDoc = await signRes.json();
+    expect(signedDoc.isSigned).toBe(true);
+    expect(signedDoc.signaturePadesHash).toBeDefined();
+
+    // 5. Tentativa de re-assinar documento já assinado deve falhar
+    const reSignRes = await app.request('/api/documents/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: doc.id })
+    });
+    expect(reSignRes.status).toBe(400);
+
+    // 6. Validação pública via Token / QR Code (Zero-Knowledge)
+    const publicValidateRes = await app.request(`/api/documents/validate/${doc.validationToken}`);
+    expect(publicValidateRes.status).toBe(200);
+    const validation = await publicValidateRes.json();
+    expect(validation.valid).toBe(true);
+    expect(validation.document.therapistName).toBe('Dra. Vanessa Andrade');
+    expect(validation.document.therapistCrp).toBe('06/142980');
+    expect(validation.document.type).toBe('ATESTADO');
+    // Verifica preservação de privacidade LGPD (apenas iniciais)
+    expect(validation.document.patientInitials).toBe('R. C. B.');
+    expect(validation.document.signaturePadesHash).toBe(signedDoc.signaturePadesHash);
+  });
 });

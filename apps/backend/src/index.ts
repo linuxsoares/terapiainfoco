@@ -6,6 +6,7 @@ import { patientsRoute } from './routes/patients';
 import { appointmentsRoute } from './routes/appointments';
 import { clinicalRecordsRoute } from './routes/clinicalRecords';
 import { auditRoute } from './routes/audit';
+import { documentsRoute } from './routes/documents';
 
 export const app = new Hono();
 
@@ -36,6 +37,7 @@ app.get('/health', (c) => {
 app.route('/api/patients', patientsRoute);
 app.route('/api/appointments', appointmentsRoute);
 app.route('/api/clinical-records', clinicalRecordsRoute);
+app.route('/api/documents', documentsRoute);
 app.route('/api/audit', auditRoute);
 
 console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);

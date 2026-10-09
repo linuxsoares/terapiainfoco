@@ -3,6 +3,7 @@ import type {
   StoredPatient,
   StoredAppointment,
   StoredClinicalRecord,
+  StoredPsychologicalDocument,
   AuditLog
 } from '@terapiainfoco/shared';
 
@@ -15,6 +16,7 @@ export class MemoryDatabase {
   public patients: Map<string, StoredPatient> = new Map();
   public appointments: Map<string, StoredAppointment> = new Map();
   public clinicalRecords: Map<string, StoredClinicalRecord> = new Map();
+  public documents: Map<string, StoredPsychologicalDocument> = new Map();
   public auditLogs: AuditLog[] = [];
 
   constructor() {
@@ -37,6 +39,7 @@ export class MemoryDatabase {
     this.patients.clear();
     this.appointments.clear();
     this.clinicalRecords.clear();
+    this.documents.clear();
     this.auditLogs = [];
   }
 }
