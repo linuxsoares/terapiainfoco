@@ -35,7 +35,7 @@ flowchart TD
 Sempre que o usuário solicitar uma nova funcionalidade, correção, melhoria ou perguntar *"quais próximos passos?"*:
 
 1. **Leitura Obrigatória:**
-   - Leia imediatamente o arquivo [`ROADMAP_PROGRESS.md`](file:///Users/gilmar/projects/terapiainfoco/ROADMAP_PROGRESS.md).
+   - Leia imediatamente o arquivo [`ROADMAP_PROGRESS.md`](./ROADMAP_PROGRESS.md) na raiz do repositório.
    - Verifique quais módulos já foram finalizados e quais estão pendentes no roadmap.
 2. **Alinhamento com o Usuário:**
    - Confirme a prioridade selecionada a partir dos itens marcados como pendentes (`[ ]`).
