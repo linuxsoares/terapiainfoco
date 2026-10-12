@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 7 Módulos Principais Implementados | 21/21 Testes Passando
+> **Status Geral:** 8 Módulos Principais Implementados | 36/36 Testes Passando
 
 
 ---
@@ -108,6 +108,22 @@ terapiainfoco/
 - [x] **Portal Público de Validação de Autenticidade (`ValidationPortal.tsx`):** Validação pública Zero-Knowledge de documentos (Atestados, Relatórios, Declarações e Laudos) via QR Code ou token (`#validar` ou `?token=...`), preservando o sigilo do prontuário formal.
 - [x] **Endpoints Públicos do Backend:** `GET /api/appointments/available-slots` e `POST /api/appointments/public/book` com bloqueio determinístico de sobreposições de agenda.
 
+### 8. Camada de Autenticação Segura, 2FA/MFA, RBAC & Rate Limiting (RFC-001 Opção C)
+- [x] **Motor Criptográfico TOTP RFC 6238 (`packages/crypto/src/totp.ts`):** Codificação Base32, geração de segredo de 160 bits, códigos de 6 dígitos com tolerância a clock drift (±30s) e emissão de códigos de backup de uso único para contingência.
+- [x] **Autenticação JWT com Token Rotation (`apps/backend/src/services/authService.ts`):** Access tokens de 1 hora e refresh tokens com rotação e blacklist de tokens revogados para mitigar replay attacks. Senhas cifradas com Argon2id nativo.
+- [x] **Fluxo Completo de 2FA/MFA:** Ativação com QR Code para Google Authenticator / Authy (`POST /api/auth/2fa/setup`), verificação inicial (`/2fa/verify`) e desafio de MFA no login via `tempToken` (`/2fa/validate`).
+- [x] **Proteção de Força Bruta & Rate Limiting (`apps/backend/src/middlewares/rateLimiter.ts`):** Middleware com cabeçalhos HTTP padronizados (`X-RateLimit-*`, `Retry-After` e HTTP 429) e presets dedicados:
+  - `authRateLimiter`: máx. 5 req/min para login/2FA contra força bruta.
+  - `searchRateLimiter`: máx. 30 req/min para busca por Blind Index CPF contra enumeração de dados de saúde.
+  - `validationRateLimiter`: máx. 20 req/min para validação de documentos via QR Code.
+  - `publicBookingRateLimiter`: máx. 15 req/min contra spam de agendamentos.
+- [x] **Role-Based Access Control (RBAC):** Segregação estrita entre perfis clínicos e administrativos:
+  - `PSICOLOGO_TITULAR`: Acesso completo a prontuários, notas SOAP, IA, laudos e assinatura.
+  - `SUPERVISOR_CLINICO`: Supervisão clínica e revisão de prontuários.
+  - `RECEPCAO_SECRETARIA`: Acesso restrito a Agenda e Contatos; bloqueio compulsório de prontuários SOAP, laudos CFP e transcrições com HTTP 403 Forbidden.
+  - `ADMIN`: Gestão de segurança e trilha de auditoria WORM.
+- [x] **Painel Frontend de Segurança & 2FA (`SecurityModule.tsx` & `App.tsx`):** Exibição do status de 2FA, leitor dinâmico de QR Code com `qrcode`, simulação de papéis em tempo real e bloqueio educativo/legal de RBAC (CFP 001/2009 & LGPD Art. 11).
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -120,21 +136,22 @@ terapiainfoco/
 | `feat/theme-toggle-dark-light` | Dark Mode / Light Mode adaptativo | PR #5 | Merged |
 | `feat/modulo-5-documentos-cfp` | Módulo 5 (Documentos CFP + QR Code) | PR #6 | Merged |
 | `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD & SOAP IA) | PR #9 | Merged |
-| `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | **Em Aberto** |
+| `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | Merged |
+| `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-A plataforma conta agora com os 5 módulos clínicos da RFC-001, o pipeline assistivo de IA com sanitização LGPD Art. 11 e o fluxo público completo do paciente na landing page. O próximo passo de continuidade do roadmap é:
+Com a camada de autenticação segura, gestão de acessos RBAC, 2FA/MFA e proteção contra abusos (Rate Limiting) completamente operacionais e validadas por 36 testes, os próximos passos de evolução do roadmap são:
 
-#### 🔐 Opção C: Camada de Autenticação Segura & Gestão de Acessos
-- [ ] **Auth Layer:** Implementação de JWT com refresh tokens e controle de sessão segura para psicólogos.
-- [ ] **2FA / MFA:** Autenticação de dois fatores (TOTP / WebAuthn) para conformidade com prontuários de saúde.
-- [ ] **Rate Limiting:** Proteção contra ataques de enumeração nos endpoints de Blind Index e validação pública.
-- [ ] **Role-Based Access Control (RBAC):** Suporte a papéis de psicólogo responsável, secretária/recepção e supervisor clínico.
+#### 📄 Opção D: Geração Server-Side de PDFs & Assinatura ICP-Brasil
+- [ ] **Geração Server-Side de PDFs:** Motor no backend para geração e download de arquivos PDF formatados para os 4 modelos CFP nº 006/2019 (Atestado, Relatório, Laudo, Declaração) com QR Code e marca d'água de autenticidade.
+- [ ] **ICP-Brasil / PAdES Bridge:** Preparação e contrato de integração para certificados digitais padrão ICP-Brasil (A1/A3) para assinatura qualificada.
 
-
+#### 📊 Opção E: Observabilidade, Métricas & Dashboard Clínico do Paciente
+- [ ] **Painel Analítico de Pacientes:** Visualização de frequência de sessões, acompanhamento de evolução terapêutica e indicadores clínicos longitudinais.
+- [ ] **Métricas de Segurança:** Dashboard de monitoramento de eventos de auditoria WORM, tentativas de brute force e bloqueios de rate limit.
 
 ---
 
@@ -144,7 +161,7 @@ A plataforma conta agora com os 5 módulos clínicos da RFC-001, o pipeline assi
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes
+# 2. Executar suíte completa de testes (36 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -153,3 +170,4 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+

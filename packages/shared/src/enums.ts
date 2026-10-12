@@ -39,6 +39,17 @@ export enum DocumentType {
   LAUDO = 'LAUDO'
 }
 
+/**
+ * Papéis de controle de acesso baseado em função (RBAC)
+ * para a clínica psicológica conforme RFC-001 e normas do CFP/LGPD
+ */
+export enum UserRole {
+  PSICOLOGO_TITULAR = 'PSICOLOGO_TITULAR',
+  SUPERVISOR_CLINICO = 'SUPERVISOR_CLINICO',
+  RECEPCAO_SECRETARIA = 'RECEPCAO_SECRETARIA',
+  ADMIN = 'ADMIN'
+}
+
 export enum AuditAction {
   DECRYPT_READ = 'DECRYPT_READ',
   CREATE = 'CREATE',
@@ -47,7 +58,16 @@ export enum AuditAction {
   TRANSCRIPTION_VIEW = 'TRANSCRIPTION_VIEW',
   SIGN_RECORD = 'SIGN_RECORD',
   QUARANTINE = 'QUARANTINE',
-  DELETE_REQUEST = 'DELETE_REQUEST'
+  DELETE_REQUEST = 'DELETE_REQUEST',
+  // Ações de Autenticação e Segurança (Opção C)
+  AUTH_LOGIN = 'AUTH_LOGIN',
+  AUTH_LOGIN_FAILED = 'AUTH_LOGIN_FAILED',
+  AUTH_LOGOUT = 'AUTH_LOGOUT',
+  AUTH_2FA_SETUP = 'AUTH_2FA_SETUP',
+  AUTH_2FA_VERIFY = 'AUTH_2FA_VERIFY',
+  AUTH_2FA_DISABLE = 'AUTH_2FA_DISABLE',
+  AUTH_TOKEN_REFRESH = 'AUTH_TOKEN_REFRESH',
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED'
 }
 
 export enum AuditResourceType {
@@ -55,5 +75,8 @@ export enum AuditResourceType {
   CLINICAL_RECORD = 'CLINICAL_RECORD',
   TRANSCRIPT = 'TRANSCRIPT',
   APPOINTMENT = 'APPOINTMENT',
-  DOCUMENT = 'DOCUMENT'
+  DOCUMENT = 'DOCUMENT',
+  USER = 'USER',
+  SECURITY = 'SECURITY'
 }
+

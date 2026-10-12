@@ -1,8 +1,15 @@
 import { Hono } from 'hono';
 import { PatientService } from '../services/patientService';
+import { searchRateLimiter } from '../middlewares/rateLimiter';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type { CreatePatientDTO } from '@terapiainfoco/shared';
 
 export const patientsRoute = new Hono();
+
+// Middleware de autenticação padrão para pacientes
+patientsRoute.use('*', authMiddleware());
+
 
 // Cadastrar paciente com FLE e Blind Indexing (§4.1, §4.3)
 patientsRoute.post('/', async (c) => {
@@ -41,8 +48,8 @@ patientsRoute.get('/:id', async (c) => {
   return c.json({ success: true, patient });
 });
 
-// Busca cega por CPF via HMAC-SHA256 Blind Index (§4.3)
-patientsRoute.get('/search/cpf', async (c) => {
+// Busca cega por CPF via HMAC-SHA256 Blind Index (§4.3) com proteção contra ataques de enumeração
+patientsRoute.get('/search/cpf', searchRateLimiter, async (c) => {
   const cpf = c.req.query('cpf');
   if (!cpf) {
     return c.json({ success: false, error: 'Parâmetro cpf é obrigatório' }, 400);
@@ -64,8 +71,9 @@ patientsRoute.get('/search/cpf', async (c) => {
   return c.json({ success: true, patient });
 });
 
-// Solicitação de Quarentena LGPD Art. 18 vs. Guarda CFP (§2.2)
-patientsRoute.post('/:id/quarantine', async (c) => {
+// Solicitação de Quarentena LGPD Art. 18 vs. Guarda CFP (§2.2) - restrito a Psicólogo Titular ou Admin
+patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');

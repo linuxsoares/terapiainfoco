@@ -1,5 +1,5 @@
-import { AppointmentStatus, DocumentType } from './enums';
-import type { SoapNote, TranscriptUtterance } from './models';
+import { AppointmentStatus, DocumentType, UserRole } from './enums';
+import type { SoapNote, TranscriptUtterance, SafeUser } from './models';
 
 
 
@@ -140,5 +140,55 @@ export interface PublicBookingResponse {
   consentRecordedAt: string;
   instructions: string[];
 }
+
+/**
+ * DTOs de Autenticação, Sessão e 2FA/MFA (Opção C)
+ */
+export interface RegisterDTO {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  crp?: string;
+  crpRegion?: string;
+}
+
+export interface LoginDTO {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  mfaRequired?: boolean;
+  tempToken?: string;
+  user?: SafeUser;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  message?: string;
+}
+
+export interface TwoFactorSetupResponse {
+  secret: string;
+  otpauthUri: string;
+  backupCodes: string[];
+}
+
+export interface TwoFactorVerifyDTO {
+  code: string;
+  tempToken?: string; // Obrigatório no fluxo de login após mfaRequired
+}
+
+export interface RefreshTokenDTO {
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
 
 

@@ -3,4 +3,6 @@ export * from './blindIndex';
 export * from './kms';
 export * from './envelope';
 export * from './sanitizer';
+export * from './totp';
+
 

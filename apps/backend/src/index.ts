@@ -8,8 +8,10 @@ import { clinicalRecordsRoute } from './routes/clinicalRecords';
 import { auditRoute } from './routes/audit';
 import { documentsRoute } from './routes/documents';
 import { transcriptionsRoute } from './routes/transcriptions';
+import { authRoute } from './routes/auth';
 
 export const app = new Hono();
+
 
 
 // Middlewares globais
@@ -36,12 +38,14 @@ app.get('/health', (c) => {
 });
 
 // Rotas de domínios RFC-001
+app.route('/api/auth', authRoute);
 app.route('/api/patients', patientsRoute);
 app.route('/api/appointments', appointmentsRoute);
 app.route('/api/clinical-records', clinicalRecordsRoute);
 app.route('/api/documents', documentsRoute);
 app.route('/api/transcriptions', transcriptionsRoute);
 app.route('/api/audit', auditRoute);
+
 
 
 console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);

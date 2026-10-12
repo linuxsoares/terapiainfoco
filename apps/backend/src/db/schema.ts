@@ -156,3 +156,25 @@ export const psychologicalDocuments = pgTable('psychological_documents', {
   index('idx_documents_patient').on(table.patientId),
   index('idx_documents_token').on(table.validationToken)
 ]);
+
+/**
+ * 8. USUÁRIOS E AUTENTICAÇÃO SEGURA (RFC §5.2, Opção C)
+ */
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  role: varchar('role', { length: 50 }).notNull().default('PSICOLOGO_TITULAR'),
+  crp: varchar('crp', { length: 20 }),
+  crpRegion: varchar('crp_region', { length: 10 }),
+  therapistId: uuid('therapist_id').references(() => therapists.id),
+  passwordHash: text('password_hash').notNull(),
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+  twoFactorSecret: text('two_factor_secret'),
+  twoFactorBackupCodes: jsonb('two_factor_backup_codes').$type<string[]>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true })
+}, (table) => [
+  index('idx_users_email').on(table.email)
+]);
+

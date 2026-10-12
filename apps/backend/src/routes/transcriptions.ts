@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { TranscriptionService } from '../services/transcriptionService';
 import { AiSoapService } from '../services/aiSoapService';
 import { sanitizePii } from '@terapiainfoco/crypto';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type { 
   UploadAudioDTO, 
   GenerateSoapProposalDTO,
@@ -9,6 +11,11 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const transcriptionsRoute = new Hono();
+
+// Transcrições contêm dados de saúde e PII sensível (LGPD Art. 11 e CFP 011/2018)
+transcriptionsRoute.use('*', authMiddleware());
+transcriptionsRoute.use('*', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]));
+
 
 // Upload e diarização de áudio da consulta (RFC §3.3)
 transcriptionsRoute.post('/upload', async (c) => {

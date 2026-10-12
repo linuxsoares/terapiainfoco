@@ -1,11 +1,17 @@
 import { Hono } from 'hono';
 import { ClinicalRecordService } from '../services/clinicalRecordService';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type { UpdateSoapNoteDTO, SignClinicalRecordDTO } from '@terapiainfoco/shared';
 
 export const clinicalRecordsRoute = new Hono();
 
+// Prontuários e evolução SOAP são estritamente restritos a psicólogos e supervisores (LGPD Art. 11 e CFP 001/2009)
+clinicalRecordsRoute.use('*', authMiddleware());
+
 // Salvar rascunho de nota SOAP (Módulo 3 & 4)
-clinicalRecordsRoute.post('/draft', async (c) => {
+clinicalRecordsRoute.post('/draft', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+
   const body = await c.req.json<UpdateSoapNoteDTO & {
     appointmentId: string;
     patientId: string;
@@ -37,8 +43,8 @@ clinicalRecordsRoute.post('/draft', async (c) => {
   }
 });
 
-// Assinar e selar evolução clínica (Human-in-the-Loop compulsório §3.3)
-clinicalRecordsRoute.post('/sign', async (c) => {
+// Assinar e selar evolução clínica (Human-in-the-Loop compulsório §3.3 - restrito ao Psicólogo Titular ou Admin)
+clinicalRecordsRoute.post('/sign', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
   const body = await c.req.json<SignClinicalRecordDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -60,8 +66,9 @@ clinicalRecordsRoute.post('/sign', async (c) => {
   }
 });
 
-// Visualizar prontuário (decifra para o terapeuta autenticado)
-clinicalRecordsRoute.get('/:id', async (c) => {
+// Visualizar prontuário (decifra para o terapeuta autenticado e supervisor)
+clinicalRecordsRoute.get('/:id', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');

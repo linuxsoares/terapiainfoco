@@ -5,8 +5,10 @@ import type {
   StoredClinicalRecord,
   StoredPsychologicalDocument,
   StoredSessionTranscription,
-  AuditLog
+  AuditLog,
+  User
 } from '@terapiainfoco/shared';
+import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
 
 /**
@@ -20,12 +22,16 @@ export class MemoryDatabase {
   public clinicalRecords: Map<string, StoredClinicalRecord> = new Map();
   public documents: Map<string, StoredPsychologicalDocument> = new Map();
   public sessionTranscriptions: Map<string, StoredSessionTranscription> = new Map();
+  public users: Map<string, User> = new Map();
+  public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];
 
   constructor() {
     this.seedDefaultTherapist();
+    this.seedDefaultUsers();
     this.seedDemoSession();
   }
+
 
   public seedDefaultTherapist() {
     const defaultTherapist: Therapist = {
@@ -75,6 +81,64 @@ export class MemoryDatabase {
     }
   }
 
+  public seedDefaultUsers() {
+    // Hash padrão de teste com Argon2id para "Senha@123456"
+    const defaultPasswordHash = Bun.password.hashSync('Senha@123456');
+
+    // 1. Psicóloga Titular (Responsável Técnica - CFP 001/2009)
+    const psicologoUser: User = {
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 'psicologo@terapiainfoco.com.br',
+      name: 'Dra. Beatriz Santos',
+      role: UserRole.PSICOLOGO_TITULAR,
+      crp: '06/142980',
+      crpRegion: 'SP',
+      therapistId: 'therapist-001',
+      passwordHash: defaultPasswordHash,
+      twoFactorEnabled: false,
+      createdAt: new Date()
+    };
+    this.users.set(psicologoUser.id, psicologoUser);
+
+    // 2. Supervisor Clínico (Acesso de Supervisão/Estágio)
+    const supervisorUser: User = {
+      id: '00000000-0000-0000-0000-000000000002',
+      email: 'supervisor@terapiainfoco.com.br',
+      name: 'Dr. Marcos Valente',
+      role: UserRole.SUPERVISOR_CLINICO,
+      crp: '06/099887',
+      crpRegion: 'SP',
+      passwordHash: defaultPasswordHash,
+      twoFactorEnabled: false,
+      createdAt: new Date()
+    };
+    this.users.set(supervisorUser.id, supervisorUser);
+
+    // 3. Recepção / Secretária (Acesso estrito à Agenda e Contato, sem prontuários)
+    const recepcaoUser: User = {
+      id: '00000000-0000-0000-0000-000000000003',
+      email: 'recepcao@terapiainfoco.com.br',
+      name: 'Ana Secretária',
+      role: UserRole.RECEPCAO_SECRETARIA,
+      passwordHash: defaultPasswordHash,
+      twoFactorEnabled: false,
+      createdAt: new Date()
+    };
+    this.users.set(recepcaoUser.id, recepcaoUser);
+
+    // 4. Administrador de TI / Segurança
+    const adminUser: User = {
+      id: '00000000-0000-0000-0000-000000000004',
+      email: 'admin@terapiainfoco.com.br',
+      name: 'Administrador do Sistema',
+      role: UserRole.ADMIN,
+      passwordHash: defaultPasswordHash,
+      twoFactorEnabled: false,
+      createdAt: new Date()
+    };
+    this.users.set(adminUser.id, adminUser);
+  }
+
   clear() {
     this.patients.clear();
     this.appointments.clear();
@@ -82,7 +146,11 @@ export class MemoryDatabase {
     this.documents.clear();
     this.sessionTranscriptions.clear();
     this.auditLogs = [];
+    this.revokedTokens.clear();
+    this.seedDefaultTherapist();
+    this.seedDefaultUsers();
   }
 }
+
 
 export const db = new MemoryDatabase();
