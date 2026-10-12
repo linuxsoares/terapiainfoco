@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 11 Extensões de Segurança | 120/120 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 12 Extensões de Segurança | 127/127 Testes Passando
 
 
 ---
@@ -340,6 +340,29 @@ terapiainfoco/
 
 ---
 
+### 18. Health Check Abrangente, Liveness & Readiness Probes (Opção L - RFC-001 §5.2 e 12-Factor App)
+- [x] **Sondas Ativas do Ciclo de Vida de Containers (`apps/backend/src/services/healthService.ts`):**
+  - **Liveness Probe (`GET /health/liveness` e `GET /health`):** Validação instantânea de responsividade do processo Bun, telemetria de memória RAM (`process.memoryUsage()` com RSS e Heap em MB), uptime formatado (`uptimeFormatted`), PID, versão do Bun/Node, arquitetura e sistema operacional.
+  - **Readiness Probe Multi-Dependências (`GET /health/readiness`):**
+    - **PostgreSQL / Supabase:** Teste ativo de leitura/escrita relacional com medição de latência em milissegundos (`latencyMs`) e status do pooler.
+    - **Cloud KMS & Envelope Encryption:** Teste de integridade da Master KEK (`AES-256-GCM`) e rotação de chaves.
+    - **Encrypted Cache em Memória RAM:** Validação de gravação e leitura de itens cifrados em memória.
+    - **Rate Limiting Distribuído (Redis):** Inspeção de conexão ao cluster Redis e fallback transparente in-memory.
+    - **Trilha WORM Forense (SHA-256):** Verificação criptográfica compulsória da integridade da hash-chain e total de blocos encadeados.
+    - **Webhooks Subsystem:** Contagem e status de endpoints assinados cadastrados para notificações de segurança.
+  - **Startup Probe (`GET /health/startup`):** Confirmação de término das migrações Drizzle e bootstrap de banco de dados com registro de duração em milissegundos (`bootstrapDurationMs`).
+  - Respostas com código **HTTP 503 Service Unavailable** quando dependências vitais reportarem falha crítica (`unhealthy`), atendendo aos requisitos de orquestração do Railway e Kubernetes.
+- [x] **Painel de Observabilidade no Frontend (`SecurityModule.tsx` - Card 5):**
+  - Card dedicado no módulo de segurança exibindo o status geral consolidado (Operacional / Degradado / Crítico) e latência global.
+  - Grade detalhada com status, latência em ms, driver e metadados de cada subsistema.
+  - Telemetria de runtime com uptime, memória RSS, Heap, versão do Bun e PID do processo.
+  - Botão interativo *"Executar Probes Agora"* com refresh sob demanda e spinner de carregamento.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes Automatizados (`healthProbes.test.ts`):**
+  - 7 testes de integração cobrindo Liveness, Readiness, Startup, RBAC (acesso restrito de ADMIN e bloqueio 403 para outros perfis) e compatibilidade com o formato legado de `/health`.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -366,17 +389,19 @@ terapiainfoco/
 | `railway/code-change-ZOB6Fg` | Fix apps/frontend/Dockerfile para Railpack chdir | PR #23 | Merged |
 | `feat/dynamic-data-masking-ddm` | Mascaramento Dinâmico de Dados na Interface (DDM), Modo Anti-Shoulder Surfing (Alt+P) e Trilha WORM (Opção K) | PR #24 | Merged |
 | `feat/backend-auto-migrations` | Inicialização compulsória com getDb no boot, auto-migração resiliente Supabase e scripts db:migrate | PR #25 | Merged |
-| `fix/supabase-persistence-sync` | Persistência ativa de pacientes, usuários e agendamentos no Supabase, sincronização com Supabase Auth Admin e migração 0001 (users/docs) | PR #26 | **Em Aberto** |
+| `fix/supabase-persistence-sync` | Persistência ativa de pacientes, usuários e agendamentos no Supabase, sincronização com Supabase Auth Admin e migração 0001 (users/docs) | PR #26 | Merged |
+| `fix/supabase-persistence-sync` | Script supabase_full_schema.sql e fallback direto de gravação PostgREST | PR #27 | Merged |
+| `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o Mascaramento Dinâmico de Dados (DDM) e o Modo Anti-Shoulder Surfing operacionais e validados por 120 testes automatizados, os próximos passos de evolução do roadmap são:
+Com os Health Checks Abrangentes, Readiness Probes e Painel de Infraestrutura operacionais e validados por 127 testes automatizados, os próximos passos de evolução do roadmap são:
 
-#### 📊 Opção L: Health Check Abrangente & Readiness Probes (RFC §5.2)
-- [ ] **Probe Multi-Dependências:** Endpoint `/health/readiness` com checagem ativa de conexão PostgreSQL, PGlite, Redis, KMS e storage.
-- [ ] **Métricas Liveness & Uptime:** Endpoint `/health/liveness` com tempo de atividade do processo e consumo de memória RAM.
+#### 🧪 Opção M: Monitoramento Sintético e Testes E2E Automatizados (Playwright / Synthetic Probes)
+- [ ] **Fluxos Sintéticos Ponta-a-Ponta:** Validação contínua da jornada completa: Agendamento na Landing Page ➔ Login de Psicólogo ➔ Notificação Webhook ➔ Prontuário SOAP.
+- [ ] **Simulador de Resiliência de Conectividade:** Teste de failover automático para PGlite quando o PostgreSQL externo estiver inacessível.
 
 ---
 
@@ -386,7 +411,7 @@ Com o Mascaramento Dinâmico de Dados (DDM) e o Modo Anti-Shoulder Surfing opera
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (120 testes)
+# 2. Executar suíte completa de testes (127 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -395,6 +420,7 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 
 

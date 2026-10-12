@@ -4,6 +4,7 @@ import { UserRole, type RateLimitStatusResponse, type ResetRateLimitResponse, ty
 import { globalRateLimitStore, RATE_LIMIT_PRESETS, resetRateLimit } from '../middlewares/rateLimiter';
 import { globalEncryptedCache } from '@terapiainfoco/crypto';
 import { auditService } from '../services/auditService';
+import { HealthService } from '../services/healthService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 
 export const systemRoute = new Hono();
@@ -116,3 +117,22 @@ systemRoute.post('/cache/purge-expired', (c) => {
   const purgedCount = globalEncryptedCache.purgeExpired();
   return c.json({ success: true, purgedCount }, 200);
 });
+
+/**
+ * 6. Painel de Probes e Observabilidade de Infraestrutura (RFC §5.2)
+ */
+systemRoute.get('/probes/readiness', async (c) => {
+  const readiness = await HealthService.checkReadiness();
+  return c.json(readiness, 200);
+});
+
+systemRoute.get('/probes/liveness', (c) => {
+  const liveness = HealthService.checkLiveness();
+  return c.json(liveness, 200);
+});
+
+systemRoute.get('/probes/startup', (c) => {
+  const startup = HealthService.checkStartup();
+  return c.json(startup, 200);
+});
+

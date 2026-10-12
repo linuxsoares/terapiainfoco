@@ -663,6 +663,70 @@ export interface MaskedPatientViewDTO {
   isFullyMasked: boolean;
 }
 
+/**
+ * 15. HEALTH CHECKS, LIVENESS & READINESS PROBES (Opção L - RFC-001 §5.2)
+ */
+export type ProbeHealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+
+export interface SystemResourceMetrics {
+  uptimeSeconds: number;
+  uptimeFormatted: string;
+  pid: number;
+  nodeVersion: string;
+  bunVersion?: string;
+  platform: string;
+  arch: string;
+  memory: {
+    rssBytes: number;
+    rssMb: number;
+    heapUsedBytes: number;
+    heapUsedMb: number;
+    heapTotalMb: number;
+  };
+}
+
+export interface DependencyCheckResult {
+  name: string;
+  category: 'database' | 'security' | 'cache' | 'storage' | 'compliance';
+  status: ProbeHealthStatus;
+  latencyMs: number;
+  message?: string;
+  details?: Record<string, any>;
+}
+
+export interface LivenessProbeResponse {
+  status: ProbeHealthStatus;
+  service: string;
+  version: string;
+  timestamp: string;
+  system: SystemResourceMetrics;
+}
+
+export interface ReadinessProbeResponse {
+  status: ProbeHealthStatus;
+  service: string;
+  version: string;
+  timestamp: string;
+  overallLatencyMs: number;
+  checks: Record<string, DependencyCheckResult>;
+  summary: {
+    total: number;
+    healthy: number;
+    degraded: number;
+    unhealthy: number;
+  };
+}
+
+export interface StartupProbeResponse {
+  status: ProbeHealthStatus;
+  bootCompleted: boolean;
+  migrationsApplied: boolean;
+  bootstrapDurationMs: number;
+  databaseDriver: string;
+  timestamp: string;
+}
+
+
 
 
 
