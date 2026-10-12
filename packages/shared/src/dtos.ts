@@ -592,6 +592,47 @@ export interface RotateCacheKeyResponse {
   rotatedAt: string;
 }
 
+/**
+ * 13. WEBHOOKS ASSINADOS HMAC-SHA256 & NOTIFICAÇÕES DE SEGURANÇA (Opção J - RFC-001)
+ */
+export interface CreateWebhookDTO {
+  url: string;
+  description: string;
+  events: import('./models').WebhookEventType[];
+}
+
+export interface UpdateWebhookDTO {
+  url?: string;
+  description?: string;
+  events?: import('./models').WebhookEventType[];
+  enabled?: boolean;
+}
+
+export interface WebhookResponse {
+  success: boolean;
+  webhook: import('./models').WebhookSubscription;
+  message?: string;
+}
+
+export interface WebhookListResponse {
+  success: boolean;
+  count: number;
+  webhooks: import('./models').WebhookSubscription[];
+}
+
+export interface TestWebhookResponse {
+  success: boolean;
+  message: string;
+  deliveryLog: import('./models').WebhookDeliveryLog;
+}
+
+export interface WebhookLogsResponse {
+  success: boolean;
+  count: number;
+  logs: import('./models').WebhookDeliveryLog[];
+}
+
+
 
 
 

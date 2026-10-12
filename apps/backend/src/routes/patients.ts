@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { PatientService } from '../services/patientService';
 import { PortabilityService } from '../services/portabilityService';
+import { webhookService } from '../services/webhookService';
 import { searchRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
@@ -120,6 +121,13 @@ patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR, User
       }
     });
 
+    webhookService.notifyEvent('DATA_EXPORT_LGPD', {
+      patientId: id,
+      actorId: user?.id || 'therapist-001',
+      format: response.format,
+      checksumSha256: response.checksumSha256
+    }).catch(() => {});
+
     return c.json(response, 200);
   } catch (err: any) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -151,6 +159,13 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
         userAgent
       }
     });
+
+    webhookService.notifyEvent('CONSENT_REVOKED', {
+      patientId: id,
+      actorId: user?.id || 'therapist-001',
+      reason: body.reason,
+      quarantined: response.quarantined
+    }).catch(() => {});
 
     return c.json(response, 200);
   } catch (err: any) {

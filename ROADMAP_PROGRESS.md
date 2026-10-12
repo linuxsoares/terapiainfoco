@@ -265,6 +265,36 @@ terapiainfoco/
 
 ---
 
+### 15. Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança em Tempo Real (RFC-001 Opção J - §4.4, §5.2 e LGPD Art. 48)
+- [x] **Motor Criptográfico HMAC-SHA256 (`webhookSignature.ts` em `@terapiainfoco/crypto`):**
+  - Geração canônica de assinaturas baseadas no RFC 2104 via HMAC-SHA256 para payloads de eventos em trânsito.
+  - Formato padronizado de cabeçalho: `X-TerapiaInFoco-Signature: t=1697123456,v1=abcdef...`.
+  - **Mitigação de Replay Attacks:** Inclusão compulsória do timestamp UNIX `t` no hash assinado com tolerância máxima de 300 segundos (5 minutos).
+  - **Proteção contra Timing Attacks:** Validação da assinatura com `crypto.timingSafeEqual` para blindagem contra análise de canal lateral.
+  - Geração de segredos exclusivos por endpoint com prefixo `whsec_...` gerados via `crypto.randomBytes(24)`.
+- [x] **Serviço de Despacho & Notificação em Tempo Real (`webhookService.ts`):**
+  - Disparo assíncrono para múltiplos endpoints cadastrados associados a eventos de segurança (`notifyEvent`).
+  - Cabeçalhos de rastreamento forense: `X-TerapiaInFoco-Delivery-Id`, `X-TerapiaInFoco-Event` e `User-Agent: TerapiaInFoco-Webhooks/1.0`.
+  - Hooks automáticos acionados em eventos críticos: exportação de dados (LGPD Art. 18), revogação de consentimento, restauração de backup e alertas de incidentes.
+  - Simulação de testes sob demanda (`POST /api/webhooks/:id/test`) com registro de latência em milissegundos e status HTTP.
+  - Histórico de entregas (`WebhookDeliveryLog`) persistindo os últimos 100 registros com detalhes forenses.
+- [x] **Endpoints REST Administrativos (`/api/webhooks`):**
+  - `GET /api/webhooks`: Listagem de endpoints cadastrados com segredos e status de entrega.
+  - `POST /api/webhooks`: Registro de novo webhook com validação estrita de HTTPS e seleção de eventos.
+  - `PATCH /api/webhooks/:id`: Atualização de descrição, URL ou pausa temporária do webhook.
+  - `DELETE /api/webhooks/:id`: Remoção segura da inscrição.
+  - `POST /api/webhooks/:id/test`: Disparo simulado com medição de entrega em tempo real.
+  - `GET /api/webhooks/:id/logs`: Consulta dos logs de entrega do endpoint.
+  - Controle de Acesso RBAC Estrito: Acesso restrito a `ADMIN` (bloqueio 403 para secretária/terapeuta e 401 para anônimos).
+- [x] **Interface Frontend de Gestão de Webhooks (`SecurityModule.tsx`):**
+  - Card dedicado no painel de segurança exibindo todos os endpoints, status (Ativo/Pausado) e badges dos eventos inscritos.
+  - Cópia do segredo HMAC (`whsec_...`) com um clique.
+  - Botão *"Testar Envio HMAC"* executando teste de entrega em tempo real com retorno de status HTTP e latência.
+  - Modal interativo *"Cadastrar Novo Webhook"* com seleção por checkbox de eventos críticos e validação de URL HTTPS.
+  - Totalmente adaptativo com suporte a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -283,20 +313,21 @@ terapiainfoco/
 | `feat/backup-kms-disaster-recovery` | Backup Automatizado em Repouso, Envelope Encryption KMS e Disaster Recovery (Opção G) | PR #15 | Merged |
 | `feat/audit-worm-compliance-report` | Trilha de Auditoria Externa WORM (Hash-Chain SHA-256) & Relatórios DPO/CFP (Opção H) | PR #16 | Merged |
 | `feat/rfc-001-docs` | Documentação oficial da especificação técnica RFC-001 em `/docs/RFC-001.md` | PR #17 | Merged |
-| `feat/distributed-rate-limiting-redis-cache` | Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória (Opção I) | PR #18 | **Em Aberto** |
+| `feat/distributed-rate-limiting-redis-cache` | Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória (Opção I) | PR #18 | Merged |
+| `feat/security-webhooks-hmac` | Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança (Opção J) | PR #19 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o Rate Limiting Distribuído e Cache Criptográfico em Memória operacionais e validados por 82 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### 🔔 Opção J: Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança em Tempo Real
-- [ ] **Emissor de Notificações Criptográficas:** Disparo de webhooks com assinatura canônica HMAC-SHA256 para eventos de segurança (tentativas excessivas de login, restauração de backup, desativação de 2FA, exportação LGPD Art. 18).
-- [ ] **Interface de Gestão de Webhooks:** Painel para Administradores cadastrarem URLs de destino, gerarem segredos e testarem a entrega com log de status HTTP.
+Com os Webhooks Assinados HMAC-SHA256 e Notificações de Segurança operacionais e validados por 95 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Opção K: Mascaramento Dinâmico de Dados na Interface (Dynamic Data Masking - DDM)
-- [ ] **Camada Visual de Privacidade:** Ofuscação sob demanda de dados sensíveis na tela com botão de revelação temporária auditada (`AuditAction.DECRYPT_READ`).
+- [ ] **Camada Visual de Privacidade:** Ofuscação sob demanda de dados sensíveis na tela (CPF, diagnóstico, anotações de sessões) com botão de revelação temporária auditada (`AuditAction.DECRYPT_READ`).
+- [ ] **Modo Anti-Shoulder Surfing:** Atalho rápido para ocultar dados de prontuário quando terceiros estiverem no ambiente clínico.
+
+#### 📊 Opção L: Health Check Abrangente & Readiness Probes (RFC §5.2)
+- [ ] **Probe Multi-Dependências:** Endpoint `/health/readiness` com checagem ativa de conexão PostgreSQL, PGlite, Redis, KMS e storage.
 
 ---
 
@@ -306,7 +337,7 @@ Com o Rate Limiting Distribuído e Cache Criptográfico em Memória operacionais
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (82 testes)
+# 2. Executar suíte completa de testes (95 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
