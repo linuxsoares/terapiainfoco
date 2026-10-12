@@ -295,6 +295,22 @@ terapiainfoco/
 
 ---
 
+### 16. Infraestrutura de Nuvem, Containers & Deployment no Railway (DevOps & RFC §5.2)
+- [x] **Configuração de Deployment Automatizado (`railway.json` & `Dockerfile`):**
+  - Multi-stage build otimizado com `oven/bun:1-alpine` isolando backend e dependências de workspace com zero dependências externas pesadas.
+  - Healthcheck nativo em `/health` com verificação de status HTTP e tolerância a boot.
+  - Injeção dinâmica de porta `$PORT` padrão do Railway.
+- [x] **Auto-Migração Drizzle em Produção (`apps/backend/src/db/index.ts`):**
+  - Aplicação automática de migrações Drizzle no PostgreSQL gerenciado assim que o container sobe com a variável `DATABASE_URL`.
+  - Seed automático não-destrutivo de registros essenciais iniciais (`onConflictDoNothing`).
+- [x] **Suporte a Deployment de Frontend SPA (`Dockerfile.frontend`):**
+  - Servidor estático Bun ultra-leve com suporte nativo a roteamento SPA (fallback para `index.html`).
+  - Normalização flexível de `API_BASE` em `apps/frontend` e `apps/landingpage` para evitar problemas com URLs com ou sem `/api` ou barras.
+- [x] **Documentação Passo a Passo para Railway (`/docs/RAILWAY_DEPLOYMENT.md`):**
+  - Guia completo com diagramas, vinculação de plugins PostgreSQL/Redis e configuração de variáveis de ambiente.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -314,7 +330,8 @@ terapiainfoco/
 | `feat/audit-worm-compliance-report` | Trilha de Auditoria Externa WORM (Hash-Chain SHA-256) & Relatórios DPO/CFP (Opção H) | PR #16 | Merged |
 | `feat/rfc-001-docs` | Documentação oficial da especificação técnica RFC-001 em `/docs/RFC-001.md` | PR #17 | Merged |
 | `feat/distributed-rate-limiting-redis-cache` | Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória (Opção I) | PR #18 | Merged |
-| `feat/security-webhooks-hmac` | Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança (Opção J) | PR #19 | **Em Aberto** |
+| `feat/security-webhooks-hmac` | Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança (Opção J) | PR #19 | Merged |
+| `feat/railway-deployment` | Configuração de Deployment no Railway (Dockerfile, railway.json, auto-migrações e guia) | PR #20 | **Em Aberto** |
 
 ---
 

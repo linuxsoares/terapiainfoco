@@ -75,8 +75,8 @@ test-crypto: ## Executa os testes do pacote criptográfico LGPD
 typecheck: ## Valida tipagem TypeScript em todos os pacotes
 	bun x tsc --noEmit -p packages/shared/tsconfig.json
 	bun x tsc --noEmit -p packages/crypto/tsconfig.json
-	bun --filter @terapiainfoco/frontend exec tsc -b
-	bun --filter @terapiainfoco/landingpage exec tsc -b
+	bun x tsc -b apps/frontend
+	bun x tsc -b apps/landingpage
 
 ##@ Compilação / Build
 .PHONY: build
