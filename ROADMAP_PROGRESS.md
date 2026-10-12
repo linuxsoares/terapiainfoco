@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 6 Módulos Principais Implementados | 20/20 Testes Passando
+> **Status Geral:** 7 Módulos Principais Implementados | 21/21 Testes Passando
 
 
 ---
@@ -102,6 +102,12 @@ terapiainfoco/
 - [x] **Motor de Sanitização de PII Pré-LLM (`packages/crypto/src/sanitizer.ts`):** Substituição determinística de CPFs, telefones, e-mails, CEPs, RGs e nomes próprios contextuais por tokens genéricos (`[PACIENTE]`, `[TERAPEUTA]`, `[TELEFONE]`, `[CPF]`, etc.) antes da transmissão à nuvem.
 - [x] **Geração Assistida de SOAP (`/api/transcriptions/generate-soap`):** Síntese clínica automática estruturada sob os 4 eixos SOAP com aviso legal compulsório de revisão humana.
 
+### 7. Experiência do Paciente & Validação Pública (`apps/landingpage` & `apps/backend`)
+- [x] **Widget de Agendamento Online (`BookingWidget.tsx`):** Consulta de horários livres com buffer obrigatório de 10 minutos, cadastro simplificado com FLE/Blind Indexing e geração instantânea de sala virtual no Google Meet.
+- [x] **Termo de Consentimento Livre e Esclarecido (TCLE):** Validação obrigatória de consentimento prévio para teleconsultas psicológicas (Res. CFP nº 011/2018).
+- [x] **Portal Público de Validação de Autenticidade (`ValidationPortal.tsx`):** Validação pública Zero-Knowledge de documentos (Atestados, Relatórios, Declarações e Laudos) via QR Code ou token (`#validar` ou `?token=...`), preservando o sigilo do prontuário formal.
+- [x] **Endpoints Públicos do Backend:** `GET /api/appointments/available-slots` e `POST /api/appointments/public/book` com bloqueio determinístico de sobreposições de agenda.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -113,31 +119,21 @@ terapiainfoco/
 | `feat/frontend-backend-integration` | Conexão API REST + Módulos 1 a 4 | PR #4 | Merged |
 | `feat/theme-toggle-dark-light` | Dark Mode / Light Mode adaptativo | PR #5 | Merged |
 | `feat/modulo-5-documentos-cfp` | Módulo 5 (Documentos CFP + QR Code) | PR #6 | Merged |
-| `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD Art. 11 & SOAP IA) | PR #9 | **Em Aberto** |
+| `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD & SOAP IA) | PR #9 | Merged |
+| `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-A branch `main` e a feature branch `feat/pipeline-transcricao-ia-soap` agora contam com o Módulo 3 e 4 plenamente integrados e validados. Os próximos passos para dar continuidade ao projeto estão estruturados abaixo:
+A plataforma conta agora com os 5 módulos clínicos da RFC-001, o pipeline assistivo de IA com sanitização LGPD Art. 11 e o fluxo público completo do paciente na landing page. O próximo passo de continuidade do roadmap é:
 
-#### 🎙️ Módulo 3 & 4 — Concluído ✅
-- [x] **Upload de Áudio:** Endpoint para envio de arquivos de áudio da teleconsulta (`/api/transcriptions/upload`).
-- [x] **Diarização de Áudio:** Separação automática dos canais de fala (Terapeuta vs. Paciente) com carimbos de tempo.
-- [x] **Sanitização de PII Pré-LLM (LGPD Art. 11):** Mecanismo de anonimização que substitui nomes, números, endereços e identificadores por tokens genéricos antes do envio da transcrição para a IA.
-- [x] **Geração Assistida de SOAP:** Prompting estruturado para gerar a proposta inicial dos 4 quadrantes clínicos com base na transcrição sanitizada.
-- [x] **Integração no Frontend:** Botão "Gerar com IA" no `SoapModule` que preenche o rascunho mantendo a revisão humana compulsória.
-
-#### 🌐 Opção B: Experiência do Paciente & Agendamento Público na Landing Page (`apps/landingpage`)
-- [ ] **Widget de Agendamento Online:** Conectar a landing page institucional (`terapiainfoco.com.br`) com o backend (`POST /api/appointments`).
-- [ ] **Grade Dinâmica de Horários:** Visitantes consultam horários disponíveis da psicóloga sem precisar de login prévio.
-- [ ] **Fluxo de Confirmação:** Envio de confirmação e link seguro de teleconsulta para o paciente.
-- [ ] **Página Pública de Validação (`/validar/:token`):** Rota pública dedicada na web para que qualquer terceiro com o QR Code consulte a autenticidade de documentos sem entrar no painel do psicólogo.
-
-#### 🔐 Opção C: Autenticação Segura & Gestão de Acessos
-- [ ] **Auth Layer:** Implementação de JWT com refresh tokens e controle de sessão segura.
+#### 🔐 Opção C: Camada de Autenticação Segura & Gestão de Acessos
+- [ ] **Auth Layer:** Implementação de JWT com refresh tokens e controle de sessão segura para psicólogos.
 - [ ] **2FA / MFA:** Autenticação de dois fatores (TOTP / WebAuthn) para conformidade com prontuários de saúde.
 - [ ] **Rate Limiting:** Proteção contra ataques de enumeração nos endpoints de Blind Index e validação pública.
+- [ ] **Role-Based Access Control (RBAC):** Suporte a papéis de psicólogo responsável, secretária/recepção e supervisor clínico.
+
 
 
 ---

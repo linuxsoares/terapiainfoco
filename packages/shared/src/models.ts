@@ -7,7 +7,8 @@ import {
   AuditAction,
   AuditResourceType
 } from './enums';
-import { EncryptedPayload } from './crypto';
+import type { EncryptedPayload } from './crypto';
+
 
 /**
  * 1. TERAPEUTA

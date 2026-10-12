@@ -5,12 +5,18 @@ import {
   AuditResourceType,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
-  type DecryptedAppointment 
+  type DecryptedAppointment,
+  type AvailableSlot,
+  type AvailableSlotsResponse,
+  type PublicBookingDTO,
+  type PublicBookingResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
+import { PatientService } from './patientService';
 import { config } from '../config';
+
 
 /**
  * Gera um código válido e estritamente formatado do Google Meet: xxx-yyyy-zzz (3-4-3 letras minúsculas)
@@ -176,7 +182,130 @@ export class AppointmentService {
     return list;
   }
 
+  /**
+   * Consulta horários disponíveis de teleatendimento para a landing page pública
+   * Respeita buffer obrigatório de 10 minutos e horários já ocupados
+   */
+  static getAvailableSlots(
+    therapistId: string,
+    targetDateStr?: string
+  ): AvailableSlotsResponse {
+    const bufferMinutes = config.defaultBufferMinutes;
+
+    // Se não informou data, assume a data atual ou amanhã
+    const baseDate = targetDateStr ? new Date(`${targetDateStr}T00:00:00`) : new Date();
+    const dateFormatted = baseDate.toISOString().split('T')[0];
+
+    // Horários padrão de teleatendimento: 09h às 18h com sessões de 50 minutos
+    const standardHours = [9, 10, 11, 14, 15, 16, 17];
+    const slots: AvailableSlot[] = [];
+
+    for (const hour of standardHours) {
+      const slotStart = new Date(baseDate);
+      slotStart.setHours(hour, 0, 0, 0);
+      const slotEnd = new Date(slotStart);
+      slotEnd.setMinutes(50); // 50 minutos de atendimento
+
+      let isAvailable = true;
+      try {
+        this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMinutes);
+      } catch {
+        isAvailable = false;
+      }
+
+      slots.push({
+        start: slotStart.toISOString(),
+        end: slotEnd.toISOString(),
+        formattedTime: `${String(hour).padStart(2, '0')}:00 - ${String(hour).padStart(2, '0')}:50`,
+        available: isAvailable
+      });
+    }
+
+    return {
+      therapistId,
+      therapistName: 'Dra. Vanessa Andrade (CRP 06/142980)',
+      date: dateFormatted,
+      bufferMinutes,
+      slots
+    };
+  }
+
+  /**
+   * Agendamento público de teleconsulta diretamente pela landing page
+   * Aplica Field-Level Encryption e Blind Indexing aos dados do visitante e gera link Meet
+   */
+  static bookPublicAppointment(
+    dto: PublicBookingDTO,
+    context: { ipAddress: string; userAgent?: string }
+  ): PublicBookingResponse {
+    if (!dto.consentTeleconsultationSigned) {
+      throw new Error(
+        'É obrigatório aceitar o Termo de Consentimento Livre e Esclarecido (TCLE) para agendamento de teleconsulta (Res. CFP nº 011/2018 e LGPD Art. 11).'
+      );
+    }
+
+    const therapistId = dto.therapistId || 'therapist-001';
+
+    // 1. Localiza paciente existente via Blind Index (se CPF informado) ou cria novo com FLE
+    let patient = dto.patientCpf ? PatientService.findByCpf(dto.patientCpf, {
+      actorId: therapistId,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    }) : null;
+
+    if (!patient) {
+      patient = PatientService.createPatient(
+        therapistId,
+        {
+          name: dto.patientName,
+          email: dto.patientEmail,
+          phone: dto.patientPhone,
+          cpf: dto.patientCpf,
+          consentTranscriptionSigned: true
+        },
+        {
+          actorId: therapistId,
+          ipAddress: context.ipAddress,
+          userAgent: context.userAgent
+        }
+      );
+    }
+
+    // 2. Agenda a consulta com verificação de buffers e sala do Google Meet
+    const appointment = this.createAppointment(
+      therapistId,
+      {
+        patientId: patient.id,
+        scheduledStart: dto.scheduledStart,
+        scheduledEnd: dto.scheduledEnd
+      },
+      {
+        actorId: therapistId,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      }
+    );
+
+    return {
+      appointmentId: appointment.id,
+      patientName: patient.name,
+      therapistName: 'Dra. Vanessa Andrade (CRP 06/142980)',
+      scheduledStart: appointment.scheduledStart.toString(),
+      scheduledEnd: appointment.scheduledEnd.toString(),
+      meetUrl: appointment.meetUrl,
+      meetAccessCode: appointment.meetAccessCode,
+      bufferMinutes: config.defaultBufferMinutes,
+      consentRecordedAt: new Date().toISOString(),
+      instructions: [
+        'Acesse o link do Google Meet com 5 minutos de antecedência.',
+        'Utilize fones de ouvido para garantir o sigilo e a privacidade do seu atendimento.',
+        'Certifique-se de estar em um ambiente privativo, silencioso e com boa conexão à internet.'
+      ]
+    };
+  }
+
   private static validateScheduleConflicts(
+
     therapistId: string, 
     start: Date, 
     end: Date, 

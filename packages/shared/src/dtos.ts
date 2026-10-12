@@ -1,5 +1,6 @@
 import { AppointmentStatus, DocumentType } from './enums';
-import { SoapNote, TranscriptUtterance } from './models';
+import type { SoapNote, TranscriptUtterance } from './models';
+
 
 
 export interface CreatePatientDTO {
@@ -100,4 +101,44 @@ export interface GenerateSoapProposalResponse {
   humanReviewRequired: boolean;
   disclaimer: string;
 }
+
+export interface AvailableSlot {
+  start: string; // ISO
+  end: string;   // ISO
+  formattedTime: string; // "14:00 - 14:50"
+  available: boolean;
+}
+
+export interface AvailableSlotsResponse {
+  therapistId: string;
+  therapistName: string;
+  date: string;
+  bufferMinutes: number;
+  slots: AvailableSlot[];
+}
+
+export interface PublicBookingDTO {
+  therapistId?: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  patientCpf?: string;
+  scheduledStart: string; // ISO
+  scheduledEnd: string;   // ISO
+  consentTeleconsultationSigned: boolean;
+}
+
+export interface PublicBookingResponse {
+  appointmentId: string;
+  patientName: string;
+  therapistName: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  meetUrl: string;
+  meetAccessCode?: string;
+  bufferMinutes: number;
+  consentRecordedAt: string;
+  instructions: string[];
+}
+
 

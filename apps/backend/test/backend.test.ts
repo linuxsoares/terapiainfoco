@@ -435,5 +435,76 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(signedData.record.isSigned).toBe(true);
     expect(signedData.record.signatureHash).toBeDefined();
   });
+
+  it('Experiência do Paciente & Agendamento Público na Landing Page (RFC §3.1)', async () => {
+    // 1. Consulta horários disponíveis
+    const slotsRes = await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2026-10-20');
+    expect(slotsRes.status).toBe(200);
+    const slotsData = await slotsRes.json();
+    expect(slotsData.slots.length).toBeGreaterThan(0);
+    expect(slotsData.bufferMinutes).toBe(10);
+    const firstOpenSlot = slotsData.slots.find((s: any) => s.available);
+    expect(firstOpenSlot).toBeDefined();
+
+    // 2. Tentativa de agendamento SEM aceite do TCLE deve falhar
+    const noTcleRes = await app.request('/api/appointments/public/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        patientName: 'Lucas Ferreira',
+        patientEmail: 'lucas@email.com',
+        patientPhone: '11977778888',
+        scheduledStart: firstOpenSlot.start,
+        scheduledEnd: firstOpenSlot.end,
+        consentTeleconsultationSigned: false
+      })
+    });
+    expect(noTcleRes.status).toBe(400);
+    const noTcleData = await noTcleRes.json();
+    expect(noTcleData.error).toContain('Termo de Consentimento');
+
+    // 3. Agendamento com TCLE aceito deve ter sucesso e gerar sala Meet
+    const bookingRes = await app.request('/api/appointments/public/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        patientName: 'Lucas Ferreira',
+        patientEmail: 'lucas@email.com',
+        patientPhone: '11977778888',
+        patientCpf: '333.444.555-66',
+        scheduledStart: firstOpenSlot.start,
+        scheduledEnd: firstOpenSlot.end,
+        consentTeleconsultationSigned: true
+      })
+    });
+    expect(bookingRes.status).toBe(201);
+    const bookingData = await bookingRes.json();
+    expect(bookingData.booking.appointmentId).toBeDefined();
+    expect(bookingData.booking.patientName).toBe('Lucas Ferreira');
+    expect(bookingData.booking.meetUrl).toContain('meet.google.com');
+    expect(bookingData.booking.bufferMinutes).toBe(10);
+    expect(bookingData.booking.instructions.length).toBeGreaterThanOrEqual(3);
+
+    // 4. Tentativa de agendamento no mesmo horário deve falhar por conflito/buffer
+    const conflictRes = await app.request('/api/appointments/public/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        patientName: 'Outro Paciente',
+        patientEmail: 'outro@email.com',
+        patientPhone: '11966665555',
+        scheduledStart: firstOpenSlot.start,
+        scheduledEnd: firstOpenSlot.end,
+        consentTeleconsultationSigned: true
+      })
+    });
+    expect(conflictRes.status).toBe(400);
+    const conflictData = await conflictRes.json();
+    expect(conflictData.error).toContain('Conflito de agenda');
+  });
 });
+
 
