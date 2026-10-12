@@ -22,7 +22,8 @@ import {
   Bell,
   Send,
   Trash2,
-  Plus
+  Plus,
+  Activity
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -31,7 +32,10 @@ import type {
   EncryptedCacheStatsResponse,
   WebhookSubscription,
   WebhookEventType,
-  CreateWebhookDTO
+  CreateWebhookDTO,
+  ReadinessProbeResponse,
+  LivenessProbeResponse,
+  StartupProbeResponse
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -139,10 +143,35 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Health & Readiness Probes (Opção L)
+  const [readinessProbe, setReadinessProbe] = useState<ReadinessProbeResponse | null>(null);
+  const [livenessProbe, setLivenessProbe] = useState<LivenessProbeResponse | null>(null);
+  const [startupProbe, setStartupProbe] = useState<StartupProbeResponse | null>(null);
+  const [loadingProbes, setLoadingProbes] = useState<boolean>(false);
+
+  const fetchProbes = async () => {
+    try {
+      setLoadingProbes(true);
+      const [readiness, liveness, startup] = await Promise.all([
+        api.getReadinessProbe(),
+        api.getLivenessProbe(),
+        api.getStartupProbe()
+      ]);
+      setReadinessProbe(readiness);
+      setLivenessProbe(liveness);
+      setStartupProbe(startup);
+    } catch (err: any) {
+      console.warn('Falha ao coletar probes:', err.message);
+    } finally {
+      setLoadingProbes(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
       fetchWebhooks();
+      fetchProbes();
     }
   }, [currentUser.role]);
 
@@ -934,6 +963,181 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Card 5: Saúde da Infraestrutura, Liveness & Readiness Probes (Opção L - RFC-001 §5.2 e 12-Factor App) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              Saúde da Infraestrutura, Liveness & Readiness Probes • RFC-001 Opção L
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              Sondas ativas do ciclo de vida de containers (Kubernetes/Railway), inspeção multi-dependências e telemetria de runtime Bun.
+            </p>
+          </div>
+
+          {currentUser.role === UserRole.ADMIN && (
+            <button
+              onClick={fetchProbes}
+              disabled={loadingProbes}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingProbes ? 'animate-spin' : ''}`} />
+              <span>{loadingProbes ? 'Executando Probes...' : 'Executar Probes Agora'}</span>
+            </button>
+          )}
+        </div>
+
+        {currentUser.role !== UserRole.ADMIN ? (
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-3">
+            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>
+              A telemetria detalhada de infraestrutura e execução de readiness probes é restrita ao perfil <strong>Administrador TI / DPO</strong>.
+            </span>
+          </div>
+        ) : loadingProbes && !readinessProbe ? (
+          <div className="p-12 text-center text-slate-500 text-xs">Inspecionando dependências do sistema em tempo real...</div>
+        ) : (
+          <div className="space-y-5">
+            {/* Visão Geral & Telemetria do Processo */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Status Global */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status Geral</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+                    readinessProbe?.status === 'healthy' 
+                      ? 'bg-emerald-500' 
+                      : readinessProbe?.status === 'degraded' 
+                        ? 'bg-amber-500' 
+                        : 'bg-rose-500'
+                  }`} />
+                  <span className="font-bold text-sm text-slate-900 dark:text-white capitalize">
+                    {readinessProbe?.status === 'healthy' ? 'Operacional' : readinessProbe?.status === 'degraded' ? 'Degradado' : 'Crítico'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 font-mono">Latência: {readinessProbe?.overallLatencyMs || 0}ms</p>
+              </div>
+
+              {/* Uptime do Processo */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tempo Ativo (Uptime)</span>
+                <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                  {livenessProbe?.system.uptimeFormatted || '0s'}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">PID {livenessProbe?.system.pid || process.pid}</p>
+              </div>
+
+              {/* Memória RAM RSS */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Memória RAM (RSS)</span>
+                <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                  {livenessProbe?.system.memory.rssMb || 0} MB
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">Heap: {livenessProbe?.system.memory.heapUsedMb || 0} MB</p>
+              </div>
+
+              {/* Runtime & Engine */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Engine / Runtime</span>
+                <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                  Bun v{livenessProbe?.system.bunVersion || '1.4'}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">{livenessProbe?.system.platform} ({livenessProbe?.system.arch})</p>
+              </div>
+            </div>
+
+            {/* Sondas Ativas de Dependências (Readiness Grid) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Dependências Avaliadas pelo Readiness Probe ({readinessProbe?.summary.healthy || 0}/{readinessProbe?.summary.total || 0} Saudáveis)
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Último check: {readinessProbe?.timestamp ? new Date(readinessProbe.timestamp).toLocaleTimeString('pt-BR') : 'agora'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {readinessProbe && Object.entries(readinessProbe.checks).map(([key, check]) => {
+                  const isHealthy = check.status === 'healthy';
+                  const isDegraded = check.status === 'degraded';
+                  return (
+                    <div 
+                      key={key}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/80 space-y-2 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${
+                            isHealthy ? 'bg-emerald-500' : isDegraded ? 'bg-amber-500' : 'bg-rose-500'
+                          }`} />
+                          <span className="font-semibold text-xs text-slate-900 dark:text-white">
+                            {check.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] text-slate-500">
+                            {check.latencyMs.toFixed(1)}ms
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            isHealthy 
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : isDegraded
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                          }`}>
+                            {check.status.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {check.message}
+                      </p>
+
+                      {check.details && (
+                        <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap gap-2 text-[10px] font-mono text-slate-500">
+                          {Object.entries(check.details).map(([k, v]) => (
+                            <span key={k} className="bg-white/80 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700">
+                              {k}: <strong className="text-slate-700 dark:text-slate-300">{String(v)}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Informações da Sonda de Startup */}
+            {startupProbe && (
+              <div className="p-4 rounded-2xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/60 dark:border-teal-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                    <Server className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-teal-950 dark:text-teal-200">Startup Probe Concluído:</span>
+                    <span className="text-teal-800/90 dark:text-teal-300/90 ml-1.5">
+                      Driver: <strong className="font-mono">{startupProbe.databaseDriver}</strong> • Inicialização em <strong className="font-mono">{startupProbe.bootstrapDurationMs}ms</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 text-[10px] font-bold font-mono">
+                    HTTP 200 OK
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

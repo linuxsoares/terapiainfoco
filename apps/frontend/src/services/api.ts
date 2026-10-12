@@ -47,7 +47,10 @@ import type {
   WebhookListResponse,
   WebhookLogsResponse,
   UnmaskAuditRequestDTO,
-  UnmaskAuditResponse
+  UnmaskAuditResponse,
+  ReadinessProbeResponse,
+  LivenessProbeResponse,
+  StartupProbeResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -571,6 +574,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+    return res;
+  },
+
+  // 13. Health Checks, Liveness & Readiness Probes (RFC-001 Opção L & §5.2)
+  async getReadinessProbe(): Promise<ReadinessProbeResponse> {
+    const res = await request<ReadinessProbeResponse>('/system/probes/readiness');
+    return res;
+  },
+
+  async getLivenessProbe(): Promise<LivenessProbeResponse> {
+    const res = await request<LivenessProbeResponse>('/system/probes/liveness');
+    return res;
+  },
+
+  async getStartupProbe(): Promise<StartupProbeResponse> {
+    const res = await request<StartupProbeResponse>('/system/probes/startup');
     return res;
   }
 };

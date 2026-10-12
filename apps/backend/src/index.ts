@@ -36,17 +36,26 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Health Check & Supabase Diagnostic
+// Importação do serviço de observabilidade e probes de saúde (RFC §5.2)
+import { HealthService } from './services/healthService';
+
+// Health Check & Liveness Probe (12-Factor App & Kubernetes/Railway)
 app.get('/health', (c) => {
+  const liveness = HealthService.checkLiveness();
   const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || process.env.POSTGRES_URL || '';
   const isPostgres = !!dbUrl;
   const isSupabaseDb = dbUrl.includes('supabase.co') || dbUrl.includes('pooler.supabase.com');
 
   return c.json({
     status: 'ok',
-    service: 'terapiainfoco-backend',
-    version: '1.0.0',
+    livenessStatus: liveness.status,
+    service: liveness.service,
+    version: liveness.version,
     rfc: 'RFC-001',
+    uptimeSeconds: liveness.system.uptimeSeconds,
+    uptimeFormatted: liveness.system.uptimeFormatted,
+    memoryRssMb: liveness.system.memory.rssMb,
+    memoryHeapUsedMb: liveness.system.memory.heapUsedMb,
     database: {
       driver: isPostgres ? 'postgresql' : 'pglite_fallback',
       databaseUrlConfigured: isPostgres,
@@ -56,11 +65,31 @@ app.get('/health', (c) => {
     },
     compliance: {
       cfp: ['001/2009', '011/2018', '006/2019', '004/2020'],
-      lgpd: ['Art. 5 II', 'Art. 11', 'Art. 16']
+      lgpd: ['Art. 5 II', 'Art. 11', 'Art. 16', 'Art. 48']
     },
-    timestamp: new Date().toISOString()
+    timestamp: liveness.timestamp
   });
 });
+
+app.get('/health/liveness', (c) => {
+  const liveness = HealthService.checkLiveness();
+  return c.json(liveness, 200);
+});
+
+// Readiness Probe (Avaliação Ativa Multi-Dependências: DB, KMS, Cache, RateLimiter, WORM)
+app.get('/health/readiness', async (c) => {
+  const readiness = await HealthService.checkReadiness();
+  const statusCode = readiness.status === 'unhealthy' ? 503 : 200;
+  return c.json(readiness, statusCode);
+});
+
+// Startup Probe (Verificação de Migrações e Inicialização Inicial de Banco)
+app.get('/health/startup', (c) => {
+  const startup = HealthService.checkStartup();
+  const statusCode = startup.status === 'unhealthy' ? 503 : 200;
+  return c.json(startup, statusCode);
+});
+
 
 // Rotas de domínios RFC-001
 app.route('/api/auth', authRoute);
