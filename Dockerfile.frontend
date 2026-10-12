@@ -22,8 +22,10 @@ RUN cd apps/frontend && bun run build
 FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
+COPY package.json ./
 COPY --from=builder /app/apps/frontend/dist ./apps/frontend/dist
 COPY apps/frontend/server.ts ./apps/frontend/server.ts
+COPY apps/frontend/package.json ./apps/frontend/package.json
 
 ENV NODE_ENV=production
 ENV PORT=3000
