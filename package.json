@@ -11,6 +11,8 @@
     "dev:landing": "bun --filter @terapiainfoco/landingpage dev",
     "dev:frontend": "bun --filter @terapiainfoco/frontend dev",
     "dev:backend": "bun --filter @terapiainfoco/backend dev",
+    "start": "bun apps/backend/src/index.ts",
+    "start:backend": "bun apps/backend/src/index.ts",
     "build": "bun --filter @terapiainfoco/landingpage build",
     "build:landing": "bun --filter @terapiainfoco/landingpage build",
     "build:frontend": "bun --filter @terapiainfoco/frontend build",

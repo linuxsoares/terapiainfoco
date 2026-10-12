@@ -5,7 +5,8 @@ import type {
   ValidateDocumentResponse
 } from '@terapiainfoco/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
+const API_BASE = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {

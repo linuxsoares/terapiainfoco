@@ -7,5 +7,12 @@ export const config = {
   /** Intervalo padrão de buffer entre consultas em minutos (RFC §3.1) */
   defaultBufferMinutes: 10,
   /** Antecedência mínima para cancelamento sem penalidade em horas */
-  minCancelNoticeHours: 24
+  minCancelNoticeHours: 24,
+  /** Configurações de integração com Supabase */
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
+    secretKey: process.env.SUPABASE_SECRET_KEY || '',
+    jwksUrl: process.env.SUPABASE_JWKS_URL || ''
+  }
 };

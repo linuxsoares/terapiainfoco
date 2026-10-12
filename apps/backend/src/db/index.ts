@@ -20,9 +20,39 @@ export async function getDb(): Promise<AppDb> {
   }
 
   if (databaseUrl) {
-    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL...`);
-    const client = postgres(databaseUrl, { max: 10 });
+    const isSupabase = databaseUrl.includes('supabase.co') || databaseUrl.includes('pooler.supabase.com');
+    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL${isSupabase ? ' (Supabase detectado)' : ''}...`);
+    const ssl = isSupabase || databaseUrl.includes('sslmode=require') ? 'require' : undefined;
+    const client = postgres(databaseUrl, {
+      max: 10,
+      ssl,
+      prepare: isSupabase ? false : undefined
+    });
     _dbInstance = drizzlePostgres(client, { schema });
+
+    const migrationsFolder = path.resolve(__dirname, '../../drizzle');
+    try {
+      await migratePostgres(_dbInstance as any, { migrationsFolder });
+      console.log('✅ Migrações aplicadas com sucesso no PostgreSQL.');
+    } catch (err) {
+      console.warn('⚠️ Nota sobre migrações PostgreSQL:', (err as Error).message);
+    }
+
+    try {
+      await (_dbInstance as any)
+        .insert(schema.therapists)
+        .values({
+          id: '00000000-0000-0000-0000-000000000001',
+          crp: '06/142980',
+          crpRegion: 'SP',
+          status: 'ACTIVE',
+          encryptedDek: 'mock-encrypted-dek-base64'
+        })
+        .onConflictDoNothing();
+    } catch {
+      // Ignora se já existir ou erro transitório
+    }
+
     return _dbInstance;
   }
 
