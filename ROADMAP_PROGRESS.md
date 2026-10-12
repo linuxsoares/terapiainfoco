@@ -50,6 +50,7 @@ terapiainfoco/
   - `psychological_documents` (documentos CFP 006/2019 com token de validação)
   - `audit_logs` (trilha de auditoria WORM imutável)
 - [x] Fallback automático para `@electric-sql/pglite` (Postgres 16 WASM) quando não há banco externo, permitindo execução offline imediata.
+- [x] **Auto-Migração no Boot & Resiliência Supabase:** Inicialização assíncrona/síncrona de `getDb()` no boot do container, resolução dinâmica de diretórios `drizzle/`, fallback SQL statement-by-statement tolerante a transaction pooling (PgBouncer porta 6543) e seed idempotente do terapeuta padrão.
 - [x] `MemoryDatabase` para testes unitários ultra-rápidos e isolamento.
 
 ### 4. Backend API Hono (`apps/backend`)
@@ -362,7 +363,8 @@ terapiainfoco/
 | `gil/fix-deploy` | Correção de railway.json global e isolamento de builds do frontend | PR #21 | Merged |
 | `chore/deploy-trigger` | Disparo de deploy no Railway e inclusão do runner de produção | PR #22 | Merged |
 | `railway/code-change-ZOB6Fg` | Fix apps/frontend/Dockerfile para Railpack chdir | PR #23 | Merged |
-| `feat/dynamic-data-masking-ddm` | Mascaramento Dinâmico de Dados na Interface (DDM), Modo Anti-Shoulder Surfing (Alt+P) e Trilha WORM (Opção K) | PR #24 | **Em Aberto** |
+| `feat/dynamic-data-masking-ddm` | Mascaramento Dinâmico de Dados na Interface (DDM), Modo Anti-Shoulder Surfing (Alt+P) e Trilha WORM (Opção K) | PR #24 | Merged |
+| `feat/backend-auto-migrations` | Inicialização compulsória com getDb no boot, auto-migração resiliente Supabase e scripts db:migrate | PR #25 | **Em Aberto** |
 
 ---
 
