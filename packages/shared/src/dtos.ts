@@ -283,3 +283,131 @@ export interface PatientClinicalMetrics {
     soapAssessmentSummary?: string;
   }>;
 }
+
+/**
+ * 9. PORTABILIDADE DE DADOS & EXPORTAÇÃO CRIPTOGRAFADA (LGPD Art. 18 & CFP nº 001/2009 - Opção F)
+ */
+export interface ExportPatientDataDTO {
+  /** Frase secreta opcional para cifragem simétrica do pacote via AES-256-GCM + PBKDF2 */
+  passphrase?: string;
+  /** Formato de saída: 'json' estruturado legível por máquina ou 'encrypted_package' */
+  format?: 'json' | 'encrypted_package';
+  /** Motivo ou protocolo da solicitação do titular */
+  requestReason?: string;
+}
+
+export interface PatientPortabilityPackage {
+  exportVersion: '1.0';
+  exportedAt: string;
+  regulationBasis: {
+    lgpdArticle: string;
+    cfpResolution: string;
+    legalRetainNotice: string;
+    confidentialityNotice: string;
+  };
+  therapist: {
+    id: string;
+    name: string;
+    crp: string;
+    crpRegion: string;
+  };
+  patient: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    cpf?: string;
+    createdAt: string;
+    consentTranscriptionSigned: boolean;
+    consentSignedAt?: string | null;
+    consentRevokedAt?: string | null;
+    consentRevokeReason?: string | null;
+  };
+  appointments: Array<{
+    id: string;
+    scheduledStart: string;
+    scheduledEnd: string;
+    status: AppointmentStatus;
+    meetUrl?: string;
+    meetAccessCode?: string;
+    createdAt: string;
+  }>;
+  clinicalRecords: Array<{
+    id: string;
+    sessionNumber: number;
+    appointmentId: string;
+    isSigned: boolean;
+    signedAt?: string | null;
+    signatureHash?: string | null;
+    soap: SoapNote;
+    createdAt: string;
+  }>;
+  psychologicalDocuments: Array<{
+    id: string;
+    type: DocumentType;
+    title: string;
+    regulationReference: string;
+    content: string;
+    validationToken: string;
+    isSigned: boolean;
+    signedAt?: string | null;
+    signaturePadesHash?: string | null;
+    hasIcpSignature: boolean;
+    createdAt: string;
+  }>;
+  transcriptions: Array<{
+    id: string;
+    appointmentId: string;
+    wordCount?: number;
+    durationSeconds?: number;
+    utterancesCount: number;
+    utterances: TranscriptUtterance[];
+    createdAt: string;
+  }>;
+  auditTrailSummary: {
+    totalAccessLogs: number;
+    exportedByActorId: string;
+    exportTimestamp: string;
+  };
+  checksumSha256: string;
+}
+
+export interface EncryptedExportPackage {
+  encrypted: true;
+  algorithm: 'aes-256-gcm';
+  kdf: 'pbkdf2-sha512';
+  kdfIterations: number;
+  saltBase64: string;
+  ivBase64: string;
+  authTagBase64: string;
+  ciphertextBase64: string;
+  exportedAt: string;
+  patientId: string;
+  disclaimer: string;
+}
+
+export interface ExportPatientDataResponse {
+  success: boolean;
+  format: 'json' | 'encrypted_package';
+  checksumSha256: string;
+  package?: PatientPortabilityPackage;
+  encryptedPackage?: EncryptedExportPackage;
+  message: string;
+}
+
+export interface RevokeConsentDTO {
+  reason: string;
+  revokeTranscriptionConsent: boolean;
+  requestDataQuarantine?: boolean;
+}
+
+export interface RevokeConsentResponse {
+  success: boolean;
+  patientId: string;
+  revokedAt: string;
+  consentTranscriptionSigned: boolean;
+  quarantined: boolean;
+  legalRetentionNote: string;
+  message: string;
+}
+

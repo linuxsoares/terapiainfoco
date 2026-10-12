@@ -39,6 +39,10 @@ export interface Patient {
   
   consentTranscriptionSigned: boolean;
   consentSignedAt?: Date | string | null;
+  /** Data/hora de revogação formal de consentimento (LGPD Art. 18, IX) */
+  consentRevokedAt?: Date | string | null;
+  /** Motivação registrada para a revogação do consentimento */
+  consentRevokeReason?: string | null;
   createdAt: Date | string;
 }
 

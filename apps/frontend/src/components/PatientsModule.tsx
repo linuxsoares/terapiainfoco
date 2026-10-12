@@ -8,9 +8,22 @@ import {
   AlertCircle, 
   Lock, 
   KeyRound,
-  FileCheck2
+  FileCheck2,
+  DownloadCloud,
+  UserX,
+  FileText,
+  Copy,
+  Check,
+  Download,
+  ShieldCheck,
+  Hash,
+  Info
 } from 'lucide-react';
-import type { DecryptedPatient, CreatePatientDTO } from '@terapiainfoco/shared';
+import type { 
+  DecryptedPatient, 
+  CreatePatientDTO,
+  ExportPatientDataResponse
+} from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 export function PatientsModule() {
@@ -30,6 +43,21 @@ export function PatientsModule() {
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Modal de Portabilidade / Exportação LGPD Art. 18
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'json' | 'encrypted_package'>('json');
+  const [exportPassphrase, setExportPassphrase] = useState('');
+  const [exportReason, setExportReason] = useState('Solicitação de portabilidade de prontuário (LGPD Art. 18)');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportResult, setExportResult] = useState<ExportPatientDataResponse | null>(null);
+  const [copiedChecksum, setCopiedChecksum] = useState(false);
+
+  // Modal de Revogação de Consentimento
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('Solicitação de cancelamento da transcrição e atendimento assistido por IA');
+  const [revokeQuarantine, setRevokeQuarantine] = useState(false);
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +106,92 @@ export function PatientsModule() {
     }
   };
 
+  const handleExportData = async () => {
+    if (!searchResult) return;
+    try {
+      setExportLoading(true);
+      setStatusMessage(null);
+      const res = await api.exportPatientData(searchResult.id, {
+        format: exportFormat,
+        passphrase: exportFormat === 'encrypted_package' ? exportPassphrase : undefined,
+        requestReason: exportReason
+      });
+      setExportResult(res);
+      setStatusMessage('Pacote de portabilidade gerado com sucesso com integridade SHA-256 e selo CFP!');
+    } catch (err: any) {
+      alert(`Falha ao exportar dados: ${err.message}`);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDownloadFile = () => {
+    if (!exportResult) return;
+    const isEncrypted = exportResult.format === 'encrypted_package';
+    const contentToDownload = isEncrypted 
+      ? JSON.stringify(exportResult.encryptedPackage, null, 2)
+      : JSON.stringify(exportResult.package, null, 2);
+
+    const fileName = isEncrypted
+      ? `prontuario-criptografado-${searchResult?.id.slice(0, 8)}.json`
+      : `prontuario-portabilidade-lgpd-${searchResult?.id.slice(0, 8)}.json`;
+
+    const blob = new Blob([contentToDownload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyChecksum = () => {
+    if (!exportResult?.checksumSha256) return;
+    navigator.clipboard.writeText(exportResult.checksumSha256);
+    setCopiedChecksum(true);
+    setTimeout(() => setCopiedChecksum(false), 2000);
+  };
+
+  const handleRevokeConsent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchResult) return;
+    try {
+      setRevokeLoading(true);
+      const res = await api.revokeConsent(searchResult.id, {
+        reason: revokeReason,
+        revokeTranscriptionConsent: true,
+        requestDataQuarantine: revokeQuarantine
+      });
+
+      setStatusMessage(res.message);
+      setShowRevokeModal(false);
+
+      // Atualiza o estado visual do paciente
+      if (revokeQuarantine) {
+        setSearchResult({
+          ...searchResult,
+          name: '[PACIENTE EM QUARENTENA LGPD]',
+          consentTranscriptionSigned: false,
+          consentRevokedAt: res.revokedAt,
+          consentRevokeReason: revokeReason
+        });
+      } else {
+        setSearchResult({
+          ...searchResult,
+          consentTranscriptionSigned: false,
+          consentRevokedAt: res.revokedAt,
+          consentRevokeReason: revokeReason
+        });
+      }
+    } catch (err: any) {
+      alert(`Erro ao revogar consentimento: ${err.message}`);
+    } finally {
+      setRevokeLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -85,10 +199,10 @@ export function PatientsModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Users className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-            Gestão de Pacientes & Blind Indexing
+            Gestão de Pacientes, Blind Index & Portabilidade LGPD
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Cadastro com Field-Level Encryption (AES-256-GCM) e busca por HMAC-SHA256 (RFC §4.1, §4.3)
+            Criptografia de ponta a ponta (AES-256-GCM), busca cega HMAC-SHA256 e portabilidade Art. 18
           </p>
         </div>
 
@@ -102,22 +216,36 @@ export function PatientsModule() {
       </div>
 
       {statusMessage && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm flex items-center gap-3">
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm flex items-center gap-3 animate-fade-in">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{statusMessage}</span>
         </div>
       )}
 
-      {/* Explicação Didática da Criptografia */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-50/50 to-slate-50 dark:from-slate-900 dark:to-slate-900/60 border border-teal-100 dark:border-slate-800 shadow-sm dark:shadow-none flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-          <Lock className="w-5 h-5" />
+      {/* Explicação Didática da Criptografia & Portabilidade */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-50/50 to-slate-50 dark:from-slate-900 dark:to-slate-900/60 border border-teal-100 dark:border-slate-800 shadow-sm dark:shadow-none flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Busca Segura (Blind Index)</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              O CPF nunca é armazenado ou buscado em texto claro. A plataforma computa <code className="text-teal-700 dark:text-teal-300 font-mono bg-teal-100/50 dark:bg-slate-800 px-1 py-0.5 rounded">HMAC-SHA256(cpf)</code> com salt secreto para indexação determinística sem vazamento.
+            </p>
+          </div>
         </div>
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Como Funciona a Busca Segura (Blind Index)</h3>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            O CPF nunca é armazenado ou buscado em texto claro no PostgreSQL. Quando você busca por CPF, a aplicação gera um hash criptográfico <code className="text-teal-700 dark:text-teal-300 font-mono bg-teal-100/50 dark:bg-slate-800 px-1 py-0.5 rounded">HMAC-SHA256(cpf, salt_secret)</code> e busca o índice cego correspondente.
-          </p>
+
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-cyan-50/50 to-slate-50 dark:from-slate-900 dark:to-slate-900/60 border border-cyan-100 dark:border-slate-800 shadow-sm dark:shadow-none flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
+            <DownloadCloud className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Portabilidade & Guarda Ética (CFP)</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Exportação do prontuário em formato aberto interoperável (Art. 18 LGPD) ou pacote cifrado por senha. Em caso de revogação, o original permanece sob guarda por 5 anos (Res. CFP nº 001/2009).
+            </p>
+          </div>
         </div>
       </div>
 
@@ -142,7 +270,7 @@ export function PatientsModule() {
           <button
             type="submit"
             disabled={searchLoading}
-            className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
           >
             {searchLoading ? 'Buscando...' : 'Pesquisar'}
           </button>
@@ -157,8 +285,8 @@ export function PatientsModule() {
 
         {/* Resultado Encontrado */}
         {searchResult && (
-          <div className="mt-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-teal-500/30 space-y-4 max-w-2xl animate-fade-in shadow-sm dark:shadow-none">
-            <div className="flex items-start justify-between">
+          <div className="mt-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-teal-500/30 space-y-4 max-w-3xl animate-fade-in shadow-sm dark:shadow-none">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-teal-700 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-full">
                   Blind Index Match • Decriptado em RAM
@@ -167,15 +295,22 @@ export function PatientsModule() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">ID: {searchResult.id}</p>
               </div>
 
-              {searchResult.consentTranscriptionSigned && (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-medium">
-                  <FileCheck2 className="w-3.5 h-3.5" />
-                  Consentimento Ativo
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {searchResult.consentTranscriptionSigned ? (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-medium">
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                    Consentimento Ativo
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full font-medium">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {searchResult.consentRevokedAt ? 'Consentimento Revogado' : 'Sem Consentimento'}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs bg-white dark:bg-slate-900/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white dark:bg-slate-900/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
                 <span className="text-slate-500">E-mail:</span>
                 <p className="font-mono text-slate-800 dark:text-slate-200 mt-0.5">{searchResult.email}</p>
@@ -192,21 +327,334 @@ export function PatientsModule() {
                 <span className="text-slate-500">Hash Blind Index:</span>
                 <p className="font-mono text-teal-700 dark:text-teal-400/80 truncate mt-0.5">{searchResult.cpfBindex || searchResult.emailBindex}</p>
               </div>
+              {searchResult.consentRevokedAt && (
+                <div className="sm:col-span-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300">
+                  <span className="font-semibold">Revogação registrada em:</span> {new Date(searchResult.consentRevokedAt).toLocaleString('pt-BR')}
+                  {searchResult.consentRevokeReason && (
+                    <p className="text-[11px] mt-0.5 italic">Motivo: "{searchResult.consentRevokeReason}"</p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Ações de Conformidade LGPD */}
-            <div className="pt-2 flex justify-end">
+            {/* Painel de Ações: Portabilidade, Revogação & Quarentena */}
+            <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+              <button
+                onClick={() => {
+                  setExportResult(null);
+                  setShowExportModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <DownloadCloud className="w-3.5 h-3.5" />
+                Portabilidade LGPD (Art. 18)
+              </button>
+
+              <button
+                onClick={() => setShowRevokeModal(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <UserX className="w-3.5 h-3.5" />
+                Revogar Consentimento
+              </button>
+
               <button
                 onClick={() => handleQuarantine(searchResult.id)}
-                className="px-3.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <ShieldAlert className="w-3.5 h-3.5" />
-                Quarentena LGPD Art. 18 (Retenção 5 Anos CFP)
+                Quarentena (5 Anos CFP)
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Modal de Portabilidade / Exportação LGPD Art. 18 */}
+      {showExportModal && searchResult && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <DownloadCloud className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Portabilidade de Prontuário (LGPD Art. 18)
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Exportação integral com integridade SHA-256 e salvaguarda do CFP
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowExportModal(false)} 
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {!exportResult ? (
+              <div className="space-y-4">
+                {/* Formato de Exportação */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Formato de Exportação
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setExportFormat('json')}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        exportFormat === 'json'
+                          ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/20 text-teal-900 dark:text-teal-200'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-semibold text-xs mb-1">
+                        <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                        JSON Estruturado
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Padrão aberto interoperável para migração de consultório.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExportFormat('encrypted_package')}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        exportFormat === 'encrypted_package'
+                          ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/20 text-teal-900 dark:text-teal-200'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-semibold text-xs mb-1">
+                        <Lock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                        Pacote Criptografado
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Cifrado por senha via AES-256-GCM + PBKDF2 (100k rounds).
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {exportFormat === 'encrypted_package' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Frase Secreta de Criptografia (Passphrase)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Mínimo de 6 caracteres (ex: SenhaForte#2026)..."
+                      value={exportPassphrase}
+                      onChange={(e) => setExportPassphrase(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      O titular necessitará desta senha para abrir e decifrar o arquivo.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Motivo / Protocolo da Solicitação
+                  </label>
+                  <input
+                    type="text"
+                    value={exportReason}
+                    onChange={(e) => setExportReason(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Resumo dos Dados Incluídos no Pacote */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                  <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Conteúdo Incluído no Pacote de Portabilidade:
+                  </div>
+                  <ul className="space-y-1 text-slate-600 dark:text-slate-300 list-disc list-inside text-[11px]">
+                    <li>Dados cadastrais decifrados e registros de consentimento (TCLE)</li>
+                    <li>Histórico completo de atendimentos com links e horários</li>
+                    <li>Prontuários e evoluções SOAP assinados (Human-in-the-Loop)</li>
+                    <li>Documentos oficiais CFP emitidos (Atestados, Relatórios, etc.)</li>
+                    <li>Transcrições e diarizações de sessões telepresenciais</li>
+                    <li>Resumo da trilha de auditoria WORM para o titular</li>
+                  </ul>
+                </div>
+
+                {/* Aviso Jurídico CFP nº 001/2009 */}
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                  <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">
+                    <strong>Salvaguarda Ética:</strong> A disponibilização do prontuário ao paciente não exclui o dever ético e legal do psicólogo titular de manter a via original em arquivo sigiloso pelo prazo mínimo de 5 anos (Res. CFP nº 001/2009 Art. 4º e LGPD Art. 16, I).
+                  </p>
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportModal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportData}
+                    disabled={exportLoading || (exportFormat === 'encrypted_package' && exportPassphrase.length < 6)}
+                    className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-lg shadow-teal-500/20"
+                  >
+                    {exportLoading ? (
+                      'Consolidando Prontuário...'
+                    ) : (
+                      <>
+                        <DownloadCloud className="w-4 h-4" />
+                        Gerar Pacote de Portabilidade
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Resultado Pronto com Download e Checksum */
+              <div className="space-y-4 animate-fade-in">
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    Pacote de Prontuário Gerado com Sucesso!
+                  </div>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                    {exportResult.message}
+                  </p>
+                </div>
+
+                {/* Checksum SHA-256 */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <Hash className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      Checksum SHA-256 de Integridade:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyChecksum}
+                      className="text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 text-[11px] cursor-pointer"
+                    >
+                      {copiedChecksum ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                      {copiedChecksum ? 'Copiado!' : 'Copiar Hash'}
+                    </button>
+                  </div>
+                  <div className="font-mono text-[11px] text-slate-800 dark:text-slate-200 break-all bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                    {exportResult.checksumSha256}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportResult(null)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer"
+                  >
+                    Gerar Novo Formato
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadFile}
+                    className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    Baixar Arquivo JSON ({exportResult.format === 'encrypted_package' ? 'Criptografado' : 'Estruturado'})
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Revogação Formal de Consentimento */}
+      {showRevokeModal && searchResult && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <UserX className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Revogação de Consentimento
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    LGPD Art. 18, IX & Resolução CFP nº 001/2009
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowRevokeModal(false)} 
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRevokeConsent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Justificativa da Revogação
+                </label>
+                <textarea
+                  rows={3}
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                  required
+                />
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="revokeQuarantineCheck"
+                  checked={revokeQuarantine}
+                  onChange={(e) => setRevokeQuarantine(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 dark:border-slate-700 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                />
+                <label htmlFor="revokeQuarantineCheck" className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed cursor-pointer">
+                  <strong>Anonimizar Dados de Contato (Quarentena LGPD):</strong> Pseudonimiza e-mail, telefone e CPF ativos enquanto mantém os registros clínicos históricos selados pela guarda legal obrigatória de 5 anos.
+                </label>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs">
+                A revogação cancela imediatamente a permissão para novas gravações ou transcrições por IA, sem prejudicar a validade dos atos clínicos praticados sob a vigência do consentimento prévio.
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRevokeModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={revokeLoading || revokeReason.length < 5}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {revokeLoading ? 'Gravando Trilha WORM...' : 'Confirmar Revogação'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Cadastro */}
       {showCreateModal && (

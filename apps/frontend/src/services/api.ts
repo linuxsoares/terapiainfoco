@@ -22,7 +22,11 @@ import type {
   SignIcpDTO,
   ClinicalOverviewMetrics,
   SecurityMetrics,
-  PatientClinicalMetrics
+  PatientClinicalMetrics,
+  ExportPatientDataDTO,
+  ExportPatientDataResponse,
+  RevokeConsentDTO,
+  RevokeConsentResponse
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -102,6 +106,23 @@ export const api = {
       method: 'POST'
     });
     return res.message;
+  },
+
+  // Portabilidade de Dados & Exportação LGPD Art. 18 (Opção F)
+  async exportPatientData(patientId: string, options?: ExportPatientDataDTO): Promise<ExportPatientDataResponse> {
+    const res = await request<ExportPatientDataResponse>(`/patients/${patientId}/export`, {
+      method: 'POST',
+      body: JSON.stringify(options || {})
+    });
+    return res;
+  },
+
+  async revokeConsent(patientId: string, data: RevokeConsentDTO): Promise<RevokeConsentResponse> {
+    const res = await request<RevokeConsentResponse>(`/patients/${patientId}/revoke-consent`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return res;
   },
 
   // 2. Agenda & Sessões (RFC §3.1, §3.2)
