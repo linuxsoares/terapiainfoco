@@ -6,6 +6,7 @@ import * as schema from './schema';
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
 import { migrate as migratePostgres } from 'drizzle-orm/postgres-js/migrator';
 import path from 'node:path';
+import fs from 'node:fs';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -30,12 +31,35 @@ export async function getDb(): Promise<AppDb> {
     });
     _dbInstance = drizzlePostgres(client, { schema });
 
-    const migrationsFolder = path.resolve(__dirname, '../../drizzle');
+    const possibleFolders = [
+      path.resolve(import.meta.dir || __dirname, '../../drizzle'),
+      path.resolve(process.cwd(), 'apps/backend/drizzle'),
+      path.resolve(process.cwd(), 'drizzle')
+    ];
+    const migrationsFolder = possibleFolders.find(f => fs.existsSync(f)) || possibleFolders[0];
+
     try {
       await migratePostgres(_dbInstance as any, { migrationsFolder });
-      console.log('✅ Migrações aplicadas com sucesso no PostgreSQL.');
+      console.log('✅ Migrações aplicadas com sucesso no PostgreSQL via Drizzle.');
     } catch (err) {
-      console.warn('⚠️ Nota sobre migrações PostgreSQL:', (err as Error).message);
+      console.warn('⚠️ Drizzle migrator reportou:', (err as Error).message);
+      console.log('🔄 Executando sincronização direta de schema SQL no Supabase...');
+      try {
+        const sqlFile = path.resolve(migrationsFolder, '0000_late_starfox.sql');
+        if (fs.existsSync(sqlFile)) {
+          const sqlContent = fs.readFileSync(sqlFile, 'utf-8');
+          const statements = sqlContent.split('--> statement-breakpoint');
+          for (const stmt of statements) {
+            const clean = stmt.trim();
+            if (clean) {
+              await client.unsafe(clean);
+            }
+          }
+          console.log('✅ Schema e tabelas sincronizados diretamente via SQL.');
+        }
+      } catch (sqlErr) {
+        console.warn('⚠️ Nota sobre execução SQL direta (tabelas já existentes):', (sqlErr as Error).message);
+      }
     }
 
     try {

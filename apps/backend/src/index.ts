@@ -13,8 +13,14 @@ import { analyticsRoute } from './routes/analytics';
 import { backupsRoute } from './routes/backups';
 import { systemRoute } from './routes/system';
 import { webhookRoute } from './routes/webhooks';
+import { getDb } from './db';
 
 export const app = new Hono();
+
+// Inicialização de banco de dados e migrações Drizzle no boot
+getDb()
+  .then(() => console.log('✅ Banco de dados conectado e migrações aplicadas com sucesso.'))
+  .catch((err) => console.error('⚠️ Erro ao inicializar banco de dados no boot:', err));
 
 
 

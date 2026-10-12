@@ -23,6 +23,8 @@ import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
 import { BackupModule } from './components/BackupModule';
 import { ThemeToggle } from './components/ThemeToggle';
+import { PrivacyProvider } from './contexts/PrivacyContext';
+import { PrivacyBanner, PrivacyToggleButton } from './components/PrivacyBanner';
 import { api } from './services/api';
 import type { SafeUser } from '@terapiainfoco/shared';
 
@@ -115,27 +117,29 @@ export default function App() {
   const isBlockedClinicalTab = isSecretary && (activeTab === 'soap' || activeTab === 'documents' || activeTab === 'audit' || activeTab === 'dashboard' || activeTab === 'backups');
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Top Navbar */}
-      <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between transition-colors duration-200">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-lg shadow-lg shadow-teal-500/20">
-            Ψ
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">TerapiaInFoco</span>
-              <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
-                Painel Clínico
-              </span>
+    <PrivacyProvider>
+      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+        {/* Top Navbar */}
+        <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between transition-colors duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-lg shadow-lg shadow-teal-500/20">
+              Ψ
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Plataforma de Gestão Clínica • RFC-001</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">TerapiaInFoco</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
+                  Painel Clínico
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Plataforma de Gestão Clínica • RFC-001</p>
+            </div>
           </div>
-        </div>
 
-        {/* Controles do Topo: Tema, e-Psi, Status 2FA e Seletor de Perfil RBAC */}
-        <div className="flex items-center gap-3 md:gap-4">
-          <ThemeToggle />
+          {/* Controles do Topo: Tema, Anti-Shoulder Surfing, e-Psi, Status 2FA e Seletor de Perfil RBAC */}
+          <div className="flex items-center gap-3 md:gap-4">
+            <ThemeToggle />
+            <PrivacyToggleButton />
 
           {/* Indicador de 2FA */}
           <button
@@ -224,6 +228,9 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* Banner de Modo Anti-Shoulder Surfing */}
+      <PrivacyBanner />
 
       {/* Main Layout */}
       <div className="flex flex-1">
@@ -423,5 +430,6 @@ export default function App() {
         </main>
       </div>
     </div>
+  </PrivacyProvider>
   );
 }

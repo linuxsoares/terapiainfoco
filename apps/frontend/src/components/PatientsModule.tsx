@@ -24,6 +24,8 @@ import type {
   CreatePatientDTO,
   ExportPatientDataResponse
 } from '@terapiainfoco/shared';
+import { AuditResourceType } from '@terapiainfoco/shared';
+import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
 
 export function PatientsModule() {
@@ -291,7 +293,15 @@ export function PatientsModule() {
                 <span className="text-[10px] uppercase font-bold tracking-widest text-teal-700 dark:text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-full">
                   Blind Index Match • Decriptado em RAM
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1.5">{searchResult.name}</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1.5">
+                  <MaskedField
+                    type="name"
+                    value={searchResult.name}
+                    resourceType={AuditResourceType.PATIENT}
+                    resourceId={searchResult.id}
+                    fieldName="name"
+                  />
+                </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">ID: {searchResult.id}</p>
               </div>
 
@@ -312,19 +322,37 @@ export function PatientsModule() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white dark:bg-slate-900/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
-                <span className="text-slate-500">E-mail:</span>
-                <p className="font-mono text-slate-800 dark:text-slate-200 mt-0.5">{searchResult.email}</p>
+                <span className="text-slate-500 block mb-0.5">E-mail:</span>
+                <MaskedField
+                  type="email"
+                  value={searchResult.email}
+                  resourceType={AuditResourceType.PATIENT}
+                  resourceId={searchResult.id}
+                  fieldName="email"
+                />
               </div>
               <div>
-                <span className="text-slate-500">Telefone:</span>
-                <p className="font-mono text-slate-800 dark:text-slate-200 mt-0.5">{searchResult.phone}</p>
+                <span className="text-slate-500 block mb-0.5">Telefone:</span>
+                <MaskedField
+                  type="phone"
+                  value={searchResult.phone}
+                  resourceType={AuditResourceType.PATIENT}
+                  resourceId={searchResult.id}
+                  fieldName="phone"
+                />
               </div>
               <div>
-                <span className="text-slate-500">CPF:</span>
-                <p className="font-mono text-slate-800 dark:text-slate-200 mt-0.5">{searchResult.cpf || 'Não informado'}</p>
+                <span className="text-slate-500 block mb-0.5">CPF:</span>
+                <MaskedField
+                  type="cpf"
+                  value={searchResult.cpf}
+                  resourceType={AuditResourceType.PATIENT}
+                  resourceId={searchResult.id}
+                  fieldName="cpf"
+                />
               </div>
               <div>
-                <span className="text-slate-500">Hash Blind Index:</span>
+                <span className="text-slate-500 block mb-0.5">Hash Blind Index:</span>
                 <p className="font-mono text-teal-700 dark:text-teal-400/80 truncate mt-0.5">{searchResult.cpfBindex || searchResult.emailBindex}</p>
               </div>
               {searchResult.consentRevokedAt && (

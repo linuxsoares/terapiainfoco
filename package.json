@@ -19,6 +19,8 @@
     "build:frontend": "bun run --cwd apps/frontend build",
     "build:backend": "bun run --cwd apps/backend build",
     "lint": "bun run --cwd apps/landingpage lint",
+    "db:migrate": "bun run --cwd apps/backend db:migrate",
+    "db:push": "bun run --cwd apps/backend db:push",
     "test": "bun test"
   },
   "devDependencies": {

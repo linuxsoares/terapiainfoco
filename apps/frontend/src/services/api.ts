@@ -45,7 +45,9 @@ import type {
   UpdateWebhookDTO,
   TestWebhookResponse,
   WebhookListResponse,
-  WebhookLogsResponse
+  WebhookLogsResponse,
+  UnmaskAuditRequestDTO,
+  UnmaskAuditResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -561,8 +563,18 @@ export const api = {
   async getWebhookLogs(id: string): Promise<WebhookDeliveryLog[]> {
     const res = await request<WebhookLogsResponse>(`/webhooks/${id}/logs`);
     return res.logs;
+  },
+
+  // 12. Mascaramento Dinâmico de Dados (DDM) & Trilha WORM de Revelação (RFC-001 Opção K)
+  async auditUnmask(dto: UnmaskAuditRequestDTO): Promise<UnmaskAuditResponse> {
+    const res = await request<UnmaskAuditResponse>('/audit/unmask', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res;
   }
 };
+
 
 
 
