@@ -75,7 +75,9 @@ export enum AuditAction {
   // Ações de Backup e Disaster Recovery com KMS (Opção G)
   BACKUP_CREATE = 'BACKUP_CREATE',
   BACKUP_VERIFY = 'BACKUP_VERIFY',
-  BACKUP_RESTORE = 'BACKUP_RESTORE'
+  BACKUP_RESTORE = 'BACKUP_RESTORE',
+  // Ações de Mascaramento Dinâmico de Dados e Privacidade (Opção K - DDM)
+  UNMASK_DATA = 'UNMASK_DATA'
 }
 
 export enum AuditResourceType {

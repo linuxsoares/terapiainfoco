@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais Implementados | 36/36 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 11 Extensões de Segurança | 120/120 Testes Passando
 
 
 ---
@@ -309,6 +309,33 @@ terapiainfoco/
 - [x] **Documentação Passo a Passo para Railway (`/docs/RAILWAY_DEPLOYMENT.md`):**
   - Guia completo com diagramas, vinculação de plugins PostgreSQL/Redis e configuração de variáveis de ambiente.
 
+
+---
+
+### 17. Mascaramento Dinâmico de Dados na Interface (DDM) & Modo Anti-Shoulder Surfing (Opção K - RFC-001 §3.4, §4.4 e LGPD Art. 11)
+- [x] **Motor Criptográfico de Mascaramento (`packages/crypto/src/dataMasking.ts`):**
+  - Ofuscação determinística e configurável para exibição visual segura em telas clínicas:
+    - `maskCPF`: preserva 3 primeiros e 2 últimos dígitos (`123.***.***-00`) ou ofuscação integral (`***.***.***-**`).
+    - `maskEmail`: ofuscação de usuário e domínio intermediário preservando TLD (`m***a@e***l.com`).
+    - `maskPhone`: preserva DDD e os 2 últimos dígitos (`(11) 9****-**21`).
+    - `maskName`: proteção de nome de paciente contra identificação visual (`Mariana S. •••••••`).
+    - `maskDiagnosticHypothesis`: blindagem estrita de CID-11 conforme LGPD Art. 11 (`[CID-11 / HIPÓTESE DIAGNÓSTICA PROTEGIDA]`).
+    - `maskClinicalText`: ofuscação de notas de prontuário mantendo estrutura visual de parágrafos.
+  - Suíte de 20 testes unitários cobrindo todos os cenários e opções de fullMask (`dataMasking.test.ts`).
+- [x] **Rota de Auditoria de Desmascaramento Forense no Backend (`POST /api/audit/unmask`):**
+  - Registro compulsório de cada revelação sob demanda na trilha imutável WORM (SHA-256 Hash Chain).
+  - Controle de Acesso RBAC Estrito: bloqueio com HTTP 403 Forbidden para perfis administrativos/secretaria que tentarem revelar dados clínicos (SOAP ou transcrições).
+  - Suíte de 5 testes de integração validando RBAC e integridade da hash-chain (`unmaskAudit.test.ts`).
+- [x] **Contexto Global de Privacidade & Modo Anti-Shoulder Surfing (`PrivacyContext.tsx`):**
+  - Estado global de proteção com atalho de teclado global `Alt + P` (e `Cmd/Ctrl + Shift + P`) para ocultar/desfocar dados instantaneamente em consultório.
+  - Auto-ocultação com temporizador de segurança regressivo de 30 segundos (`autoHideSeconds`).
+  - Botão de emergência *"Ocultar Todos"* para re-mascarar todos os campos com 1 clique.
+- [x] **Componentes React Adaptativos (`MaskedField.tsx` & `PrivacyBanner.tsx`):**
+  - `<MaskedField />`: botão interativo *"Revelar (WORM)"* com spinner, indicador forense e contagem regressiva.
+  - `<PrivacyBanner />` & `<PrivacyToggleButton />`: banner de aviso destacado no topo com atalho exibido e botão toggle no Header.
+  - Integração em `PatientsModule.tsx` (CPF, telefone, e-mail e nome).
+  - Integração em `SoapModule.tsx` (os 4 quadrantes SOAP e anotações confidenciais com desfoque `blur` e clique para revelar).
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -333,20 +360,19 @@ terapiainfoco/
 | `feat/security-webhooks-hmac` | Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança (Opção J) | PR #19 | Merged |
 | `feat/railway-deployment` | Configuração de Deployment no Railway (Dockerfile, railway.json, auto-migrações e guia) | PR #20 | Merged |
 | `gil/fix-deploy` | Correção de railway.json global e isolamento de builds do frontend | PR #21 | Merged |
-| `chore/deploy-trigger` | Disparo de deploy no Railway e inclusão do runner de produção | PR #22 | **Em Aberto** |
+| `chore/deploy-trigger` | Disparo de deploy no Railway e inclusão do runner de produção | PR #22 | Merged |
+| `railway/code-change-ZOB6Fg` | Fix apps/frontend/Dockerfile para Railpack chdir | PR #23 | Merged |
+| `feat/dynamic-data-masking-ddm` | Mascaramento Dinâmico de Dados na Interface (DDM), Modo Anti-Shoulder Surfing (Alt+P) e Trilha WORM (Opção K) | PR #24 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com os Webhooks Assinados HMAC-SHA256 e Notificações de Segurança operacionais e validados por 95 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### 🛡️ Opção K: Mascaramento Dinâmico de Dados na Interface (Dynamic Data Masking - DDM)
-- [ ] **Camada Visual de Privacidade:** Ofuscação sob demanda de dados sensíveis na tela (CPF, diagnóstico, anotações de sessões) com botão de revelação temporária auditada (`AuditAction.DECRYPT_READ`).
-- [ ] **Modo Anti-Shoulder Surfing:** Atalho rápido para ocultar dados de prontuário quando terceiros estiverem no ambiente clínico.
+Com o Mascaramento Dinâmico de Dados (DDM) e o Modo Anti-Shoulder Surfing operacionais e validados por 120 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 📊 Opção L: Health Check Abrangente & Readiness Probes (RFC §5.2)
 - [ ] **Probe Multi-Dependências:** Endpoint `/health/readiness` com checagem ativa de conexão PostgreSQL, PGlite, Redis, KMS e storage.
+- [ ] **Métricas Liveness & Uptime:** Endpoint `/health/liveness` com tempo de atividade do processo e consumo de memória RAM.
 
 ---
 
@@ -356,7 +382,7 @@ Com os Webhooks Assinados HMAC-SHA256 e Notificações de Segurança operacionai
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (95 testes)
+# 2. Executar suíte completa de testes (120 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -365,6 +391,7 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 
 

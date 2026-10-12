@@ -7,7 +7,9 @@
     "build": "bun build src/index.ts --outdir ./dist --target bun",
     "start": "bun src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

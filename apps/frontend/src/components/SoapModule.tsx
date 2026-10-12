@@ -16,10 +16,13 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Sparkle
+  Sparkle,
+  Loader2
 } from 'lucide-react';
 
 import type { SoapNote, TranscriptUtterance } from '@terapiainfoco/shared';
+import { AuditResourceType } from '@terapiainfoco/shared';
+import { usePrivacy } from '../contexts/PrivacyContext';
 import { api } from '../services/api';
 
 export function SoapModule() {
@@ -58,6 +61,30 @@ export function SoapModule() {
 
   const appointmentId = '00000000-0000-0000-0000-000000000010';
   const patientId = '00000000-0000-0000-0000-000000000002';
+
+  // Modo Anti-Shoulder Surfing e DDM Clínico
+  const {
+    isPrivacyMode,
+    unmaskField,
+    hideField,
+    isFieldRevealed,
+    getRemainingSeconds
+  } = usePrivacy();
+  const [unmaskLoadingField, setUnmaskLoadingField] = useState<string | null>(null);
+
+  const handleToggleSoapReveal = async (fieldName: string) => {
+    const effectiveId = recordId || appointmentId;
+    if (isFieldRevealed(effectiveId, fieldName)) {
+      hideField(effectiveId, fieldName);
+      return;
+    }
+    try {
+      setUnmaskLoadingField(fieldName);
+      await unmaskField(AuditResourceType.CLINICAL_RECORD, effectiveId, fieldName, 'Visualização clínica do quadrante SOAP');
+    } finally {
+      setUnmaskLoadingField(null);
+    }
+  };
 
   // Carrega ou inicializa a transcrição da sessão
   const handleLoadSessionAudio = async () => {
@@ -466,71 +493,255 @@ export function SoapModule() {
       {/* Campos SOAP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* S - Subjetivo */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2 relative">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400">
               S • Subjetivo
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Relato do Paciente & Sintomas</span>
+            <div className="flex items-center gap-2">
+              {isPrivacyMode && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleSoapReveal('soap_subjective')}
+                  disabled={unmaskLoadingField === 'soap_subjective'}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all ${
+                    isFieldRevealed(recordId || appointmentId, 'soap_subjective')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                  title="Revelar quadrante subjetivo sob demanda (Auditado na trilha WORM)"
+                >
+                  {unmaskLoadingField === 'soap_subjective' ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+                  ) : isFieldRevealed(recordId || appointmentId, 'soap_subjective') ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-amber-600" />
+                      <span>Ocultar ({getRemainingSeconds(recordId || appointmentId, 'soap_subjective')}s)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3 text-slate-500" />
+                      <span>Revelar (WORM)</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Relato do Paciente & Sintomas</span>
+            </div>
           </div>
-          <textarea
-            rows={5}
-            disabled={isSigned}
-            value={soap.subjective}
-            onChange={(e) => setSoap({ ...soap, subjective: e.target.value })}
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed"
-          />
+          <div className="relative">
+            <textarea
+              rows={5}
+              disabled={isSigned}
+              value={soap.subjective}
+              onChange={(e) => setSoap({ ...soap, subjective: e.target.value })}
+              className={`w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed transition-all ${
+                isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_subjective')
+                  ? 'blur-[4px] select-none pointer-events-none'
+                  : ''
+              }`}
+            />
+            {isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_subjective') && (
+              <div 
+                onClick={() => handleToggleSoapReveal('soap_subjective')}
+                className="absolute inset-0 bg-slate-100/40 dark:bg-slate-900/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center cursor-pointer transition-opacity hover:bg-slate-100/60"
+              >
+                <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-teal-600" />
+                  Clique para Revelar (Auditado WORM)
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* O - Objetivo */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2 relative">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400">
               O • Objetivo
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Observações Clínicas & Afeto</span>
+            <div className="flex items-center gap-2">
+              {isPrivacyMode && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleSoapReveal('soap_objective')}
+                  disabled={unmaskLoadingField === 'soap_objective'}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all ${
+                    isFieldRevealed(recordId || appointmentId, 'soap_objective')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                  title="Revelar quadrante objetivo sob demanda (Auditado na trilha WORM)"
+                >
+                  {unmaskLoadingField === 'soap_objective' ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+                  ) : isFieldRevealed(recordId || appointmentId, 'soap_objective') ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-amber-600" />
+                      <span>Ocultar ({getRemainingSeconds(recordId || appointmentId, 'soap_objective')}s)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3 text-slate-500" />
+                      <span>Revelar (WORM)</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Observações Clínicas & Afeto</span>
+            </div>
           </div>
-          <textarea
-            rows={5}
-            disabled={isSigned}
-            value={soap.objective}
-            onChange={(e) => setSoap({ ...soap, objective: e.target.value })}
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed"
-          />
+          <div className="relative">
+            <textarea
+              rows={5}
+              disabled={isSigned}
+              value={soap.objective}
+              onChange={(e) => setSoap({ ...soap, objective: e.target.value })}
+              className={`w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed transition-all ${
+                isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_objective')
+                  ? 'blur-[4px] select-none pointer-events-none'
+                  : ''
+              }`}
+            />
+            {isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_objective') && (
+              <div 
+                onClick={() => handleToggleSoapReveal('soap_objective')}
+                className="absolute inset-0 bg-slate-100/40 dark:bg-slate-900/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center cursor-pointer transition-opacity hover:bg-slate-100/60"
+              >
+                <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-teal-600" />
+                  Clique para Revelar (Auditado WORM)
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* A - Avaliação */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2 relative">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
               A • Avaliação
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Hipótese Clínica (TCC) & Evolução</span>
+            <div className="flex items-center gap-2">
+              {isPrivacyMode && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleSoapReveal('soap_assessment')}
+                  disabled={unmaskLoadingField === 'soap_assessment'}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all ${
+                    isFieldRevealed(recordId || appointmentId, 'soap_assessment')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                  title="Revelar quadrante de avaliação sob demanda (Auditado na trilha WORM)"
+                >
+                  {unmaskLoadingField === 'soap_assessment' ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+                  ) : isFieldRevealed(recordId || appointmentId, 'soap_assessment') ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-amber-600" />
+                      <span>Ocultar ({getRemainingSeconds(recordId || appointmentId, 'soap_assessment')}s)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3 text-slate-500" />
+                      <span>Revelar (WORM)</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Hipótese Clínica (TCC) & Evolução</span>
+            </div>
           </div>
-          <textarea
-            rows={5}
-            disabled={isSigned}
-            value={soap.assessment}
-            onChange={(e) => setSoap({ ...soap, assessment: e.target.value })}
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed"
-          />
+          <div className="relative">
+            <textarea
+              rows={5}
+              disabled={isSigned}
+              value={soap.assessment}
+              onChange={(e) => setSoap({ ...soap, assessment: e.target.value })}
+              className={`w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed transition-all ${
+                isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_assessment')
+                  ? 'blur-[4px] select-none pointer-events-none'
+                  : ''
+              }`}
+            />
+            {isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_assessment') && (
+              <div 
+                onClick={() => handleToggleSoapReveal('soap_assessment')}
+                className="absolute inset-0 bg-slate-100/40 dark:bg-slate-900/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center cursor-pointer transition-opacity hover:bg-slate-100/60"
+              >
+                <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-teal-600" />
+                  Clique para Revelar (Auditado WORM)
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* P - Plano */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-2 relative">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
               P • Plano
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Intervenções & Tarefas Entre Sessões</span>
+            <div className="flex items-center gap-2">
+              {isPrivacyMode && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleSoapReveal('soap_plan')}
+                  disabled={unmaskLoadingField === 'soap_plan'}
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all ${
+                    isFieldRevealed(recordId || appointmentId, 'soap_plan')
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                  title="Revelar quadrante de plano sob demanda (Auditado na trilha WORM)"
+                >
+                  {unmaskLoadingField === 'soap_plan' ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+                  ) : isFieldRevealed(recordId || appointmentId, 'soap_plan') ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-amber-600" />
+                      <span>Ocultar ({getRemainingSeconds(recordId || appointmentId, 'soap_plan')}s)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3 text-slate-500" />
+                      <span>Revelar (WORM)</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Intervenções & Tarefas Entre Sessões</span>
+            </div>
           </div>
-          <textarea
-            rows={5}
-            disabled={isSigned}
-            value={soap.plan}
-            onChange={(e) => setSoap({ ...soap, plan: e.target.value })}
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed"
-          />
+          <div className="relative">
+            <textarea
+              rows={5}
+              disabled={isSigned}
+              value={soap.plan}
+              onChange={(e) => setSoap({ ...soap, plan: e.target.value })}
+              className={`w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-teal-500 disabled:opacity-75 resize-none leading-relaxed transition-all ${
+                isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_plan')
+                  ? 'blur-[4px] select-none pointer-events-none'
+                  : ''
+              }`}
+            />
+            {isPrivacyMode && !isFieldRevealed(recordId || appointmentId, 'soap_plan') && (
+              <div 
+                onClick={() => handleToggleSoapReveal('soap_plan')}
+                className="absolute inset-0 bg-slate-100/40 dark:bg-slate-900/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center cursor-pointer transition-opacity hover:bg-slate-100/60"
+              >
+                <span className="bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-teal-600" />
+                  Clique para Revelar (Auditado WORM)
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

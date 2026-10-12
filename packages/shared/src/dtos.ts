@@ -632,6 +632,38 @@ export interface WebhookLogsResponse {
   logs: import('./models').WebhookDeliveryLog[];
 }
 
+/**
+ * 14. MASCARAMENTO DINÂMICO DE DADOS (DDM) & MODO ANTI-SHOULDER SURFING (Opção K - RFC-001)
+ */
+export interface UnmaskAuditRequestDTO {
+  resourceType: import('./enums').AuditResourceType;
+  resourceId: string;
+  fieldName: string;
+  reason?: string;
+}
+
+export interface UnmaskAuditResponse {
+  success: boolean;
+  auditedAt: string;
+  action: import('./enums').AuditAction;
+  resourceType: import('./enums').AuditResourceType;
+  resourceId: string;
+  fieldName: string;
+  actorId: string;
+  autoHideSeconds: number;
+  message: string;
+}
+
+export interface MaskedPatientViewDTO {
+  id: string;
+  name: string;
+  emailMasked: string;
+  phoneMasked: string;
+  cpfMasked: string;
+  isFullyMasked: boolean;
+}
+
+
 
 
 

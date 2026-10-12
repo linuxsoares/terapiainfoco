@@ -1,16 +1,73 @@
 import { Hono } from 'hono';
 import { AuditService } from '../services/auditService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
-import { UserRole } from '@terapiainfoco/shared';
+import { UserRole, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import type { UnmaskAuditRequestDTO, UnmaskAuditResponse } from '@terapiainfoco/shared';
 
 export const auditRoute = new Hono();
 
-// Acesso à trilha de auditoria WORM é restrito a Administradores e Psicólogos Titulares (LGPD Art. 37/38)
+// Autenticação básica requerida em todas as rotas de auditoria
 auditRoute.use('*', authMiddleware());
-auditRoute.use('*', requireRoles([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]));
+
+// 0. Registro de Revelação Auditada DDM (Dynamic Data Masking - RFC-001 Opção K & LGPD Art. 11)
+auditRoute.post('/unmask', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ success: false, error: 'Autenticação necessária para revelar dados sensíveis.' }, 401);
+  }
+
+  const body = await c.req.json<UnmaskAuditRequestDTO>().catch(() => null);
+  if (!body || !body.resourceType || !body.resourceId || !body.fieldName) {
+    return c.json({ 
+      success: false, 
+      error: 'Parâmetros inválidos: resourceType, resourceId e fieldName são obrigatórios.' 
+    }, 400);
+  }
+
+  // RBAC Clínico Estrito: Recepção/Secretária não pode revelar dados clínicos confidenciais (SOAP, anamnese, transcrições)
+  if (
+    user.role === UserRole.RECEPCAO_SECRETARIA && 
+    (body.resourceType === AuditResourceType.CLINICAL_RECORD || body.resourceType === AuditResourceType.TRANSCRIPT)
+  ) {
+    return c.json({
+      success: false,
+      error: 'Acesso negado: Perfil de recepção/secretária não possui privilégio clínico para descriptografar dados de prontuário (CFP nº 001/2009).'
+    }, 403);
+  }
+
+  // Registra a revelação na trilha imutável WORM (SHA-256 Hash Chain)
+  const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent') || 'TerapiaInFoco-DDM-Client';
+
+  AuditService.log({
+    actorId: user.id,
+    resourceType: body.resourceType,
+    resourceId: body.resourceId,
+    action: AuditAction.DECRYPT_READ,
+    ipAddress,
+    userAgent
+  });
+
+  const response: UnmaskAuditResponse = {
+    success: true,
+    auditedAt: new Date().toISOString(),
+    action: AuditAction.DECRYPT_READ,
+    resourceType: body.resourceType,
+    resourceId: body.resourceId,
+    fieldName: body.fieldName,
+    actorId: user.id,
+    autoHideSeconds: 30,
+    message: `Ação de revelação do campo sensível [${body.fieldName}] auditada e encadeada na trilha WORM com sucesso.`
+  };
+
+  return c.json(response, 200);
+});
+
+// Acesso à consulta da trilha de auditoria WORM é restrito a Administradores e Psicólogos Titulares (LGPD Art. 37/38)
+const adminOrTherapist = requireRoles([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]);
 
 // 1. Obter logs com filtros opcionais
-auditRoute.get('/', (c) => {
+auditRoute.get('/', adminOrTherapist, (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
@@ -31,13 +88,13 @@ auditRoute.get('/', (c) => {
 });
 
 // 2. Validação Criptográfica da Hash-Chain WORM (Tamper-Evident Ledger)
-auditRoute.get('/verify-chain', (c) => {
+auditRoute.get('/verify-chain', adminOrTherapist, (c) => {
   const result = AuditService.verifyChainIntegrity();
   return c.json(result, 200);
 });
 
 // 3. Relatório Formal de Conformidade para DPO e Fiscalização do CFP
-auditRoute.get('/report', (c) => {
+auditRoute.get('/report', adminOrTherapist, (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
@@ -56,7 +113,7 @@ auditRoute.get('/report', (c) => {
 });
 
 // 4. Exportação Forense em CSV
-auditRoute.get('/export/csv', (c) => {
+auditRoute.get('/export/csv', adminOrTherapist, (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
@@ -78,7 +135,7 @@ auditRoute.get('/export/csv', (c) => {
 });
 
 // 5. Exportação em JSON Assinado
-auditRoute.get('/export/json', (c) => {
+auditRoute.get('/export/json', adminOrTherapist, (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
@@ -99,8 +156,9 @@ auditRoute.get('/export/json', (c) => {
 });
 
 // 6. Obter logs específicos de um recurso
-auditRoute.get('/resource/:id', (c) => {
+auditRoute.get('/resource/:id', adminOrTherapist, (c) => {
   const resourceId = c.req.param('id');
   const logs = AuditService.getLogsForResource(resourceId);
   return c.json({ success: true, count: logs.length, logs });
 });
+
