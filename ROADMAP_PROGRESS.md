@@ -148,6 +148,31 @@ terapiainfoco/
 
 ---
 
+### 10. Dashboard Clínico, Métricas Longitudinais & Observabilidade de Segurança (RFC-001 Opção E)
+- [x] **Serviço de Analytics & Métricas Clínicas (`analyticsService.ts`):**
+  - Consolidação longitudinal de dados de atendimento clínico: pacientes ativos vs. quarentenados LGPD, sessões agendadas, concluídas e canceladas.
+  - Cálculo de **taxa de comparecimento e assiduidade (attendance rate)** em tempo real.
+  - Taxa de conformidade de **Human-in-the-Loop compulsório** em notas SOAP (CFP nº 001/2009).
+  - Agrupamento temporal de atendimentos por mês e distribuição dos 4 modelos oficiais CFP nº 006/2019 (Atestado, Relatório, Laudo, Declaração).
+  - Análise longitudinal por paciente com timeline de evolução clínica, resumos dos eixos Subjetivo e Avaliação diagnóstica.
+- [x] **Observabilidade de Segurança & Auditoria WORM (`analyticsService.ts`):**
+  - Verificação de integridade estrutural e criptográfica da trilha WORM (`INTACT` - imutabilidade garantida por append-only).
+  - Contabilização de leituras decifradas FLE (Field-Level Encryption), assinaturas digitais aplicadas e adoção de 2FA/MFA (TOTP RFC 6238).
+  - Monitoramento de tentativas de força bruta e requisições interceptadas por Rate Limiting (HTTP 429).
+  - Feed de alertas de segurança com classificação de severidade (`INFO`, `WARN`, `ALERT`) e IP de origem.
+- [x] **Endpoints Backend com RBAC Estrito (`apps/backend/src/routes/analytics.ts`):**
+  - `GET /api/analytics/clinical-overview`: KPIs consolidados do consultório.
+  - `GET /api/analytics/security-metrics`: observabilidade e telemetria de segurança.
+  - `GET /api/analytics/patient/:patientId`: métricas e evolução longitudinal individual.
+- [x] **Interface Frontend Integrada (`DashboardModule.tsx` & `App.tsx`):**
+  - Alternador dinâmico entre **Visão Clínica** e **Segurança & WORM**.
+  - Gráfico responsivo em barras do volume mensal de sessões psicológicas.
+  - Barras de distribuição dos 4 modelos formais de documentos do CFP.
+  - Seletor de paciente com histórico detalhado e linha do tempo de evolução terapêutica.
+  - Suporte completo a **Light Mode** e **Dark Mode** e bloqueio educativo para perfil de secretária (RBAC).
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -160,20 +185,21 @@ terapiainfoco/
 | `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD & SOAP IA) | PR #9 | Merged |
 | `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | Merged |
 | `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | Merged |
-| `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | **Em Aberto** |
+| `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | Merged |
+| `feat/analytics-clinical-dashboard-observability` | Dashboard Clínico, Métricas Longitudinais e Observabilidade WORM (Opção E) | PR #13 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a geração server-side de PDFs e assinatura ICP-Brasil plenamente operacionais e validadas por 43 testes automatizados, os próximos passos de evolução do roadmap são:
+Com o Dashboard Clínico, Métricas Longitudinais e Observabilidade de Segurança operacionais e validados por 49 testes automatizados, os próximos passos de evolução do roadmap são:
 
-#### 📊 Opção E: Observabilidade, Métricas & Dashboard Clínico do Paciente
-- [ ] **Painel Analítico de Pacientes:** Visualização longitudinal da evolução clínica do paciente, aderência e frequência de sessões.
-- [ ] **Métricas de Segurança & Auditoria:** Dashboard visual com indicadores de integridade dos logs WORM, tentativas de força bruta bloqueadas por rate limit e volumetria de requisições.
+#### 📦 Opção F: Portabilidade de Dados & Exportação Criptografada LGPD Art. 18
+- [ ] **Exportação Segura de Prontuário:** Endpoint para exportação de dados em pacote cifrado (ZIP/JSON) contendo prontuários, notas SOAP e documentos para portabilidade do titular conforme Art. 18 da LGPD e Resoluções do CFP.
+- [ ] **Direito de Acesso e Revogação de Consentimento:** Fluxo de revogação de consentimento de teleconsulta e transcrição com anonimização auditável.
 
-#### 📦 Opção F: Portabilidade de Dados & Exportação LGPD Art. 18
-- [ ] **Exportação Segura de Prontuário:** Pacote de dados cifrado para portabilidade do titular conforme Artigo 18 da LGPD e Resoluções do CFP.
+#### 🔐 Opção G: Backup Automatizado & Disaster Recovery com KMS
+- [ ] **Rotina de Backup Criptografado:** Geração e rotação periódica de backups em repouso cifrados pela Master Key (KMS).
 
 ---
 
@@ -183,7 +209,7 @@ Com a geração server-side de PDFs e assinatura ICP-Brasil plenamente operacion
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (43 testes)
+# 2. Executar suíte completa de testes (49 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

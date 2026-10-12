@@ -10,8 +10,10 @@ import {
   KeyRound,
   ShieldAlert,
   ChevronDown,
-  UserCheck
+  UserCheck,
+  BarChart3
 } from 'lucide-react';
+import { DashboardModule } from './components/DashboardModule';
 import { AgendaModule } from './components/AgendaModule';
 import { PatientsModule } from './components/PatientsModule';
 import { SoapModule } from './components/SoapModule';
@@ -50,7 +52,7 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security'>('agenda');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security'>('dashboard');
 
   // Usuário autenticado
   const [currentUser, setCurrentUser] = useState<SafeUser>({
@@ -108,7 +110,7 @@ export default function App() {
 
   // Verificações RBAC para a UI
   const isSecretary = currentUser.role === UserRole.RECEPCAO_SECRETARIA;
-  const isBlockedClinicalTab = isSecretary && (activeTab === 'soap' || activeTab === 'documents' || activeTab === 'audit');
+  const isBlockedClinicalTab = isSecretary && (activeTab === 'soap' || activeTab === 'documents' || activeTab === 'audit' || activeTab === 'dashboard');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
@@ -228,6 +230,25 @@ export default function App() {
           <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             Módulos RFC-001
           </div>
+
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>0. Dashboard & Métricas</span>
+            </div>
+            {isSecretary && (
+              <span title="Restrito a Psicólogos e Admin">
+                <Lock className="w-3.5 h-3.5 text-rose-500" />
+              </span>
+            )}
+          </button>
 
           <button
             onClick={() => setActiveTab('agenda')}
@@ -359,6 +380,7 @@ export default function App() {
               </div>
             ) : (
               <>
+                {activeTab === 'dashboard' && <DashboardModule />}
                 {activeTab === 'agenda' && <AgendaModule />}
                 {activeTab === 'patients' && <PatientsModule />}
                 {activeTab === 'soap' && <SoapModule />}
