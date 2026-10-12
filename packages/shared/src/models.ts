@@ -175,7 +175,29 @@ export interface PsychologicalDocument {
   isSigned: boolean;
   signedAt?: Date | string | null;
   signaturePadesHash?: string | null;
+  /** Assinatura digital qualificada ICP-Brasil (PAdES / MP 2.200-2/2001) */
+  icpSignature?: IcpSignatureData | null;
   createdAt: Date | string;
+}
+
+export interface IcpCertificateInfo {
+  subject: string;
+  issuer: string;
+  serialNumber: string;
+  validFrom: string;
+  validTo: string;
+  cpf: string;
+  crp?: string;
+  certificateType: 'A1' | 'A3';
+  complianceIcpBrasil: boolean;
+}
+
+export interface IcpSignatureData {
+  certificate: IcpCertificateInfo;
+  signatureHash: string;
+  timestampToken: string;
+  signedAt: string;
+  padesSubFilter: 'ETSI.CAdES.detached' | 'adbe.pkcs7.detached';
 }
 
 export interface StoredPsychologicalDocument extends Omit<PsychologicalDocument, 'content'> {
@@ -183,6 +205,7 @@ export interface StoredPsychologicalDocument extends Omit<PsychologicalDocument,
 }
 
 export interface DecryptedPsychologicalDocument extends PsychologicalDocument {}
+
 
 /**
  * 7. AUDITORIA IMUTÁVEL (Seção 4.4 - LGPD & CFP)

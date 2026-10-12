@@ -12,9 +12,12 @@
     "@electric-sql/pglite": "^0.5.8",
     "@terapiainfoco/crypto": "workspace:*",
     "@terapiainfoco/shared": "workspace:*",
+    "@types/qrcode": "^1.5.6",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.7.1",
-    "postgres": "^3.4.9"
+    "pdf-lib": "^1.17.1",
+    "postgres": "^3.4.9",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
