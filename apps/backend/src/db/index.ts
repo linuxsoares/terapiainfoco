@@ -20,8 +20,14 @@ export async function getDb(): Promise<AppDb> {
   }
 
   if (databaseUrl) {
-    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL...`);
-    const client = postgres(databaseUrl, { max: 10 });
+    const isSupabase = databaseUrl.includes('supabase.co') || databaseUrl.includes('pooler.supabase.com');
+    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL${isSupabase ? ' (Supabase detectado)' : ''}...`);
+    const ssl = isSupabase || databaseUrl.includes('sslmode=require') ? 'require' : undefined;
+    const client = postgres(databaseUrl, {
+      max: 10,
+      ssl,
+      prepare: isSupabase ? false : undefined
+    });
     _dbInstance = drizzlePostgres(client, { schema });
 
     const migrationsFolder = path.resolve(__dirname, '../../drizzle');
