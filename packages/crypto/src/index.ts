@@ -6,5 +6,6 @@ export * from './sanitizer';
 export * from './totp';
 export * from './passphrasePackage';
 export * from './encryptedCache';
+export * from './webhookSignature';
 
 

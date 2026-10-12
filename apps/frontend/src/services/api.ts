@@ -38,7 +38,14 @@ import type {
   RateLimitStatusResponse,
   ResetRateLimitResponse,
   EncryptedCacheStatsResponse,
-  RotateCacheKeyResponse
+  RotateCacheKeyResponse,
+  WebhookSubscription,
+  WebhookDeliveryLog,
+  CreateWebhookDTO,
+  UpdateWebhookDTO,
+  TestWebhookResponse,
+  WebhookListResponse,
+  WebhookLogsResponse
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -513,6 +520,46 @@ export const api = {
       method: 'POST'
     });
     return res;
+  },
+
+  // 11. Webhooks Assinados HMAC-SHA256 & Notificações de Segurança (RFC-001 Opção J & LGPD Art. 48)
+  async getWebhooks(): Promise<WebhookSubscription[]> {
+    const res = await request<WebhookListResponse>('/webhooks');
+    return res.webhooks;
+  },
+
+  async createWebhook(dto: CreateWebhookDTO): Promise<WebhookSubscription> {
+    const res = await request<{ success: boolean; webhook: WebhookSubscription }>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.webhook;
+  },
+
+  async updateWebhook(id: string, dto: UpdateWebhookDTO): Promise<WebhookSubscription> {
+    const res = await request<{ success: boolean; webhook: WebhookSubscription }>(`/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto)
+    });
+    return res.webhook;
+  },
+
+  async deleteWebhook(id: string): Promise<void> {
+    await request<{ success: boolean; message: string }>(`/webhooks/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async testWebhook(id: string): Promise<TestWebhookResponse> {
+    const res = await request<TestWebhookResponse>(`/webhooks/${id}/test`, {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async getWebhookLogs(id: string): Promise<WebhookDeliveryLog[]> {
+    const res = await request<WebhookLogsResponse>(`/webhooks/${id}/logs`);
+    return res.logs;
   }
 };
 

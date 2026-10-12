@@ -282,3 +282,40 @@ export interface AuthTokenPayload {
   iat: number;
 }
 
+/**
+ * 9. WEBHOOKS ASSINADOS & EVENTOS DE SEGURANÇA (Opção J - RFC-001)
+ */
+export type WebhookEventType = 
+  | 'SECURITY_ALERT'
+  | 'AUTH_LOGIN_FAILED'
+  | 'BACKUP_RESTORE'
+  | 'DATA_EXPORT_LGPD'
+  | 'CONSENT_REVOKED'
+  | 'DOCUMENT_SIGNED';
+
+export interface WebhookDeliveryLog {
+  id: string;
+  webhookId: string;
+  eventType: WebhookEventType;
+  deliveryUrl: string;
+  timestamp: string;
+  httpStatus?: number;
+  latencyMs: number;
+  success: boolean;
+  signatureHeader: string;
+  error?: string;
+}
+
+export interface WebhookSubscription {
+  id: string;
+  url: string;
+  description: string;
+  events: WebhookEventType[];
+  secret: string; // whsec_...
+  enabled: boolean;
+  createdAt: string;
+  lastTriggeredAt?: string | null;
+  lastDeliveryStatus?: 'SUCCESS' | 'FAILED' | null;
+}
+
+
