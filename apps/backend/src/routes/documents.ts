@@ -1,14 +1,19 @@
 import { Hono } from 'hono';
 import type { GenerateDocumentDTO, SignDocumentDTO } from '@terapiainfoco/shared';
 import { DocumentService } from '../services/documentService';
+import { validationRateLimiter } from '../middlewares/rateLimiter';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 
 export const documentsRoute = new Hono();
 
 /**
  * POST /api/documents/draft
  * Gera rascunho de documento clínico (Declaração, Atestado, Relatório, Laudo)
+ * Restrito a Psicólogo Titular ou Administrador
  */
-documentsRoute.post('/draft', async (c) => {
+documentsRoute.post('/draft', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+
   try {
     const body = await c.req.json<GenerateDocumentDTO>();
     const therapistId = 'therapist-001';
@@ -39,8 +44,9 @@ documentsRoute.post('/draft', async (c) => {
 /**
  * POST /api/documents/sign
  * Assina digitalmente o documento e gera hash SHA-256 / PAdES imutável
+ * Restrito ao Psicólogo Titular ou Administrador
  */
-documentsRoute.post('/sign', async (c) => {
+documentsRoute.post('/sign', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
   try {
     const body = await c.req.json<SignDocumentDTO>();
 
@@ -65,9 +71,9 @@ documentsRoute.post('/sign', async (c) => {
 
 /**
  * GET /api/documents
- * Lista todos os documentos emitidos
+ * Lista todos os documentos emitidos (restrito a equipe clínica)
  */
-documentsRoute.get('/', async (c) => {
+documentsRoute.get('/', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
   try {
     const therapistId = 'therapist-001';
     const docs = DocumentService.listDocuments(therapistId, {
@@ -85,8 +91,9 @@ documentsRoute.get('/', async (c) => {
 /**
  * GET /api/documents/validate/:token
  * Endpoint público de verificação de autenticidade (QR Code)
+ * Protegido com Rate Limiting contra ataques de força bruta / enumeração de tokens
  */
-documentsRoute.get('/validate/:token', async (c) => {
+documentsRoute.get('/validate/:token', validationRateLimiter, async (c) => {
   const token = c.req.param('token');
   const result = DocumentService.validatePublicToken(token);
 
@@ -96,3 +103,4 @@ documentsRoute.get('/validate/:token', async (c) => {
 
   return c.json({ success: true, ...result }, 200);
 });
+

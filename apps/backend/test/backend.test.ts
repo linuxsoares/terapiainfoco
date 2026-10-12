@@ -1,12 +1,15 @@
 import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus } from '@terapiainfoco/shared';
 
 describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
   beforeEach(() => {
     db.clear();
+    globalRateLimitStore.reset();
   });
+
 
   it('GET /health deve retornar status OK e metadados de conformidade', async () => {
     const res = await app.request('/health');

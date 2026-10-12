@@ -14,19 +14,53 @@ import type {
   DecryptedSessionTranscription,
   GenerateSoapProposalDTO,
   GenerateSoapProposalResponse,
-  SanitizeTranscriptionDTO
+  SanitizeTranscriptionDTO,
+  SafeUser,
+  LoginResponse,
+  TwoFactorSetupResponse
 } from '@terapiainfoco/shared';
-
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+let authToken: string | null = typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_access_token') : null;
+let refreshToken: string | null = typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_refresh_token') : null;
+
+export const authStorage = {
+  getToken: () => authToken,
+  setToken: (token: string | null) => {
+    authToken = token;
+    if (token) localStorage.setItem('terapiainfoco_access_token', token);
+    else localStorage.removeItem('terapiainfoco_access_token');
+  },
+  getRefreshToken: () => refreshToken,
+  setRefreshToken: (token: string | null) => {
+    refreshToken = token;
+    if (token) localStorage.setItem('terapiainfoco_refresh_token', token);
+    else localStorage.removeItem('terapiainfoco_refresh_token');
+  },
+  clear: () => {
+    authToken = null;
+    refreshToken = null;
+    localStorage.removeItem('terapiainfoco_access_token');
+    localStorage.removeItem('terapiainfoco_refresh_token');
+    localStorage.removeItem('terapiainfoco_user');
+  }
+};
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>)
+  };
+
+  const token = authStorage.getToken();
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers
-    }
+    headers
   });
 
   const data = await res.json();
@@ -36,6 +70,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   return data;
 }
+
 
 export const api = {
   // 1. Pacientes (FLE & Blind Index)
@@ -174,6 +209,76 @@ export const api = {
       body: JSON.stringify(dto)
     });
     return res.proposal;
+  },
+
+  // 7. Autenticação Segura, RBAC & 2FA/MFA (Opção C)
+  async login(email: string, password: string): Promise<LoginResponse> {
+    const res = await request<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    if (res.accessToken) {
+      authStorage.setToken(res.accessToken);
+    }
+    if (res.refreshToken) {
+      authStorage.setRefreshToken(res.refreshToken);
+    }
+    return res;
+  },
+
+  async validateLogin2FA(tempToken: string, code: string): Promise<LoginResponse> {
+    const res = await request<LoginResponse>('/auth/2fa/validate', {
+      method: 'POST',
+      body: JSON.stringify({ tempToken, code })
+    });
+    if (res.accessToken) {
+      authStorage.setToken(res.accessToken);
+    }
+    if (res.refreshToken) {
+      authStorage.setRefreshToken(res.refreshToken);
+    }
+    return res;
+  },
+
+  async setup2FA(): Promise<TwoFactorSetupResponse> {
+    const res = await request<TwoFactorSetupResponse & { success: boolean }>('/auth/2fa/setup', {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async verify2FA(code: string): Promise<{ success: boolean; message: string; backupCodes?: string[] }> {
+    const res = await request<{ success: boolean; message: string; backupCodes?: string[] }>('/auth/2fa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+    return res;
+  },
+
+  async disable2FA(password: string): Promise<{ success: boolean; message: string }> {
+    const res = await request<{ success: boolean; message: string }>('/auth/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password })
+    });
+    return res;
+  },
+
+  async getMe(): Promise<SafeUser> {
+    const res = await request<{ success: boolean; user: SafeUser }>('/auth/me');
+    return res.user;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      const currentRefreshToken = authStorage.getRefreshToken();
+      await request('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: currentRefreshToken })
+      });
+    } finally {
+      authStorage.clear();
+    }
   }
 };
+
 

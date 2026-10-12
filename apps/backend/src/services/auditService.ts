@@ -38,4 +38,20 @@ export class AuditService {
   static getAllLogs(): AuditLog[] {
     return [...db.auditLogs];
   }
+
+  static async logAccess(params: {
+    actorId: string;
+    resourceType: AuditResourceType;
+    resourceId: string;
+    action: AuditAction;
+    ipAddress: string;
+    userAgent?: string;
+  }): Promise<AuditLog> {
+    return this.log(params);
+  }
 }
+
+export const auditService = {
+  logAccess: (params: Parameters<typeof AuditService.log>[0]) => Promise.resolve(AuditService.log(params))
+};
+

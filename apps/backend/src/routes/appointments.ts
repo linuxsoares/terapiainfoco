@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { AppointmentService } from '../services/appointmentService';
+import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
 import type { 
   CreateAppointmentDTO, 
   UpdateAppointmentStatusDTO,
@@ -21,8 +22,9 @@ appointmentsRoute.get('/available-slots', async (c) => {
   }
 });
 
-// Agendamento público de teleconsulta diretamente pela landing page
-appointmentsRoute.post('/public/book', async (c) => {
+// Agendamento público de teleconsulta diretamente pela landing page (com proteção anti-spam)
+appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
+
   const body = await c.req.json<PublicBookingDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');

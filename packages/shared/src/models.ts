@@ -4,6 +4,7 @@ import {
   TranscriptionStatus,
   SpeakerRole,
   DocumentType,
+  UserRole,
   AuditAction,
   AuditResourceType
 } from './enums';
@@ -196,3 +197,55 @@ export interface AuditLog {
   userAgent?: string;
   timestamp: Date | string;
 }
+
+/**
+ * 8. USUÁRIO DO SISTEMA (Opção C - RFC §5.2)
+ * Profissional autenticado com suporte a RBAC e 2FA/MFA
+ */
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  crp?: string;
+  crpRegion?: string;
+  therapistId?: string;
+  passwordHash: string;
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  twoFactorBackupCodes?: string[];
+  createdAt: Date | string;
+  lastLoginAt?: Date | string | null;
+}
+
+/**
+ * Usuário seguro sem dados confidenciais (hash de senha e segredo 2FA)
+ */
+export interface SafeUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  crp?: string;
+  crpRegion?: string;
+  therapistId?: string;
+  twoFactorEnabled: boolean;
+  createdAt: Date | string;
+  lastLoginAt?: Date | string | null;
+}
+
+/**
+ * Payload estruturado do token JWT
+ */
+export interface AuthTokenPayload {
+  sub: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  therapistId?: string;
+  crp?: string;
+  type: 'access' | 'refresh' | 'mfa_temp';
+  exp: number;
+  iat: number;
+}
+
