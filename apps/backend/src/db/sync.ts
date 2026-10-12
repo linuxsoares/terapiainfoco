@@ -151,6 +151,38 @@ export async function persistPatientToDb(sqlDb: AppDb, patient: StoredPatient): 
       createdAt: patient.createdAt
     })
     .onConflictDoNothing();
+
+  // Sincronização direta via PostgREST do Supabase (quando SUPABASE_URL e SECRET_KEY configurados)
+  if (config.supabase.url && config.supabase.secretKey) {
+    try {
+      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/patients`, {
+        method: 'POST',
+        headers: {
+          'apikey': config.supabase.secretKey,
+          'Authorization': `Bearer ${config.supabase.secretKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=ignore-duplicates'
+        },
+        body: JSON.stringify({
+          id: patient.id,
+          therapist_id: validTherapistId,
+          encrypted_name: patient.encryptedName,
+          encrypted_email: patient.encryptedEmail,
+          encrypted_phone: patient.encryptedPhone,
+          encrypted_cpf: patient.encryptedCpf || null,
+          email_bindex: patient.emailBindex,
+          cpf_bindex: patient.cpfBindex || null,
+          consent_transcription_signed: patient.consentTranscriptionSigned,
+          consent_signed_at: patient.consentSignedAt,
+          consent_revoked_at: patient.consentRevokedAt || null,
+          consent_revoke_reason: patient.consentRevokeReason || null,
+          created_at: patient.createdAt
+        })
+      });
+    } catch {
+      // Ignora erro se PostgREST estiver inacessível ou tabela não sincronizada
+    }
+  }
 }
 
 /**
@@ -196,7 +228,7 @@ export async function persistUserToDb(sqlDb: AppDb, user: User, rawPassword?: st
     })
     .onConflictDoNothing();
 
-  // Sincronização opcional com Supabase Auth Admin (/auth/v1/admin/users)
+  // Sincronização via Supabase Auth Admin (/auth/v1/admin/users)
   if (config.supabase.url && config.supabase.secretKey && rawPassword) {
     try {
       const res = await fetch(`${config.supabase.url.replace(/\/+$/, '')}/auth/v1/admin/users`, {
@@ -229,6 +261,35 @@ export async function persistUserToDb(sqlDb: AppDb, user: User, rawPassword?: st
       console.warn('⚠️ Falha ao criar usuário no Supabase Auth Admin:', err?.message || err);
     }
   }
+
+  // Sincronização via PostgREST do Supabase para tabela public.users
+  if (config.supabase.url && config.supabase.secretKey) {
+    try {
+      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': config.supabase.secretKey,
+          'Authorization': `Bearer ${config.supabase.secretKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=ignore-duplicates'
+        },
+        body: JSON.stringify({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          crp: user.crp || null,
+          crp_region: user.crpRegion || null,
+          therapist_id: therapistUuid || null,
+          password_hash: user.passwordHash,
+          two_factor_enabled: user.twoFactorEnabled,
+          created_at: user.createdAt
+        })
+      });
+    } catch {
+      // Ignora erro se PostgREST estiver inacessível
+    }
+  }
 }
 
 /**
@@ -254,4 +315,33 @@ export async function persistAppointmentToDb(sqlDb: AppDb, appt: StoredAppointme
       createdAt: appt.createdAt
     })
     .onConflictDoNothing();
+
+  // Sincronização direta via PostgREST
+  if (config.supabase.url && config.supabase.secretKey) {
+    try {
+      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/appointments`, {
+        method: 'POST',
+        headers: {
+          'apikey': config.supabase.secretKey,
+          'Authorization': `Bearer ${config.supabase.secretKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=ignore-duplicates'
+        },
+        body: JSON.stringify({
+          id: appt.id,
+          therapist_id: validTherapistId,
+          patient_id: appt.patientId,
+          scheduled_start: appt.scheduledStart,
+          scheduled_end: appt.scheduledEnd,
+          status: appt.status,
+          google_event_id: appt.googleEventId || null,
+          encrypted_meet_url: appt.encryptedMeetUrl,
+          meet_access_code: appt.meetAccessCode || null,
+          created_at: appt.createdAt
+        })
+      });
+    } catch {
+      // Ignora erro se PostgREST falhar
+    }
+  }
 }
