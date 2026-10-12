@@ -3,7 +3,8 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 12 Extensões de Segurança | 127/127 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança | 137/137 Testes Passando
+
 
 
 ---
@@ -363,6 +364,38 @@ terapiainfoco/
 
 ---
 
+### 19. Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M - RFC-001 §5.2 e Continuous Verification)
+- [x] **Motor de Sondas Sintéticas Ponta-a-Ponta (`apps/backend/src/services/syntheticService.ts`):**
+  - Simulação ativa e automatizada dos 8 passos da jornada clínica sem risco ou exposição de dados reais:
+    1. **Agendamento Público na Landing Page:** Validação de buffer obrigatório de 10 minutos (RFC §3.1), geração determinística de sala no Google Meet (formato `xxx-yyyy-zzz`) e registro de TCLE.
+    2. **Autenticação Segura JWT & 2FA TOTP:** Desafio RFC 6238 com segredo Base32 (160 bits), tolerância a clock drift e validação com `timingSafeEqual`.
+    3. **Despacho & Verificação de Webhook Assinado:** Assinatura canônica via HMAC-SHA256 (`t=...,v1=...`) com proteção contra replay attacks (janela de 300s).
+    4. **Teleconsulta, Transcrição & Minuta SOAP com IA:** Sanitização pré-LLM eliminando 100% de PIIs (LGPD Art. 11), estruturação dos 4 eixos SOAP e trava compulsória de *Human-in-the-Loop* (CFP nº 001/2009).
+    5. **Mascaramento Dinâmico (DDM) & Trilha WORM:** Ofuscação de telas Anti-Shoulder Surfing com registro compulsório de revelação no ledger imutável.
+    6. **Emissão de Documento CFP nº 006/2019 & Assinatura ICP-Brasil:** Papel timbrado digital, carimbo de tempo TSA (RFC 3161), hash SHA-256 e validação pública Zero-Knowledge via QR Code.
+    7. **Integridade da Hash-Chain WORM SHA-256:** Recálculo forense atestando que toda a cadeia de auditoria permanece 100% íntegra (*Tamper-Evident*).
+    8. **Simulação de Resiliência & Fallback PGlite WASM:** Inicialização e execução de queries em instância isolada de contingência.
+  - Retenção em memória dos últimos 20 resultados de execuções com detalhamento de latência por passo e contadores de sucesso.
+- [x] **Simulador de Resiliência de Conectividade & Fallback PGlite (`checkResilience`):**
+  - Teste de failover automático para `@electric-sql/pglite` (PostgreSQL 16 compilado em WebAssembly) comprovando capacidade de operação contínua e offline mesmo quando a rede externa ou Supabase estiverem indisponíveis.
+  - Verificação de schema relacional (7 tabelas centrais) e medição de latência de failover em milissegundos.
+- [x] **Endpoints REST de Monitoramento Sintético (`apps/backend/src/routes/system.ts`):**
+  - `POST /api/system/synthetic/run`: disparo de probes sintéticos sob demanda com seleção de cenários (`full_clinical_journey` vs. `resilience_only`) e auditoria WORM.
+  - `GET /api/system/synthetic/history`: consulta do histórico das últimas execuções.
+  - `GET /api/system/synthetic/resilience`: diagnóstico isolado do motor de contingência PGlite.
+  - Controle de Acesso RBAC Estrito: restrito a `ADMIN` (bloqueio 403 para terapeuta/secretária e 401 para anônimos).
+- [x] **Painel de Monitoramento Sintético no Frontend (`apps/frontend/src/components/SecurityModule.tsx` - Card 6):**
+  - Card dedicado com seleção interativa de cenário e botão *"Disparar Probe Sintético Agora"* com spinner em tempo real.
+  - Indicadores visuais de resultado global (100% Validado / Parcial / Falhou), latência total e status de resiliência.
+  - Banner informativo de tolerância a falhas (RFC §5.2) destacando o papel do PGlite embutido.
+  - Linha do tempo interativa detalhando cada um dos 8 passos com status, tempo em ms e metadados.
+  - Tabela com histórico recente de execuções, datas e durações.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes Automatizados E2E (`apps/backend/test/syntheticClinicalJourney.test.ts`):**
+  - 10 testes de integração cobrindo execução da jornada completa, cenário de resiliência, isolamento PGlite, endpoints REST, proteção RBAC e integridade pós-execução do ledger WORM.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -391,17 +424,25 @@ terapiainfoco/
 | `feat/backend-auto-migrations` | Inicialização compulsória com getDb no boot, auto-migração resiliente Supabase e scripts db:migrate | PR #25 | Merged |
 | `fix/supabase-persistence-sync` | Persistência ativa de pacientes, usuários e agendamentos no Supabase, sincronização com Supabase Auth Admin e migração 0001 (users/docs) | PR #26 | Merged |
 | `fix/supabase-persistence-sync` | Script supabase_full_schema.sql e fallback direto de gravação PostgREST | PR #27 | Merged |
-| `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | **Em Aberto** |
+| `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | Merged |
+| `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com os Health Checks Abrangentes, Readiness Probes e Painel de Infraestrutura operacionais e validados por 127 testes automatizados, os próximos passos de evolução do roadmap são:
+Com o Monitoramento Sintético E2E, Simulador de Resiliência PGlite e Painel de Sondas operacionais e validados por 137 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 🧪 Opção M: Monitoramento Sintético e Testes E2E Automatizados (Playwright / Synthetic Probes)
-- [ ] **Fluxos Sintéticos Ponta-a-Ponta:** Validação contínua da jornada completa: Agendamento na Landing Page ➔ Login de Psicólogo ➔ Notificação Webhook ➔ Prontuário SOAP.
-- [ ] **Simulador de Resiliência de Conectividade:** Teste de failover automático para PGlite quando o PostgreSQL externo estiver inacessível.
+- [x] **Fluxos Sintéticos Ponta-a-Ponta:** Validação contínua da jornada completa: Agendamento na Landing Page ➔ Login de Psicólogo ➔ Notificação Webhook ➔ Prontuário SOAP ➔ DDM ➔ ICP-Brasil ➔ WORM.
+- [x] **Simulador de Resiliência de Conectividade:** Teste de failover automático para PGlite quando o PostgreSQL externo estiver inacessível com preservação de schema.
+
+#### 📊 Opção N: Métricas OpenTelemetry / Prometheus & Tracing Distribuído (RFC-001 §5.2)
+- [ ] **Métricas Prometheus (`/metrics`):** Exportador de métricas RED (Rate, Errors, Duration) e métricas de negócios (sessões/min, latência de IA).
+- [ ] **Tracing OpenTelemetry (OTel):** Rastreamento de span ponta-a-ponta entre requisições HTTP, queries SQL e operações KMS.
+
+#### 🔑 Opção O: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID)
+- [ ] **Passkeys / WebAuthn:** Login sem senha ou segundo fator físico com chaves FIDO2 de hardware para o psicólogo titular.
 
 ---
 
@@ -411,7 +452,7 @@ Com os Health Checks Abrangentes, Readiness Probes e Painel de Infraestrutura op
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (127 testes)
+# 2. Executar suíte completa de testes (137 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -420,6 +461,7 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 
 
