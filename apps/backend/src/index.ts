@@ -11,6 +11,7 @@ import { transcriptionsRoute } from './routes/transcriptions';
 import { authRoute } from './routes/auth';
 import { analyticsRoute } from './routes/analytics';
 import { backupsRoute } from './routes/backups';
+import { systemRoute } from './routes/system';
 
 export const app = new Hono();
 
@@ -50,6 +51,7 @@ app.route('/api/transcriptions', transcriptionsRoute);
 app.route('/api/audit', auditRoute);
 app.route('/api/analytics', analyticsRoute);
 app.route('/api/backups', backupsRoute);
+app.route('/api/system', systemRoute);
 
 
 

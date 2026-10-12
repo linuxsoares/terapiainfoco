@@ -540,5 +540,58 @@ export interface ComplianceReportResponse {
   checksumSha256: string;
 }
 
+/**
+ * 12. RATE LIMITING DISTRIBUÍDO & CACHE CRIPTOGRÁFICO EM MEMÓRIA (Opção I - RFC-001)
+ */
+export interface RateLimitPresetInfo {
+  max: number;
+  windowSeconds: number;
+  description: string;
+}
+
+export interface RateLimitStatusResponse {
+  success: boolean;
+  storeType: 'redis' | 'memory';
+  redisConnected: boolean;
+  redisHost?: string;
+  totalTrackedKeys: number;
+  presets: {
+    auth: RateLimitPresetInfo;
+    search: RateLimitPresetInfo;
+    validation: RateLimitPresetInfo;
+    booking: RateLimitPresetInfo;
+  };
+  activeBlocksCount: number;
+}
+
+export interface ResetRateLimitDTO {
+  key?: string;
+}
+
+export interface ResetRateLimitResponse {
+  success: boolean;
+  message: string;
+  targetKey: string;
+}
+
+export interface EncryptedCacheStatsResponse {
+  success: boolean;
+  totalKeys: number;
+  hits: number;
+  misses: number;
+  hitRatio: number;
+  encryptionAlgorithm: 'aes-256-gcm';
+  keyRotationAgeSeconds: number;
+  itemsInMemoryEncrypted: number;
+  memorySizeBytesEstimate: number;
+}
+
+export interface RotateCacheKeyResponse {
+  success: boolean;
+  message: string;
+  rotatedAt: string;
+}
+
+
 
 

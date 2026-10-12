@@ -241,6 +241,30 @@ terapiainfoco/
 
 ---
 
+### 14. Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória (RFC-001 Opção I - §4.2, §4.4)
+- [x] **Store de Rate Limiting Distribuído Multi-Instâncias (`rateLimitStore.ts`):**
+  - Implementação de `RedisRateLimitStore` baseada em **Scripts Lua atômicos** (`INCR` + `PEXPIRE` / `PTTL`), eliminando race conditions em clusters com múltiplos pods/nós.
+  - Implementação de `ResilientRateLimitStore` com **Circuit Breaker & Graceful Degradation**: fallback imediato e transparente para `InMemoryRateLimitStore` caso o Redis falhe ou esteja indisponível, sem interrupção de serviço.
+  - Emissão de cabeçalhos padronizados HTTP: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` e `X-RateLimit-Store` (`redis` ou `memory`).
+- [x] **Motor de Cache Criptográfico em Memória RAM (`EncryptedInMemoryCache` em `@terapiainfoco/crypto`):**
+  - Cifragem em repouso volátil utilizando **AES-256-GCM** com Data Encryption Key (DEK) de 256 bits gerada aleatoriamente em memória (`crypto.randomBytes(32)`).
+  - Proteção contra extração de dados sensíveis e PII de pacientes em caso de inspeção de heap memory, core dumps ou vazamentos em ambientes multi-tenant.
+  - Expiração automática por TTL, descarte e detecção de adulteração de memória via GCM Auth Tag.
+  - Rotação sob demanda da DEK em RAM com recifragem imediata e descarte seguro (`zeroize`) da chave anterior.
+- [x] **Endpoints Administrativos de Sistema (`/api/system`):**
+  - `GET /api/system/rate-limit/status`: Telemetria em tempo real do store ativo, chaves monitoradas e status de conexão.
+  - `POST /api/system/rate-limit/reset`: Desbloqueio e reset administrativo de IPs ou chaves específicas por administradores.
+  - `GET /api/system/cache/stats`: Estatísticas de observabilidade (Hit Ratio %, objetos cifrados, bytes em RAM e idade da DEK).
+  - `POST /api/system/cache/rotate-key`: Disparo de rotação manual da DEK em RAM com auditoria WORM.
+  - Controle estrito de RBAC: acesso restrito a `ADMIN` (secretária bloqueada com HTTP 403 Forbidden e não-autenticados com HTTP 401).
+- [x] **Painel Frontend de Infraestrutura & Segurança (`SecurityModule.tsx`):**
+  - Card dedicado com status do motor de Rate Limiting (`Redis Cluster Distribuído` vs. `In-Memory Fallback Local`).
+  - Painel de métricas do Cache Criptográfico em RAM (Hit Ratio, bytes cifrados e idade da chave).
+  - Formulário para Administrador desbloquear IP ou limpar rate limits e botão para rotacionar a DEK em RAM.
+  - Totalmente adaptativo com suporte a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -258,21 +282,21 @@ terapiainfoco/
 | `feat/data-portability-lgpd-export` | Portabilidade de Dados, Exportação Criptografada LGPD Art. 18 e Revogação CFP (Opção F) | PR #14 | Merged |
 | `feat/backup-kms-disaster-recovery` | Backup Automatizado em Repouso, Envelope Encryption KMS e Disaster Recovery (Opção G) | PR #15 | Merged |
 | `feat/audit-worm-compliance-report` | Trilha de Auditoria Externa WORM (Hash-Chain SHA-256) & Relatórios DPO/CFP (Opção H) | PR #16 | Merged |
-| `feat/rfc-001-docs` | Documentação oficial da especificação técnica RFC-001 em `/docs/RFC-001.md` | PR #17 | **Em Aberto** |
+| `feat/rfc-001-docs` | Documentação oficial da especificação técnica RFC-001 em `/docs/RFC-001.md` | PR #17 | Merged |
+| `feat/distributed-rate-limiting-redis-cache` | Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória (Opção I) | PR #18 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a Trilha de Auditoria Externa WORM e Relatórios DPO/CFP operacionais e validados por 69 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### ⚡ Opção I: Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória
-- [ ] **Adapter Redis / Upstash com Fallback em Memória:** Suporte a rate limiting atômico distribuído para clusters multi-instâncias de API.
-- [ ] **Cache Criptografado de Metadados Temporários:** Armazenamento volátil com TTL curto de chaves e verificações com segurança de segredos em repouso.
+Com o Rate Limiting Distribuído e Cache Criptográfico em Memória operacionais e validados por 82 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 🔔 Opção J: Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança em Tempo Real
-- [ ] **Emissor de Notificações Criptográficas:** Disparo de webhooks autenticados para alertas de segurança (tentativas excessivas de login, restauração de backup, download forense).
-- [ ] **Interface de Configuração de Webhooks:** Gerenciamento de endpoints e segredos de assinatura.
+- [ ] **Emissor de Notificações Criptográficas:** Disparo de webhooks com assinatura canônica HMAC-SHA256 para eventos de segurança (tentativas excessivas de login, restauração de backup, desativação de 2FA, exportação LGPD Art. 18).
+- [ ] **Interface de Gestão de Webhooks:** Painel para Administradores cadastrarem URLs de destino, gerarem segredos e testarem a entrega com log de status HTTP.
+
+#### 🛡️ Opção K: Mascaramento Dinâmico de Dados na Interface (Dynamic Data Masking - DDM)
+- [ ] **Camada Visual de Privacidade:** Ofuscação sob demanda de dados sensíveis na tela com botão de revelação temporária auditada (`AuditAction.DECRYPT_READ`).
 
 ---
 
@@ -282,7 +306,7 @@ Com a Trilha de Auditoria Externa WORM e Relatórios DPO/CFP operacionais e vali
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (69 testes)
+# 2. Executar suíte completa de testes (82 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
