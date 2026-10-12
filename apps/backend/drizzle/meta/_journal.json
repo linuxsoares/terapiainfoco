@@ -8,6 +8,13 @@
       "when": 1791581701926,
       "tag": "0000_late_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791835368893,
+      "tag": "0001_wide_toad",
+      "breakpoints": true
     }
   ]
 }

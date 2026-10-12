@@ -1,5 +1,8 @@
 import { sign, verify } from 'hono/jwt';
 import { db } from '../db/memoryDb';
+import { getDb, schema } from '../db';
+import { persistUserToDb } from '../db/sync';
+import { eq } from 'drizzle-orm';
 import { config } from '../config';
 import { 
   generateTotpSecret, 
@@ -57,10 +60,10 @@ export class AuthService {
     const passwordHash = await Bun.password.hash(dto.password);
     const userId = crypto.randomUUID();
 
-    // Se for psicólogo, vincula ao registro de terapeuta
+    // Se for psicólogo, vincula ao registro de terapeuta com UUID válido
     let therapistId: string | undefined;
     if (dto.role === UserRole.PSICOLOGO_TITULAR && dto.crp) {
-      therapistId = `therapist-${userId.slice(0, 8)}`;
+      therapistId = crypto.randomUUID();
       db.therapists.set(therapistId, {
         id: therapistId,
         crp: dto.crp,
@@ -86,6 +89,16 @@ export class AuthService {
 
     db.users.set(userId, newUser);
 
+    // Persistência assíncrona no PostgreSQL / Supabase e Supabase Auth Admin
+    getDb().then(async sqlDb => {
+      try {
+        await persistUserToDb(sqlDb, newUser, dto.password);
+        console.log(`✅ Usuário ${newUser.email} persistido no Supabase/PostgreSQL.`);
+      } catch (sqlErr) {
+        console.warn('⚠️ Falha ao persistir usuário no Supabase/PostgreSQL:', sqlErr);
+      }
+    }).catch(() => {});
+
     await auditService.logAccess({
       actorId: userId,
       resourceType: AuditResourceType.USER,
@@ -103,29 +116,91 @@ export class AuthService {
    */
   public async login(dto: LoginDTO, ipAddress: string = '127.0.0.1'): Promise<LoginResponse> {
     const email = dto.email.toLowerCase().trim();
-    const user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
+    let user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
 
+    // Se não encontrou na memória, busca no PostgreSQL / Supabase
     if (!user) {
-      await auditService.logAccess({
-        actorId: '00000000-0000-0000-0000-000000000000',
-        resourceType: AuditResourceType.SECURITY,
-        resourceId: '00000000-0000-0000-0000-000000000000',
-        action: AuditAction.AUTH_LOGIN_FAILED,
-        ipAddress,
-        userAgent: `Login attempt failed: user not found (${email})`
-      });
-      throw new Error('Credenciais inválidas. Verifique seu e-mail e senha.');
+      try {
+        const sqlDb = await getDb();
+        const [found] = await (sqlDb as any)
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.email, email));
+        if (found) {
+          user = {
+            id: found.id,
+            email: found.email,
+            name: found.name,
+            role: found.role as any,
+            crp: found.crp || undefined,
+            crpRegion: found.crpRegion || undefined,
+            therapistId: found.therapistId || undefined,
+            passwordHash: found.passwordHash,
+            twoFactorEnabled: found.twoFactorEnabled,
+            twoFactorSecret: found.twoFactorSecret || undefined,
+            twoFactorBackupCodes: found.twoFactorBackupCodes || undefined,
+            createdAt: found.createdAt,
+            lastLoginAt: found.lastLoginAt || undefined
+          };
+          db.users.set(user.id, user);
+        }
+      } catch {
+        // fallback
+      }
     }
 
-    const passwordValid = await Bun.password.verify(dto.password, user.passwordHash);
-    if (!passwordValid) {
+    let passwordValid = false;
+    if (user) {
+      passwordValid = await Bun.password.verify(dto.password, user.passwordHash);
+    }
+
+    // Se falhou verificação local mas Supabase Auth estiver disponível, tenta autenticar via REST do Supabase Auth
+    if (!passwordValid && config.supabase.url && (config.supabase.secretKey || config.supabase.publishableKey)) {
+      try {
+        const apiKey = config.supabase.publishableKey || config.supabase.secretKey;
+        const sbRes = await fetch(`${config.supabase.url.replace(/\/+$/, '')}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: apiKey
+          },
+          body: JSON.stringify({ email, password: dto.password })
+        });
+        if (sbRes.ok) {
+          const sbData = (await sbRes.json()) as any;
+          if (sbData?.user) {
+            passwordValid = true;
+            if (!user) {
+              const newLocalUser: User = {
+                id: sbData.user.id || crypto.randomUUID(),
+                email: sbData.user.email,
+                name: sbData.user.user_metadata?.name || email.split('@')[0],
+                role: sbData.user.user_metadata?.role || UserRole.PSICOLOGO_TITULAR,
+                crp: sbData.user.user_metadata?.crp,
+                crpRegion: sbData.user.user_metadata?.crpRegion,
+                therapistId: '00000000-0000-0000-0000-000000000001',
+                passwordHash: await Bun.password.hash(dto.password),
+                twoFactorEnabled: false,
+                createdAt: new Date()
+              };
+              db.users.set(newLocalUser.id, newLocalUser);
+              user = newLocalUser;
+            }
+          }
+        }
+      } catch {
+        // ignora erro transitório
+      }
+    }
+
+    if (!user || !passwordValid) {
       await auditService.logAccess({
-        actorId: user.id,
+        actorId: user?.id || '00000000-0000-0000-0000-000000000000',
         resourceType: AuditResourceType.SECURITY,
-        resourceId: user.id,
+        resourceId: user?.id || '00000000-0000-0000-0000-000000000000',
         action: AuditAction.AUTH_LOGIN_FAILED,
         ipAddress,
-        userAgent: 'Login attempt failed: wrong password'
+        userAgent: `Login attempt failed: ${!user ? 'user not found' : 'wrong password'} (${email})`
       });
       throw new Error('Credenciais inválidas. Verifique seu e-mail e senha.');
     }
