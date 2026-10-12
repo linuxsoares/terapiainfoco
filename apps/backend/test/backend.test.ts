@@ -276,4 +276,164 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(validation.document.patientInitials).toBe('R. C. B.');
     expect(validation.document.signaturePadesHash).toBe(signedDoc.signaturePadesHash);
   });
+
+  it('Pipeline de Transcrição, Diarização, Sanitização LGPD Art. 11 e IA SOAP (Módulo 3 - RFC §3.3)', async () => {
+    // 1. Cadastra paciente SEM consentimento de transcrição
+    const patientNoConsentRes = await app.request('/api/patients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        name: 'Carlos Eduardo',
+        email: 'carlos@email.com',
+        phone: '11911112222',
+        consentTranscriptionSigned: false
+      })
+    });
+    const patientNoConsentData = await patientNoConsentRes.json();
+    const patientNoConsentId = patientNoConsentData.patient.id;
+
+    // Cria agendamento para este paciente
+    const apptNoConsentRes = await app.request('/api/appointments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        patientId: patientNoConsentId,
+        scheduledStart: new Date(Date.now() + 7200000).toISOString(),
+        scheduledEnd: new Date(Date.now() + 10200000).toISOString()
+      })
+    });
+    const apptNoConsentData = await apptNoConsentRes.json();
+
+    // Tentativa de upload de áudio DEVE FALHAR por falta de TCLE (LGPD Art. 11)
+    const blockedUploadRes = await app.request('/api/transcriptions/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId: apptNoConsentData.appointment.id,
+        audioFileName: 'teleconsulta.m4a'
+      })
+    });
+    expect(blockedUploadRes.status).toBe(400);
+    const blockedData = await blockedUploadRes.json();
+    expect(blockedData.error).toContain('consentimento para gravação e transcrição');
+
+    // 2. Cadastra paciente COM consentimento de transcrição (TCLE)
+    const patientWithConsentRes = await app.request('/api/patients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        name: 'Mariana Silva de Oliveira',
+        email: 'mariana.silva@email.com',
+        phone: '11987654321',
+        cpf: '123.456.789-00',
+        consentTranscriptionSigned: true
+      })
+    });
+    const patientWithConsentData = await patientWithConsentRes.json();
+    const patientId = patientWithConsentData.patient.id;
+
+    // Cria agendamento
+    const apptRes = await app.request('/api/appointments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        therapistId: 'therapist-001',
+        patientId,
+        scheduledStart: new Date(Date.now() + 14400000).toISOString(),
+        scheduledEnd: new Date(Date.now() + 17400000).toISOString()
+      })
+    });
+    const apptData = await apptRes.json();
+    const appointmentId = apptData.appointment.id;
+
+    // 3. Upload e Diarização de Áudio (RFC §3.3)
+    const uploadRes = await app.request('/api/transcriptions/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId,
+        audioFileName: 'teleconsulta-meet.m4a',
+        durationSeconds: 3120
+      })
+    });
+    expect(uploadRes.status).toBe(201);
+    const uploadData = await uploadRes.json();
+    expect(uploadData.transcription.id).toBeDefined();
+    expect(uploadData.transcription.utterances.length).toBeGreaterThan(0);
+    // Verifica canais separados (Terapeuta e Paciente)
+    expect(uploadData.transcription.utterances[0].speaker).toBe('TERAPEUTA');
+    expect(uploadData.transcription.utterances[1].speaker).toBe('PACIENTE');
+
+    // 4. Consulta da transcrição decifrada
+    const getTranscriptionRes = await app.request(`/api/transcriptions/appointment/${appointmentId}`);
+    expect(getTranscriptionRes.status).toBe(200);
+    const getTranscriptionData = await getTranscriptionRes.json();
+    expect(getTranscriptionData.transcription.utterances.length).toBe(uploadData.transcription.utterances.length);
+
+    // 5. Endpoint isolado de sanitização de PII
+    const sanitizeRes = await app.request('/api/transcriptions/sanitize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Olá Mariana Silva, seu CPF é 123.456.789-00 e celular (11) 98765-4321.',
+        patientName: 'Mariana Silva'
+      })
+    });
+    expect(sanitizeRes.status).toBe(200);
+    const sanitizeData = await sanitizeRes.json();
+    expect(sanitizeData.result.sanitizedText).toContain('[PACIENTE]');
+    expect(sanitizeData.result.sanitizedText).toContain('[CPF]');
+    expect(sanitizeData.result.sanitizedText).toContain('[TELEFONE]');
+    expect(sanitizeData.result.replacedCount).toBeGreaterThanOrEqual(3);
+
+    // 6. Geração assistida de SOAP com IA (RFC §3.3)
+    const aiSoapRes = await app.request('/api/transcriptions/generate-soap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId
+      })
+    });
+    expect(aiSoapRes.status).toBe(200);
+    const aiSoapData = await aiSoapRes.json();
+    expect(aiSoapData.proposal.soap.subjective).toBeDefined();
+    expect(aiSoapData.proposal.soap.objective).toBeDefined();
+    expect(aiSoapData.proposal.soap.assessment).toBeDefined();
+    expect(aiSoapData.proposal.soap.plan).toBeDefined();
+    expect(aiSoapData.proposal.privateNotesSuggestion).toBeDefined();
+    expect(aiSoapData.proposal.humanReviewRequired).toBe(true);
+    expect(aiSoapData.proposal.disclaimer).toContain('Human-in-the-Loop');
+
+    // 7. Salva a minuta gerada pela IA e assina com Human-in-the-Loop
+    const draftSoapRes = await app.request('/api/clinical-records/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId,
+        patientId,
+        sessionNumber: 1,
+        soap: aiSoapData.proposal.soap,
+        privateNotes: aiSoapData.proposal.privateNotesSuggestion
+      })
+    });
+    expect(draftSoapRes.status).toBe(201);
+    const recordData = await draftSoapRes.json();
+
+    const signSoapRes = await app.request('/api/clinical-records/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recordId: recordData.record.id,
+        confirmedHumanReview: true
+      })
+    });
+    expect(signSoapRes.status).toBe(200);
+    const signedData = await signSoapRes.json();
+    expect(signedData.record.isSigned).toBe(true);
+    expect(signedData.record.signatureHash).toBeDefined();
+  });
 });
+

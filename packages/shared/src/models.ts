@@ -105,6 +105,17 @@ export interface SessionTranscription {
   createdAt: Date | string;
 }
 
+export interface StoredSessionTranscription extends SessionTranscription {
+  encryptedStorageKey: string;
+  encryptedTranscript?: EncryptedPayload;
+}
+
+export interface DecryptedSessionTranscription extends SessionTranscription {
+  utterances: TranscriptUtterance[];
+  sanitizedUtterances?: TranscriptUtterance[];
+}
+
+
 /**
  * 5. PRONTUÁRIOS E EVOLUÇÃO CLÍNICA - SOAP (Módulo 4 - CFP 001/2009)
  */

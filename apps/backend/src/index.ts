@@ -7,8 +7,10 @@ import { appointmentsRoute } from './routes/appointments';
 import { clinicalRecordsRoute } from './routes/clinicalRecords';
 import { auditRoute } from './routes/audit';
 import { documentsRoute } from './routes/documents';
+import { transcriptionsRoute } from './routes/transcriptions';
 
 export const app = new Hono();
+
 
 // Middlewares globais
 app.use('*', logger());
@@ -38,7 +40,9 @@ app.route('/api/patients', patientsRoute);
 app.route('/api/appointments', appointmentsRoute);
 app.route('/api/clinical-records', clinicalRecordsRoute);
 app.route('/api/documents', documentsRoute);
+app.route('/api/transcriptions', transcriptionsRoute);
 app.route('/api/audit', auditRoute);
+
 
 console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);
 

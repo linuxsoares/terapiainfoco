@@ -1,9 +1,10 @@
 # 📋 TerapiaInFoco — Status de Implementação & Próximos Passos (RFC-001)
 
 > **Documento de Continuidade Operacional**  
-> **Data:** 09/10/2026  
+> **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 5 Módulos Principais Implementados | 14/14 Testes Passando
+> **Status Geral:** 6 Módulos Principais Implementados | 20/20 Testes Passando
+
 
 ---
 
@@ -81,8 +82,11 @@ terapiainfoco/
   - Visualização de horários, buffers e agendamento com Google Meet.
 - [x] **Módulo de Pacientes (`PatientsModule.tsx`):**
   - Formulário com TCLE, banner explicativo de Blind Indexing e Quarentena LGPD.
-- [x] **Módulo SOAP (`SoapModule.tsx`):**
-  - Edição dos 4 quadrantes SOAP, notas privadas recolhíveis, trava de *Human-in-the-Loop* e certificado visual de imutabilidade.
+- [x] **Módulo SOAP & Transcrição com IA (`SoapModule.tsx`):**
+  - Pipeline de áudio da teleconsulta e diarização com separação dos canais Terapeuta vs. Paciente e timestamps.
+  - Alternância interativa entre transcrição diarizada e visualização com Sanitização LGPD Art. 11 (destaque visual de tokens protegidos).
+  - Botão "Gerar Rascunho SOAP com IA" com síntese clínica dos 4 quadrantes (`S`, `O`, `A`, `P`) e notas privadas (§3.4).
+  - Trava legal compulsória de *Human-in-the-Loop* (CFP nº 001/2009) e certificado visual de imutabilidade com hash SHA-256.
 - [x] **Módulo de Documentos CFP (`DocumentsModule.tsx`):**
   - Seleção dos 4 modelos oficiais do CFP (Declaração, Atestado, Relatório, Laudo).
   - Papel timbrado digital formatado com cabeçalho oficial e assinatura.
@@ -91,6 +95,12 @@ terapiainfoco/
   - Suporte a impressão e exportação em PDF (`window.print`).
 - [x] **Módulo de Auditoria (`AuditModule.tsx`):**
   - Tabela de logs WORM em tempo real com identificação de IP e ação.
+
+### 6. Pipeline de Transcrição, Diarização & IA Pré-LLM (`packages/crypto` & `apps/backend`)
+- [x] **Upload & Validação de TCLE (RFC §3.3):** Endpoint `/api/transcriptions/upload` com validação de consentimento prévio do paciente (LGPD Art. 11).
+- [x] **Armazenamento Criptografado de Mídia:** Cifragem simétrica AES-256-GCM para transcrições e metadados de áudio no repouso.
+- [x] **Motor de Sanitização de PII Pré-LLM (`packages/crypto/src/sanitizer.ts`):** Substituição determinística de CPFs, telefones, e-mails, CEPs, RGs e nomes próprios contextuais por tokens genéricos (`[PACIENTE]`, `[TERAPEUTA]`, `[TELEFONE]`, `[CPF]`, etc.) antes da transmissão à nuvem.
+- [x] **Geração Assistida de SOAP (`/api/transcriptions/generate-soap`):** Síntese clínica automática estruturada sob os 4 eixos SOAP com aviso legal compulsório de revisão humana.
 
 ---
 
@@ -102,20 +112,21 @@ terapiainfoco/
 | `feat/db-schema-drizzle-pglite` | Drizzle ORM, PGlite & Postgres | PR #2 | Merged |
 | `feat/frontend-backend-integration` | Conexão API REST + Módulos 1 a 4 | PR #4 | Merged |
 | `feat/theme-toggle-dark-light` | Dark Mode / Light Mode adaptativo | PR #5 | Merged |
-| `feat/modulo-5-documentos-cfp` | Módulo 5 (Documentos CFP + QR Code) | PR #6 | **Merged** |
+| `feat/modulo-5-documentos-cfp` | Módulo 5 (Documentos CFP + QR Code) | PR #6 | Merged |
+| `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD Art. 11 & SOAP IA) | PR #9 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-A branch `main` está 100% atualizada com os 5 primeiros módulos da RFC-001 integrados e validados. Os próximos passos para dar continuidade ao projeto estão estruturados abaixo:
+A branch `main` e a feature branch `feat/pipeline-transcricao-ia-soap` agora contam com o Módulo 3 e 4 plenamente integrados e validados. Os próximos passos para dar continuidade ao projeto estão estruturados abaixo:
 
-#### 🎙️ Opção A: Módulo 3 — Pipeline de Transcrição, Diarização & IA (RFC §3.3)
-- [ ] **Upload de Áudio:** Endpoint para envio de arquivos de áudio da teleconsulta (`/api/transcriptions/upload`).
-- [ ] **Diarização de Áudio:** Separação automática dos canais de fala (Terapeuta vs. Paciente) com carimbos de tempo.
-- [ ] **Sanitização de PII Pré-LLM (LGPD Art. 11):** Mecanismo de anonimização que substitui nomes, números, endereços e identificadores por tokens genéricos antes do envio da transcrição para a IA.
-- [ ] **Geração Assistida de SOAP:** Prompting estruturado para gerar a proposta inicial dos 4 quadrantes clínicos com base na transcrição sanitizada.
-- [ ] **Integração no Frontend:** Botão "Gerar com IA" no `SoapModule` que preenche o rascunho mantendo a revisão humana compulsória.
+#### 🎙️ Módulo 3 & 4 — Concluído ✅
+- [x] **Upload de Áudio:** Endpoint para envio de arquivos de áudio da teleconsulta (`/api/transcriptions/upload`).
+- [x] **Diarização de Áudio:** Separação automática dos canais de fala (Terapeuta vs. Paciente) com carimbos de tempo.
+- [x] **Sanitização de PII Pré-LLM (LGPD Art. 11):** Mecanismo de anonimização que substitui nomes, números, endereços e identificadores por tokens genéricos antes do envio da transcrição para a IA.
+- [x] **Geração Assistida de SOAP:** Prompting estruturado para gerar a proposta inicial dos 4 quadrantes clínicos com base na transcrição sanitizada.
+- [x] **Integração no Frontend:** Botão "Gerar com IA" no `SoapModule` que preenche o rascunho mantendo a revisão humana compulsória.
 
 #### 🌐 Opção B: Experiência do Paciente & Agendamento Público na Landing Page (`apps/landingpage`)
 - [ ] **Widget de Agendamento Online:** Conectar a landing page institucional (`terapiainfoco.com.br`) com o backend (`POST /api/appointments`).
@@ -127,6 +138,7 @@ A branch `main` está 100% atualizada com os 5 primeiros módulos da RFC-001 int
 - [ ] **Auth Layer:** Implementação de JWT com refresh tokens e controle de sessão segura.
 - [ ] **2FA / MFA:** Autenticação de dois fatores (TOTP / WebAuthn) para conformidade com prontuários de saúde.
 - [ ] **Rate Limiting:** Proteção contra ataques de enumeração nos endpoints de Blind Index e validação pública.
+
 
 ---
 

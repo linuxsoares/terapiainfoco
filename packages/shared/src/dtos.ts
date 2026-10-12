@@ -1,5 +1,6 @@
 import { AppointmentStatus, DocumentType } from './enums';
-import { SoapNote } from './models';
+import { SoapNote, TranscriptUtterance } from './models';
+
 
 export interface CreatePatientDTO {
   name: string;
@@ -59,3 +60,44 @@ export interface ValidateDocumentResponse {
   };
   message?: string;
 }
+
+export interface UploadAudioDTO {
+  appointmentId: string;
+  audioFileName?: string;
+  durationSeconds?: number;
+  rawAudioBase64?: string;
+  customTranscript?: TranscriptUtterance[];
+}
+
+export interface SanitizeTranscriptionDTO {
+  transcriptionId?: string;
+  text?: string;
+  utterances?: TranscriptUtterance[];
+  patientName?: string;
+  therapistName?: string;
+}
+
+export interface SanitizeTranscriptionResponse {
+  sanitizedText?: string;
+  sanitizedUtterances?: TranscriptUtterance[];
+  replacedCount: number;
+  entitiesDetected: Array<{ type: string; placeholder: string; count: number }>;
+}
+
+export interface GenerateSoapProposalDTO {
+  appointmentId: string;
+  transcriptionId?: string;
+  utterances?: TranscriptUtterance[];
+}
+
+export interface GenerateSoapProposalResponse {
+  soap: SoapNote;
+  privateNotesSuggestion?: string;
+  sanitizationSummary: {
+    totalEntitiesSanitized: number;
+    entitiesDetected: Array<{ type: string; placeholder: string; count: number }>;
+  };
+  humanReviewRequired: boolean;
+  disclaimer: string;
+}
+
