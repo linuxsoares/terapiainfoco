@@ -217,6 +217,30 @@ terapiainfoco/
 
 ---
 
+### 13. Trilha de Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opção H - §4.4, §5.2 e LGPD Art. 37/38/50)
+- [x] **Ledger Imutável Criptográfico SHA-256 (Hash-Chain WORM):**
+  - Encadeamento sequencial de blocos de auditoria onde cada entrada contém `sequenceNumber`, `previousHash` e seu próprio `hash` calculado canonicamente via **SHA-256** de todos os atributos.
+  - Bloco gênesis padronizado (`0000...0000` de 64 caracteres) com garantia *Tamper-Evident*: qualquer alteração, injeção ou remoção retroativa rompe a cadeia imediatamente.
+- [x] **Verificação Contínua de Integridade da Cadeia (`verifyChainIntegrity`):**
+  - Algoritmo que recalcula e atesta cada elo da cadeia em tempo de execução, detectando e apontando com precisão o índice exato de qualquer bloco adulterado (`tamperedAtIndex`).
+  - Endpoint dedicado `GET /api/audit/verify-chain`.
+- [x] **Relatório Formal de Conformidade para DPO e Fiscalização do CFP (`generateComplianceReport`):**
+  - Consolidação oficial fundamentada nos Artigos 37, 38 e 50 da **LGPD** e Resoluções **CFP nº 001/2009, 011/2018 e 006/2019**.
+  - Metadados do controlador, DPO, responsável técnico com CRP e resumo estatístico de operações sensíveis (leituras decriptadas, assinaturas, quarentenas e backups).
+  - Emissão de **Checksum SHA-256 canônico** do relatório completo para garantia de fé pública e autenticidade forense.
+- [x] **Exportação Forense em Múltiplos Formatos:**
+  - Endpoint `GET /api/audit/export/csv`: download de planilha formatada RFC 4180 contendo todos os registros encadeados.
+  - Endpoint `GET /api/audit/export/json`: download do pacote estruturado e assinado para auditorias externas.
+- [x] **Controle de Acesso RBAC Estrito:**
+  - Acesso à trilha restrito exclusivamente a `ADMIN` e `PSICOLOGO_TITULAR` (secretária e não-autenticados bloqueados com HTTP 403 / 401).
+- [x] **Interface Frontend Avançada (`AuditModule.tsx`):**
+  - Status em tempo real da integridade da hash-chain com badge *"Tamper-Evident: 100% Íntegro"*.
+  - Botão de validação sob demanda *"Verificar Cadeia SHA-256"*.
+  - Botões para download direto de *"CSV Forense"* e *"Relatório DPO (JSON)"*.
+  - Filtros dinâmicos por ação e recurso, com exibição de `#Seq`, `Hash SHA-256` e `IP de Origem`.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -232,20 +256,22 @@ terapiainfoco/
 | `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | Merged |
 | `feat/analytics-clinical-dashboard-observability` | Dashboard Clínico, Métricas Longitudinais e Observabilidade WORM (Opção E) | PR #13 | Merged |
 | `feat/data-portability-lgpd-export` | Portabilidade de Dados, Exportação Criptografada LGPD Art. 18 e Revogação CFP (Opção F) | PR #14 | Merged |
-| `feat/backup-kms-disaster-recovery` | Backup Automatizado em Repouso, Envelope Encryption KMS e Disaster Recovery (Opção G) | PR #15 | **Em Aberto** |
+| `feat/backup-kms-disaster-recovery` | Backup Automatizado em Repouso, Envelope Encryption KMS e Disaster Recovery (Opção G) | PR #15 | Merged |
+| `feat/audit-worm-compliance-report` | Trilha de Auditoria Externa WORM (Hash-Chain SHA-256) & Relatórios DPO/CFP (Opção H) | PR #16 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com os Backups Criptografados via KMS e Rotina de Disaster Recovery operacionais e validados por 64 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### 📜 Opção H: Trilha de Auditoria Externa & Relatório de Conformidade para DPO/CFP
-- [ ] **Exportação de Relatório de Conformidade:** Geração de relatório consolidado em PDF/CSV para fiscalização de conselho regional e encarregado de dados (DPO).
-- [ ] **Validador Criptográfico de Cadeia de Blocos WORM:** Verificador offline de integridade dos hashes encadeados da trilha imutável.
+Com a Trilha de Auditoria Externa WORM e Relatórios DPO/CFP operacionais e validados por 69 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### ⚡ Opção I: Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória
-- [ ] **Adapter Redis / Upstash:** Suporte a cache distribuído para alta disponibilidade em múltiplos pods/instâncias.
+- [ ] **Adapter Redis / Upstash com Fallback em Memória:** Suporte a rate limiting atômico distribuído para clusters multi-instâncias de API.
+- [ ] **Cache Criptografado de Metadados Temporários:** Armazenamento volátil com TTL curto de chaves e verificações com segurança de segredos em repouso.
+
+#### 🔔 Opção J: Webhooks Assinados (HMAC-SHA256) & Notificações de Segurança em Tempo Real
+- [ ] **Emissor de Notificações Criptográficas:** Disparo de webhooks autenticados para alertas de segurança (tentativas excessivas de login, restauração de backup, download forense).
+- [ ] **Interface de Configuração de Webhooks:** Gerenciamento de endpoints e segredos de assinatura.
 
 ---
 
@@ -255,7 +281,7 @@ Com os Backups Criptografados via KMS e Rotina de Disaster Recovery operacionais
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (64 testes)
+# 2. Executar suíte completa de testes (69 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

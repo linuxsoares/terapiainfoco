@@ -31,7 +31,10 @@ import type {
   CreateBackupResponse,
   VerifyBackupResponse,
   RestoreBackupResponse,
-  BackupSnapshotFile
+  BackupSnapshotFile,
+  AuditFilterParams,
+  ChainIntegrityResult,
+  ComplianceReportResponse
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -179,10 +182,89 @@ export const api = {
     return res.record;
   },
 
-  // 4. Auditoria WORM (RFC §4.4)
-  async getAuditLogs(): Promise<AuditLog[]> {
-    const res = await request<{ success: boolean; logs: AuditLog[] }>('/audit');
+  // 4. Auditoria WORM & Relatórios DPO/CFP (RFC-001 §4.4, §5.2 - Opção H)
+  async getAuditLogs(filters?: AuditFilterParams): Promise<AuditLog[]> {
+    const params = new URLSearchParams();
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.resourceType) params.append('resourceType', filters.resourceType);
+    if (filters?.actorId) params.append('actorId', filters.actorId);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', String(filters.limit));
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await request<{ success: boolean; logs: AuditLog[] }>(`/audit${query}`);
     return res.logs;
+  },
+
+  async verifyAuditChain(): Promise<ChainIntegrityResult> {
+    const res = await request<ChainIntegrityResult>('/audit/verify-chain');
+    return res;
+  },
+
+  async getComplianceReport(filters?: AuditFilterParams): Promise<ComplianceReportResponse> {
+    const params = new URLSearchParams();
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.resourceType) params.append('resourceType', filters.resourceType);
+    if (filters?.actorId) params.append('actorId', filters.actorId);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await request<ComplianceReportResponse>(`/audit/report${query}`);
+    return res;
+  },
+
+  async downloadAuditCsv(filters?: AuditFilterParams): Promise<void> {
+    const params = new URLSearchParams();
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.resourceType) params.append('resourceType', filters.resourceType);
+    if (filters?.actorId) params.append('actorId', filters.actorId);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers: Record<string, string> = {};
+    const token = authStorage.getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/audit/export/csv${query}`, { method: 'GET', headers });
+    if (!res.ok) throw new Error(`Erro ao exportar CSV de auditoria: HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `terapiainfoco-auditoria-worm-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+
+  async downloadAuditJson(filters?: AuditFilterParams): Promise<void> {
+    const params = new URLSearchParams();
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.resourceType) params.append('resourceType', filters.resourceType);
+    if (filters?.actorId) params.append('actorId', filters.actorId);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers: Record<string, string> = {};
+    const token = authStorage.getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/audit/export/json${query}`, { method: 'GET', headers });
+    if (!res.ok) throw new Error(`Erro ao exportar JSON de auditoria: HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `terapiainfoco-relatorio-conformidade-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   },
 
   // 5. Documentos Psicológicos (Módulo 5 - CFP nº 006/2019)
