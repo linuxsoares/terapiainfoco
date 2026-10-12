@@ -80,11 +80,13 @@ export const sessionTranscriptions = pgTable('session_transcriptions', {
   appointmentId: uuid('appointment_id').notNull().unique().references(() => appointments.id),
   storagePath: varchar('storage_path', { length: 500 }).notNull(),
   encryptedStorageKey: text('encrypted_storage_key').notNull(),
+  encryptedTranscript: jsonb('encrypted_transcript').$type<EncryptedPayload>(),
   rawStatus: varchar('raw_status', { length: 30 }).notNull().default('PENDING'),
   wordCount: integer('word_count'),
   durationSeconds: integer('duration_seconds'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 });
+
 
 /**
  * 5. PRONTUÁRIOS E EVOLUÇÃO CLÍNICA - SOAP (RFC §5.2, §3.4, CFP nº 001/2009)

@@ -9,8 +9,14 @@ import type {
   GenerateDocumentDTO,
   DecryptedPsychologicalDocument,
   ValidateDocumentResponse,
-  AuditLog
+  AuditLog,
+  UploadAudioDTO,
+  DecryptedSessionTranscription,
+  GenerateSoapProposalDTO,
+  GenerateSoapProposalResponse,
+  SanitizeTranscriptionDTO
 } from '@terapiainfoco/shared';
+
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -138,5 +144,36 @@ export const api = {
   async validateDocumentToken(token: string): Promise<ValidateDocumentResponse> {
     const res = await request<ValidateDocumentResponse>(`/documents/validate/${token}`);
     return res;
+  },
+
+  // 6. Transcrição, Diarização & IA SOAP (RFC §3.3)
+  async uploadAudio(dto: UploadAudioDTO): Promise<DecryptedSessionTranscription> {
+    const res = await request<{ success: boolean; transcription: DecryptedSessionTranscription }>('/transcriptions/upload', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.transcription;
+  },
+
+  async getTranscription(appointmentId: string): Promise<DecryptedSessionTranscription> {
+    const res = await request<{ success: boolean; transcription: DecryptedSessionTranscription }>(`/transcriptions/appointment/${appointmentId}`);
+    return res.transcription;
+  },
+
+  async sanitizeTranscription(dto: SanitizeTranscriptionDTO): Promise<any> {
+    const res = await request<any>('/transcriptions/sanitize', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res;
+  },
+
+  async generateSoapProposal(dto: GenerateSoapProposalDTO): Promise<GenerateSoapProposalResponse & { sanitizedUtterances?: any[] }> {
+    const res = await request<{ success: boolean; proposal: GenerateSoapProposalResponse & { sanitizedUtterances?: any[] } }>('/transcriptions/generate-soap', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.proposal;
   }
 };
+

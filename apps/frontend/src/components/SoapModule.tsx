@@ -7,13 +7,36 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Eye, 
-  EyeOff
+  EyeOff,
+  Headphones,
+  FileAudio,
+  Shield,
+  Clock,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Sparkle
 } from 'lucide-react';
-import type { SoapNote } from '@terapiainfoco/shared';
+
+import type { SoapNote, TranscriptUtterance } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 export function SoapModule() {
   const [recordId, setRecordId] = useState<string | null>(null);
+  
+  // Transcrição & Pipeline de Áudio
+  const [hasLoadedAudio, setHasLoadedAudio] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [utterances, setUtterances] = useState<TranscriptUtterance[]>([]);
+  const [sanitizedUtterances, setSanitizedUtterances] = useState<TranscriptUtterance[]>([]);
+  const [showSanitizedView, setShowSanitizedView] = useState(false);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(true);
+  const [sanitizationStats, setSanitizationStats] = useState<{ total: number; entities: Array<{ type: string; placeholder: string; count: number }> } | null>(null);
+  const [aiGeneratedSuccess, setAiGeneratedSuccess] = useState(false);
+
+  // Eixos SOAP
   const [soap, setSoap] = useState<SoapNote>({
     subjective: 'Paciente relata melhora na modulação de crises de ansiedade após uso da respiração diafragmática durante situação corporativa. Identificou pensamentos automáticos disfuncionais ("vão perceber que não dou conta") e aplicou com êxito a reestruturação cognitiva. Insônia inicial apresentou redução estimada de 40%.',
     objective: 'Apresenta-se orientada globalmente, afeto congruente com o relato, discurso fluente e com boa capacidade reflexiva e insight. Postura corporal relaxada ao longo da videoconferência, com bom engajamento nas intervenções.',
@@ -33,13 +56,84 @@ export function SoapModule() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const appointmentId = '00000000-0000-0000-0000-000000000010';
+  const patientId = '00000000-0000-0000-0000-000000000002';
+
+  // Carrega ou inicializa a transcrição da sessão
+  const handleLoadSessionAudio = async () => {
+    try {
+      setAudioLoading(true);
+      setError(null);
+      const res = await api.uploadAudio({
+        appointmentId,
+        audioFileName: 'meet-teleconsulta-sessao-08.m4a',
+        durationSeconds: 3120 // 52 min
+      });
+      setUtterances(res.utterances);
+      setHasLoadedAudio(true);
+      setSuccessMsg('Áudio da teleconsulta carregado e diarizado com sucesso!');
+      setTimeout(() => setSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao carregar áudio da sessão');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  // Pipeline de IA Assistiva (RFC §3.3)
+  const handleGenerateWithAi = async () => {
+    try {
+      setAiGenerating(true);
+      setError(null);
+
+      // Garante que o áudio/transcrição esteja provisionado antes de chamar a IA
+      if (!hasLoadedAudio) {
+        const transRes = await api.uploadAudio({
+          appointmentId,
+          audioFileName: 'meet-teleconsulta-sessao-08.m4a',
+          durationSeconds: 3120
+        });
+        setUtterances(transRes.utterances);
+        setHasLoadedAudio(true);
+      }
+
+      const proposal = await api.generateSoapProposal({
+        appointmentId
+      });
+
+      // Atualiza eixos SOAP com o rascunho assistido
+      setSoap(proposal.soap);
+      if (proposal.privateNotesSuggestion) {
+        setPrivateNotes(proposal.privateNotesSuggestion);
+      }
+      if (proposal.sanitizedUtterances && proposal.sanitizedUtterances.length > 0) {
+        setSanitizedUtterances(proposal.sanitizedUtterances);
+      }
+      if (proposal.sanitizationSummary) {
+        setSanitizationStats({
+          total: proposal.sanitizationSummary.totalEntitiesSanitized,
+          entities: proposal.sanitizationSummary.entitiesDetected
+        });
+      }
+
+      setAiGeneratedSuccess(true);
+      setConfirmedReview(false); // Exige revisão humana compulsória (Human-in-the-Loop)
+      setSuccessMsg('Minuta SOAP sintetizada por IA com base na transcrição sanitizada!');
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Falha na geração assistida por IA');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleSaveDraft = async () => {
     try {
       setLoading(true);
       setError(null);
       const record = await api.saveSoapDraft({
-        appointmentId: '00000000-0000-0000-0000-000000000010',
-        patientId: '00000000-0000-0000-0000-000000000002',
+        appointmentId,
+        patientId,
         sessionNumber: 8,
         soap,
         privateNotes
@@ -75,6 +169,26 @@ export function SoapModule() {
     }
   };
 
+  // Renderizador com realce visual dos tokens sanitizados
+  const renderDialogueText = (text: string) => {
+    const tokens = ['[PACIENTE]', '[TERAPEUTA]', '[TELEFONE]', '[EMAIL]', '[CPF]', '[CEP]', '[RG]', '[NOME_TERCEIRO]', '[NOME]'];
+    const parts = text.split(/(\[[A-Z_]+\])/g);
+    
+    return parts.map((part, idx) => {
+      if (tokens.includes(part)) {
+        return (
+          <span 
+            key={idx} 
+            className="inline-block px-1.5 py-0.5 mx-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30"
+          >
+            {part}
+          </span>
+        );
+      }
+      return <span key={idx}>{part}</span>;
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -82,19 +196,26 @@ export function SoapModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Módulo 3 & 4: Transcrição, SOAP & Prontuário Imutável
+            Módulo 3 & 4: Transcrição, Diarização & SOAP com IA
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Evolução assistida por IA nos 4 eixos clínicos com Human-in-the-Loop compulsório (RFC §3.3, §3.4)
+            Pipeline integrado de teleconsulta com Sanitização LGPD Art. 11 e Human-in-the-Loop compulsório (RFC §3.3, §3.4)
           </p>
         </div>
 
-        {isSigned && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
-            <Lock className="w-4 h-4" />
-            Prontuário Imutável Selado
+        <div className="flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-800 dark:text-purple-300 text-xs font-medium flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+            Sessão 08 • Mariana Silva (Google Meet)
           </div>
-        )}
+
+          {isSigned && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+              <Lock className="w-4 h-4" />
+              Prontuário Imutável
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -127,6 +248,221 @@ export function SoapModule() {
         </div>
       )}
 
+      {/* ========================================================= */}
+      {/* CARD: PIPELINE DE TRANSCRIÇÃO & DIARIZAÇÃO (RFC §3.3) */}
+      {/* ========================================================= */}
+      <div className="rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        {/* Topo do Card de Transcrição */}
+        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
+              <Headphones className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Gravação & Transcrição Diarizada da Teleconsulta
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                  <UserCheck className="w-3 h-3" />
+                  TCLE Assinado
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  AES-256 Criptografado
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Canais de fala separados (Terapeuta vs. Paciente) com carimbos de tempo e sanitização LGPD Art. 11
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de Ação do Pipeline */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {!hasLoadedAudio ? (
+              <button
+                onClick={handleLoadSessionAudio}
+                disabled={audioLoading || aiGenerating}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {audioLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileAudio className="w-3.5 h-3.5 text-purple-500" />
+                )}
+                Carregar Áudio da Teleconsulta (52 min)
+              </button>
+            ) : (
+              <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-medium flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                52:00 min • 8 falas
+              </span>
+            )}
+
+            <button
+              onClick={handleGenerateWithAi}
+              disabled={aiGenerating || isSigned}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {aiGenerating ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Processando IA & SOAP...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Gerar Rascunho SOAP com IA
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              title={isTranscriptExpanded ? 'Recolher transcrição' : 'Expandir transcrição'}
+            >
+              {isTranscriptExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Corpo Expansível da Transcrição */}
+        {isTranscriptExpanded && (
+          <div className="p-5 space-y-4">
+            {/* Barra de Alternância: Diarização Original vs. Visão Sanitizada LGPD */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Modo de Exibição da Transcrição:
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSanitizedView(false)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    !showSanitizedView
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  Diarização Original
+                </button>
+                <button
+                  onClick={() => setShowSanitizedView(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    showSanitizedView
+                      ? 'bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  <Lock className="w-3 h-3 text-amber-500" />
+                  Sanitização LGPD Art. 11
+                </button>
+              </div>
+            </div>
+
+            {/* Banner de Estatísticas da Sanitização LGPD (se disponível) */}
+            {sanitizationStats && showSanitizedView && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    <strong>Sanitização Pré-LLM Concluída:</strong> {sanitizationStats.total} identificadores substituídos por pseudônimos genéricos antes do processamento.
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {sanitizationStats.entities.map((e, idx) => (
+                    <span 
+                      key={idx} 
+                      className="px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/60 font-mono text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-500/20"
+                    >
+                      {e.placeholder} ({e.count}x)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Linha do Tempo Diarizada das Falas */}
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {(showSanitizedView && sanitizedUtterances.length > 0 ? sanitizedUtterances : (utterances.length > 0 ? utterances : [
+                {
+                  speaker: 'TERAPEUTA' as any,
+                  time: '00:00:15',
+                  text: 'Boa tarde, Mariana. Como você está hoje e como foi a sua semana desde a nossa última sessão?'
+                },
+                {
+                  speaker: 'PACIENTE' as any,
+                  time: '00:00:32',
+                  text: 'Boa tarde, Dra. Vanessa. Tive uma semana bem desafiadora no trabalho. Tive uma reunião muito tensa com meu chefe Roberto e senti aquele aperto forte no peito, mas consegui usar a técnica de respiração diafragmática que combinamos.'
+                },
+                {
+                  speaker: 'TERAPEUTA' as any,
+                  time: '00:01:10',
+                  text: 'Que excelente avanço, Mariana! E o que passou pela sua mente no momento em que você sentiu a tensão corporal?'
+                },
+                {
+                  speaker: 'PACIENTE' as any,
+                  time: '00:01:45',
+                  text: 'O pensamento automático que veio foi: "Eles vão perceber que eu não dou conta e vou falhar". Mas aí eu peguei meu caderno, fiz o Registro de Pensamentos Disfuncionais (RPD) e procurei as evidências objetivas.'
+                }
+              ])).map((u, index) => {
+                const isTherapist = u.speaker === 'TERAPEUTA';
+                return (
+                  <div
+                    key={index}
+                    className={`p-3.5 rounded-xl border text-xs leading-relaxed transition-all ${
+                      isTherapist
+                        ? 'bg-purple-50/60 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-800/40 ml-0 sm:ml-4'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 mr-0 sm:mr-4'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            isTherapist ? 'bg-purple-600 dark:bg-purple-400' : 'bg-emerald-600 dark:bg-emerald-400'
+                          }`}
+                        />
+                        <span className={isTherapist ? 'text-purple-900 dark:text-purple-300' : 'text-slate-900 dark:text-white'}>
+                          {isTherapist ? 'Dra. Vanessa Andrade (Terapeuta)' : 'Mariana Silva (Paciente)'}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {u.time}
+                      </span>
+                    </div>
+
+                    <div className="text-slate-700 dark:text-slate-300">
+                      {showSanitizedView ? renderDialogueText(u.text) : u.text}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Alerta de Minuta Gerada por IA com Human-in-the-Loop Obrigatório */}
+      {aiGeneratedSuccess && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/30 flex items-start gap-3">
+          <Sparkle className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <h4 className="font-bold text-purple-900 dark:text-purple-200">
+              Minuta Clínica Assistida por IA Gerada com Sucesso (RFC §3.3)
+            </h4>
+            <p className="text-purple-800/90 dark:text-purple-300/90 leading-relaxed">
+              Os 4 quadrantes SOAP foram pré-preenchidos a partir da transcrição sanitizada. O princípio <strong>Human-in-the-Loop</strong> é legalmente obrigatório pelo CFP: revise o texto abaixo, faça os ajustes clínicos pertinentes e confirme antes de assinar.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Campos SOAP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* S - Subjetivo */}
@@ -135,10 +471,10 @@ export function SoapModule() {
             <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400">
               S • Subjetivo
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Relato do Paciente</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Relato do Paciente & Sintomas</span>
           </div>
           <textarea
-            rows={4}
+            rows={5}
             disabled={isSigned}
             value={soap.subjective}
             onChange={(e) => setSoap({ ...soap, subjective: e.target.value })}
@@ -155,7 +491,7 @@ export function SoapModule() {
             <span className="text-[11px] text-slate-500 dark:text-slate-400">Observações Clínicas & Afeto</span>
           </div>
           <textarea
-            rows={4}
+            rows={5}
             disabled={isSigned}
             value={soap.objective}
             onChange={(e) => setSoap({ ...soap, objective: e.target.value })}
@@ -169,10 +505,10 @@ export function SoapModule() {
             <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
               A • Avaliação
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Hipótese Clínica & Evolução</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Hipótese Clínica (TCC) & Evolução</span>
           </div>
           <textarea
-            rows={4}
+            rows={5}
             disabled={isSigned}
             value={soap.assessment}
             onChange={(e) => setSoap({ ...soap, assessment: e.target.value })}
@@ -186,10 +522,10 @@ export function SoapModule() {
             <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
               P • Plano
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Intervenções & Próxima Sessão</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Intervenções & Tarefas Entre Sessões</span>
           </div>
           <textarea
-            rows={4}
+            rows={5}
             disabled={isSigned}
             value={soap.plan}
             onChange={(e) => setSoap({ ...soap, plan: e.target.value })}
@@ -221,11 +557,11 @@ export function SoapModule() {
 
         {showPrivateNotes && (
           <textarea
-            rows={2}
+            rows={3}
             disabled={isSigned}
             value={privateNotes}
             onChange={(e) => setPrivateNotes(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-amber-400 resize-none font-mono"
+            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-amber-400 resize-none font-mono leading-relaxed"
             placeholder="Anotações reflexivas íntimas do psicólogo..."
           />
         )}
@@ -243,7 +579,7 @@ export function SoapModule() {
               className="mt-0.5 rounded border-slate-300 dark:border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
             />
             <label htmlFor="humanLoopCheck" className="text-xs text-purple-900 dark:text-purple-200 leading-relaxed cursor-pointer font-medium">
-              <strong>Human-in-the-Loop Obrigatório (RFC §3.3):</strong> Eu, psicólogo(a) responsável, revisei e editei integralmente o rascunho estruturado acima, atestando sua fidelidade com o atendimento e assumindo a responsabilidade técnica perante o CFP.
+              <strong>Human-in-the-Loop Obrigatório (RFC §3.3 & CFP nº 001/2009):</strong> Eu, psicólogo(a) responsável, atesto que revisei integralmente a minuta SOAP acima, confirmo a correspondência dos fatos clínicos com o atendimento realizado e assumo a responsabilidade técnica perante o Conselho Federal de Psicologia.
             </label>
           </div>
 
