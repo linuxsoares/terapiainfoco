@@ -1,5 +1,6 @@
 import { AppointmentStatus, DocumentType, UserRole } from './enums';
 import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData } from './models';
+import type { EnvelopeEncryptedData } from './crypto';
 
 
 
@@ -410,4 +411,77 @@ export interface RevokeConsentResponse {
   legalRetentionNote: string;
   message: string;
 }
+
+/**
+ * 10. BACKUP CRIPTOGRAFADO & DISASTER RECOVERY COM KMS (RFC-001 §4.2, §4.4 - Opção G)
+ */
+export interface BackupEntitiesSummary {
+  therapists: number;
+  patients: number;
+  appointments: number;
+  clinicalRecords: number;
+  documents: number;
+  sessionTranscriptions: number;
+  users: number;
+  auditLogs: number;
+  totalEntities: number;
+}
+
+export interface BackupSnapshotMetadata {
+  id: string;
+  createdAt: string;
+  databaseVersion: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  entitiesCount: BackupEntitiesSummary;
+  status: 'COMPLETED' | 'VERIFIED' | 'FAILED';
+  verifiedAt?: string | null;
+  verificationDetails?: {
+    verificationTimeMs: number;
+    totalRecordsVerified: number;
+    gcmAuthTagValid: boolean;
+    sha256ChecksumValid: boolean;
+  } | null;
+}
+
+export interface BackupSnapshotFile {
+  backupMetadata: BackupSnapshotMetadata;
+  envelope: EnvelopeEncryptedData;
+}
+
+export interface BackupOverviewResponse {
+  success: boolean;
+  lastBackupAt: string | null;
+  lastVerifiedAt: string | null;
+  totalBackups: number;
+  rpoHours: number;
+  rtoEstimateMs: number;
+  isRpoCompliant: boolean;
+  backups: BackupSnapshotMetadata[];
+}
+
+export interface CreateBackupResponse {
+  success: boolean;
+  backup: BackupSnapshotMetadata;
+  message: string;
+}
+
+export interface VerifyBackupResponse {
+  success: boolean;
+  backupId: string;
+  verifiedAt: string;
+  integrityOk: boolean;
+  verificationTimeMs: number;
+  entitiesVerified: BackupEntitiesSummary;
+  message: string;
+}
+
+export interface RestoreBackupResponse {
+  success: boolean;
+  backupId: string;
+  restoredAt: string;
+  entitiesRestored: BackupEntitiesSummary;
+  message: string;
+}
+
 

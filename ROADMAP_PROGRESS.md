@@ -195,6 +195,28 @@ terapiainfoco/
 
 ---
 
+### 12. Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G - §4.2, §4.4, §5.2)
+- [x] **Serviço de Backup e Snapshot Criptografado (`backupService.ts`):**
+  - Captura estruturada de todo o estado relacional do banco (terapeutas, pacientes, consultas, prontuários SOAP, documentos, transcrições, usuários e logs de auditoria).
+  - Criptografia em repouso com **Envelope Encryption via Cloud KMS / HSM**: geração de DEK temporária de 256 bits, cifra com **AES-256-GCM** e envelopamento da chave pela Master Key (KEK) com zeroização em RAM.
+  - Cálculo de **Checksum SHA-256 canônico** do envelope cifrado para garantia de não-adulteração.
+  - Política de retenção e rotação automática mantendo os últimos 20 snapshots mais recentes.
+- [x] **Simulação de Disaster Recovery & Verificação Contínua (`backupService.ts`):**
+  - Endpoint `POST /api/backups/:id/verify`: decifragem via KMS, validação da Auth Tag GCM e checagem do Checksum SHA-256 sem afetar o banco ativo.
+  - Métricas de **RPO** (tempo decorrido desde o último backup - meta < 24h) e **RTO** medido em tempo real (tempo de decifragem e validação da base).
+- [x] **Restauração Emergencial de Desastre (`backupService.ts`):**
+  - Endpoint `POST /api/backups/:id/restore` restrito estritamente a perfil Administrador (`ADMIN`).
+  - Restabelecimento integral e atômico do banco de dados com registro mandatório na trilha de auditoria WORM (`AuditAction.BACKUP_RESTORE`).
+- [x] **Auditoria WORM & Controle de Acesso RBAC:**
+  - Registro compulsório de eventos `BACKUP_CREATE`, `BACKUP_VERIFY` e `BACKUP_RESTORE`.
+  - Bloqueio de secretária (HTTP 403 Forbidden) e requisições sem token (HTTP 401 Unauthorized).
+- [x] **Interface Frontend Dedicada (`BackupModule.tsx` & `App.tsx`):**
+  - Painel com KPIs de RPO, RTO estimado, total de snapshots e status de integridade.
+  - Tabela com histórico, download do arquivo cifrado (`.kms-backup.json`), botão "Testar DR" e modal de confirmação de restauração para Admin.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -209,20 +231,21 @@ terapiainfoco/
 | `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | Merged |
 | `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | Merged |
 | `feat/analytics-clinical-dashboard-observability` | Dashboard Clínico, Métricas Longitudinais e Observabilidade WORM (Opção E) | PR #13 | Merged |
-| `feat/data-portability-lgpd-export` | Portabilidade de Dados, Exportação Criptografada LGPD Art. 18 e Revogação CFP (Opção F) | PR #14 | **Em Aberto** |
+| `feat/data-portability-lgpd-export` | Portabilidade de Dados, Exportação Criptografada LGPD Art. 18 e Revogação CFP (Opção F) | PR #14 | Merged |
+| `feat/backup-kms-disaster-recovery` | Backup Automatizado em Repouso, Envelope Encryption KMS e Disaster Recovery (Opção G) | PR #15 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a Portabilidade de Dados e Exportação Criptografada operacionais e validadas por 58 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### 🔐 Opção G: Backup Automatizado & Disaster Recovery com KMS
-- [ ] **Rotina de Backup Criptografado:** Geração e rotação periódica de backups em repouso da base de dados cifrados pela Master Key (KMS / envelope encryption).
-- [ ] **Mecanismo de Verificação de Integridade:** Validação periódica do snapshot do banco para recuperação rápida de desastres (RPO/RTO).
+Com os Backups Criptografados via KMS e Rotina de Disaster Recovery operacionais e validados por 64 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 📜 Opção H: Trilha de Auditoria Externa & Relatório de Conformidade para DPO/CFP
 - [ ] **Exportação de Relatório de Conformidade:** Geração de relatório consolidado em PDF/CSV para fiscalização de conselho regional e encarregado de dados (DPO).
+- [ ] **Validador Criptográfico de Cadeia de Blocos WORM:** Verificador offline de integridade dos hashes encadeados da trilha imutável.
+
+#### ⚡ Opção I: Rate Limiting Distribuído com Redis & Cache Criptográfico em Memória
+- [ ] **Adapter Redis / Upstash:** Suporte a cache distribuído para alta disponibilidade em múltiplos pods/instâncias.
 
 ---
 
@@ -232,7 +255,7 @@ Com a Portabilidade de Dados e Exportação Criptografada operacionais e validad
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (58 testes)
+# 2. Executar suíte completa de testes (64 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -241,5 +264,6 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 

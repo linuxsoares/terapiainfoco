@@ -11,7 +11,8 @@ import {
   ShieldAlert,
   ChevronDown,
   UserCheck,
-  BarChart3
+  BarChart3,
+  Database
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
 import { AgendaModule } from './components/AgendaModule';
@@ -20,6 +21,7 @@ import { SoapModule } from './components/SoapModule';
 import { DocumentsModule } from './components/DocumentsModule';
 import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
+import { BackupModule } from './components/BackupModule';
 import { ThemeToggle } from './components/ThemeToggle';
 import { api } from './services/api';
 import type { SafeUser } from '@terapiainfoco/shared';
@@ -52,7 +54,7 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security' | 'backups'>('dashboard');
 
   // Usuário autenticado
   const [currentUser, setCurrentUser] = useState<SafeUser>({
@@ -110,7 +112,7 @@ export default function App() {
 
   // Verificações RBAC para a UI
   const isSecretary = currentUser.role === UserRole.RECEPCAO_SECRETARIA;
-  const isBlockedClinicalTab = isSecretary && (activeTab === 'soap' || activeTab === 'documents' || activeTab === 'audit' || activeTab === 'dashboard');
+  const isBlockedClinicalTab = isSecretary && (activeTab === 'soap' || activeTab === 'documents' || activeTab === 'audit' || activeTab === 'dashboard' || activeTab === 'backups');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
@@ -331,6 +333,25 @@ export default function App() {
             )}
           </button>
 
+          <button
+            onClick={() => setActiveTab('backups')}
+            className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'backups'
+                ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Database className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>Backups & DR (KMS)</span>
+            </div>
+            {isSecretary && (
+              <span title="Restrito a Psicólogos e Admin">
+                <Lock className="w-3.5 h-3.5 text-rose-500" />
+              </span>
+            )}
+          </button>
+
 
           <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800/80">
             <button
@@ -392,6 +413,9 @@ export default function App() {
                     onUserUpdated={setCurrentUser}
                     onSwitchRole={handleSwitchRole}
                   />
+                )}
+                {activeTab === 'backups' && (
+                  <BackupModule currentUser={currentUser} />
                 )}
               </>
             )}

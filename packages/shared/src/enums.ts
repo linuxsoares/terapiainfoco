@@ -71,7 +71,11 @@ export enum AuditAction {
   // Ações de Portabilidade e Direitos do Titular LGPD Art. 18 (Opção F)
   DATA_EXPORT = 'DATA_EXPORT',
   CONSENT_REVOCATION = 'CONSENT_REVOCATION',
-  PORTABILITY_REQUEST = 'PORTABILITY_REQUEST'
+  PORTABILITY_REQUEST = 'PORTABILITY_REQUEST',
+  // Ações de Backup e Disaster Recovery com KMS (Opção G)
+  BACKUP_CREATE = 'BACKUP_CREATE',
+  BACKUP_VERIFY = 'BACKUP_VERIFY',
+  BACKUP_RESTORE = 'BACKUP_RESTORE'
 }
 
 export enum AuditResourceType {
@@ -81,6 +85,8 @@ export enum AuditResourceType {
   APPOINTMENT = 'APPOINTMENT',
   DOCUMENT = 'DOCUMENT',
   USER = 'USER',
-  SECURITY = 'SECURITY'
+  SECURITY = 'SECURITY',
+  BACKUP = 'BACKUP'
 }
+
 
