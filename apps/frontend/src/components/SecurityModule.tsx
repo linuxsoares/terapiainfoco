@@ -23,7 +23,10 @@ import {
   Send,
   Trash2,
   Plus,
-  Activity
+  Activity,
+  Play,
+  Workflow,
+  Database
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -35,7 +38,9 @@ import type {
   CreateWebhookDTO,
   ReadinessProbeResponse,
   LivenessProbeResponse,
-  StartupProbeResponse
+  StartupProbeResponse,
+  SyntheticJourneyResult,
+  ResilienceCheckResult
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -167,11 +172,55 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Monitoramento Sintético & Testes E2E (Opção M)
+  const [syntheticResult, setSyntheticResult] = useState<SyntheticJourneyResult | null>(null);
+  const [syntheticHistory, setSyntheticHistory] = useState<SyntheticJourneyResult[]>([]);
+  const [resilienceResult, setResilienceResult] = useState<ResilienceCheckResult | null>(null);
+  const [loadingSynthetic, setLoadingSynthetic] = useState<boolean>(false);
+  const [selectedScenario, setSelectedScenario] = useState<'full_clinical_journey' | 'resilience_only'>('full_clinical_journey');
+
+  const fetchSyntheticData = async () => {
+    try {
+      setLoadingSynthetic(true);
+      const [historyData, resCheck] = await Promise.all([
+        api.getSyntheticHistory(),
+        api.getResilienceStatus()
+      ]);
+      setSyntheticHistory(historyData.executions);
+      if (historyData.executions.length > 0) {
+        setSyntheticResult(historyData.executions[0]);
+      }
+      setResilienceResult(resCheck);
+    } catch (err: any) {
+      console.warn('Falha ao coletar histórico sintético:', err.message);
+    } finally {
+      setLoadingSynthetic(false);
+    }
+  };
+
+  const handleRunSyntheticProbe = async (scenario: 'full_clinical_journey' | 'resilience_only' = selectedScenario) => {
+    try {
+      setLoadingSynthetic(true);
+      const res = await api.runSyntheticProbe({ scenario });
+      setSyntheticResult(res);
+      setFeedback({ 
+        type: 'success', 
+        message: `Sonda sintética concluída: ${res.summary.passed}/${res.summary.total} passos validados com sucesso (${res.totalDurationMs}ms).` 
+      });
+      await fetchSyntheticData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao executar sonda sintética.' });
+    } finally {
+      setLoadingSynthetic(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
       fetchWebhooks();
       fetchProbes();
+      fetchSyntheticData();
     }
   }, [currentUser.role]);
 
@@ -1141,6 +1190,265 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         )}
       </div>
+
+      {/* Card 6: Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica (Opção M - RFC-001) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Workflow className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              Monitoramento Sintético & Testes E2E • RFC-001 Opção M
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              Sondas ativas simulando o ciclo completo do paciente (Landing Page ➔ 2FA ➔ Webhooks ➔ Transcrição & SOAP IA ➔ DDM ➔ Laudo CFP & ICP ➔ WORM) com verificação de resiliência PGlite.
+            </p>
+          </div>
+
+          {currentUser.role === UserRole.ADMIN && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedScenario}
+                onChange={(e) => setSelectedScenario(e.target.value as any)}
+                className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200"
+              >
+                <option value="full_clinical_journey">Jornada Clínica Completa E2E (8 Passos)</option>
+                <option value="resilience_only">Apenas Resiliência & Fallback PGlite</option>
+              </select>
+
+              <button
+                onClick={() => handleRunSyntheticProbe(selectedScenario)}
+                disabled={loadingSynthetic}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Play className={`w-3.5 h-3.5 fill-current ${loadingSynthetic ? 'animate-spin' : ''}`} />
+                <span>{loadingSynthetic ? 'Executando Sonda...' : 'Disparar Probe Sintético Agora'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {currentUser.role !== UserRole.ADMIN ? (
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-3">
+            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>
+              A execução de sondas sintéticas e validação de resiliência é restrita ao perfil <strong>Administrador TI / DPO</strong>.
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Visão Geral da Última Execução */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Status do Probe */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Resultado Global</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    syntheticResult?.status === 'passed'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : syntheticResult?.status === 'partial'
+                        ? 'bg-amber-500'
+                        : 'bg-rose-500'
+                  }`} />
+                  <span className="font-bold text-sm text-slate-900 dark:text-white capitalize">
+                    {syntheticResult?.status === 'passed' ? '100% Validado' : syntheticResult?.status === 'partial' ? 'Parcial' : syntheticResult?.status ? 'Falhou' : 'Aguardando'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 font-mono truncate">
+                  {syntheticResult?.executionId || 'Nenhum probe executado'}
+                </p>
+              </div>
+
+              {/* Passos Concluídos */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Passos Validados</span>
+                <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                  {syntheticResult?.summary.passed || 0}/{syntheticResult?.summary.total || 0} Passos OK
+                </p>
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                  {syntheticResult?.status === 'passed' ? 'Conformidade RFC-001' : 'Pendente de validação'}
+                </p>
+              </div>
+
+              {/* Latência Total E2E */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tempo de Execução (E2E)</span>
+                <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                  {syntheticResult?.totalDurationMs || 0} ms
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  Gatilho: {syntheticResult?.trigger || 'manual'}
+                </p>
+              </div>
+
+              {/* Resiliência PGlite */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Resiliência PGlite</span>
+                <p className="font-bold text-sm text-teal-600 dark:text-teal-400 font-mono">
+                  {resilienceResult?.pgliteOperational ? 'WASM Operacional' : 'Inativo'}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  Failover: {resilienceResult?.failoverLatencyMs || 0}ms
+                </p>
+              </div>
+            </div>
+
+            {/* Box Especial de Tolerância a Falhas & Resiliência PGlite */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-transparent border border-teal-200/80 dark:border-teal-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Arquitetura Tolerante a Falhas: Contingência PGlite WASM
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 font-mono">
+                      RFC §5.2
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl">
+                    Em caso de blackout de rede ou falha no PostgreSQL externo/Supabase, a plataforma ativa o fallback automático para o motor PGlite embutido (PostgreSQL 16 compilado em WebAssembly), preservando o schema de 7 tabelas e a gravação de prontuários com zero tempo de inatividade.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col items-end gap-1.5 shrink-0 text-right">
+                <span className="text-[10px] text-slate-400 font-medium">Tabelas Relacionais Prontas:</span>
+                <span className="px-2 py-0.5 rounded-lg bg-teal-100 text-teal-800 dark:bg-teal-900/80 dark:text-teal-200 font-mono text-[11px] font-bold">
+                  {resilienceResult?.schemaTableCount || 7} / 7 Tabelas
+                </span>
+              </div>
+            </div>
+
+            {/* Linha do Tempo dos Passos da Jornada Sintética */}
+            {syntheticResult && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Etapas da Jornada Clínica Sintética ({syntheticResult.steps.length} Verificações)
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Concluído em: {new Date(syntheticResult.completedAt).toLocaleTimeString('pt-BR')}
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {syntheticResult.steps.map((step, idx) => {
+                    const isPassed = step.status === 'passed';
+                    return (
+                      <div
+                        key={step.id}
+                        className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 transition-colors space-y-2"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              isPassed 
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
+                            }`}>
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                              {step.name}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <span className="font-mono text-[10px] text-slate-500">
+                              {step.durationMs}ms
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold font-mono ${
+                              isPassed
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            }`}>
+                              {step.status.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed pl-7">
+                          {step.description}
+                        </p>
+
+                        {step.error && (
+                          <div className="ml-7 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-700 dark:text-rose-300">
+                            Erro: {step.error}
+                          </div>
+                        )}
+
+                        {step.details && (
+                          <div className="ml-7 pt-1.5 border-t border-slate-200/50 dark:border-slate-700/50 flex flex-wrap gap-1.5 text-[10px] font-mono text-slate-500">
+                            {Object.entries(step.details).map(([k, v]) => (
+                              <span key={k} className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                {k}: <strong className="text-slate-700 dark:text-slate-300">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</strong>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Histórico Recente de Probes */}
+            {syntheticHistory.length > 1 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Histórico de Execuções Recentes ({syntheticHistory.length} Registros)
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                    <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-2 pr-4">ID da Execução</th>
+                        <th className="py-2 pr-4">Data / Hora</th>
+                        <th className="py-2 pr-4">Cenário</th>
+                        <th className="py-2 pr-4">Passos Validados</th>
+                        <th className="py-2 pr-4">Duração</th>
+                        <th className="py-2 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
+                      {syntheticHistory.slice(0, 5).map((h) => (
+                        <tr key={h.executionId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td className="py-2 pr-4 font-bold text-slate-900 dark:text-white">
+                            {h.executionId.slice(0, 12)}...
+                          </td>
+                          <td className="py-2 pr-4 text-slate-500">
+                            {new Date(h.completedAt).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-500">
+                            {h.scenario}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-500">
+                            {h.summary.passed}/{h.summary.total}
+                          </td>
+                          <td className="py-2 pr-4 text-slate-500">
+                            {h.totalDurationMs}ms
+                          </td>
+                          <td className="py-2 text-right">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              h.status === 'passed'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            }`}>
+                              {h.status.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
 
       {/* Modal de Criação de Novo Webhook */}
       {showCreateWebhookModal && (

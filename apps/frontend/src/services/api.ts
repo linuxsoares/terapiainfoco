@@ -50,7 +50,11 @@ import type {
   UnmaskAuditResponse,
   ReadinessProbeResponse,
   LivenessProbeResponse,
-  StartupProbeResponse
+  StartupProbeResponse,
+  SyntheticJourneyResult,
+  SyntheticHistoryResponse,
+  ResilienceCheckResult,
+  RunSyntheticProbeRequestDTO
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -590,6 +594,25 @@ export const api = {
 
   async getStartupProbe(): Promise<StartupProbeResponse> {
     const res = await request<StartupProbeResponse>('/system/probes/startup');
+    return res;
+  },
+
+  // 14. Monitoramento Sintético & Jornada Clínica Ponta-a-Ponta (RFC-001 Opção M)
+  async runSyntheticProbe(dto?: RunSyntheticProbeRequestDTO): Promise<SyntheticJourneyResult> {
+    const res = await request<SyntheticJourneyResult>('/system/synthetic/run', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+    return res;
+  },
+
+  async getSyntheticHistory(): Promise<SyntheticHistoryResponse> {
+    const res = await request<SyntheticHistoryResponse>('/system/synthetic/history');
+    return res;
+  },
+
+  async getResilienceStatus(): Promise<ResilienceCheckResult> {
+    const res = await request<ResilienceCheckResult>('/system/synthetic/resilience');
     return res;
   }
 };

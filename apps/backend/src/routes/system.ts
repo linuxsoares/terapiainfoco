@@ -1,11 +1,21 @@
 import { Hono } from 'hono';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
-import { UserRole, type RateLimitStatusResponse, type ResetRateLimitResponse, type EncryptedCacheStatsResponse, type RotateCacheKeyResponse } from '@terapiainfoco/shared';
+import { 
+  UserRole, 
+  type RateLimitStatusResponse, 
+  type ResetRateLimitResponse, 
+  type EncryptedCacheStatsResponse, 
+  type RotateCacheKeyResponse,
+  type RunSyntheticProbeRequestDTO,
+  type SyntheticHistoryResponse
+} from '@terapiainfoco/shared';
 import { globalRateLimitStore, RATE_LIMIT_PRESETS, resetRateLimit } from '../middlewares/rateLimiter';
 import { globalEncryptedCache } from '@terapiainfoco/crypto';
 import { auditService } from '../services/auditService';
 import { HealthService } from '../services/healthService';
+import { SyntheticService } from '../services/syntheticService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+
 
 export const systemRoute = new Hono();
 
@@ -135,4 +145,42 @@ systemRoute.get('/probes/startup', (c) => {
   const startup = HealthService.checkStartup();
   return c.json(startup, 200);
 });
+
+/**
+ * 7. Monitoramento Sintético & Testes E2E da Jornada Clínica (Opção M - RFC-001)
+ */
+systemRoute.post('/synthetic/run', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as RunSyntheticProbeRequestDTO;
+  const result = await SyntheticService.runProbe(body, 'manual');
+
+  const actor = (c as any).user;
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+
+  auditService.logAccess({
+    actorId: actor?.id || 'admin-system',
+    resourceType: AuditResourceType.SECURITY,
+    resourceId: result.executionId,
+    action: AuditAction.READ,
+    ipAddress: ip,
+    userAgent: `Synthetic clinical probe executed: status=${result.status}, steps=${result.summary.passed}/${result.summary.total}`
+  }).catch(() => {});
+
+  return c.json(result, 200);
+});
+
+systemRoute.get('/synthetic/history', (c) => {
+  const history = SyntheticService.getHistory();
+  const response: SyntheticHistoryResponse = {
+    success: true,
+    count: history.length,
+    executions: history
+  };
+  return c.json(response, 200);
+});
+
+systemRoute.get('/synthetic/resilience', async (c) => {
+  const result = await SyntheticService.checkResilience();
+  return c.json(result, 200);
+});
+
 

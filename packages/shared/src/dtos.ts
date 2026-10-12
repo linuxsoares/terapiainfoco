@@ -726,6 +726,59 @@ export interface StartupProbeResponse {
   timestamp: string;
 }
 
+/**
+ * 16. MONITORAMENTO SINTÉTICO & TESTES E2E DA JORNADA CLÍNICA (Opção M - RFC-001)
+ */
+export type SyntheticStepStatus = 'passed' | 'failed' | 'skipped';
+export type SyntheticOverallStatus = 'passed' | 'failed' | 'partial';
+
+export interface SyntheticTestStep {
+  id: string;
+  name: string;
+  description: string;
+  status: SyntheticStepStatus;
+  durationMs: number;
+  details?: Record<string, any>;
+  error?: string;
+}
+
+export interface ResilienceCheckResult {
+  pgliteOperational: boolean;
+  wasmEngineReady: boolean;
+  failoverLatencyMs: number;
+  schemaTableCount: number;
+  message: string;
+}
+
+export interface SyntheticJourneyResult {
+  executionId: string;
+  status: SyntheticOverallStatus;
+  startedAt: string;
+  completedAt: string;
+  totalDurationMs: number;
+  trigger: 'manual' | 'scheduled' | 'health_probe';
+  scenario: string;
+  steps: SyntheticTestStep[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+  };
+  resilience?: ResilienceCheckResult;
+}
+
+export interface RunSyntheticProbeRequestDTO {
+  scenario?: 'full_clinical_journey' | 'quick_smoke' | 'resilience_only';
+  includeResilienceCheck?: boolean;
+}
+
+export interface SyntheticHistoryResponse {
+  success: boolean;
+  count: number;
+  executions: SyntheticJourneyResult[];
+}
+
+
 
 
 
