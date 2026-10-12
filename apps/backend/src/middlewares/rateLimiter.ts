@@ -1,6 +1,21 @@
 import type { Context, Next } from 'hono';
 import { auditService } from '../services/auditService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { 
+  type IRateLimitStore, 
+  globalRateLimitStore, 
+  InMemoryRateLimitStore, 
+  RedisRateLimitStore, 
+  ResilientRateLimitStore 
+} from '../services/rateLimitStore';
+
+export { 
+  type IRateLimitStore, 
+  globalRateLimitStore, 
+  InMemoryRateLimitStore, 
+  RedisRateLimitStore, 
+  ResilientRateLimitStore 
+};
 
 export interface RateLimiterOptions {
   windowMs: number;        // Janela de tempo em milissegundos (ex: 60000 = 1 min)
@@ -9,43 +24,10 @@ export interface RateLimiterOptions {
   keyGenerator?: (c: Context) => string;
 }
 
-interface RateLimitRecord {
-  count: number;
-  resetAt: number;
-}
-
-export class InMemoryRateLimitStore {
-  private store = new Map<string, RateLimitRecord>();
-
-  public increment(key: string, windowMs: number): { count: number; resetAt: number } {
-    const now = Date.now();
-    const record = this.store.get(key);
-
-    if (!record || now > record.resetAt) {
-      const newRecord = { count: 1, resetAt: now + windowMs };
-      this.store.set(key, newRecord);
-      return newRecord;
-    }
-
-    record.count++;
-    return record;
-  }
-
-  public reset(key?: string) {
-    if (key) {
-      this.store.delete(key);
-    } else {
-      this.store.clear();
-    }
-  }
-}
-
-export const globalRateLimitStore = new InMemoryRateLimitStore();
-
 /**
- * Middleware de Rate Limiting para proteção contra brute force e ataques de enumeração
+ * Middleware de Rate Limiting Distribuído para proteção contra brute force e ataques de enumeração
  */
-export function rateLimiter(options: RateLimiterOptions, store: InMemoryRateLimitStore = globalRateLimitStore) {
+export function rateLimiter(options: RateLimiterOptions, store: IRateLimitStore = globalRateLimitStore) {
   const {
     windowMs,
     max,
@@ -63,13 +45,15 @@ export function rateLimiter(options: RateLimiterOptions, store: InMemoryRateLimi
     }
 
     const key = keyGenerator(c);
-    const { count, resetAt } = store.increment(key, windowMs);
+    const { count, resetAt } = await store.increment(key, windowMs);
     const remaining = Math.max(0, max - count);
     const retryAfterSeconds = Math.ceil(Math.max(0, resetAt - Date.now()) / 1000);
 
+    const storeStatus = await store.getStatus().catch(() => ({ storeType: 'memory' }));
     c.header('X-RateLimit-Limit', max.toString());
     c.header('X-RateLimit-Remaining', remaining.toString());
     c.header('X-RateLimit-Reset', Math.ceil(resetAt / 1000).toString());
+    c.header('X-RateLimit-Store', storeStatus.storeType);
 
     if (count > max) {
       c.header('Retry-After', retryAfterSeconds.toString());
@@ -126,3 +110,15 @@ export const publicBookingRateLimiter = rateLimiter({
   max: 15,
   message: 'Muitas solicitações de agendamento em curto período. Tente novamente em instantes.'
 });
+
+export const RATE_LIMIT_PRESETS = {
+  auth: { max: 5, windowSeconds: 60, description: 'Proteção contra força bruta em login e 2FA/MFA' },
+  search: { max: 30, windowSeconds: 60, description: 'Proteção contra enumeração de CPF via Blind Index' },
+  validation: { max: 20, windowSeconds: 60, description: 'Proteção contra enumeração de tokens de validação pública' },
+  booking: { max: 15, windowSeconds: 60, description: 'Proteção contra spam de agendamentos online' }
+};
+
+export async function resetRateLimit(key?: string): Promise<void> {
+  await globalRateLimitStore.reset(key);
+}
+

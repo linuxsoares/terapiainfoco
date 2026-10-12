@@ -34,7 +34,11 @@ import type {
   BackupSnapshotFile,
   AuditFilterParams,
   ChainIntegrityResult,
-  ComplianceReportResponse
+  ComplianceReportResponse,
+  RateLimitStatusResponse,
+  ResetRateLimitResponse,
+  EncryptedCacheStatsResponse,
+  RotateCacheKeyResponse
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -483,6 +487,32 @@ export const api = {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  },
+
+  // 10. Rate Limiting Distribuído & Cache Criptográfico em Memória (RFC-001 Opção I)
+  async getRateLimitStatus(): Promise<RateLimitStatusResponse> {
+    const res = await request<RateLimitStatusResponse>('/system/rate-limit/status');
+    return res;
+  },
+
+  async resetRateLimit(key?: string): Promise<ResetRateLimitResponse> {
+    const res = await request<ResetRateLimitResponse>('/system/rate-limit/reset', {
+      method: 'POST',
+      body: JSON.stringify({ key })
+    });
+    return res;
+  },
+
+  async getEncryptedCacheStats(): Promise<EncryptedCacheStatsResponse> {
+    const res = await request<EncryptedCacheStatsResponse>('/system/cache/stats');
+    return res;
+  },
+
+  async rotateCacheKey(): Promise<RotateCacheKeyResponse> {
+    const res = await request<RotateCacheKeyResponse>('/system/cache/rotate-key', {
+      method: 'POST'
+    });
+    return res;
   }
 };
 
