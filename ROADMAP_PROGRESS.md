@@ -51,6 +51,7 @@ terapiainfoco/
   - `audit_logs` (trilha de auditoria WORM imutável)
 - [x] Fallback automático para `@electric-sql/pglite` (Postgres 16 WASM) quando não há banco externo, permitindo execução offline imediata.
 - [x] **Auto-Migração no Boot & Resiliência Supabase:** Inicialização assíncrona/síncrona de `getDb()` no boot do container, resolução dinâmica de diretórios `drizzle/`, fallback SQL statement-by-statement tolerante a transaction pooling (PgBouncer porta 6543) e seed idempotente do terapeuta padrão.
+- [x] **Persistência Ativa & Sincronização Supabase (Fix):** Persistência automática de pacientes, usuários e agendamentos nas tabelas do Supabase/PostgreSQL com Drizzle ORM, compatibilidade com UUIDs e foreign keys, sincronização bidirecional banco -> RAM no boot, e suporte a cadastro no Supabase Auth Admin (`auth.users`).
 - [x] `MemoryDatabase` para testes unitários ultra-rápidos e isolamento.
 
 ### 4. Backend API Hono (`apps/backend`)
@@ -364,7 +365,8 @@ terapiainfoco/
 | `chore/deploy-trigger` | Disparo de deploy no Railway e inclusão do runner de produção | PR #22 | Merged |
 | `railway/code-change-ZOB6Fg` | Fix apps/frontend/Dockerfile para Railpack chdir | PR #23 | Merged |
 | `feat/dynamic-data-masking-ddm` | Mascaramento Dinâmico de Dados na Interface (DDM), Modo Anti-Shoulder Surfing (Alt+P) e Trilha WORM (Opção K) | PR #24 | Merged |
-| `feat/backend-auto-migrations` | Inicialização compulsória com getDb no boot, auto-migração resiliente Supabase e scripts db:migrate | PR #25 | **Em Aberto** |
+| `feat/backend-auto-migrations` | Inicialização compulsória com getDb no boot, auto-migração resiliente Supabase e scripts db:migrate | PR #25 | Merged |
+| `fix/supabase-persistence-sync` | Persistência ativa de pacientes, usuários e agendamentos no Supabase, sincronização com Supabase Auth Admin e migração 0001 (users/docs) | PR #26 | **Em Aberto** |
 
 ---
 

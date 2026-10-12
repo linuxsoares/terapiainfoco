@@ -36,13 +36,24 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Health Check
+// Health Check & Supabase Diagnostic
 app.get('/health', (c) => {
+  const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || process.env.POSTGRES_URL || '';
+  const isPostgres = !!dbUrl;
+  const isSupabaseDb = dbUrl.includes('supabase.co') || dbUrl.includes('pooler.supabase.com');
+
   return c.json({
     status: 'ok',
     service: 'terapiainfoco-backend',
     version: '1.0.0',
     rfc: 'RFC-001',
+    database: {
+      driver: isPostgres ? 'postgresql' : 'pglite_fallback',
+      databaseUrlConfigured: isPostgres,
+      supabaseDatabaseConnected: isSupabaseDb,
+      supabaseUrlConfigured: !!process.env.SUPABASE_URL,
+      supabaseAuthAdminEnabled: !!(config.supabase.url && config.supabase.secretKey)
+    },
     compliance: {
       cfp: ['001/2009', '011/2018', '006/2019', '004/2020'],
       lgpd: ['Art. 5 II', 'Art. 11', 'Art. 16']

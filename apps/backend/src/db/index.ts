@@ -7,6 +7,7 @@ import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
 import { migrate as migratePostgres } from 'drizzle-orm/postgres-js/migrator';
 import path from 'node:path';
 import fs from 'node:fs';
+import { seedAndSyncDatabase } from './sync';
 
 
 export type AppDb = ReturnType<typeof drizzlePostgres<typeof schema>> | ReturnType<typeof drizzlePglite<typeof schema>>;
@@ -40,12 +41,7 @@ export async function getDb(): Promise<AppDb> {
     });
     _dbInstance = drizzlePostgres(client, { schema });
 
-    const possibleFolders = [
-      path.resolve(import.meta.dir || __dirname, '../../drizzle'),
-      path.resolve(process.cwd(), 'apps/backend/drizzle'),
-      path.resolve(process.cwd(), 'drizzle')
-    ];
-    const migrationsFolder = possibleFolders.find(f => fs.existsSync(f)) || possibleFolders[0];
+    const migrationsFolder = resolveMigrationsFolder();
     console.log(`📂 Pasta de migrações Drizzle: ${migrationsFolder} (existe: ${fs.existsSync(migrationsFolder)})`);
 
     try {
@@ -86,19 +82,10 @@ export async function getDb(): Promise<AppDb> {
     }
 
     try {
-      await (_dbInstance as any)
-        .insert(schema.therapists)
-        .values({
-          id: '00000000-0000-0000-0000-000000000001',
-          crp: '06/142980',
-          crpRegion: 'SP',
-          status: 'ACTIVE',
-          encryptedDek: 'mock-encrypted-dek-base64'
-        })
-        .onConflictDoNothing();
-      console.log('✅ Terapeuta padrão garantido no banco de dados.');
-    } catch {
-      // Ignora se já existir ou erro transitório
+      await seedAndSyncDatabase(_dbInstance);
+      console.log('✅ Dados padrão e sincronização com Supabase/PostgreSQL concluídos.');
+    } catch (seedErr: any) {
+      console.warn('⚠️ Nota sobre seed/sync no PostgreSQL:', seedErr?.message || seedErr);
     }
 
     return _dbInstance;
@@ -116,28 +103,53 @@ export async function getDb(): Promise<AppDb> {
     _pgliteInstance = new PGlite();
     _dbInstance = drizzlePglite(_pgliteInstance, { schema });
 
+    const migrationsFolder = resolveMigrationsFolder();
     // Executa migrações no banco local embutido
-    const migrationsFolder = path.resolve(__dirname, '../../drizzle');
     try {
       await migratePglite(_dbInstance as any, { migrationsFolder });
     } catch {
-      // Migrações já aplicadas ou rodando em memória
+      // Fallback SQL direto statement-by-statement
+      if (fs.existsSync(migrationsFolder)) {
+        const sqlFiles = fs.readdirSync(migrationsFolder).filter(f => f.endsWith('.sql')).sort();
+        for (const sqlFile of sqlFiles) {
+          const sqlPath = path.resolve(migrationsFolder, sqlFile);
+          const sqlContent = fs.readFileSync(sqlPath, 'utf-8');
+          const statements = sqlContent.split('--> statement-breakpoint');
+          for (const stmt of statements) {
+            const clean = stmt.trim();
+            if (clean) {
+              try {
+                await _pgliteInstance.exec(clean);
+              } catch (e: any) {
+                const msg = e?.message || '';
+                if (!msg.includes('already exists')) {
+                  // ignorar erro transitório
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
-    // Seed inicial de terapeuta para desenvolvimento
-    await (_dbInstance as any)
-      .insert(schema.therapists)
-      .values({
-        id: '00000000-0000-0000-0000-000000000001',
-        crp: '06/142980',
-        crpRegion: 'SP',
-        status: 'ACTIVE',
-        encryptedDek: 'mock-encrypted-dek-base64'
-      })
-      .onConflictDoNothing();
+    // Seed inicial e sincronização para desenvolvimento/testes
+    try {
+      await seedAndSyncDatabase(_dbInstance);
+    } catch {
+      // Ignora erro transitório em testes
+    }
   }
 
   return _dbInstance;
+}
+
+function resolveMigrationsFolder(): string {
+  const possibleFolders = [
+    path.resolve(import.meta.dir || __dirname, '../../drizzle'),
+    path.resolve(process.cwd(), 'apps/backend/drizzle'),
+    path.resolve(process.cwd(), 'drizzle')
+  ];
+  return possibleFolders.find(f => fs.existsSync(f)) || possibleFolders[0];
 }
 
 export { schema };

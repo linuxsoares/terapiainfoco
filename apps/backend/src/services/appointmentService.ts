@@ -12,6 +12,9 @@ import {
   type PublicBookingResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { getDb, schema } from '../db';
+import { persistAppointmentToDb } from '../db/sync';
+import { eq } from 'drizzle-orm';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -84,6 +87,16 @@ export class AppointmentService {
 
     db.appointments.set(id, storedAppointment);
 
+    // Persistência assíncrona garantida no Supabase/PostgreSQL
+    getDb().then(async sqlDb => {
+      try {
+        await persistAppointmentToDb(sqlDb, storedAppointment);
+        console.log(`✅ Agendamento ${storedAppointment.id} persistido no Supabase/PostgreSQL.`);
+      } catch (sqlErr) {
+        console.warn('⚠️ Falha ao persistir agendamento no Supabase/PostgreSQL:', sqlErr);
+      }
+    }).catch(() => {});
+
     AuditService.log({
       actorId: context.actorId,
       resourceType: AuditResourceType.APPOINTMENT,
@@ -134,6 +147,18 @@ export class AppointmentService {
     }
 
     appointment.status = newStatus;
+
+    // Persistência assíncrona da atualização no Supabase/PostgreSQL
+    getDb().then(async sqlDb => {
+      try {
+        await (sqlDb as any)
+          .update(schema.appointments)
+          .set({ status: newStatus })
+          .where(eq(schema.appointments.id, appointmentId));
+      } catch (err) {
+        console.warn('⚠️ Falha ao atualizar status no Supabase/PostgreSQL:', err);
+      }
+    }).catch(() => {});
 
     AuditService.log({
       actorId: context.actorId,

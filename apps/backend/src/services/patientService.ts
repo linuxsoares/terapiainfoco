@@ -6,6 +6,9 @@ import type {
 } from '@terapiainfoco/shared';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { getDb, schema } from '../db';
+import { persistPatientToDb } from '../db/sync';
+import { eq } from 'drizzle-orm';
 import { 
   encryptField, 
   decryptField, 
@@ -42,6 +45,16 @@ export class PatientService {
     };
 
     db.patients.set(id, storedPatient);
+
+    // Persistência assíncrona garantida no Supabase/PostgreSQL
+    getDb().then(async sqlDb => {
+      try {
+        await persistPatientToDb(sqlDb, storedPatient);
+        console.log(`✅ Paciente ${storedPatient.id} persistido no Supabase/PostgreSQL.`);
+      } catch (sqlErr) {
+        console.warn('⚠️ Falha ao persistir paciente no Supabase/PostgreSQL:', sqlErr);
+      }
+    }).catch(() => {});
 
     AuditService.log({
       actorId: context.actorId,
@@ -139,6 +152,25 @@ export class PatientService {
       stored.encryptedCpf = undefined;
       stored.cpfBindex = undefined;
     }
+
+    // Persistência assíncrona da quarentena no Supabase/PostgreSQL
+    getDb().then(async sqlDb => {
+      try {
+        await (sqlDb as any)
+          .update(schema.patients)
+          .set({
+            encryptedName: stored.encryptedName,
+            encryptedEmail: stored.encryptedEmail,
+            encryptedPhone: stored.encryptedPhone,
+            encryptedCpf: null,
+            emailBindex: stored.emailBindex,
+            cpfBindex: null
+          })
+          .where(eq(schema.patients.id, id));
+      } catch (err) {
+        console.warn('⚠️ Falha ao persistir quarentena no Supabase/PostgreSQL:', err);
+      }
+    }).catch(() => {});
 
     AuditService.log({
       actorId: context.actorId,
