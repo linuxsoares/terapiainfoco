@@ -18,7 +18,9 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
   const data = await res.json();
   if (!res.ok || data.success === false) {
-    throw new Error(data.error || 'Erro na requisição');
+    const error = new Error(data.error || 'Erro na requisição');
+    (error as any).isApiError = true;
+    throw error;
   }
 
   return data;
@@ -33,7 +35,7 @@ export const landingApi = {
       const url = `${API_BASE}/appointments/available-slots${date ? `?date=${encodeURIComponent(date)}` : ''}`;
       return await fetchJson<AvailableSlotsResponse>(url);
     } catch {
-      // Fallback em caso de backend offline
+      // Fallback em caso de backend offline durante execução isolada
       const today = date || new Date().toISOString().split('T')[0];
       return {
         therapistId: 'therapist-001',
@@ -67,10 +69,11 @@ export const landingApi = {
       );
       return res.booking;
     } catch (err: any) {
-      // Se a API externa falhar, mas for um mock local, gera confirmação simulada
-      if (err.message && !err.message.includes('fetch')) {
+      // Se foi um erro específico da regra de negócio (ex: sobreposição, falta de TCLE), exibe a mensagem
+      if (err.isApiError) {
         throw err;
       }
+      // Se for falha de rede/conexão (ex: dev-landing rodando sem backend), gera fallback simulado com link Meet real
       return {
         appointmentId: 'mock-public-appt-001',
         patientName: dto.patientName,
@@ -97,8 +100,14 @@ export const landingApi = {
     try {
       const res = await fetchJson<ValidateDocumentResponse>(`${API_BASE}/documents/validate/${token}`);
       return res;
-    } catch {
-      // Se token for o do mock de teste, simula retorno
+    } catch (err: any) {
+      if (err.isApiError) {
+        return {
+          valid: false,
+          message: err.message
+        };
+      }
+      // Se token for um dos testes ou tiver 32 hex, simula retorno em modo offline
       if (token === '1190fcc8a195675abb669249ad9b868c' || token.length === 32) {
         return {
           valid: true,
