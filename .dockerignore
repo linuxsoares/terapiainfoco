@@ -1,0 +1,18 @@
+# Dependências locais do host (evita vazar binários de macOS no container Alpine)
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+
+# Builds anteriores do host
+dist
+apps/*/dist
+
+# Controle de versão e metadados
+.git
+.github
+.agents
+*.log
+
+# Variáveis locais
+.env
+.env.*
