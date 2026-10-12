@@ -484,4 +484,61 @@ export interface RestoreBackupResponse {
   message: string;
 }
 
+/**
+ * 11. AUDITORIA EXTERNA, HASH-CHAIN & RELATÓRIO DE CONFORMIDADE PARA DPO/CFP (Opção H - RFC-001 §4.4)
+ */
+export interface AuditFilterParams {
+  startDate?: string;
+  endDate?: string;
+  resourceType?: string;
+  action?: string;
+  actorId?: string;
+  limit?: number;
+}
+
+export interface ChainIntegrityResult {
+  isValid: boolean;
+  totalEntries: number;
+  genesisHash: string;
+  latestHash: string;
+  tamperedAtIndex?: number | null;
+  tamperedLogId?: string | null;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface ComplianceReportResponse {
+  success: boolean;
+  reportId: string;
+  generatedAt: string;
+  regulationBasis: {
+    lgpdArticles: string[];
+    cfpResolutions: string[];
+    statement: string;
+  };
+  controller: {
+    clinicName: string;
+    dpoEmail: string;
+    technicalResponsibleCrp: string;
+  };
+  chainIntegrity: ChainIntegrityResult;
+  summary: {
+    totalEvents: number;
+    decryptReadsCount: number;
+    signaturesAppliedCount: number;
+    quarantineActionsCount: number;
+    backupActionsCount: number;
+    securityAlertsCount: number;
+    eventsByAction: Record<string, number>;
+    eventsByResourceType: Record<string, number>;
+  };
+  filteredPeriod: {
+    startDate: string | null;
+    endDate: string | null;
+  };
+  logs: import('./models').AuditLog[];
+  checksumSha256: string;
+}
+
+
 

@@ -223,6 +223,12 @@ export interface AuditLog {
   ipAddress: string;
   userAgent?: string;
   timestamp: Date | string;
+  /** Número sequencial estritamente crescente na cadeia (1, 2, 3...) */
+  sequenceNumber?: number;
+  /** Hash SHA-256 do registro anterior na hash-chain WORM (tamper-evident) */
+  previousHash?: string;
+  /** Hash SHA-256 canônico computado sobre os dados do log */
+  hash?: string;
 }
 
 /**
