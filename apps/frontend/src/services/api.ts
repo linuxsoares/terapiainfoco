@@ -19,7 +19,10 @@ import type {
   LoginResponse,
   TwoFactorSetupResponse,
   PrepareIcpSignatureResponse,
-  SignIcpDTO
+  SignIcpDTO,
+  ClinicalOverviewMetrics,
+  SecurityMetrics,
+  PatientClinicalMetrics
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -316,6 +319,22 @@ export const api = {
     } finally {
       authStorage.clear();
     }
+  },
+
+  // 8. Analytics & Observabilidade (RFC-001 Opção E)
+  async getClinicalOverview(therapistId = 'therapist-001'): Promise<ClinicalOverviewMetrics> {
+    const res = await request<{ success: boolean } & ClinicalOverviewMetrics>(`/analytics/clinical-overview?therapistId=${therapistId}`);
+    return res;
+  },
+
+  async getSecurityMetrics(): Promise<SecurityMetrics> {
+    const res = await request<{ success: boolean } & SecurityMetrics>('/analytics/security-metrics');
+    return res;
+  },
+
+  async getPatientClinicalMetrics(patientId: string): Promise<PatientClinicalMetrics> {
+    const res = await request<{ success: boolean } & PatientClinicalMetrics>(`/analytics/patient/${patientId}`);
+    return res;
   }
 };
 

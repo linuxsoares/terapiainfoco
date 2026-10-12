@@ -210,6 +210,76 @@ export interface SignIcpDTO {
   timestampToken?: string;
 }
 
+/**
+ * 8. ANALYTICS, OBSERVABILIDADE & DASHBOARD CLÍNICO (RFC-001 Opção E)
+ */
+export interface ClinicalOverviewMetrics {
+  totalPatients: number;
+  activePatients: number;
+  quarantinedPatients: number;
+  totalSessions: number;
+  completedSessions: number;
+  scheduledSessions: number;
+  cancelledSessions: number;
+  attendanceRate: number; // Porcentagem de comparecimento (0 a 100)
+  totalSoapRecords: number;
+  signedSoapRecords: number;
+  humanReviewComplianceRate: number; // Porcentagem de prontuários com Human-in-the-Loop concluído
+  totalDocuments: number;
+  signedDocuments: number;
+  icpSignedDocuments: number;
+  documentsByType: Record<DocumentType, number>;
+  recentSessions: Array<{
+    id: string;
+    patientId: string;
+    patientName: string;
+    date: string;
+    status: AppointmentStatus;
+  }>;
+  sessionsByMonth: Array<{
+    month: string;
+    count: number;
+  }>;
+}
 
+export interface SecurityMetrics {
+  totalAuditLogs: number;
+  wormIntegrityStatus: 'INTACT' | 'COMPROMISED';
+  totalDecryptReads: number;
+  totalSignatures: number;
+  failedLoginsCount: number;
+  rateLimitBlocksCount: number;
+  twoFactorAdoptionRate: number; // Porcentagem de contas com 2FA ativa
+  auditEventsByAction: Record<string, number>;
+  recentSecurityAlerts: Array<{
+    id: string;
+    timestamp: string;
+    action: string;
+    actorId: string;
+    ipAddress: string;
+    detail: string;
+    severity: 'INFO' | 'WARN' | 'ALERT';
+  }>;
+}
 
-
+export interface PatientClinicalMetrics {
+  patientId: string;
+  patientName: string;
+  firstSessionDate: string | null;
+  lastSessionDate: string | null;
+  totalAppointments: number;
+  completedAppointments: number;
+  attendanceRate: number;
+  totalSoapNotes: number;
+  evolutionTimeline: Array<{
+    sessionId: string;
+    sessionNumber: number;
+    date: string;
+    status: AppointmentStatus;
+    hasSoap: boolean;
+    isSigned: boolean;
+    signedAt?: string | null;
+    soapSubjectiveSummary?: string;
+    soapAssessmentSummary?: string;
+  }>;
+}
