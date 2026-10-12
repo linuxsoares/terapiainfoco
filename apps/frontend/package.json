@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
     "build": "tsc -b && vite build",
+    "build:frontend": "tsc -b && vite build",
     "start": "bun server.ts",
+    "start:frontend": "bun server.ts",
     "preview": "vite preview"
   },
   "dependencies": {

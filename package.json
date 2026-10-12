@@ -8,16 +8,17 @@
   ],
   "scripts": {
     "dev": "bun run dev:backend & bun run dev:frontend & wait",
-    "dev:landing": "bun --filter @terapiainfoco/landingpage dev",
-    "dev:frontend": "bun --filter @terapiainfoco/frontend dev",
-    "dev:backend": "bun --filter @terapiainfoco/backend dev",
+    "dev:landing": "bun run --cwd apps/landingpage dev",
+    "dev:frontend": "bun run --cwd apps/frontend dev",
+    "dev:backend": "bun run --cwd apps/backend dev",
     "start": "bun apps/backend/src/index.ts",
     "start:backend": "bun apps/backend/src/index.ts",
+    "start:frontend": "bun apps/frontend/server.ts",
     "build": "bun run --cwd apps/frontend build",
     "build:landing": "bun run --cwd apps/landingpage build",
     "build:frontend": "bun run --cwd apps/frontend build",
     "build:backend": "bun run --cwd apps/backend build",
-    "lint": "bun --filter @terapiainfoco/landingpage lint",
+    "lint": "bun run --cwd apps/landingpage lint",
     "test": "bun test"
   },
   "devDependencies": {
