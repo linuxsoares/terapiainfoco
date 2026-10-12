@@ -50,6 +50,8 @@ CREATE TABLE "patients" (
 	"cpf_bindex" varchar(64),
 	"consent_transcription_signed" boolean DEFAULT false NOT NULL,
 	"consent_signed_at" timestamp with time zone,
+	"consent_revoked_at" timestamp with time zone,
+	"consent_revoke_reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

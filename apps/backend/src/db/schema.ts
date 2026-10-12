@@ -44,6 +44,8 @@ export const patients = pgTable('patients', {
 
   consentTranscriptionSigned: boolean('consent_transcription_signed').notNull().default(false),
   consentSignedAt: timestamp('consent_signed_at', { withTimezone: true }),
+  consentRevokedAt: timestamp('consent_revoked_at', { withTimezone: true }),
+  consentRevokeReason: text('consent_revoke_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
   index('idx_patients_therapist').on(table.therapistId),

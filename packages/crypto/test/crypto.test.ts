@@ -87,3 +87,51 @@ describe('Envelope Encryption (RFC-001 §4.2)', () => {
     expect(decrypted).toBe(soapSubjective);
   });
 });
+
+describe('Passphrase Package Encryption (LGPD Art. 18 & Opção F)', () => {
+  it('deve cifrar e decifrar pacote de prontuário com passphrase', async () => {
+    const { encryptPackageWithPassphrase, decryptPackageWithPassphrase } = await import('../src');
+    const secretPassphrase = 'SenhaSeguraDoPaciente#2026';
+    const patientJson = JSON.stringify({
+      patientId: 'patient-123',
+      nome: 'Mariana Silva',
+      soapRecords: ['S: Ansiedade moderada', 'O: Lúcida e orientada']
+    });
+
+    const encryptedPkg = encryptPackageWithPassphrase(patientJson, secretPassphrase, 'patient-123');
+
+    expect(encryptedPkg.encrypted).toBe(true);
+    expect(encryptedPkg.algorithm).toBe('aes-256-gcm');
+    expect(encryptedPkg.kdf).toBe('pbkdf2-sha512');
+    expect(encryptedPkg.kdfIterations).toBe(100_000);
+    expect(encryptedPkg.ciphertextBase64).toBeDefined();
+    expect(encryptedPkg.ciphertextBase64).not.toBe(patientJson);
+
+    const decrypted = decryptPackageWithPassphrase(encryptedPkg, secretPassphrase);
+    expect(decrypted).toBe(patientJson);
+    const parsed = JSON.parse(decrypted);
+    expect(parsed.patientId).toBe('patient-123');
+    expect(parsed.nome).toBe('Mariana Silva');
+  });
+
+  it('deve rejeitar decifragem com senha incorreta por falha na autenticação GCM', async () => {
+    const { encryptPackageWithPassphrase, decryptPackageWithPassphrase } = await import('../src');
+    const correctPassphrase = 'SenhaCorreta123!';
+    const wrongPassphrase = 'SenhaIncorreta999!';
+    const rawData = 'Dados confidenciais protegidos por sigilo ético CFP';
+
+    const encryptedPkg = encryptPackageWithPassphrase(rawData, correctPassphrase, 'patient-999');
+
+    expect(() => {
+      decryptPackageWithPassphrase(encryptedPkg, wrongPassphrase);
+    }).toThrow();
+  });
+
+  it('deve rejeitar passphrase com menos de 6 caracteres', async () => {
+    const { encryptPackageWithPassphrase } = await import('../src');
+    expect(() => {
+      encryptPackageWithPassphrase('dados', '12345', 'patient-001');
+    }).toThrow('no mínimo 6 caracteres');
+  });
+});
+

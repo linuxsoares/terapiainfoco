@@ -97,6 +97,8 @@ export class PatientService {
       cpfBindex: stored.cpfBindex,
       consentTranscriptionSigned: stored.consentTranscriptionSigned,
       consentSignedAt: stored.consentSignedAt,
+      consentRevokedAt: stored.consentRevokedAt,
+      consentRevokeReason: stored.consentRevokeReason,
       createdAt: stored.createdAt
     };
   }

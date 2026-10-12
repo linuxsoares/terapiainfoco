@@ -171,6 +171,28 @@ terapiainfoco/
   - Seletor de paciente com histórico detalhado e linha do tempo de evolução terapêutica.
   - Suporte completo a **Light Mode** e **Dark Mode** e bloqueio educativo para perfil de secretária (RBAC).
 
+### 11. Portabilidade de Dados & Exportação Criptografada (RFC-001 Opção F - LGPD Art. 18 & Resoluções CFP)
+- [x] **Serviço de Portabilidade e Exportação (`portabilityService.ts`):**
+  - Consolidação e decifragem autorizada de prontuário psicológico completo: dados cadastrais, consentimentos (TCLE), agendamentos, evoluções SOAP assinadas, documentos emitidos e transcrições com diarização.
+  - Formato aberto e interoperável JSON (LGPD Art. 18, inciso V) para portabilidade sem aprisionamento tecnológico.
+  - Cálculo de **Checksum SHA-256 canônico** do pacote estruturado para verificação de integridade pelo destinatário.
+  - Resumo de acessos da trilha de auditoria e carimbo formal de exportação.
+- [x] **Criptografia Simétrica por Passphrase (`passphrasePackage.ts`):**
+  - Cifragem do pacote de prontuário por frase secreta (passphrase) definida pelo titular ou terapeuta via **AES-256-GCM** com derivação de chave **PBKDF2-HMAC-SHA512** (100.000 iterações e Salt de 128 bits).
+  - Validação estrita de autenticidade (Auth Tag GCM) impedindo adulteração ou decifragem com senha incorreta.
+- [x] **Revogação Formal de Consentimento & Retenção Legal CFP (`portabilityService.ts`):**
+  - Endpoint `POST /api/patients/:id/revoke-consent` para cancelamento de telepsicologia ou transcrição assistida por IA (LGPD Art. 18, IX).
+  - Harmonização com a **Resolução CFP nº 001/2009 (Art. 4º)** e **LGPD (Art. 16, I)**: preservação e salvaguarda da guarda sigilosa dos registros de atendimento pelo período mínimo legal de 5 anos.
+  - Opção de quarentena de dados e anonimização ativa de contato sob requisição expressa.
+- [x] **Auditoria WORM & Controle de Acesso RBAC:**
+  - Registro compulsório de eventos `AuditAction.DATA_EXPORT` e `AuditAction.CONSENT_REVOCATION` na trilha imutável.
+  - Bloqueio estrito de acesso para perfil de Recepção/Secretária (HTTP 403 Forbidden) e requisições sem token (HTTP 401 Unauthorized).
+- [x] **Interface Frontend no Módulo de Pacientes (`PatientsModule.tsx`):**
+  - Botão de ação "Portabilidade LGPD (Art. 18)" e modal interativo para seleção de formato (JSON vs. Criptografado por Senha).
+  - Cópia com um clique do Checksum SHA-256 e download imediato do arquivo gerado (`.json`).
+  - Modal de "Revogar Consentimento" com justificativa, opção de quarentena e aviso transparente sobre a retenção de 5 anos do CFP.
+  - Total compatibilidade com **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -186,20 +208,21 @@ terapiainfoco/
 | `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | Merged |
 | `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | Merged |
 | `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | Merged |
-| `feat/analytics-clinical-dashboard-observability` | Dashboard Clínico, Métricas Longitudinais e Observabilidade WORM (Opção E) | PR #13 | **Em Aberto** |
+| `feat/analytics-clinical-dashboard-observability` | Dashboard Clínico, Métricas Longitudinais e Observabilidade WORM (Opção E) | PR #13 | Merged |
+| `feat/data-portability-lgpd-export` | Portabilidade de Dados, Exportação Criptografada LGPD Art. 18 e Revogação CFP (Opção F) | PR #14 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o Dashboard Clínico, Métricas Longitudinais e Observabilidade de Segurança operacionais e validados por 49 testes automatizados, os próximos passos de evolução do roadmap são:
-
-#### 📦 Opção F: Portabilidade de Dados & Exportação Criptografada LGPD Art. 18
-- [ ] **Exportação Segura de Prontuário:** Endpoint para exportação de dados em pacote cifrado (ZIP/JSON) contendo prontuários, notas SOAP e documentos para portabilidade do titular conforme Art. 18 da LGPD e Resoluções do CFP.
-- [ ] **Direito de Acesso e Revogação de Consentimento:** Fluxo de revogação de consentimento de teleconsulta e transcrição com anonimização auditável.
+Com a Portabilidade de Dados e Exportação Criptografada operacionais e validadas por 58 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 🔐 Opção G: Backup Automatizado & Disaster Recovery com KMS
-- [ ] **Rotina de Backup Criptografado:** Geração e rotação periódica de backups em repouso cifrados pela Master Key (KMS).
+- [ ] **Rotina de Backup Criptografado:** Geração e rotação periódica de backups em repouso da base de dados cifrados pela Master Key (KMS / envelope encryption).
+- [ ] **Mecanismo de Verificação de Integridade:** Validação periódica do snapshot do banco para recuperação rápida de desastres (RPO/RTO).
+
+#### 📜 Opção H: Trilha de Auditoria Externa & Relatório de Conformidade para DPO/CFP
+- [ ] **Exportação de Relatório de Conformidade:** Geração de relatório consolidado em PDF/CSV para fiscalização de conselho regional e encarregado de dados (DPO).
 
 ---
 
@@ -209,7 +232,7 @@ Com o Dashboard Clínico, Métricas Longitudinais e Observabilidade de Seguranç
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (49 testes)
+# 2. Executar suíte completa de testes (58 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -218,4 +241,5 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
