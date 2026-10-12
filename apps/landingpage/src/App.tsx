@@ -11,6 +11,9 @@ import { PricingSection } from './components/PricingSection';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { LeadModal } from './components/LeadModal';
+import { BookingWidget } from './components/BookingWidget';
+import { ValidationPortal } from './components/ValidationPortal';
+
 
 export function App() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
@@ -38,6 +41,9 @@ export function App() {
           onExploreSimulator={handleScrollToSimulator}
         />
 
+        {/* Public Booking Widget: Experience for Patients (RFC §3.1) */}
+        <BookingWidget />
+
         {/* 5 Functional RFC Modules */}
         <FeatureModules />
 
@@ -49,6 +55,10 @@ export function App() {
 
         {/* Official CFP Documents (Res. 006/2019) */}
         <DocumentSection />
+
+        {/* Public Zero-Knowledge Document Verification Portal (QR Code target) */}
+        <ValidationPortal />
+
 
         {/* Time & Financial ROI Calculator */}
         <RoiCalculator onOpenDemo={handleOpenDemo} />

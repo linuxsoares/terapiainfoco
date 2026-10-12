@@ -48,12 +48,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <a
               href="#modulos"
+
               className="hover:text-teal-600 transition-colors"
             >
               Módulos
+            </a>
+            <a
+              href="#agendamento-online"
+              className="hover:text-teal-600 transition-colors text-teal-700 font-semibold flex items-center gap-1"
+            >
+              📅 Agendar Sessão
             </a>
             <a
               href="#simulador-ia"
@@ -76,10 +83,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               Laudos CFP
             </a>
             <a
-              href="#calculadora"
+              href="#validar"
               className="hover:text-teal-600 transition-colors"
             >
-              Calculadora
+              Validar Documento
             </a>
             <a
               href="#precos"
@@ -94,6 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               FAQ
             </a>
           </nav>
+
 
           {/* Action CTAs */}
           <div className="hidden sm:flex items-center gap-3">
@@ -132,12 +140,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               Módulos do Sistema
             </a>
             <a
+              href="#agendamento-online"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-sm font-bold text-teal-700 hover:text-teal-800"
+            >
+              📅 Agendar Teleconsulta
+            </a>
+            <a
               href="#simulador-ia"
               onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-semibold text-teal-700 hover:text-teal-800"
+              className="block py-2 text-sm font-semibold text-slate-800 hover:text-teal-800"
             >
               ✨ Simulador de IA Clínica (SOAP)
             </a>
+
             <a
               href="#seguranca"
               onClick={() => setMobileMenuOpen(false)}
