@@ -61,6 +61,7 @@ console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);
 
 export default {
   port: config.port,
+  hostname: '0.0.0.0',
   reusePort: true,
   fetch: app.fetch
 };

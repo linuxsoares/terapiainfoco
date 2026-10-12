@@ -17,14 +17,17 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN bun run build:frontend
 
-# Estágio 2: Execução leve com Bun Nativo (SPA routing fallback)
+# Estágio 2: Execução com Servidor Bun Nativo
 FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
-COPY --from=builder /app/apps/frontend/dist ./dist
+# Copia os arquivos compilados e o servidor de arquivos estáticos
+COPY --from=builder /app/apps/frontend/dist ./apps/frontend/dist
+COPY apps/frontend/server.ts ./apps/frontend/server.ts
 
 ENV NODE_ENV=production
-ENV PORT=80
-EXPOSE 80
+ENV PORT=3000
+EXPOSE 3000
 
-CMD ["bun", "-e", "const port = Number(process.env.PORT) || 80; const fs = require('fs'); const path = require('path'); Bun.serve({ port, async fetch(req) { const p = new URL(req.url).pathname; const target = path.join('./dist', p); const file = fs.existsSync(target) && fs.statSync(target).isFile() ? Bun.file(target) : Bun.file('./dist/index.html'); return new Response(file); } }); console.log(`Frontend TerapiaInFoco rodando na porta ${port}`);"]
+# Executa o servidor estático ouvindo em 0.0.0.0:$PORT
+CMD ["bun", "apps/frontend/server.ts"]
