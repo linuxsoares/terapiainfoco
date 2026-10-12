@@ -1,5 +1,6 @@
 import { AppointmentStatus, DocumentType, UserRole } from './enums';
-import type { SoapNote, TranscriptUtterance, SafeUser } from './models';
+import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData } from './models';
+
 
 
 
@@ -58,6 +59,7 @@ export interface ValidateDocumentResponse {
     issuedAt: string;
     signaturePadesHash: string;
     regulationReference: string;
+    icpSignature?: IcpSignatureData;
   };
   message?: string;
 }
@@ -189,6 +191,25 @@ export interface RefreshTokenResponse {
   refreshToken: string;
   expiresIn: number;
 }
+
+/**
+ * DTOs de Assinatura Qualificada ICP-Brasil (PAdES / MP 2.200-2/2001)
+ */
+export interface PrepareIcpSignatureResponse {
+  documentId: string;
+  title: string;
+  sha256Digest: string;
+  pdfHash: string;
+  validationToken: string;
+  validationUrl: string;
+}
+
+export interface SignIcpDTO {
+  certificate: IcpCertificateInfo;
+  signatureBase64: string;
+  timestampToken?: string;
+}
+
 
 
 

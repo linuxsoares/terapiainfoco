@@ -127,9 +127,34 @@ export class DocumentService {
       isSigned: true,
       signedAt,
       signaturePadesHash,
+      icpSignature: doc.icpSignature,
       createdAt: doc.createdAt
     };
   }
+
+  /**
+   * Obtém documento específico decifrado por ID
+   */
+  static getDocumentById(id: string): DecryptedPsychologicalDocument | null {
+    const doc = db.documents.get(id);
+    if (!doc) return null;
+    return {
+      id: doc.id,
+      patientId: doc.patientId,
+      therapistId: doc.therapistId,
+      type: doc.type,
+      title: doc.title,
+      regulationReference: doc.regulationReference,
+      content: decryptField(doc.encryptedContent),
+      validationToken: doc.validationToken,
+      isSigned: doc.isSigned,
+      signedAt: doc.signedAt,
+      signaturePadesHash: doc.signaturePadesHash,
+      icpSignature: doc.icpSignature,
+      createdAt: doc.createdAt
+    };
+  }
+
 
   /**
    * Lista todos os documentos emitidos
@@ -153,6 +178,7 @@ export class DocumentService {
           isSigned: doc.isSigned,
           signedAt: doc.signedAt,
           signaturePadesHash: doc.signaturePadesHash,
+          icpSignature: doc.icpSignature,
           createdAt: doc.createdAt
         });
       }
@@ -219,8 +245,10 @@ export class DocumentService {
         patientInitials,
         issuedAt: matchedDoc.signedAt ? new Date(matchedDoc.signedAt).toLocaleString('pt-BR') : '',
         signaturePadesHash: matchedDoc.signaturePadesHash || '',
-        regulationReference: matchedDoc.regulationReference
+        regulationReference: matchedDoc.regulationReference,
+        icpSignature: matchedDoc.icpSignature || undefined
       }
     };
   }
+
 }

@@ -1,11 +1,15 @@
 import { Hono } from 'hono';
-import type { GenerateDocumentDTO, SignDocumentDTO } from '@terapiainfoco/shared';
+import type { GenerateDocumentDTO, SignDocumentDTO, SignIcpDTO } from '@terapiainfoco/shared';
 import { DocumentService } from '../services/documentService';
+import { PdfGeneratorService } from '../services/pdfGeneratorService';
+import { IcpBrasilService } from '../services/icpBrasilService';
+import { PatientService } from '../services/patientService';
 import { validationRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
 
 export const documentsRoute = new Hono();
+
 
 /**
  * POST /api/documents/draft
@@ -103,4 +107,94 @@ documentsRoute.get('/validate/:token', validationRateLimiter, async (c) => {
 
   return c.json({ success: true, ...result }, 200);
 });
+
+/**
+ * GET /api/documents/:id
+ * Retorna documento clínico decifrado específico
+ */
+documentsRoute.get('/:id', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const doc = DocumentService.getDocumentById(id);
+  if (!doc) {
+    return c.json({ success: false, error: 'Documento não encontrado.' }, 404);
+  }
+  return c.json({ success: true, document: doc });
+});
+
+/**
+ * GET /api/documents/:id/pdf
+ * Gera e realiza streaming do arquivo PDF timbrado oficial A4 com QR Code e PAdES
+ */
+documentsRoute.get('/:id/pdf', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const doc = DocumentService.getDocumentById(id);
+    if (!doc) {
+      return c.json({ success: false, error: 'Documento não encontrado.' }, 404);
+    }
+
+    const patient = PatientService.getPatientById(doc.patientId, {
+      actorId: 'pdf-streamer',
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1'
+    });
+
+    const pdfBytes = await PdfGeneratorService.generateDocumentPdf({
+      document: doc,
+      patient
+    });
+
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="documento-cfp-${doc.id.slice(0, 8)}.pdf"`,
+        'Content-Length': pdfBytes.length.toString(),
+        'Cache-Control': 'no-cache'
+      }
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao gerar PDF.' }, 500);
+  }
+});
+
+/**
+ * POST /api/documents/:id/prepare-icp-signature
+ * Prepara o documento e gera o digest SHA-256 para assinatura com token/nuvem ICP-Brasil
+ */
+documentsRoute.post('/:id/prepare-icp-signature', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const response = await IcpBrasilService.prepareSignature(id);
+    return c.json({ success: true, ...response }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao preparar assinatura ICP-Brasil.' }, 400);
+  }
+});
+
+/**
+ * POST /api/documents/:id/sign-icp
+ * Registra a assinatura qualificada com certificado digital ICP-Brasil e carimbo do tempo
+ */
+documentsRoute.post('/:id/sign-icp', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json<SignIcpDTO>();
+
+    if (!body.certificate || !body.signatureBase64) {
+      return c.json({ success: false, error: 'certificate e signatureBase64 são obrigatórios.' }, 400);
+    }
+
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const signedDoc = await IcpBrasilService.signWithIcp(id, body, {
+      actorId: 'therapist-001',
+      ipAddress: ip,
+      userAgent: c.req.header('user-agent')
+    });
+
+    return c.json({ success: true, document: signedDoc }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao assinar com ICP-Brasil.' }, 400);
+  }
+});
+
 

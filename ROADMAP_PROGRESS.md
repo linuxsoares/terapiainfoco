@@ -124,6 +124,28 @@ terapiainfoco/
   - `ADMIN`: Gestão de segurança e trilha de auditoria WORM.
 - [x] **Painel Frontend de Segurança & 2FA (`SecurityModule.tsx` & `App.tsx`):** Exibição do status de 2FA, leitor dinâmico de QR Code com `qrcode`, simulação de papéis em tempo real e bloqueio educativo/legal de RBAC (CFP 001/2009 & LGPD Art. 11).
 
+### 9. Geração Server-Side de PDFs CFP nº 006/2019 & Assinatura ICP-Brasil (RFC-001 Opção D)
+- [x] **Motor Server-Side de Geração de PDFs (`pdfGeneratorService.ts`):**
+  - Geração nativa em TypeScript de documentos em formato A4 timbrado oficial conforme a Resolução CFP nº 006/2019 para os 4 modelos (Atestado, Relatório, Laudo e Declaração).
+  - Cabeçalho timbrado profissional com dados da psicóloga responsável, CRP e e-Psi.
+  - Word-wrapping e paginação automática do texto e fundamentação técnica.
+  - Embutimento dinâmico de **QR Code em alta resolução** apontando para o portal de validação Zero-Knowledge.
+  - Selo criptográfico com token de validação, hash SHA-256 e carimbo de autenticidade documental.
+- [x] **Assinatura Digital Qualificada ICP-Brasil & TSA RFC 3161 (`icpBrasilService.ts`):**
+  - Validação de cadeia de confiança ICP-Brasil (AC Soluti, AC Certisign, AC Serasa Experian, AC Notarial, etc.) conforme **MP nº 2.200-2/2001**.
+  - Checagem estrita de período de vigência de certificados A1/A3 e emissão de Carimbo do Tempo (Timestamp Authority - TSA).
+  - Cálculo de digest canônico SHA-256 do PDF para signing tools e PAdES detached (`ETSI.CAdES.detached`).
+  - Garantia de imutabilidade jurídica e ética contra adulterações pós-assinatura.
+- [x] **Endpoints Backend com RBAC e Rate Limiting (`apps/backend/src/routes/documents.ts`):**
+  - `GET /api/documents/:id/pdf`: streaming binário HTTP do arquivo PDF timbrado (`Content-Type: application/pdf`).
+  - `POST /api/documents/:id/prepare-icp-signature`: preparação e digest SHA-256 canônico.
+  - `POST /api/documents/:id/sign-icp`: aplicação de assinatura digital qualificada com certificado ICP-Brasil.
+- [x] **Interface Frontend Integrada (`apps/frontend`):**
+  - Botão **"Baixar PDF Timbrado"** em [`DocumentsModule.tsx`](file:///Users/gilmar/projects/terapiainfoco/apps/frontend/src/components/DocumentsModule.tsx) para download de documento oficial.
+  - Modal **"Assinar com ICP-Brasil (PAdES)"** com detecção de certificado e confirmação.
+  - Selo visual verde de conformidade ICP-Brasil na folha timbrada e no portal de validação.
+  - Badges de indicação ICP-Brasil na lista lateral de documentos.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -137,21 +159,21 @@ terapiainfoco/
 | `feat/modulo-5-documentos-cfp` | Módulo 5 (Documentos CFP + QR Code) | PR #6 | Merged |
 | `feat/pipeline-transcricao-ia-soap` | Módulo 3 (Transcrição, Diarização, Sanitização LGPD & SOAP IA) | PR #9 | Merged |
 | `feat/landing-agendamento-validacao-publica` | Agendamento Online na Landing Page & Validação Pública Zero-Knowledge (RFC §3.1, §3.5) | PR #10 | Merged |
-| `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | **Em Aberto** |
+| `feat/auth-jwt-2fa-rate-limiting-rbac` | Autenticação Segura JWT, 2FA/MFA (TOTP), RBAC e Rate Limiting (RFC-001 Opção C) | PR #11 | Merged |
+| `feat/pdf-server-generation-icp-brasil` | Geração Server-Side de PDFs Timbrados CFP 006/2019 e Assinatura ICP-Brasil (Opção D) | PR #12 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a camada de autenticação segura, gestão de acessos RBAC, 2FA/MFA e proteção contra abusos (Rate Limiting) completamente operacionais e validadas por 36 testes, os próximos passos de evolução do roadmap são:
-
-#### 📄 Opção D: Geração Server-Side de PDFs & Assinatura ICP-Brasil
-- [ ] **Geração Server-Side de PDFs:** Motor no backend para geração e download de arquivos PDF formatados para os 4 modelos CFP nº 006/2019 (Atestado, Relatório, Laudo, Declaração) com QR Code e marca d'água de autenticidade.
-- [ ] **ICP-Brasil / PAdES Bridge:** Preparação e contrato de integração para certificados digitais padrão ICP-Brasil (A1/A3) para assinatura qualificada.
+Com a geração server-side de PDFs e assinatura ICP-Brasil plenamente operacionais e validadas por 43 testes automatizados, os próximos passos de evolução do roadmap são:
 
 #### 📊 Opção E: Observabilidade, Métricas & Dashboard Clínico do Paciente
-- [ ] **Painel Analítico de Pacientes:** Visualização de frequência de sessões, acompanhamento de evolução terapêutica e indicadores clínicos longitudinais.
-- [ ] **Métricas de Segurança:** Dashboard de monitoramento de eventos de auditoria WORM, tentativas de brute force e bloqueios de rate limit.
+- [ ] **Painel Analítico de Pacientes:** Visualização longitudinal da evolução clínica do paciente, aderência e frequência de sessões.
+- [ ] **Métricas de Segurança & Auditoria:** Dashboard visual com indicadores de integridade dos logs WORM, tentativas de força bruta bloqueadas por rate limit e volumetria de requisições.
+
+#### 📦 Opção F: Portabilidade de Dados & Exportação LGPD Art. 18
+- [ ] **Exportação Segura de Prontuário:** Pacote de dados cifrado para portabilidade do titular conforme Artigo 18 da LGPD e Resoluções do CFP.
 
 ---
 
@@ -161,7 +183,7 @@ Com a camada de autenticação segura, gestão de acessos RBAC, 2FA/MFA e prote�
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (36 testes)
+# 2. Executar suíte completa de testes (43 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

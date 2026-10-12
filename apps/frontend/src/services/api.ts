@@ -17,7 +17,9 @@ import type {
   SanitizeTranscriptionDTO,
   SafeUser,
   LoginResponse,
-  TwoFactorSetupResponse
+  TwoFactorSetupResponse,
+  PrepareIcpSignatureResponse,
+  SignIcpDTO
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -174,6 +176,42 @@ export const api = {
   async getDocuments(): Promise<DecryptedPsychologicalDocument[]> {
     const res = await request<{ success: boolean; documents: DecryptedPsychologicalDocument[] }>('/documents');
     return res.documents;
+  },
+
+  async getDocumentById(id: string): Promise<DecryptedPsychologicalDocument> {
+    const res = await request<{ success: boolean; document: DecryptedPsychologicalDocument }>(`/documents/${id}`);
+    return res.document;
+  },
+
+  async downloadDocumentPdf(documentId: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    const token = authStorage.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE}/documents/${documentId}/pdf`, {
+      method: 'GET',
+      headers
+    });
+    if (!res.ok) {
+      throw new Error(`Erro ao baixar PDF oficial: HTTP ${res.status}`);
+    }
+    return await res.blob();
+  },
+
+  async prepareIcpSignature(documentId: string): Promise<PrepareIcpSignatureResponse> {
+    const res = await request<{ success: boolean } & PrepareIcpSignatureResponse>(`/documents/${documentId}/prepare-icp-signature`, {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async signWithIcp(documentId: string, dto: SignIcpDTO): Promise<DecryptedPsychologicalDocument> {
+    const res = await request<{ success: boolean; document: DecryptedPsychologicalDocument }>(`/documents/${documentId}/sign-icp`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.document;
   },
 
   async validateDocumentToken(token: string): Promise<ValidateDocumentResponse> {
