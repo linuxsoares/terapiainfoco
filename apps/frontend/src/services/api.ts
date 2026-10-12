@@ -26,7 +26,12 @@ import type {
   ExportPatientDataDTO,
   ExportPatientDataResponse,
   RevokeConsentDTO,
-  RevokeConsentResponse
+  RevokeConsentResponse,
+  BackupOverviewResponse,
+  CreateBackupResponse,
+  VerifyBackupResponse,
+  RestoreBackupResponse,
+  BackupSnapshotFile
 } from '@terapiainfoco/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -356,7 +361,48 @@ export const api = {
   async getPatientClinicalMetrics(patientId: string): Promise<PatientClinicalMetrics> {
     const res = await request<{ success: boolean } & PatientClinicalMetrics>(`/analytics/patient/${patientId}`);
     return res;
+  },
+
+  // 9. Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)
+  async getBackupOverview(): Promise<BackupOverviewResponse> {
+    const res = await request<BackupOverviewResponse>('/backups');
+    return res;
+  },
+
+  async createBackup(): Promise<CreateBackupResponse> {
+    const res = await request<CreateBackupResponse>('/backups', {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async verifyBackup(backupId: string): Promise<VerifyBackupResponse> {
+    const res = await request<VerifyBackupResponse>(`/backups/${backupId}/verify`, {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async restoreBackup(backupId: string): Promise<RestoreBackupResponse> {
+    const res = await request<RestoreBackupResponse>(`/backups/${backupId}/restore`, {
+      method: 'POST'
+    });
+    return res;
+  },
+
+  async downloadBackupFile(backupId: string): Promise<void> {
+    const file = await request<BackupSnapshotFile>(`/backups/${backupId}/download`);
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `terapiainfoco-backup-${backupId.slice(0, 8)}.kms-backup.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 };
+
 
 
