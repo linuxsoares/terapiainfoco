@@ -69,7 +69,10 @@ import type {
   PasskeyAuthenticationOptionsResponse,
   PasskeyAuthenticationVerifyDTO,
   PasskeyInfoDTO,
-  PasskeyListResponse
+  PasskeyListResponse,
+  DPIAReport,
+  CompliancePentestResponse,
+  DPIAReportResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -874,6 +877,37 @@ export const api = {
       authenticatorData: dummyAuthData,
       signature: dummySig
     });
+  },
+
+  // 17. Auditoria Contínua, Pentest Automatizado & Relatório RIPD/DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)
+  async runCompliancePentest(): Promise<CompliancePentestResponse> {
+    return await request<CompliancePentestResponse>('/audit/compliance/run', {
+      method: 'POST'
+    });
+  },
+
+  async getLatestDPIAReport(): Promise<DPIAReport> {
+    const res = await request<DPIAReportResponse>('/audit/compliance/report');
+    return res.report;
+  },
+
+  async downloadDPIAReport(): Promise<void> {
+    const token = authStorage.getToken();
+    const res = await fetch(`${API_BASE}/audit/compliance/download-ripd`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    if (!res.ok) throw new Error('Falha ao baixar relatório RIPD');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `terapiainfoco-ripd-dpia-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 };
 

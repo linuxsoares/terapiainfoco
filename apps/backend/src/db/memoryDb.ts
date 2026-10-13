@@ -10,7 +10,8 @@ import type {
   StoredAnamnesisRecord,
   StoredClinicalRecordRectification,
   PasskeyCredential,
-  WebAuthnChallengeSession
+  WebAuthnChallengeSession,
+  DPIAReport
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -33,6 +34,7 @@ export class MemoryDatabase {
   public auditLogs: AuditLog[] = [];
   public passkeys: Map<string, PasskeyCredential> = new Map();
   public webauthnChallenges: Map<string, WebAuthnChallengeSession> = new Map();
+  public dpiaReports: Map<string, DPIAReport> = new Map();
 
 
   constructor() {
@@ -160,6 +162,7 @@ export class MemoryDatabase {
     this.revokedTokens.clear();
     this.passkeys.clear();
     this.webauthnChallenges.clear();
+    this.dpiaReports.clear();
     this.seedDefaultTherapist();
     this.seedDefaultUsers();
   }

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { AuditService } from '../services/auditService';
+import { ComplianceService } from '../services/complianceService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import type { UnmaskAuditRequestDTO, UnmaskAuditResponse } from '@terapiainfoco/shared';
@@ -160,5 +161,44 @@ auditRoute.get('/resource/:id', adminOrTherapist, (c) => {
   const resourceId = c.req.param('id');
   const logs = AuditService.getLogsForResource(resourceId);
   return c.json({ success: true, count: logs.length, logs });
+});
+
+// 7. Execução de Pentest Automatizado & Emissão de RIPD / DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)
+auditRoute.post('/compliance/run', adminOrTherapist, async (c) => {
+  const user = c.get('user');
+  const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+
+  try {
+    const report = await ComplianceService.generateComplianceReport(user?.id || 'admin', ipAddress);
+    return c.json({
+      success: true,
+      message: `Auditoria de conformidade executada com sucesso. Score: ${report.overallScore}% (${report.pentestSummary.passed}/${report.pentestSummary.totalScenarios} cenários aprovados).`,
+      report
+    }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao executar auditoria de conformidade.' }, 500);
+  }
+});
+
+// 8. Consulta do Relatório Mais Recente de Conformidade RIPD / DPIA
+auditRoute.get('/compliance/report', adminOrTherapist, async (c) => {
+  try {
+    const report = await ComplianceService.getLatestReport();
+    return c.json({ success: true, report }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao obter relatório de conformidade.' }, 500);
+  }
+});
+
+// 9. Download do Relatório RIPD em JSON Assinado
+auditRoute.get('/compliance/download-ripd', adminOrTherapist, async (c) => {
+  try {
+    const report = await ComplianceService.getLatestReport();
+    c.header('Content-Type', 'application/json; charset=utf-8');
+    c.header('Content-Disposition', `attachment; filename="terapiainfoco-ripd-dpia-${report.reportId.slice(0, 8)}.json"`);
+    return c.json(report, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao exportar RIPD.' }, 500);
+  }
 });
 
