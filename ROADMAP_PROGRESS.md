@@ -1,9 +1,9 @@
 # 📋 TerapiaInFoco — Status de Implementação & Próximos Passos (RFC-001)
 
 > **Documento de Continuidade Operacional**  
-> **Data:** 12/10/2026  
+> **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança + Suporte Mobile Completo | 137/137 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP | 146/146 Testes Passando
 
 
 
@@ -64,10 +64,12 @@ terapiainfoco/
   - `POST /api/patients`: Cadastro de paciente com Field-Level Encryption e registro de consentimento (TCLE).
   - `GET /api/patients/search/cpf`: Busca determinística rápida via Blind Index HMAC.
   - `POST /api/patients/:id/quarantine`: Quarentena criptográfica LGPD.
+  - `POST /api/patients/:id/anamnesis` & `GET /api/patients/:id/anamnesis`: **Ficha de Admissão & Anamnese Biopsicossocial (RFC §3.4, Resoluções CFP nº 001/2009 e 004/2020)** com Field-Level Encryption (AES-256-GCM), versionamento incremental (v1, v2...), objetivos terapêuticos e segregação RBAC (HTTP 403 para recepção).
 - [x] **Módulo 3 & 4 (Prontuário Eletrônico & Evolução SOAP):**
   - `POST /api/clinical-records/draft`: Rascunho com 4 eixos SOAP cifrados.
   - Segregação legal de anotações confidenciais do terapeuta (§3.4).
   - `POST /api/clinical-records/sign`: Assinatura compulsória com *Human-in-the-Loop* (§3.3), gerando hash SHA-256 e tornando o registro imutável (CFP nº 001/2009).
+  - `POST /api/clinical-records/:id/rectify` & `GET /api/clinical-records/:id/rectifications`: **Termo de Retificação Formal para Prontuários Selados (RFC §3.4 e Resolução CFP nº 001/2009)** com averbação aditiva vinculada, canonical SHA-256 digest, revisão ética compulsória e auditoria WORM (sem mutação no registro original).
 - [x] **Módulo 5 (Documentos Psicológicos CFP nº 006/2019):**
   - `POST /api/documents/draft`: Geração de rascunho de Declaração, Atestado, Relatório e Laudo com cifragem AES-256.
   - `POST /api/documents/sign`: Assinatura digital com hash PAdES/SHA-256 e selo imutável.
@@ -85,11 +87,13 @@ terapiainfoco/
   - Visualização de horários, buffers e agendamento com Google Meet.
 - [x] **Módulo de Pacientes (`PatientsModule.tsx`):**
   - Formulário com TCLE, banner explicativo de Blind Indexing e Quarentena LGPD.
+  - **Ficha de Anamnese Biopsicossocial Interativa (CFP 001/2009 e 004/2020):** Modal estruturado por abas (*Queixa & Demanda*, *Histórico Biopsicossocial*, *Histórico Médico/Psiquiátrico*, *Metas Terapêuticas & Contato de Emergência*), indicador de versão incremental (`v1`, `v2`...) e selo de cifragem AES-256-GCM (FLE).
 - [x] **Módulo SOAP & Transcrição com IA (`SoapModule.tsx`):**
   - Pipeline de áudio da teleconsulta e diarização com separação dos canais Terapeuta vs. Paciente e timestamps.
   - Alternância interativa entre transcrição diarizada e visualização com Sanitização LGPD Art. 11 (destaque visual de tokens protegidos).
   - Botão "Gerar Rascunho SOAP com IA" com síntese clínica dos 4 quadrantes (`S`, `O`, `A`, `P`) e notas privadas (§3.4).
   - Trava legal compulsória de *Human-in-the-Loop* (CFP nº 001/2009) e certificado visual de imutabilidade com hash SHA-256.
+  - **Averbação de Termo de Retificação Formal (Resolução CFP nº 001/2009):** Para prontuários assinados (`isSigned === true`), modal de averbação com seletor de quadrante afetado (`S`, `O`, `A`, `P` ou Geral), justificativa ética formal, conteúdo aditivo e listagem cronológica expansível com hash SHA-256 canônico.
 - [x] **Módulo de Documentos CFP (`DocumentsModule.tsx`):**
   - Seleção dos 4 modelos oficiais do CFP (Declaração, Atestado, Relatório, Laudo).
   - Papel timbrado digital formatado com cabeçalho oficial e assinatura.
@@ -446,17 +450,18 @@ terapiainfoco/
 | `fix/supabase-persistence-sync` | Script supabase_full_schema.sql e fallback direto de gravação PostgREST | PR #27 | Merged |
 | `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | Merged |
 | `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | Merged |
-| `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | **Em Aberto** |
+| `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | Merged |
+| `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o Monitoramento Sintético E2E, Simulador de Resiliência PGlite e Painel de Sondas operacionais e validados por 137 testes automatizados, os próximos passos de evolução do roadmap são:
+Com a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **146 testes automatizados**, os próximos passos de evolução do roadmap são:
 
-#### 🧪 Opção M: Monitoramento Sintético e Testes E2E Automatizados (Playwright / Synthetic Probes)
-- [x] **Fluxos Sintéticos Ponta-a-Ponta:** Validação contínua da jornada completa: Agendamento na Landing Page ➔ Login de Psicólogo ➔ Notificação Webhook ➔ Prontuário SOAP ➔ DDM ➔ ICP-Brasil ➔ WORM.
-- [x] **Simulador de Resiliência de Conectividade:** Teste de failover automático para PGlite quando o PostgreSQL externo estiver inacessível com preservação de schema.
+#### 📋 Ficha de Anamnese & Retificação Formal de Prontuário (RFC §3.4 & CFP nº 001/2009, 004/2020)
+- [x] **Ficha de Admissão & Anamnese Biopsicossocial:** Queixa principal, histórico da demanda, marcos do desenvolvimento, dinâmica familiar, rede de apoio, rotina/sono, histórico médico/psiquiátrico/familiar e contato de emergência com FLE (AES-256-GCM), versionamento (v1, v2...) e segregação RBAC (HTTP 403 para recepção).
+- [x] **Termo de Retificação Formal para Prontuários Selados:** Aditamento imutável vinculado ao prontuário assinado, seletor de quadrante afetado (`S`, `O`, `A`, `P` ou Geral), justificativa ética formal, canonical SHA-256 digest, revisão ética compulsória e auditoria WORM.
 
 #### 📊 Opção N: Métricas OpenTelemetry / Prometheus & Tracing Distribuído (RFC-001 §5.2)
 - [ ] **Métricas Prometheus (`/metrics`):** Exportador de métricas RED (Rate, Errors, Duration) e métricas de negócios (sessões/min, latência de IA).
@@ -473,7 +478,7 @@ Com o Monitoramento Sintético E2E, Simulador de Resiliência PGlite e Painel de
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (137 testes)
+# 2. Executar suíte completa de testes (146 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

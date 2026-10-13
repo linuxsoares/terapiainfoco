@@ -83,6 +83,10 @@ Assim que o código estiver implementado e todos os testes passarem:
      git commit -m "feat/fix: descrição clara da alteração"
      git push -u origin <nome-da-branch>
      ```
-3. **Disponibilizar o Link do PR:**
-   - Forneça ao usuário o link direto para criar/revisar o Pull Request no GitHub:
-     `https://github.com/linuxsoares/terapiainfoco/pull/new/<nome-da-branch>`
+3. **Abertura do Pull Request com GitHub CLI (`gh`):**
+   - Abra o Pull Request diretamente via linha de comando usando a CLI `gh`:
+     ```bash
+     gh pr create --title "<tipo>(<escopo>): <descrição>" --body "<resumo detalhado das entregas>" --base main
+     ```
+   - Registre o número e link do PR na tabela de histórico em [`ROADMAP_PROGRESS.md`](./ROADMAP_PROGRESS.md).
+

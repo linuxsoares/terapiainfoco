@@ -7,22 +7,27 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Lock, 
-  KeyRound,
-  FileCheck2,
-  DownloadCloud,
-  UserX,
-  FileText,
-  Copy,
-  Check,
-  Download,
-  ShieldCheck,
-  Hash,
-  Info
+  KeyRound, 
+  FileCheck2, 
+  DownloadCloud, 
+  UserX, 
+  FileText, 
+  Copy, 
+  Check, 
+  Download, 
+  ShieldCheck, 
+  Hash, 
+  Info,
+  ClipboardList,
+  HeartPulse,
+  History
 } from 'lucide-react';
 import type { 
   DecryptedPatient, 
-  CreatePatientDTO,
-  ExportPatientDataResponse
+  CreatePatientDTO, 
+  ExportPatientDataResponse,
+  DecryptedAnamnesisRecord,
+  SaveAnamnesisDTO
 } from '@terapiainfoco/shared';
 import { AuditResourceType } from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
@@ -60,6 +65,115 @@ export function PatientsModule() {
   const [revokeReason, setRevokeReason] = useState('Solicitação de cancelamento da transcrição e atendimento assistido por IA');
   const [revokeQuarantine, setRevokeQuarantine] = useState(false);
   const [revokeLoading, setRevokeLoading] = useState(false);
+
+  // Modal de Anamnese Biopsicossocial (CFP nº 001/2009 & RFC §3.4)
+  const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
+  const [anamnesisLoading, setAnamnesisLoading] = useState(false);
+  const [anamnesisSaving, setAnamnesisSaving] = useState(false);
+  const [currentAnamnesisRecord, setCurrentAnamnesisRecord] = useState<DecryptedAnamnesisRecord | null>(null);
+  const [anamnesisStatusMessage, setAnamnesisStatusMessage] = useState<string | null>(null);
+  const [anamnesisTab, setAnamnesisTab] = useState<'complaint' | 'biopsychosocial' | 'medical' | 'goals'>('complaint');
+  const [anamnesisData, setAnamnesisData] = useState<SaveAnamnesisDTO>({
+    chiefComplaint: '',
+    historyOfComplaint: '',
+    biopsychosocialHistory: {
+      personalDevelopment: '',
+      familyDynamics: '',
+      socialSupportNetwork: '',
+      routineSleepNutrition: ''
+    },
+    medicalAndPsychiatricHistory: {
+      currentMedications: '',
+      previousTreatments: '',
+      familyPsychiatricHistory: '',
+      allergiesOrMedicalConditions: ''
+    },
+    therapeuticGoals: '',
+    emergencyContact: {
+      name: '',
+      relationship: '',
+      phone: ''
+    }
+  });
+
+  const handleOpenAnamnesis = async (patientId: string) => {
+    setShowAnamnesisModal(true);
+    setAnamnesisLoading(true);
+    setAnamnesisStatusMessage(null);
+    setAnamnesisTab('complaint');
+    try {
+      const existing = await api.getAnamnesis(patientId);
+      if (existing) {
+        setCurrentAnamnesisRecord(existing);
+        setAnamnesisData({
+          chiefComplaint: existing.chiefComplaint || '',
+          historyOfComplaint: existing.historyOfComplaint || '',
+          biopsychosocialHistory: {
+            personalDevelopment: existing.biopsychosocialHistory?.personalDevelopment || '',
+            familyDynamics: existing.biopsychosocialHistory?.familyDynamics || '',
+            socialSupportNetwork: existing.biopsychosocialHistory?.socialSupportNetwork || '',
+            routineSleepNutrition: existing.biopsychosocialHistory?.routineSleepNutrition || ''
+          },
+          medicalAndPsychiatricHistory: {
+            currentMedications: existing.medicalAndPsychiatricHistory?.currentMedications || '',
+            previousTreatments: existing.medicalAndPsychiatricHistory?.previousTreatments || '',
+            familyPsychiatricHistory: existing.medicalAndPsychiatricHistory?.familyPsychiatricHistory || '',
+            allergiesOrMedicalConditions: existing.medicalAndPsychiatricHistory?.allergiesOrMedicalConditions || ''
+          },
+          therapeuticGoals: existing.therapeuticGoals || '',
+          emergencyContact: existing.emergencyContact ? {
+            name: existing.emergencyContact.name || '',
+            relationship: existing.emergencyContact.relationship || '',
+            phone: existing.emergencyContact.phone || ''
+          } : { name: '', relationship: '', phone: '' }
+        });
+      } else {
+        setCurrentAnamnesisRecord(null);
+        setAnamnesisData({
+          chiefComplaint: 'Ansiedade acentuada com picos de taquicardia em situações de pressão no trabalho e prejuízo no sono.',
+          historyOfComplaint: 'Sintomas iniciados há aproximadamente 6 meses após assunção de nova coordenação de equipe. Piora progressiva com pensamentos catastróficos.',
+          biopsychosocialHistory: {
+            personalDevelopment: 'Desenvolvimento infantil e escolaridade sem intercorrências; perfil perfeccionista desde a adolescência.',
+            familyDynamics: 'Família de origem coesa, pais idosos com boa convivência; união estável de 5 anos com suporte mútuo.',
+            socialSupportNetwork: 'Círculo de amigos próximos e prática semanal de atividades sociais.',
+            routineSleepNutrition: 'Sono não-reparador de 5h a 6h por noite com despertares noturnos; alimentação balanceada mas com refeições apressadas.'
+          },
+          medicalAndPsychiatricHistory: {
+            currentMedications: 'Nenhum medicamento psicotrópico em uso contínuo no momento.',
+            previousTreatments: 'Acompanhamento psicológico pontual há 3 anos para luto familiar.',
+            familyPsychiatricHistory: 'Histórico materno de transtorno depressivo recorrente.',
+            allergiesOrMedicalConditions: 'Gastrite nervosa diagnosticada clinicamente; sem alergias medicamentosas conhecidas.'
+          },
+          therapeuticGoals: '1. Psicoeducação e manejo de crises ansiosas através de técnicas cognitivo-comportamentais.\n2. Reestruturação cognitiva de crenças centrais de incapacidade e perfeccionismo.\n3. Estabelecimento de limites e equilíbrio entre exigências corporativas e autocuidado.',
+          emergencyContact: {
+            name: 'Carlos Oliveira',
+            relationship: 'Cônjuge',
+            phone: '11987654322'
+          }
+        });
+      }
+    } catch (err: any) {
+      setAnamnesisStatusMessage(`Erro ao buscar ficha de anamnese: ${err.message}`);
+    } finally {
+      setAnamnesisLoading(false);
+    }
+  };
+
+  const handleSaveAnamnesis = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchResult) return;
+    try {
+      setAnamnesisSaving(true);
+      setAnamnesisStatusMessage(null);
+      const saved = await api.saveAnamnesis(searchResult.id, anamnesisData);
+      setCurrentAnamnesisRecord(saved);
+      setAnamnesisStatusMessage(`Ficha de Anamnese v${saved.version} salva com sucesso! Dados criptografados ponta-a-ponta (AES-256-GCM) e auditados na trilha WORM.`);
+    } catch (err: any) {
+      setAnamnesisStatusMessage(`Erro ao salvar anamnese: ${err.message}`);
+    } finally {
+      setAnamnesisSaving(false);
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,8 +479,16 @@ export function PatientsModule() {
               )}
             </div>
 
-            {/* Painel de Ações: Portabilidade, Revogação & Quarentena */}
+            {/* Painel de Ações: Anamnese, Portabilidade, Revogação & Quarentena */}
             <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+              <button
+                onClick={() => handleOpenAnamnesis(searchResult.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                Ficha de Anamnese Biopsicossocial
+              </button>
+
               <button
                 onClick={() => {
                   setExportResult(null);
@@ -772,6 +894,434 @@ export function PatientsModule() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Anamnese Biopsicossocial (CFP nº 001/2009 & 004/2020) */}
+      {showAnamnesisModal && searchResult && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-3xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      Ficha de Admissão & Anamnese Biopsicossocial
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                      {currentAnamnesisRecord ? `Versão v${currentAnamnesisRecord.version}` : 'Nova Ficha (v1)'}
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                      AES-256-GCM (FLE)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Paciente: <strong className="text-slate-700 dark:text-slate-300">{searchResult.name}</strong> • Resoluções CFP nº 001/2009 e 004/2020
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAnamnesisModal(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {anamnesisStatusMessage && (
+              <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-900 dark:text-indigo-200 text-xs flex items-center gap-2.5 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                <span>{anamnesisStatusMessage}</span>
+              </div>
+            )}
+
+            {anamnesisLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
+                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs">Carregando e decifrando anamnese em RAM...</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveAnamnesis} className="space-y-4">
+                {/* Abas de Navegação */}
+                <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto pb-1 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setAnamnesisTab('complaint')}
+                    className={`px-3 py-2 rounded-t-xl transition-all cursor-pointer whitespace-nowrap ${
+                      anamnesisTab === 'complaint'
+                        ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600 font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    1. Queixa & Demanda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnamnesisTab('biopsychosocial')}
+                    className={`px-3 py-2 rounded-t-xl transition-all cursor-pointer whitespace-nowrap ${
+                      anamnesisTab === 'biopsychosocial'
+                        ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600 font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    2. Histórico Biopsicossocial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnamnesisTab('medical')}
+                    className={`px-3 py-2 rounded-t-xl transition-all cursor-pointer whitespace-nowrap ${
+                      anamnesisTab === 'medical'
+                        ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600 font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    3. Histórico Médico/Psiquiátrico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnamnesisTab('goals')}
+                    className={`px-3 py-2 rounded-t-xl transition-all cursor-pointer whitespace-nowrap ${
+                      anamnesisTab === 'goals'
+                        ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600 font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    4. Metas & Emergência
+                  </button>
+                </div>
+
+                {/* Conteúdo Aba 1: Queixa e Demanda */}
+                {anamnesisTab === 'complaint' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Queixa Principal (Demanda Expressa pelo Paciente) *
+                      </label>
+                      <textarea
+                        rows={3}
+                        required
+                        value={anamnesisData.chiefComplaint}
+                        onChange={(e) => setAnamnesisData({ ...anamnesisData, chiefComplaint: e.target.value })}
+                        placeholder="Descreva o motivo principal da busca pelo atendimento psicológico..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Histórico da Demanda (Início, Frequência, Intensidade e Fatores Precipitantes) *
+                      </label>
+                      <textarea
+                        rows={4}
+                        required
+                        value={anamnesisData.historyOfComplaint}
+                        onChange={(e) => setAnamnesisData({ ...anamnesisData, historyOfComplaint: e.target.value })}
+                        placeholder="Contexto de surgimento dos sintomas, evolução temporal e tentativas prévias de manejo..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Conteúdo Aba 2: Histórico Biopsicossocial */}
+                {anamnesisTab === 'biopsychosocial' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Desenvolvimento Biopsicossocial
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.biopsychosocialHistory.personalDevelopment || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            biopsychosocialHistory: {
+                              ...anamnesisData.biopsychosocialHistory,
+                              personalDevelopment: e.target.value
+                            }
+                          })}
+                          placeholder="Marcos do desenvolvimento, infância, trajetória escolar e profissional..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Dinâmica Familiar e Vínculos
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.biopsychosocialHistory.familyDynamics || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            biopsychosocialHistory: {
+                              ...anamnesisData.biopsychosocialHistory,
+                              familyDynamics: e.target.value
+                            }
+                          })}
+                          placeholder="Configuração familiar de origem e atual, padrões de apego e conflitos..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Rede de Apoio Social
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.biopsychosocialHistory.socialSupportNetwork || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            biopsychosocialHistory: {
+                              ...anamnesisData.biopsychosocialHistory,
+                              socialSupportNetwork: e.target.value
+                            }
+                          })}
+                          placeholder="Amizades, comunidade, espiritualidade ou grupos de convivência..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Rotina, Sono & Alimentação
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.biopsychosocialHistory.routineSleepNutrition || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            biopsychosocialHistory: {
+                              ...anamnesisData.biopsychosocialHistory,
+                              routineSleepNutrition: e.target.value
+                            }
+                          })}
+                          placeholder="Padrão de sono (horas, insônia), nutrição, lazer e atividade física..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conteúdo Aba 3: Histórico Médico e Psiquiátrico */}
+                {anamnesisTab === 'medical' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Medicamentos em Uso
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.medicalAndPsychiatricHistory.currentMedications || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            medicalAndPsychiatricHistory: {
+                              ...anamnesisData.medicalAndPsychiatricHistory,
+                              currentMedications: e.target.value
+                            }
+                          })}
+                          placeholder="Psicotrópicos, dosagens ou outras medicações contínuas..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Tratamentos Prévios
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.medicalAndPsychiatricHistory.previousTreatments || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            medicalAndPsychiatricHistory: {
+                              ...anamnesisData.medicalAndPsychiatricHistory,
+                              previousTreatments: e.target.value
+                            }
+                          })}
+                          placeholder="Psicoterapias anteriores, consultas psiquiátricas ou internações..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Histórico Familiar de Saúde Mental
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.medicalAndPsychiatricHistory.familyPsychiatricHistory || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            medicalAndPsychiatricHistory: {
+                              ...anamnesisData.medicalAndPsychiatricHistory,
+                              familyPsychiatricHistory: e.target.value
+                            }
+                          })}
+                          placeholder="Casos familiares de depressão, ansiedade, dependência química, etc..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                          Condições Clínicas / Alergias
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={anamnesisData.medicalAndPsychiatricHistory.allergiesOrMedicalConditions || ''}
+                          onChange={(e) => setAnamnesisData({
+                            ...anamnesisData,
+                            medicalAndPsychiatricHistory: {
+                              ...anamnesisData.medicalAndPsychiatricHistory,
+                              allergiesOrMedicalConditions: e.target.value
+                            }
+                          })}
+                          placeholder="Doenças crônicas, cirurgias, alergias medicamentosas ou restrições..."
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conteúdo Aba 4: Metas e Contato de Emergência */}
+                {anamnesisTab === 'goals' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Objetivos e Metas do Processo Terapêutico *
+                      </label>
+                      <textarea
+                        rows={3}
+                        required
+                        value={anamnesisData.therapeuticGoals}
+                        onChange={(e) => setAnamnesisData({ ...anamnesisData, therapeuticGoals: e.target.value })}
+                        placeholder="Metas pactuadas com o paciente para o processo clínico..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        <HeartPulse className="w-4 h-4 text-rose-500" />
+                        Contato de Emergência (Em caso de crise ou urgência médica)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Nome Completo
+                          </label>
+                          <input
+                            type="text"
+                            value={anamnesisData.emergencyContact?.name || ''}
+                            onChange={(e) => setAnamnesisData({
+                              ...anamnesisData,
+                              emergencyContact: {
+                                name: e.target.value,
+                                relationship: anamnesisData.emergencyContact?.relationship || '',
+                                phone: anamnesisData.emergencyContact?.phone || ''
+                              }
+                            })}
+                            placeholder="Nome do contato..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Grau de Parentesco / Vínculo
+                          </label>
+                          <input
+                            type="text"
+                            value={anamnesisData.emergencyContact?.relationship || ''}
+                            onChange={(e) => setAnamnesisData({
+                              ...anamnesisData,
+                              emergencyContact: {
+                                name: anamnesisData.emergencyContact?.name || '',
+                                relationship: e.target.value,
+                                phone: anamnesisData.emergencyContact?.phone || ''
+                              }
+                            })}
+                            placeholder="Ex: Cônjuge, Mãe, Irmão..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Telefone / WhatsApp
+                          </label>
+                          <input
+                            type="tel"
+                            value={anamnesisData.emergencyContact?.phone || ''}
+                            onChange={(e) => setAnamnesisData({
+                              ...anamnesisData,
+                              emergencyContact: {
+                                name: anamnesisData.emergencyContact?.name || '',
+                                relationship: anamnesisData.emergencyContact?.relationship || '',
+                                phone: e.target.value
+                              }
+                            })}
+                            placeholder="Ex: 11987654321..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer do Modal */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>
+                      {currentAnamnesisRecord?.updatedAt 
+                        ? `Última atualização: ${new Date(currentAnamnesisRecord.updatedAt).toLocaleString('pt-BR')}`
+                        : 'Registro inicial pendente de gravação'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowAnamnesisModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer transition-colors"
+                    >
+                      Fechar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={anamnesisSaving || !anamnesisData.chiefComplaint.trim()}
+                      className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {anamnesisSaving ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Gravando Cifrado (WORM)...
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardList className="w-3.5 h-3.5" />
+                          Salvar Ficha de Anamnese (v{currentAnamnesisRecord ? currentAnamnesisRecord.version + 1 : 1})
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -180,3 +180,56 @@ export const users = pgTable('users', {
   index('idx_users_email').on(table.email)
 ]);
 
+/**
+ * 9. FICHA DE ADMISSÃO & ANAMNESE BIOPSICOSSOCIAL (RFC §3.4, CFP nº 001/2009)
+ */
+export const anamnesisRecords = pgTable('anamnesis_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  patientId: uuid('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
+  version: integer('version').notNull().default(1),
+
+  /** Queixa Principal e Histórico da Demanda Criptografados (AES-256-GCM) */
+  encryptedChiefComplaint: jsonb('encrypted_chief_complaint').$type<EncryptedPayload>().notNull(),
+  encryptedHistoryOfComplaint: jsonb('encrypted_history_of_complaint').$type<EncryptedPayload>().notNull(),
+
+  /** Histórico Biopsicossocial Criptografado */
+  encryptedBiopsychosocialHistory: jsonb('encrypted_biopsychosocial_history').$type<EncryptedPayload>().notNull(),
+
+  /** Histórico Médico, Psiquiátrico e Medicamentoso Criptografado */
+  encryptedMedicalAndPsychiatricHistory: jsonb('encrypted_medical_and_psychiatric_history').$type<EncryptedPayload>().notNull(),
+
+  /** Objetivos Terapêuticos Criptografados */
+  encryptedTherapeuticGoals: jsonb('encrypted_therapeutic_goals').$type<EncryptedPayload>().notNull(),
+
+  /** Contato de Emergência Criptografado */
+  encryptedEmergencyContact: jsonb('encrypted_emergency_contact').$type<EncryptedPayload>(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  index('idx_anamnesis_patient').on(table.patientId)
+]);
+
+/**
+ * 10. TERMOS DE RETIFICAÇÃO FORMAL DE PRONTUÁRIO (RFC §3.4, CFP nº 001/2009)
+ */
+export const clinicalRecordRectifications = pgTable('clinical_record_rectifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clinicalRecordId: uuid('clinical_record_id').notNull().references(() => clinicalRecords.id, { onDelete: 'cascade' }),
+  therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
+  rectifiedQuadrant: varchar('rectified_quadrant', { length: 30 }).notNull(),
+
+  /** Motivação formal e conteúdo aditivo criptografados com AES-256-GCM */
+  encryptedReason: jsonb('encrypted_reason').$type<EncryptedPayload>().notNull(),
+  encryptedRectifiedContent: jsonb('encrypted_rectified_content').$type<EncryptedPayload>().notNull(),
+
+  /** Assinatura digital e hash canônico do termo de retificação */
+  signatureHash: varchar('signature_hash', { length: 128 }).notNull(),
+  signedAt: timestamp('signed_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  index('idx_rectifications_record').on(table.clinicalRecordId)
+]);
+
+

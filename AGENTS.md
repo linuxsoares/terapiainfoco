@@ -24,3 +24,10 @@
    - Garanta que todos os testes passem com `make test` (`bun test`).
    - Garanta que a compilação do frontend funcione com `bun run build:frontend`.
    - Preserve o suporte a ambos os temas: **Light Mode** e **Dark Mode**.
+
+5. **Abertura de Pull Request via GitHub CLI (`gh`):**
+   - Ao concluir a implementação e subir a branch temática com `git push`, utilize a CLI do GitHub (`gh`) para abrir o Pull Request automaticamente:
+     ```bash
+     gh pr create --title "<tipo>(<escopo>): <descrição>" --body "<descrição detalhada das mudanças>" --base main
+     ```
+   - Registre o número e o link do Pull Request resultante na tabela de histórico de branches em [`ROADMAP_PROGRESS.md`](./ROADMAP_PROGRESS.md).

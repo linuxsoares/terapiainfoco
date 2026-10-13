@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import { PatientService } from '../services/patientService';
 import { PortabilityService } from '../services/portabilityService';
+import { AnamnesisService } from '../services/anamnesisService';
 import { webhookService } from '../services/webhookService';
 import { searchRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
-import type { CreatePatientDTO } from '@terapiainfoco/shared';
+import type { CreatePatientDTO, SaveAnamnesisDTO } from '@terapiainfoco/shared';
+
 
 export const patientsRoute = new Hono();
 
@@ -173,4 +175,57 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
     return c.json({ success: false, error: err.message }, status);
   }
 });
+
+// 5. Ficha de Admissão & Anamnese Biopsicossocial (RFC §3.4, CFP nº 001/2009)
+patientsRoute.get('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  const anamnesis = AnamnesisService.getAnamnesisByPatientId(id, {
+    actorId: user?.id || 'therapist-001',
+    ipAddress: ip,
+    userAgent
+  });
+
+  if (!anamnesis) {
+    return c.json({ success: false, message: 'Ficha de anamnese não cadastrada para este paciente.' }, 404);
+  }
+
+  return c.json({ success: true, anamnesis }, 200);
+});
+
+patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  let body: SaveAnamnesisDTO;
+  try {
+    body = await c.req.json<SaveAnamnesisDTO>();
+  } catch {
+    return c.json({ success: false, error: 'Corpo da requisição inválido.' }, 400);
+  }
+
+  try {
+    const anamnesis = AnamnesisService.saveAnamnesis({
+      patientId: id,
+      therapistId: user?.therapistId || user?.id || 'therapist-001',
+      dto: body,
+      context: {
+        actorId: user?.id || 'therapist-001',
+        ipAddress: ip,
+        userAgent
+      }
+    });
+
+    return c.json({ success: true, anamnesis }, 200);
+  } catch (err: any) {
+    const status = err.message.includes('não encontrado') ? 404 : 400;
+    return c.json({ success: false, error: err.message }, status);
+  }
+});
+
 

@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { ClinicalRecordService } from '../services/clinicalRecordService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
-import type { UpdateSoapNoteDTO, SignClinicalRecordDTO } from '@terapiainfoco/shared';
+import type { UpdateSoapNoteDTO, SignClinicalRecordDTO, CreateRectificationDTO } from '@terapiainfoco/shared';
+
 
 export const clinicalRecordsRoute = new Hono();
 
@@ -85,3 +86,62 @@ clinicalRecordsRoute.get('/:id', requireRoles([UserRole.PSICOLOGO_TITULAR, UserR
 
   return c.json({ success: true, record });
 });
+
+// Averbar Termo de Retificação Formal em prontuário assinado (CFP nº 001/2009 & RFC §3.4)
+clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  let body: CreateRectificationDTO;
+  try {
+    body = await c.req.json<CreateRectificationDTO>();
+  } catch {
+    return c.json({ success: false, error: 'Corpo da requisição inválido.' }, 400);
+  }
+
+  try {
+    const rectification = ClinicalRecordService.addRectification({
+      clinicalRecordId: id,
+      therapistId: user?.therapistId || user?.id || 'therapist-001',
+      dto: body,
+      context: {
+        actorId: user?.id || 'therapist-001',
+        ipAddress: ip,
+        userAgent
+      }
+    });
+
+    return c.json({ success: true, rectification }, 201);
+  } catch (err: any) {
+    const status = err.message.includes('não encontrado') ? 404 : 400;
+    return c.json({ success: false, error: err.message }, status);
+  }
+});
+
+// Consultar termos de retificação averbados para um prontuário
+clinicalRecordsRoute.get('/:id/rectifications', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  try {
+    const rectifications = ClinicalRecordService.getRectifications(id, {
+      actorId: user?.id || 'therapist-001',
+      ipAddress: ip,
+      userAgent
+    });
+
+    return c.json({
+      success: true,
+      clinicalRecordId: id,
+      count: rectifications.length,
+      rectifications
+    }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+

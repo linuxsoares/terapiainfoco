@@ -318,4 +318,89 @@ export interface WebhookSubscription {
   lastDeliveryStatus?: 'SUCCESS' | 'FAILED' | null;
 }
 
+/**
+ * 10. FICHA DE ADMISSÃO & ANAMNESE BIOPSICOSSOCIAL (RFC §3.4 e Resoluções CFP nº 001/2009 e 004/2020)
+ */
+export interface BiopsychosocialHistory {
+  personalDevelopment?: string;
+  familyDynamics?: string;
+  socialSupportNetwork?: string;
+  routineSleepNutrition?: string;
+}
+
+export interface MedicalAndPsychiatricHistory {
+  currentMedications?: string;
+  previousTreatments?: string;
+  familyPsychiatricHistory?: string;
+  allergiesOrMedicalConditions?: string;
+}
+
+export interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+}
+
+export interface AnamnesisRecord {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  chiefComplaint: string;
+  historyOfComplaint: string;
+  biopsychosocialHistory: BiopsychosocialHistory;
+  medicalAndPsychiatricHistory: MedicalAndPsychiatricHistory;
+  therapeuticGoals: string;
+  emergencyContact?: EmergencyContact;
+  version: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface DecryptedAnamnesisRecord extends AnamnesisRecord {}
+
+export interface StoredAnamnesisRecord {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  version: number;
+  encryptedChiefComplaint: EncryptedPayload;
+  encryptedHistoryOfComplaint: EncryptedPayload;
+  encryptedBiopsychosocialHistory: EncryptedPayload;
+  encryptedMedicalAndPsychiatricHistory: EncryptedPayload;
+  encryptedTherapeuticGoals: EncryptedPayload;
+  encryptedEmergencyContact?: EncryptedPayload;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+/**
+ * 11. TERMO DE RETIFICAÇÃO FORMAL DE PRONTUÁRIO (RFC §3.4 e Resolução CFP nº 001/2009)
+ */
+export type RectifiedQuadrant = 'SUBJECTIVE' | 'OBJECTIVE' | 'ASSESSMENT' | 'PLAN' | 'GENERAL';
+
+export interface ClinicalRecordRectification {
+  id: string;
+  clinicalRecordId: string;
+  therapistId: string;
+  rectifiedQuadrant: RectifiedQuadrant;
+  reason: string;
+  rectifiedContent: string;
+  signatureHash: string;
+  signedAt: Date | string;
+  createdAt: Date | string;
+}
+
+export interface StoredClinicalRecordRectification {
+  id: string;
+  clinicalRecordId: string;
+  therapistId: string;
+  rectifiedQuadrant: RectifiedQuadrant;
+  encryptedReason: EncryptedPayload;
+  encryptedRectifiedContent: EncryptedPayload;
+  signatureHash: string;
+  signedAt: Date | string;
+  createdAt: Date | string;
+}
+
+
 

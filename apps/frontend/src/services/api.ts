@@ -54,7 +54,11 @@ import type {
   SyntheticJourneyResult,
   SyntheticHistoryResponse,
   ResilienceCheckResult,
-  RunSyntheticProbeRequestDTO
+  RunSyntheticProbeRequestDTO,
+  DecryptedAnamnesisRecord,
+  SaveAnamnesisDTO,
+  CreateRectificationDTO,
+  ClinicalRecordRectification
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -614,6 +618,42 @@ export const api = {
   async getResilienceStatus(): Promise<ResilienceCheckResult> {
     const res = await request<ResilienceCheckResult>('/system/synthetic/resilience');
     return res;
+  },
+
+  // 15. Ficha de Admissão & Anamnese Biopsicossocial (RFC §3.4 e CFP 001/2009)
+  async getAnamnesis(patientId: string): Promise<DecryptedAnamnesisRecord | null> {
+    try {
+      const res = await request<{ success: boolean; anamnesis: DecryptedAnamnesisRecord }>(`/patients/${patientId}/anamnesis`);
+      return res.anamnesis;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveAnamnesis(patientId: string, dto: SaveAnamnesisDTO): Promise<DecryptedAnamnesisRecord> {
+    const res = await request<{ success: boolean; anamnesis: DecryptedAnamnesisRecord }>(`/patients/${patientId}/anamnesis`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.anamnesis;
+  },
+
+  // 16. Termo de Retificação Formal de Prontuário (CFP nº 001/2009 & RFC §3.4)
+  async rectifyClinicalRecord(recordId: string, dto: CreateRectificationDTO): Promise<ClinicalRecordRectification> {
+    const res = await request<{ success: boolean; rectification: ClinicalRecordRectification }>(`/clinical-records/${recordId}/rectify`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.rectification;
+  },
+
+  async getRecordRectifications(recordId: string): Promise<ClinicalRecordRectification[]> {
+    try {
+      const res = await request<{ success: boolean; rectifications: ClinicalRecordRectification[] }>(`/clinical-records/${recordId}/rectifications`);
+      return res.rectifications || [];
+    } catch {
+      return [];
+    }
   }
 };
 

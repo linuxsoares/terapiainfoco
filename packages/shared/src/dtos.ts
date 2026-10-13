@@ -778,6 +778,46 @@ export interface SyntheticHistoryResponse {
   executions: SyntheticJourneyResult[];
 }
 
+/**
+ * 17. ANAMNESE BIOPSICOSSOCIAL & TERMO DE RETIFICAÇÃO DE PRONTUÁRIO (RFC §3.4)
+ */
+export interface SaveAnamnesisDTO {
+  chiefComplaint: string;
+  historyOfComplaint: string;
+  biopsychosocialHistory: import('./models').BiopsychosocialHistory;
+  medicalAndPsychiatricHistory: import('./models').MedicalAndPsychiatricHistory;
+  therapeuticGoals: string;
+  emergencyContact?: import('./models').EmergencyContact;
+}
+
+export interface AnamnesisResponse {
+  success: boolean;
+  anamnesis: import('./models').DecryptedAnamnesisRecord;
+  message?: string;
+}
+
+export interface CreateRectificationDTO {
+  rectifiedQuadrant: import('./models').RectifiedQuadrant;
+  reason: string;
+  rectifiedContent: string;
+  /** Confirmação explícita de revisão humana sob fé pública e ética profissional (CFP 001/2009) */
+  confirmedEthicsReview: boolean;
+}
+
+export interface RectificationResponse {
+  success: boolean;
+  rectification: import('./models').ClinicalRecordRectification;
+  message?: string;
+}
+
+export interface ListRectificationsResponse {
+  success: boolean;
+  clinicalRecordId: string;
+  count: number;
+  rectifications: import('./models').ClinicalRecordRectification[];
+}
+
+
 
 
 
