@@ -214,5 +214,48 @@ systemRoute.get('/telemetry/metrics-raw', (c) => {
   }, 200);
 });
 
+/**
+ * 9. Testes de Carga, Stress Concorrente & Avaliação de SLOs RED (RFC §5.1, §5.2)
+ */
+import { stressTestService } from '../services/stressTestService';
+import type { RunStressTestDTO } from '@terapiainfoco/shared';
+
+systemRoute.post('/stress/run', async (c) => {
+  const body = await c.req.json<RunStressTestDTO>().catch(() => ({}));
+  const actor = (c as any).user;
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+
+  try {
+    const report = await stressTestService.runStressTest(body, actor?.id || 'admin-system', ip);
+    return c.json({
+      success: true,
+      report,
+      message: `Teste de stress concluído: ${report.rps} RPS com P99 de ${report.percentiles.p99}ms. (${report.slosPassedCount}/${report.slosTotalCount} SLOs cumpridos).`
+    }, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      error: err.message || 'Erro durante a execução do teste de stress'
+    }, 500);
+  }
+});
+
+systemRoute.get('/stress/history', (c) => {
+  const reports = stressTestService.getHistory();
+  return c.json({
+    success: true,
+    reports
+  }, 200);
+});
+
+systemRoute.get('/stress/slos', (c) => {
+  const slos = stressTestService.getSlosDefinition();
+  return c.json({
+    success: true,
+    slos
+  }, 200);
+});
+
+
 
 

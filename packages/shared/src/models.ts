@@ -8,7 +8,9 @@ import {
   AuditAction,
   AuditResourceType,
   KmsKeyStatus,
-  KmsProviderType
+  KmsProviderType,
+  StressScenario,
+  SloStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -657,6 +659,54 @@ export interface KmsSystemStatus {
   nistCompliance: boolean;
   lastAuditAction?: string;
 }
+
+/**
+ * 16. TESTES DE CARGA, STRESS CONCORRENTE & SLOS RED (RFC §5.1, §5.2)
+ */
+export interface StressPercentiles {
+  p50: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  min: number;
+  max: number;
+  avg: number;
+}
+
+export interface StressSloEvaluation {
+  id: string;
+  name: string;
+  targetDescription: string;
+  thresholdMs?: number;
+  maxErrorRate?: number;
+  actualValue: number;
+  unit: string;
+  status: SloStatus;
+}
+
+export interface StressTestReport {
+  id: string;
+  scenario: StressScenario;
+  totalRequests: number;
+  concurrency: number;
+  durationMs: number;
+  rps: number;
+  successfulRequests: number;
+  failedRequests: number;
+  errorRate: number;
+  percentiles: StressPercentiles;
+  memoryDeltaMb: {
+    rss: number;
+    heapUsed: number;
+  };
+  slos: StressSloEvaluation[];
+  slosPassedCount: number;
+  slosTotalCount: number;
+  allSlosMet: boolean;
+  timestamp: string;
+  executedBy: string;
+}
+
 
 
 

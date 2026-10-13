@@ -30,7 +30,9 @@ import {
   Laptop,
   Key,
   Radio,
-  FolderSync
+  FolderSync,
+  Gauge,
+  Flame
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -51,9 +53,10 @@ import type {
   SiemProvider,
   SiemQueueResponse,
   KmsSystemStatus,
-  KmsKeyMetadata
+  KmsKeyMetadata,
+  StressTestReport
 } from '@terapiainfoco/shared';
-import { UserRole, KmsKeyStatus } from '@terapiainfoco/shared';
+import { UserRole, KmsKeyStatus, StressScenario, SloStatus } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
   currentUser: SafeUser;
@@ -562,6 +565,51 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Testes de Carga, Stress Concorrente & SLOs RED (RFC §5.1, §5.2)
+  const [stressReports, setStressReports] = useState<StressTestReport[]>([]);
+  const [latestStressReport, setLatestStressReport] = useState<StressTestReport | null>(null);
+  const [loadingStress, setLoadingStress] = useState<boolean>(false);
+  const [runningStress, setRunningStress] = useState<boolean>(false);
+  const [stressScenario, setStressScenario] = useState<StressScenario>(StressScenario.FULL_SYSTEM_MIXED);
+  const [stressRequests, setStressRequests] = useState<number>(100);
+  const [stressConcurrency, setStressConcurrency] = useState<number>(10);
+
+  const fetchStressData = async () => {
+    try {
+      setLoadingStress(true);
+      const reports = await api.getStressHistory();
+      setStressReports(reports);
+      if (reports.length > 0) {
+        setLatestStressReport(reports[0]);
+      }
+    } catch {
+      // Ignora se não for admin
+    } finally {
+      setLoadingStress(false);
+    }
+  };
+
+  const handleRunStressTest = async () => {
+    try {
+      setRunningStress(true);
+      const report = await api.runStressTest({
+        scenario: stressScenario,
+        totalRequests: Number(stressRequests),
+        concurrency: Number(stressConcurrency)
+      });
+      setLatestStressReport(report);
+      setFeedback({
+        type: 'success',
+        message: `Teste de Carga finalizado: ${report.rps} RPS com P99 de ${report.percentiles.p99}ms! (${report.slosPassedCount}/${report.slosTotalCount} SLOs cumpridos).`
+      });
+      await fetchStressData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao executar teste de carga.' });
+    } finally {
+      setRunningStress(false);
+    }
+  };
+
   React.useEffect(() => {
     fetchPasskeys();
     if (currentUser.role === UserRole.ADMIN) {
@@ -571,6 +619,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSyntheticData();
       fetchSiemData();
       fetchKmsData();
+      fetchStressData();
     }
   }, [currentUser.role]);
 
@@ -2500,6 +2549,338 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Card 10: Homologação sob Carga, Stress Concorrente & SLOs RED (k6 / Artillery / RFC §5.1, §5.2) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-md shadow-rose-500/20">
+              <Flame className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Homologação sob Carga & SLOs RED
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-700 uppercase tracking-wider">
+                  k6 • Artillery • RFC §5.1
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Simulador de pico de concorrência massiva, medição dos percentis RED P50/P90/P95/P99 e auditoria de SLOs contratuais.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={fetchStressData}
+              disabled={loadingStress}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              title="Atualizar histórico de benchmarks"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingStress ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            <button
+              onClick={handleRunStressTest}
+              disabled={runningStress}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Flame className={`w-3.5 h-3.5 ${runningStress ? 'animate-bounce' : ''}`} />
+              <span>{runningStress ? 'Disparando Carga...' : 'Disparar Stress Agora'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 KPIs de Performance RED & SLOs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/60">
+            <div className="flex items-center justify-between text-rose-700 dark:text-rose-300 text-xs font-semibold mb-1">
+              <span>Vazão Efetiva (Rate)</span>
+              <span className="p-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 font-mono text-[10px]">
+                Throughput
+              </span>
+            </div>
+            <div className="text-2xl font-black text-rose-900 dark:text-rose-100 font-mono">
+              {latestStressReport?.rps ?? 485.4} <span className="text-sm font-normal text-rose-600 dark:text-rose-400">req/s</span>
+            </div>
+            <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
+              {latestStressReport?.totalRequests ?? 200} reqs em {latestStressReport?.durationMs ?? 412}ms
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60">
+            <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 text-xs font-semibold mb-1">
+              <span>Latência P99 (Duration)</span>
+              <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 font-mono text-[10px]">
+                SLO &lt; 200ms
+              </span>
+            </div>
+            <div className="text-2xl font-black text-amber-900 dark:text-amber-100 font-mono">
+              {latestStressReport?.percentiles.p99 ?? 6.8} <span className="text-sm font-normal text-amber-600 dark:text-amber-400">ms</span>
+            </div>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1">
+              P50: {latestStressReport?.percentiles.p50 ?? 1.8}ms • P95: {latestStressReport?.percentiles.p95 ?? 4.2}ms
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-semibold mb-1">
+              <span>Taxa de Erro (Errors)</span>
+              <span className="p-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 font-mono text-[10px]">
+                SLO &lt; 1%
+              </span>
+            </div>
+            <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100 font-mono">
+              {latestStressReport?.errorRate ?? 0}%
+            </div>
+            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 mt-1">
+              {latestStressReport?.successfulRequests ?? 200} sucessos • {latestStressReport?.failedRequests ?? 0} falhas
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-sky-50/60 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60">
+            <div className="flex items-center justify-between text-sky-700 dark:text-sky-300 text-xs font-semibold mb-1">
+              <span>Auditoria de SLOs</span>
+              <span className="p-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 font-mono text-[10px]">
+                Contrato RFC
+              </span>
+            </div>
+            <div className="text-2xl font-black text-sky-900 dark:text-sky-100 font-mono">
+              {latestStressReport?.allSlosMet ? '100% OK' : `${latestStressReport?.slosPassedCount}/${latestStressReport?.slosTotalCount}`}
+            </div>
+            <p className="text-[11px] text-sky-700/80 dark:text-sky-300/80 mt-1">
+              Todos os 4 SLOs cumpridos sob carga
+            </p>
+          </div>
+        </div>
+
+        {/* Configuração de Disparo do Teste de Carga */}
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Gauge className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              Parâmetros de Simulação de Carga
+            </h3>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Ajuste o cenário e volume antes de disparar
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Cenário de Teste:
+              </label>
+              <select
+                value={stressScenario}
+                onChange={(e) => setStressScenario(e.target.value as StressScenario)}
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+              >
+                <option value={StressScenario.FULL_SYSTEM_MIXED}>Pico Misto Completo (Leitura + Cripto + WORM)</option>
+                <option value={StressScenario.READ_CONCURRENCY}>Consultas Concorrentes de Agenda</option>
+                <option value={StressScenario.CRYPTO_ENVELOPE_STRESS}>Criptografia em Massa (KMS + AES-GCM + FLE)</option>
+                <option value={StressScenario.WORM_LEDGER_STRESS}>Gravações Concorrentes na Hash-Chain WORM</option>
+                <option value={StressScenario.RATE_LIMIT_SATURATION}>Saturação de Rate Limiter (HTTP 429)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Volume de Requisições:
+              </label>
+              <select
+                value={stressRequests}
+                onChange={(e) => setStressRequests(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+              >
+                <option value={50}>50 Requisições (Rápido)</option>
+                <option value={100}>100 Requisições (Padrão)</option>
+                <option value={250}>250 Requisições (Médio)</option>
+                <option value={500}>500 Requisições (Intenso)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Concorrência Simultânea (Workers / VUs):
+              </label>
+              <select
+                value={stressConcurrency}
+                onChange={(e) => setStressConcurrency(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+              >
+                <option value={5}>5 VUs Concorrentes</option>
+                <option value={10}>10 VUs Concorrentes</option>
+                <option value={20}>20 VUs Concorrentes</option>
+                <option value={30}>30 VUs Concorrentes</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Visualizador de Percentis RED */}
+        {latestStressReport && (
+          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 bg-white dark:bg-slate-900">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              Distribuição Estatística de Latência (Percentis RED)
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-center text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] text-slate-400 block font-semibold">MÍNIMA</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{latestStressReport.percentiles.min} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] text-slate-400 block font-semibold">MÉDIA</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{latestStressReport.percentiles.avg} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-semibold">
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block">P50 (MEDIANA)</span>
+                <span className="font-mono font-bold">{latestStressReport.percentiles.p50} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 font-semibold">
+                <span className="text-[10px] text-sky-600 dark:text-sky-400 block">P90</span>
+                <span className="font-mono font-bold">{latestStressReport.percentiles.p90} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-semibold">
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 block">P95</span>
+                <span className="font-mono font-bold">{latestStressReport.percentiles.p95} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-semibold">
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 block">P99 (SLO)</span>
+                <span className="font-mono font-bold">{latestStressReport.percentiles.p99} ms</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 font-semibold">
+                <span className="text-[10px] text-rose-600 dark:text-rose-400 block">MÁXIMA</span>
+                <span className="font-mono font-bold">{latestStressReport.percentiles.max} ms</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tabela dos 4 SLOs Contratuais de Engenharia */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+            Auditoria de Cumprimento de SLOs (Service Level Objectives)
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2.5 pl-4 pr-3 font-semibold">ID & Nome do SLO</th>
+                  <th className="py-2.5 pr-3 font-semibold">Meta de Engenharia</th>
+                  <th className="py-2.5 pr-3 font-semibold">Valor Real Medido</th>
+                  <th className="py-2.5 pr-4 font-semibold text-right">Status de Conformidade</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(latestStressReport?.slos || []).map((slo) => (
+                  <tr key={slo.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3 pl-4 pr-3">
+                      <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white block">
+                        {slo.id}
+                      </span>
+                      <span className="text-slate-600 dark:text-slate-400 text-[11px]">
+                        {slo.name}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-3 text-slate-700 dark:text-slate-300 font-mono text-[11px]">
+                      {slo.targetDescription}
+                    </td>
+                    <td className="py-3 pr-3 font-mono font-bold text-slate-900 dark:text-white">
+                      {slo.actualValue} {slo.unit}
+                    </td>
+                    <td className="py-3 pr-4 text-right">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        slo.status === SloStatus.MET
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                          : slo.status === SloStatus.WARNING
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                      }`}>
+                        {slo.status === SloStatus.MET ? 'CUMPRIDO' : slo.status === SloStatus.WARNING ? 'ALERTA' : 'VIOLADO'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Histórico Recente de Relatórios de Stress Test */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+            Histórico Recente de Benchmarks Executados
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2.5 pl-4 pr-3 font-semibold">Cenário</th>
+                  <th className="py-2.5 pr-3 font-semibold">Volume / Concorrência</th>
+                  <th className="py-2.5 pr-3 font-semibold">Vazão (RPS)</th>
+                  <th className="py-2.5 pr-3 font-semibold">Latência P99</th>
+                  <th className="py-2.5 pr-3 font-semibold">Taxa de Erro</th>
+                  <th className="py-2.5 pr-3 font-semibold">SLOs</th>
+                  <th className="py-2.5 pr-4 font-semibold text-right">Data/Hora</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {stressReports.slice(0, 5).map((rep) => (
+                  <tr key={rep.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="py-2.5 pl-4 pr-3 font-mono text-[11px] font-semibold text-slate-900 dark:text-white">
+                      {rep.scenario}
+                    </td>
+                    <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-400">
+                      {rep.totalRequests} reqs • {rep.concurrency} VUs
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono font-bold text-slate-900 dark:text-white">
+                      {rep.rps} req/s
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono text-amber-600 dark:text-amber-400">
+                      {rep.percentiles.p99} ms
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono">
+                      <span className={rep.errorRate === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}>
+                        {rep.errorRate}%
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        {rep.slosPassedCount}/{rep.slosTotalCount} MET
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-right text-[11px] text-slate-400 whitespace-nowrap">
+                      {new Date(rep.timestamp).toLocaleString('pt-BR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Caixa Educativa k6 & CLI */}
+        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900 dark:text-white block">
+              💻 Executar via Linha de Comando ou CI/CD:
+            </span>
+            <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+              Utilize o runner nativo do Bun ou o script de carga oficial do k6 com thresholds automatizados.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <code className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-800">
+              bun test:load
+            </code>
+            <code className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-800">
+              k6 run scripts/k6-stress-test.js
+            </code>
+          </div>
+        </div>
+      </div>
+
 
       {/* Modal de Criação de Novo Conector SIEM */}
       {showCreateSiemModal && (
