@@ -817,6 +817,26 @@ export interface ListRectificationsResponse {
   rectifications: import('./models').ClinicalRecordRectification[];
 }
 
+/**
+ * 18. DTOs DE MÉTRICAS OPENTELEMETRY & PROMETHEUS (Opção N)
+ */
+export interface TelemetryOverviewResponse {
+  success: boolean;
+  telemetry: import('./models').TelemetryOverview;
+}
+
+export interface TracesListResponse {
+  success: boolean;
+  count: number;
+  traces: import('./models').TraceSpan[];
+}
+
+export interface RawMetricsResponse {
+  format: 'prometheus_text' | 'json';
+  metrics: string;
+}
+
+
 
 
 

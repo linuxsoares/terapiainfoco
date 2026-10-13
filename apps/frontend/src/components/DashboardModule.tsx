@@ -11,18 +11,33 @@ import {
   AlertTriangle, 
   Clock, 
   Sparkles,
-  Award
+  Award,
+  Radio,
+  Cpu,
+  Layers,
+  Copy,
+  Check,
+  Server,
+  Lock,
+  ChevronRight,
+  Terminal,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
   ClinicalOverviewMetrics, 
   SecurityMetrics, 
-  PatientClinicalMetrics
+  PatientClinicalMetrics,
+  TelemetryOverview,
+  TraceSpan
 } from '@terapiainfoco/shared';
 import { AppointmentStatus, DocumentType } from '@terapiainfoco/shared';
 
 export function DashboardModule() {
-  const [viewMode, setViewMode] = useState<'clinical' | 'security'>('clinical');
+  const [viewMode, setViewMode] = useState<'clinical' | 'security' | 'telemetry'>('clinical');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +45,14 @@ export function DashboardModule() {
   // Dados consolidados
   const [clinicalOverview, setClinicalOverview] = useState<ClinicalOverviewMetrics | null>(null);
   const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics | null>(null);
+  const [telemetry, setTelemetry] = useState<TelemetryOverview | null>(null);
+  const [telemetryTraces, setTelemetryTraces] = useState<TraceSpan[]>([]);
+  const [selectedTrace, setSelectedTrace] = useState<TraceSpan | null>(null);
+  const [loadingTelemetry, setLoadingTelemetry] = useState(false);
+  const [rawPrometheus, setRawPrometheus] = useState<string | null>(null);
+  const [showPrometheusModal, setShowPrometheusModal] = useState<boolean>(false);
+  const [copiedPrometheus, setCopiedPrometheus] = useState<boolean>(false);
+  const [copiedTraceId, setCopiedTraceId] = useState<string | null>(null);
 
   // Análise longitudinal de paciente
   const [patients, setPatients] = useState<Array<{ id: string; name: string }>>([]);
@@ -40,12 +63,17 @@ export function DashboardModule() {
   const loadData = async () => {
     try {
       setError(null);
-      const [clinical, security] = await Promise.all([
+      const [clinical, security, telem] = await Promise.all([
         api.getClinicalOverview(),
-        api.getSecurityMetrics()
+        api.getSecurityMetrics(),
+        api.getTelemetryOverview().catch(() => null)
       ]);
       setClinicalOverview(clinical);
       setSecurityMetrics(security);
+      if (telem) {
+        setTelemetry(telem);
+        setTelemetryTraces(telem.recentTraces || []);
+      }
 
       // Carrega lista de pacientes únicos a partir das sessões
       if (clinical.recentSessions.length > 0) {
@@ -74,6 +102,46 @@ export function DashboardModule() {
     }
   };
 
+  const loadTelemetry = async () => {
+    try {
+      setLoadingTelemetry(true);
+      const [tOverview, tTraces] = await Promise.all([
+        api.getTelemetryOverview(),
+        api.getTelemetryTraces(40)
+      ]);
+      setTelemetry(tOverview);
+      setTelemetryTraces(tTraces);
+    } catch (err: any) {
+      console.error('Falha ao carregar telemetria:', err);
+    } finally {
+      setLoadingTelemetry(false);
+    }
+  };
+
+  const handleOpenPrometheusModal = async () => {
+    try {
+      const text = await api.getRawPrometheusMetrics();
+      setRawPrometheus(text);
+      setShowPrometheusModal(true);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao buscar payload Prometheus');
+    }
+  };
+
+  const handleCopyPrometheus = () => {
+    if (rawPrometheus) {
+      navigator.clipboard.writeText(rawPrometheus);
+      setCopiedPrometheus(true);
+      setTimeout(() => setCopiedPrometheus(false), 2000);
+    }
+  };
+
+  const handleCopyTraceId = (traceId: string) => {
+    navigator.clipboard.writeText(traceId);
+    setCopiedTraceId(traceId);
+    setTimeout(() => setCopiedTraceId(null), 2000);
+  };
+
   const loadPatientEvolution = async (patientId: string) => {
     if (!patientId) return;
     try {
@@ -93,7 +161,11 @@ export function DashboardModule() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadData();
+    if (viewMode === 'telemetry') {
+      loadTelemetry().finally(() => setRefreshing(false));
+    } else {
+      loadData();
+    }
   };
 
   const handlePatientSelect = (pId: string) => {
@@ -125,7 +197,7 @@ export function DashboardModule() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Seletor de Modo: Clínico vs Segurança */}
+          {/* Seletor de Modo: Clínico vs Segurança vs Telemetria */}
           <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl flex items-center border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setViewMode('clinical')}
@@ -146,6 +218,19 @@ export function DashboardModule() {
               }`}
             >
               Segurança & WORM
+            </button>
+            <button
+              onClick={() => {
+                setViewMode('telemetry');
+                if (!telemetry) loadTelemetry();
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === 'telemetry'
+                  ? 'bg-white dark:bg-slate-900 text-teal-800 dark:text-teal-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Observabilidade RED & OTel
             </button>
           </div>
 
@@ -610,6 +695,493 @@ export function DashboardModule() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. VISÃO DE TELEMETRIA OPENTELEMETRY & MÉTRICAS PROMETHEUS (RFC §5.2 - N) */}
+      {/* ========================================================================= */}
+      {viewMode === 'telemetry' && (
+        <div className="space-y-6">
+          {/* Barra de Status e Ações do Sistema de Observabilidade */}
+          <div className="p-5 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Tracing Distribuído OTel & Exportador Prometheus
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    OpenMetrics v0.0.4 Ativo
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Conformidade W3C Trace Context (<code className="font-mono text-teal-600 dark:text-teal-400">traceparent</code>) e Métricas RED em tempo real
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleOpenPrometheusModal}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>Ver Endpoint Prometheus (GET /metrics)</span>
+              </button>
+
+              <button
+                onClick={loadTelemetry}
+                disabled={loadingTelemetry}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingTelemetry ? 'animate-spin' : ''}`} />
+                <span>Atualizar Traces</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Grade 1: 4 Cards RED Metrics (Rate, Errors, Duration) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI RED 1: Rate (Taxa de Requisições) */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">RED: Rate</span>
+                <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400">
+                  <Zap className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.red.requestRatePerSec ?? 0}
+                </span>
+                <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">req/s</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {telemetry?.red.totalRequests ?? 0} requisições totais processadas
+              </p>
+            </div>
+
+            {/* KPI RED 2: Errors (Taxa de Erros) */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">RED: Errors</span>
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.red.errorRatePercentage ?? 0}%
+                </span>
+                <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  {telemetry?.red.totalErrors ?? 0} erros
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Status 4xx/5xx monitorados por normalização de rota
+              </p>
+            </div>
+
+            {/* KPI RED 3: Duration (Latência P50/P95/P99) */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">RED: Duration (P95)</span>
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.red.p95DurationMs ?? 0}
+                </span>
+                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">ms</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                P50: {telemetry?.red.p50DurationMs ?? 0}ms • P99: {telemetry?.red.p99DurationMs ?? 0}ms
+              </p>
+            </div>
+
+            {/* KPI RED 4: Concorrência (In-Flight) */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Concorrência Ativa</span>
+                <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400">
+                  <Layers className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.red.activeRequests ?? 0}
+                </span>
+                <span className="text-xs text-teal-600 dark:text-teal-400 font-medium">in-flight</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Requisições em processamento simultâneo
+              </p>
+            </div>
+          </div>
+
+          {/* Grade 2: 4 Cards de Criptografia & Recursos de Infraestrutura */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Cifragem FLE */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cifragem FLE (KMS)</span>
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {(telemetry?.crypto.totalEncryptions ?? 0) + (telemetry?.crypto.totalDecryptions ?? 0)}
+                </span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  {telemetry?.crypto.avgDurationMs ?? 0}ms méd
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {telemetry?.crypto.totalEncryptions ?? 0} enc / {telemetry?.crypto.totalDecryptions ?? 0} dec (AES-256-GCM)
+              </p>
+            </div>
+
+            {/* Blind Indexes & RAM */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Blind Indexes & DEKs</span>
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <Cpu className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.crypto.totalBlindIndexes ?? 0}
+                </span>
+                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                  {telemetry?.crypto.activeKeysInRam ?? 0} DEKs em RAM
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                HMAC-SHA256 para buscas indexadas sem quebra de anonimato
+              </p>
+            </div>
+
+            {/* Memória & Processo */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Memória RSS & Heap</span>
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                  <Server className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.system.memoryRssMb ?? 0}
+                </span>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">MB (RSS)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Heap: {telemetry?.system.heapUsedMb ?? 0} MB / {telemetry?.system.heapTotalMb ?? 0} MB
+              </p>
+            </div>
+
+            {/* Negócio & WORM */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">IA & Auditoria WORM</span>
+                <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400">
+                  <FileCheck2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {telemetry?.business.wormAuditRecordsTotal ?? 0}
+                </span>
+                <span className="text-[11px] text-teal-600 dark:text-teal-400 font-medium">
+                  {telemetry?.business.aiSoapGenerationsTotal ?? 0} SOAP IA
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {telemetry?.business.sessionsCompletedTotal ?? 0} sessões finalizadas
+              </p>
+            </div>
+          </div>
+
+          {/* Trace Explorer (W3C OpenTelemetry Spans) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Lista de Spans Recentes */}
+            <div className={`p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 ${selectedTrace ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Trace Explorer — Rastreamento Distribuído OpenTelemetry
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Buffer circular em memória com os últimos spans W3C ({telemetryTraces.length} registrados)
+                  </p>
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Clique em um span para inspecionar atributos W3C
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2 max-h-[480px] overflow-y-auto pr-1">
+                {telemetryTraces.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic p-4 text-center">Nenhum span OTel registrado ainda.</p>
+                ) : (
+                  telemetryTraces.map((span) => {
+                    const isSelected = selectedTrace?.spanId === span.spanId;
+                    const isOk = span.status === 'OK';
+                    return (
+                      <div
+                        key={span.spanId}
+                        onClick={() => setSelectedTrace(span)}
+                        className={`p-3.5 rounded-2xl border text-xs transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-teal-50/70 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700 shadow-sm'
+                            : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {isOk ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                            )}
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                              {span.name}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {span.kind}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                              {span.durationMs !== undefined ? `${span.durationMs}ms` : 'ativo'}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(span.startTimeMs).toLocaleTimeString('pt-BR')}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                          <div className="flex items-center gap-2 font-mono text-[10px]">
+                            <span>Trace: {span.traceId.slice(0, 8)}...{span.traceId.slice(-8)}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyTraceId(span.traceId);
+                              }}
+                              className="p-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                              title="Copiar Trace ID W3C"
+                            >
+                              {copiedTraceId === span.traceId ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                          <span className={`text-[10px] font-semibold ${isOk ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {span.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Painel de Detalhes do Span Selecionado */}
+            {selectedTrace && (
+              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Detalhes do Span W3C
+                  </h4>
+                  <button
+                    onClick={() => setSelectedTrace(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nome da Operação</label>
+                    <p className="font-mono font-bold text-slate-900 dark:text-white mt-0.5">{selectedTrace.name}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</label>
+                      <p className={`font-bold mt-0.5 ${selectedTrace.status === 'OK' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {selectedTrace.status}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Duração</label>
+                      <p className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
+                        {selectedTrace.durationMs ?? 0} ms
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">W3C Trace ID (128-bit)</label>
+                      <button
+                        onClick={() => handleCopyTraceId(selectedTrace.traceId)}
+                        className="text-[10px] text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedTraceId === selectedTrace.traceId ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        Copiar
+                      </button>
+                    </div>
+                    <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-slate-800 p-2 rounded-xl mt-1 border border-slate-200 dark:border-slate-700">
+                      {selectedTrace.traceId}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Span ID (64-bit)</label>
+                      <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-slate-800 p-1.5 rounded-lg mt-0.5">
+                        {selectedTrace.spanId}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Parent Span ID</label>
+                      <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all bg-slate-50 dark:bg-slate-800 p-1.5 rounded-lg mt-0.5">
+                        {selectedTrace.parentSpanId || 'root'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Atributos do Span */}
+                  <div className="pt-2">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Atributos OTel</label>
+                    <div className="mt-1 space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                      {Object.entries(selectedTrace.attributes).length === 0 ? (
+                        <p className="text-slate-400 italic text-[11px]">Nenhum atributo associado.</p>
+                      ) : (
+                        Object.entries(selectedTrace.attributes).map(([k, v]) => (
+                          <div key={k} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 text-[11px] flex items-center justify-between">
+                            <span className="font-mono text-slate-500 dark:text-slate-400 font-semibold">{k}</span>
+                            <span className="font-mono text-slate-900 dark:text-white truncate max-w-[140px] text-right" title={String(v)}>
+                              {String(v)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Eventos do Span */}
+                  {selectedTrace.events && selectedTrace.events.length > 0 && (
+                    <div className="pt-2">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Eventos do Ciclo de Vida</label>
+                      <div className="mt-1 space-y-1">
+                        {selectedTrace.events.map((ev, idx) => (
+                          <div key={idx} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 text-[11px]">
+                            <div className="flex items-center justify-between font-semibold text-teal-600 dark:text-teal-400">
+                              <span>{ev.name}</span>
+                              <span className="text-[10px] text-slate-400">{new Date(ev.timestampMs).toLocaleTimeString('pt-BR')}</span>
+                            </div>
+                            {ev.attributes && (
+                              <pre className="text-[10px] font-mono text-slate-500 mt-1 whitespace-pre-wrap">
+                                {JSON.stringify(ev.attributes, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Prévia do Payload Prometheus (/metrics) */}
+      {showPrometheusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-950 border border-slate-800 text-slate-100 rounded-3xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                  <Terminal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Coletor de Métricas Prometheus
+                    <span className="text-xs font-normal text-slate-400 font-mono">GET /metrics</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Formato OpenMetrics v0.0.4 compatível com Prometheus, VictoriaMetrics e Grafana Agent
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowPrometheusModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 flex-1 overflow-y-auto font-mono text-xs text-slate-300 bg-slate-950 space-y-1">
+              <pre className="whitespace-pre-wrap leading-relaxed select-all">
+                {rawPrometheus || '# Carregando métricas Prometheus...'}
+              </pre>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+              <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5 text-teal-400" />
+                Content-Type: text/plain; version=0.0.4; charset=utf-8
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyPrometheus}
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  {copiedPrometheus ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copiar Métricas</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowPrometheusModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Fechar
+                </button>
               </div>
             </div>
           </div>

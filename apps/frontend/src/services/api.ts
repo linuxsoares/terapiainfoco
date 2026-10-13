@@ -58,7 +58,12 @@ import type {
   DecryptedAnamnesisRecord,
   SaveAnamnesisDTO,
   CreateRectificationDTO,
-  ClinicalRecordRectification
+  ClinicalRecordRectification,
+  TelemetryOverview,
+  TraceSpan,
+  TelemetryOverviewResponse,
+  TracesListResponse,
+  RawMetricsResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -654,6 +659,22 @@ export const api = {
     } catch {
       return [];
     }
+  },
+
+  // 17. Telemetria OpenTelemetry & Métricas RED / Prometheus (RFC-001 §5.2 - Opção N)
+  async getTelemetryOverview(): Promise<TelemetryOverview> {
+    const res = await request<TelemetryOverviewResponse>('/system/telemetry/overview');
+    return res.telemetry;
+  },
+
+  async getTelemetryTraces(limit = 30): Promise<TraceSpan[]> {
+    const res = await request<TracesListResponse>(`/system/telemetry/traces?limit=${limit}`);
+    return res.traces || [];
+  },
+
+  async getRawPrometheusMetrics(): Promise<string> {
+    const res = await request<RawMetricsResponse>('/system/telemetry/metrics-raw');
+    return res.metrics;
   }
 };
 
