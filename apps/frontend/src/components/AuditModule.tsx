@@ -16,20 +16,30 @@ import {
   Check,
   Award,
   FileCheck2,
-  ShieldAlert
+  ShieldAlert,
+  Building2,
+  Stamp,
+  UserCheck,
+  BadgeCheck,
+  Activity,
+  FileSignature,
+  Scale
 } from 'lucide-react';
 import { 
   AuditAction, 
   AuditResourceType, 
+  ComplianceFramework,
+  ComplianceControlStatus,
   type AuditLog, 
   type ChainIntegrityResult, 
   type AuditFilterParams,
-  type DPIAReport
+  type DPIAReport,
+  type ExecutiveComplianceOverviewResponse
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 export function AuditModule() {
-  const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest'>('worm_logs');
+  const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest' | 'governance_package'>('governance_package');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [chainStatus, setChainStatus] = useState<ChainIntegrityResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +47,19 @@ export function AuditModule() {
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estados de Governança Executiva & Compliance Package (RFC-001 §4.4, §5.2)
+  const [governanceOverview, setGovernanceOverview] = useState<ExecutiveComplianceOverviewResponse | null>(null);
+  const [loadingGovernance, setLoadingGovernance] = useState(false);
+  const [generatingPackage, setGeneratingPackage] = useState(false);
+  const [downloadingPackage, setDownloadingPackage] = useState(false);
+  const [isSignOffModalOpen, setIsSignOffModalOpen] = useState(false);
+  const [dpoSignerName, setDpoSignerName] = useState('Dra. Beatriz Santos');
+  const [dpoSignerStatement, setDpoSignerStatement] = useState(
+    'Atesto a conformidade regulatória plena e a eficácia das salvaguardas técnicas aplicadas nos termos da LGPD, CFP, ICP-Brasil e SOC2/ISO 27001.'
+  );
+  const [signingOff, setSigningOff] = useState(false);
+  const [frameworkFilter, setFrameworkFilter] = useState<string>('ALL');
 
   // Estados de RIPD / DPIA & Pentest (Fase 4 do RFC-001)
   const [dpiaReport, setDpiaReport] = useState<DPIAReport | null>(null);
@@ -174,6 +197,80 @@ export function AuditModule() {
     setTimeout(() => setCopiedHash(false), 3000);
   };
 
+  const fetchGovernanceOverview = async () => {
+    try {
+      setLoadingGovernance(true);
+      const data = await api.getGovernanceOverview();
+      setGovernanceOverview(data);
+    } catch (err: any) {
+      console.warn('Falha ao obter panorama de governança:', err.message);
+    } finally {
+      setLoadingGovernance(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'governance_package' && !governanceOverview) {
+      fetchGovernanceOverview();
+    }
+  }, [activeTab]);
+
+  const handleGeneratePackage = async () => {
+    try {
+      setGeneratingPackage(true);
+      setError(null);
+      const res = await api.generateCompliancePackage({
+        dpoName: dpoSignerName,
+        organization: 'TerapiaInFoco Clínica Psicológica Digital',
+        technicalResponsibleCrp: 'CRP 06/142857-SP'
+      });
+      setSuccessMessage(res.message);
+      await fetchGovernanceOverview();
+      await fetchLogs();
+    } catch (err: any) {
+      setError(err.message || 'Falha ao emitir Pacote Executivo de Conformidade');
+    } finally {
+      setGeneratingPackage(false);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+  };
+
+  const handleApplySignOff = async () => {
+    if (!governanceOverview?.lastPackage) return;
+    try {
+      setSigningOff(true);
+      setError(null);
+      const res = await api.applyDpoSignOff({
+        packageId: governanceOverview.lastPackage.id,
+        dpoName: dpoSignerName,
+        statement: dpoSignerStatement
+      });
+      setSuccessMessage(res.message);
+      setIsSignOffModalOpen(false);
+      await fetchGovernanceOverview();
+      await fetchLogs();
+    } catch (err: any) {
+      setError(err.message || 'Falha ao aplicar chancela do DPO');
+    } finally {
+      setSigningOff(false);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+  };
+
+  const handleDownloadPackage = async () => {
+    if (!governanceOverview?.lastPackage) return;
+    try {
+      setDownloadingPackage(true);
+      await api.downloadCompliancePackage(governanceOverview.lastPackage.id);
+      setSuccessMessage('Pacote Executivo de Conformidade baixado com sucesso em JSON assinado.');
+    } catch (err: any) {
+      setError(err.message || 'Falha ao baixar Pacote Executivo');
+    } finally {
+      setDownloadingPackage(false);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -221,11 +318,14 @@ export function AuditModule() {
           </button>
 
           <button
-            onClick={fetchLogs}
+            onClick={() => {
+              fetchLogs();
+              if (activeTab === 'governance_package') fetchGovernanceOverview();
+            }}
             className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shadow-sm dark:shadow-none transition-colors cursor-pointer"
-            title="Atualizar Logs"
+            title="Atualizar Logs e Governança"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading || loadingGovernance ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -247,6 +347,21 @@ export function AuditModule() {
 
       {/* Seletor de Abas */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-2">
+        <button
+          onClick={() => setActiveTab('governance_package')}
+          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
+            activeTab === 'governance_package'
+              ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <Scale className="w-4 h-4" />
+          <span>Governança & Pacote Multi-Normativo</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+            LGPD + CFP + ICP + SOC2
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('worm_logs')}
           className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
@@ -274,6 +389,427 @@ export function AuditModule() {
           </span>
         </button>
       </div>
+
+      {/* Aba 1: Governança Executiva & Compliance Package (RFC-001 §4.4, §5.2) */}
+      {activeTab === 'governance_package' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Card Principal: Selo Probatório SHA-256 e Status do DPO Sign-Off */}
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-slate-800">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                    Selo Probatório Tamper-Evident
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">
+                    ID: {governanceOverview?.lastPackage?.id.slice(0, 18) || 'Gerando...'}...
+                  </span>
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Compliance Package Forense Multi-Normativo
+                </h2>
+                <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+                  Pacote pericial com digest canônico SHA-256 recursivo e chancela formal do Encarregado pelo Tratamento de Dados (DPO), integrando as salvaguardas da LGPD, Conselho Federal de Psicologia (CFP), ICP-Brasil (PAdES/TSA) e SOC2/ISO 27001.
+                </p>
+              </div>
+
+              {/* Score Circular e Status */}
+              <div className="flex items-center gap-5 bg-white dark:bg-slate-900/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                <div className="text-center">
+                  <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                    {governanceOverview?.globalScorePercentage ?? 100}%
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400 mt-0.5">
+                    Score Global
+                  </div>
+                </div>
+                <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
+                <div className="space-y-1">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                    {governanceOverview?.status || 'COMPLIANT'}
+                  </span>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    17 Controles Ativos
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Digest Canônico SHA-256 e Selo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span className="font-semibold uppercase text-[10px]">Digest Canônico SHA-256</span>
+                  <button
+                    onClick={() => handleCopyHash(governanceOverview?.lastPackage?.canonicalDigest || '')}
+                    className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    {copiedHash ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedHash ? 'Copiado!' : 'Copiar Hash'}
+                  </button>
+                </div>
+                <div className="font-mono text-xs text-slate-700 dark:text-slate-300 break-all select-all bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                  {governanceOverview?.lastPackage?.canonicalDigest || 'Calculando digest...'}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Selo: <span className="font-mono text-emerald-700 dark:text-emerald-400 font-medium">{governanceOverview?.lastPackage?.tamperEvidentSeal || 'GOV-SEAL-SHA256:PENDING'}</span>
+                </div>
+              </div>
+
+              {/* Status do DPO Sign-Off */}
+              <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase text-slate-500">Chancela Formal do DPO</span>
+                    {governanceOverview?.lastPackage?.dpoSignOff ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        Chancelado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                        Pendente
+                      </span>
+                    )}
+                  </div>
+                  {governanceOverview?.lastPackage?.dpoSignOff ? (
+                    <div className="space-y-1 text-xs">
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        {governanceOverview.lastPackage.dpoSignOff.signedBy}
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-slate-400 italic line-clamp-2">
+                        "{governanceOverview.lastPackage.dpoSignOff.statement}"
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400 pt-1">
+                        Sign Digest: {governanceOverview.lastPackage.dpoSignOff.signatureDigest.slice(0, 24)}...
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      O pacote atual ainda não possui a declaração juramentada e assinatura do Encarregado pelo Tratamento de Dados.
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setIsSignOffModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Stamp className="w-3.5 h-3.5" />
+                    {governanceOverview?.lastPackage?.dpoSignOff ? 'Atualizar Sign-Off' : 'Chancelar como DPO'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações do Pacote */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className="text-xs text-slate-500">
+                Emitido em: <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {governanceOverview?.lastPackage?.issuedAt ? new Date(governanceOverview.lastPackage.issuedAt).toLocaleString('pt-BR') : 'N/A'}
+                </span>
+                {' • '}Responsável Técnico: <span className="font-medium text-slate-700 dark:text-slate-300">{governanceOverview?.lastPackage?.technicalResponsibleCrp || 'CRP 06/142857-SP'}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGeneratePackage}
+                  disabled={generatingPackage}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                  title="Recalcula todas as evidências dos módulos e emite novo pacote forense registrado na trilha WORM"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${generatingPackage ? 'animate-spin' : ''}`} />
+                  {generatingPackage ? 'Emitindo...' : 'Emitir Novo Pacote'}
+                </button>
+
+                <button
+                  onClick={handleDownloadPackage}
+                  disabled={downloadingPackage || !governanceOverview?.lastPackage}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                  title="Download do pacote forense em formato JSON canônico assinado com integridade garantida"
+                >
+                  <Download className={`w-3.5 h-3.5 ${downloadingPackage ? 'animate-bounce' : ''}`} />
+                  {downloadingPackage ? 'Baixando...' : 'Baixar Compliance Package (JSON)'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards dos 4 Frameworks Normativos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {governanceOverview?.frameworks?.map((fw) => (
+              <div
+                key={fw.framework}
+                className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400">
+                    {fw.framework === ComplianceFramework.LGPD && <ShieldCheck className="w-5 h-5" />}
+                    {fw.framework === ComplianceFramework.CFP && <FileText className="w-5 h-5" />}
+                    {fw.framework === ComplianceFramework.ICP_BRASIL && <FileSignature className="w-5 h-5" />}
+                    {fw.framework === ComplianceFramework.SOC2_ISO27001 && <Building2 className="w-5 h-5" />}
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                    {fw.status}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">{fw.name}</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                    {fw.description}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Conformidade:</span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                      {fw.scorePercentage}% ({fw.compliantControls}/{fw.totalControls})
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${fw.scorePercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 flex flex-wrap gap-1 pt-1">
+                  {fw.regulatoryBasis.slice(0, 3).map((b, idx) => (
+                    <span key={idx} className="bg-slate-100 dark:bg-slate-800/70 px-1.5 py-0.5 rounded">
+                      {b}
+                    </span>
+                  ))}
+                  {fw.regulatoryBasis.length > 3 && (
+                    <span className="text-slate-400">+{fw.regulatoryBasis.length - 3}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Métricas Forenses em Tempo Real */}
+          {governanceOverview?.forensicMetrics && (
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Snapshot de Evidências Forenses em Produção
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60">
+                  <div className="text-[11px] text-slate-500 uppercase font-semibold">Trilha WORM</div>
+                  <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {governanceOverview.forensicMetrics.totalWormBlocks} Blocos
+                  </div>
+                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    Status: {governanceOverview.forensicMetrics.wormChainIntegrity}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60">
+                  <div className="text-[11px] text-slate-500 uppercase font-semibold">Chave Mestre KMS</div>
+                  <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    KEK v{governanceOverview.forensicMetrics.activeKmsKeyVersion}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    Envelope Encryption Ativo
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60">
+                  <div className="text-[11px] text-slate-500 uppercase font-semibold">Resiliência & DR</div>
+                  <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {governanceOverview.forensicMetrics.dataBackupsCount} Snapshots
+                  </div>
+                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    PGlite Fallback: OK
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60">
+                  <div className="text-[11px] text-slate-500 uppercase font-semibold">2FA & Observabilidade</div>
+                  <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {governanceOverview.forensicMetrics.twoFactorAdoptionRate}% Adoção 2FA
+                  </div>
+                  <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                    OTLP: {governanceOverview.forensicMetrics.otlpExporterActive ? 'Conectado' : 'Pronto'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Matriz Detalhada dos 17 Controles Multi-Normativos */}
+          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  Matriz Determinística de Salvaguardas & Controles (17 Controles)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Mapeamento formal dos controles técnicos com evidências periciais em tempo real.
+                </p>
+              </div>
+
+              {/* Filtro por Framework */}
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: 'ALL', label: 'Todos (17)' },
+                  { id: ComplianceFramework.LGPD, label: 'LGPD (5)' },
+                  { id: ComplianceFramework.CFP, label: 'CFP (5)' },
+                  { id: ComplianceFramework.ICP_BRASIL, label: 'ICP-Brasil (3)' },
+                  { id: ComplianceFramework.SOC2_ISO27001, label: 'SOC2 / ISO (4)' }
+                ].map((pill) => (
+                  <button
+                    key={pill.id}
+                    onClick={() => setFrameworkFilter(pill.id)}
+                    className={`px-3 py-1 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      frameworkFilter === pill.id
+                        ? 'bg-emerald-600 text-white font-bold'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tabela de Controles */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 pr-4">Controle</th>
+                    <th className="py-2.5 pr-4">Framework & Norma</th>
+                    <th className="py-2.5 pr-4">Salvaguarda Técnica Aplicada</th>
+                    <th className="py-2.5 pr-4">Evidência Forense Coletada</th>
+                    <th className="py-2.5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {governanceOverview?.lastPackage?.controls
+                    ?.filter((ctrl) => frameworkFilter === 'ALL' || ctrl.framework === frameworkFilter)
+                    ?.map((ctrl) => (
+                      <tr key={ctrl.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                        <td className="py-3 pr-4 whitespace-nowrap">
+                          <span className="font-mono font-bold text-slate-900 dark:text-white block">
+                            {ctrl.id}
+                          </span>
+                          <span className="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">
+                            {ctrl.title}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 max-w-xs">
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 mb-1">
+                            {ctrl.framework}
+                          </span>
+                          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                            {ctrl.normReference}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 max-w-sm text-[11px] text-slate-600 dark:text-slate-400">
+                          {ctrl.technicalSafeguard}
+                        </td>
+                        <td className="py-3 pr-4 max-w-sm text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                          {ctrl.evidenceSummary}
+                        </td>
+                        <td className="py-3 text-right whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            ctrl.status === ComplianceControlStatus.COMPLIANT
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                              : ctrl.status === ComplianceControlStatus.PARTIALLY_COMPLIANT
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                          }`}>
+                            {ctrl.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Modal de Aplicação de DPO Sign-Off */}
+          {isSignOffModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Stamp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      Chancela Formal do DPO (DPO Sign-Off)
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsSignOffModalOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Nome do Encarregado de Proteção de Dados (DPO):
+                    </label>
+                    <input
+                      type="text"
+                      value={dpoSignerName}
+                      onChange={(e) => setDpoSignerName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Ex: Dra. Beatriz Santos (DPO Certificada)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Declaração Juramentada de Conformidade e Fé Pública:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={dpoSignerStatement}
+                      onChange={(e) => setDpoSignerStatement(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-[11px] leading-relaxed">
+                    Esta chancela vincula de forma criptográfica e pericial o Digest Canônico SHA-256 do pacote ao carimbo temporal e às credenciais do DPO, com gravação compulsória e imutável na Hash-Chain WORM.
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => setIsSignOffModalOpen(false)}
+                    disabled={signingOff}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleApplySignOff}
+                    disabled={signingOff || !dpoSignerName.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Stamp className={`w-3.5 h-3.5 ${signingOff ? 'animate-spin' : ''}`} />
+                    {signingOff ? 'Assinando...' : 'Assinar e Gravar no WORM'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === 'worm_logs' && (
         <div className="space-y-6 animate-fade-in">

@@ -43,24 +43,26 @@ export function verifyHashChainIntegrity(blocks: HashChainBlock[]): HashChainVer
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
 
+    const blockPrev = block.prevHash ?? (block as any).previousHash;
+
     // O primeiro bloco deve apontar para o gênesis ou ter prevHash inicial
     if (i === 0) {
-      if (block.prevHash && block.prevHash !== prevHash) {
-        prevHash = block.prevHash;
+      if (blockPrev && blockPrev !== prevHash) {
+        prevHash = blockPrev;
       }
     } else {
-      if (block.prevHash !== prevHash) {
+      if (blockPrev !== prevHash) {
         return {
           valid: false,
           totalBlocks: blocks.length,
           brokenAtIndex: i,
-          error: `Quebra de elo na hash-chain no bloco índice ${i}: esperado prevHash=${prevHash}, encontrado=${block.prevHash}`
+          error: `Quebra de elo na hash-chain no bloco índice ${i}: esperado prevHash=${prevHash}, encontrado=${blockPrev}`
         };
       }
     }
 
     // Recalcula o hash do bloco atual
-    const rawPayload = `${block.prevHash}|${block.action}|${new Date(block.timestamp).toISOString()}|${block.id}`;
+    const rawPayload = `${blockPrev}|${block.action}|${new Date(block.timestamp).toISOString()}|${block.id}`;
     const recalculatedHash = createHash('sha256').update(rawPayload).digest('hex');
 
     // Se o bloco foi gerado com esse algoritmo ou se tem hash correspondente

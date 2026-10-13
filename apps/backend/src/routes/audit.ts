@@ -1,9 +1,16 @@
 import { Hono } from 'hono';
 import { AuditService } from '../services/auditService';
 import { ComplianceService } from '../services/complianceService';
+import { complianceGovernanceService } from '../services/complianceGovernanceService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
-import type { UnmaskAuditRequestDTO, UnmaskAuditResponse } from '@terapiainfoco/shared';
+import type {
+  UnmaskAuditRequestDTO,
+  UnmaskAuditResponse,
+  GenerateCompliancePackageDTO,
+  ApplyDpoSignOffDTO,
+  ExecutiveCompliancePackageResponse
+} from '@terapiainfoco/shared';
 
 export const auditRoute = new Hono();
 
@@ -201,4 +208,95 @@ auditRoute.get('/compliance/download-ripd', adminOrTherapist, async (c) => {
     return c.json({ success: false, error: err.message || 'Falha ao exportar RIPD.' }, 500);
   }
 });
+
+// 10. Panorama Executivo de Governança & Conformidade Multi-Normativa (RFC-001 §4.4, §5.2)
+auditRoute.get('/governance/overview', adminOrTherapist, (c) => {
+  try {
+    const overview = complianceGovernanceService.getGovernanceOverview();
+    return c.json(overview, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao obter panorama de governança.' }, 500);
+  }
+});
+
+// 11. Emissão de Pacote Executivo de Conformidade Forense com Selo SHA-256
+auditRoute.post('/governance/package/generate', adminOrTherapist, async (c) => {
+  const user = c.get('user');
+  const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const body = (await c.req.json().catch(() => ({}))) as GenerateCompliancePackageDTO;
+
+  try {
+    const pkg = complianceGovernanceService.generateExecutivePackage(
+      body,
+      user?.id || 'admin',
+      ipAddress
+    );
+    const response: ExecutiveCompliancePackageResponse = {
+      success: true,
+      package: pkg,
+      message: `Pacote Executivo de Conformidade #${pkg.id.slice(0, 8)} gerado com sucesso com Digest Canônico SHA-256 e Selo Tamper-Evident.`
+    };
+    return c.json(response, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao emitir pacote executivo.' }, 500);
+  }
+});
+
+// 12. Aplicação de Chancela Formal do DPO (DPO Sign-Off)
+auditRoute.post('/governance/package/sign-off', adminOrTherapist, async (c) => {
+  const user = c.get('user');
+  const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const body = (await c.req.json().catch(() => null)) as ApplyDpoSignOffDTO | null;
+
+  if (!body || !body.packageId || !body.dpoName) {
+    return c.json({
+      success: false,
+      error: 'Parâmetros inválidos: packageId e dpoName são obrigatórios para a chancela formal do DPO.'
+    }, 400);
+  }
+
+  try {
+    const signedPkg = complianceGovernanceService.applyDpoSignOff(
+      body,
+      user?.id || 'admin',
+      ipAddress
+    );
+    const response: ExecutiveCompliancePackageResponse = {
+      success: true,
+      package: signedPkg,
+      message: `Chancela formal do DPO (${body.dpoName}) aplicada com sucesso ao pacote #${signedPkg.id.slice(0, 8)}.`
+    };
+    return c.json(response, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao aplicar chancela do DPO.' }, 500);
+  }
+});
+
+// 13. Download / Exportação do Pacote Executivo de Conformidade Forense
+auditRoute.get('/governance/package/download', adminOrTherapist, (c) => {
+  const user = c.get('user');
+  const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const packageId = c.req.query('packageId');
+
+  try {
+    const { package: pkg, integrityValid } = complianceGovernanceService.exportPackage(
+      packageId,
+      user?.id || 'admin',
+      ipAddress
+    );
+
+    c.header('Content-Type', 'application/json; charset=utf-8');
+    c.header(
+      'Content-Disposition',
+      `attachment; filename="terapiainfoco-compliance-package-${pkg.id.slice(0, 8)}.json"`
+    );
+    c.header('X-Compliance-Integrity-Valid', integrityValid ? 'true' : 'false');
+    c.header('X-Compliance-Digest-SHA256', pkg.canonicalDigest);
+
+    return c.json(pkg, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao exportar pacote de conformidade.' }, 500);
+  }
+});
+
 

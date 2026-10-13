@@ -12,7 +12,9 @@ import {
   StressScenario,
   SloStatus,
   OtlpExporterProvider,
-  OtlpExportStatus
+  OtlpExportStatus,
+  ComplianceFramework,
+  ComplianceControlStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -751,6 +753,69 @@ export interface OtlpBatchExportResult {
   error?: string;
   timestamp: string;
 }
+
+/**
+ * 18. GOVERNANÇA EXECUTIVA, AUDITORIA & COMPLIANCE MULTI-NORMATIVO (RFC-001 §4.4, §5.2)
+ */
+export interface ComplianceControlDetail {
+  id: string;
+  framework: ComplianceFramework;
+  normReference: string;          // Ex: "LGPD Art. 11", "CFP 001/2009 Art. 4º", "MP 2.200-2/2001", "SOC2 CC6.1"
+  title: string;
+  description: string;
+  technicalSafeguard: string;     // Ex: "Envelope Encryption AES-256-GCM + Blind Index HMAC-SHA256"
+  evidenceSummary: string;
+  status: ComplianceControlStatus;
+}
+
+export interface ComplianceFrameworkEvaluation {
+  framework: ComplianceFramework;
+  name: string;
+  description: string;
+  regulatoryBasis: string[];
+  totalControls: number;
+  compliantControls: number;
+  scorePercentage: number;        // 0 a 100%
+  status: ComplianceControlStatus;
+}
+
+export interface DpoSignOff {
+  signedBy: string;
+  role: string;
+  technicalResponsibleCrp?: string;
+  signedAt: string;
+  statement: string;
+  signatureDigest: string;
+}
+
+export interface ForensicMetricsSnapshot {
+  totalWormBlocks: number;
+  wormChainIntegrity: 'INTACT' | 'COMPROMISED';
+  activeKmsKeyVersion: number;
+  dataBackupsCount: number;
+  resilienceFallbackPassed: boolean;
+  twoFactorAdoptionRate: number;
+  passkeysCount: number;
+  rateLimitingStoreType: string;
+  otlpExporterActive: boolean;
+}
+
+export interface ExecutiveCompliancePackage {
+  id: string;
+  issuedAt: string;
+  organization: string;
+  dpoName: string;
+  technicalResponsibleCrp: string;
+  globalScorePercentage: number;
+  status: ComplianceControlStatus;
+  frameworks: ComplianceFrameworkEvaluation[];
+  controls: ComplianceControlDetail[];
+  forensicMetrics: ForensicMetricsSnapshot;
+  canonicalDigest: string;        // SHA-256 canônico gerado sobre o payload
+  tamperEvidentSeal: string;      // Selo probatório de conformidade forense
+  dpoSignOff?: DpoSignOff;
+}
+
 
 
 

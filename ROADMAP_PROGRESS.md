@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 16 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP | 252/252 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 16 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo | 265/265 Testes Passando
 
 
 
@@ -661,6 +661,46 @@ terapiainfoco/
   - Modal interativo *"Configuração do Exportador OTLP"* com seleção de provedor (Datadog, New Relic, Dynatrace, Genérico), chave de API, tamanho de lote e auto-flush.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 27. Dashboard Executivo de Governança, Compliance Package Multi-Normativo & DPO Sign-Off (RFC-001 §4.4, §5.2)
+- [x] **Motor Criptográfico de Governança (`packages/crypto/src/governance.ts`):**
+  - Catálogo determinístico de 17 controles mapeados para os 4 frameworks normativos:
+    - **LGPD (Lei nº 13.709/2018):** FLE com AES-256-GCM, Blind Indexing HMAC-SHA256, Portabilidade Criptografada Art. 18, Trilha WORM Art. 37/50, DDM Anti-Shoulder Surfing Art. 46.
+    - **CFP (Deontologia Psicológica):** Guarda de 5 anos (Res. CFP 001/2009), Retificação Formal de Prontuário, Telepsicologia & TCLE (Res. CFP 011/2018), 4 Modelos Documentais (Res. CFP 006/2019), Validação Zero-Knowledge.
+    - **ICP-Brasil (MP nº 2.200-2/2001):** Assinatura Digital Qualificada PAdES, Carimbo do Tempo TSA (RFC 3161), Digest Canônico SHA-256 do documento timbrado.
+    - **SOC2 Type II & ISO/IEC 27001:2022:** Gestão do Ciclo de Vida KMS NIST SP 800-57, RBAC estrito + 2FA + Passkeys FIDO2, Resiliência & Backup Criptografado com PGlite, Observabilidade OTLP & Conectores SIEM com DLQ.
+  - Avaliação determinística e ponderada de conformidade (`evaluateGovernanceControls`) com pontuação percentual global e por framework.
+  - Construção do Pacote Executivo de Conformidade (`buildExecutiveCompliancePackage`) com Digest Canônico SHA-256 recursivo (`calculateReportCanonicalHash`) e Selo Probatório Tamper-Evident (`GOV-SEAL-SHA256:...`).
+  - Verificação pericial pós-emissão (`verifyCompliancePackageIntegrity`) detectando adulterações retroativas.
+  - Mecanismo de Chancela Formal do DPO (`applyDpoSignOffToPackage`) vinculando o Digest do pacote às credenciais e fé pública do Encarregado pelo Tratamento de Dados Pessoais.
+  - Suíte de 6 testes unitários dedicados passando (`governance.test.ts`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Enums `ComplianceFramework` (`LGPD`, `CFP`, `ICP_BRASIL`, `SOC2_ISO27001`) e `ComplianceControlStatus` (`COMPLIANT`, `PARTIALLY_COMPLIANT`, `NON_COMPLIANT`).
+  - Novas ações WORM imutáveis: `AuditAction.EXECUTIVE_COMPLIANCE_GENERATED`, `AuditAction.COMPLIANCE_PACKAGE_EXPORT`, `AuditAction.DPO_SIGNOFF_APPLIED`.
+  - Interfaces `ComplianceControlDetail`, `ComplianceFrameworkEvaluation`, `DpoSignOff`, `ForensicMetricsSnapshot` e `ExecutiveCompliancePackage`.
+  - DTOs padronizados: `GenerateCompliancePackageDTO`, `ApplyDpoSignOffDTO`, `ExecutiveComplianceOverviewResponse` e `ExecutiveCompliancePackageResponse`.
+- [x] **Serviço Backend & API REST (`apps/backend`):**
+  - `ComplianceGovernanceService` com consolidação dinâmica de métricas forenses em tempo real:
+    - Status de integridade da Trilha WORM (`INTACT` / `COMPROMISED`).
+    - Versão ativa da KEK mestre no KMS.
+    - Contagem de snapshots de backup cifrados.
+    - Taxa de adoção de 2FA e total de Passkeys FIDO2 registradas.
+    - Provedor do Rate Limiter e status do exportador OTLP.
+  - Endpoints REST em `/api/audit/governance/*` protegidos por RBAC (`ADMIN` e `PSICOLOGO_TITULAR`):
+    - `GET /api/audit/governance/overview`: Panorama consolidado dos 4 frameworks, scores e evidências.
+    - `POST /api/audit/governance/package/generate`: Emissão de novo pacote com selo SHA-256 e gravação na trilha WORM.
+    - `POST /api/audit/governance/package/sign-off`: Aplicação de chancela formal do DPO vinculada ao digest do pacote.
+    - `GET /api/audit/governance/package/download`: Exportação pericial em JSON assinado com verificação de integridade e headers `Content-Disposition`.
+  - Suíte de 7 testes de integração passando (`complianceGovernance.test.ts`).
+- [x] **Interface Frontend de Governança Executiva (`AuditModule.tsx` - 1ª Aba):**
+  - Nova aba principal: *Governança & Pacote Multi-Normativo (LGPD + CFP + ICP + SOC2)*.
+  - Card Executivo com Selo Probatório Tamper-Evident SHA-256, botão de cópia do digest, score circular global e status do pacote.
+  - Seção formal de **DPO Sign-Off**: indicação de status (Chancelado / Pendente), nome do DPO, data/hora e declaração juramentada.
+  - Grid de 4 Cards Normativos (LGPD, CFP, ICP-Brasil, SOC2/ISO 27001) com barra de progresso de conformidade e base legal detalhada.
+  - Snapshot de Evidências Forenses em Produção (WORM, KMS, Backups, 2FA/OTLP).
+  - Matriz de 17 Controles regulatórios com filtros por pílulas (Todos, LGPD, CFP, ICP, SOC2), salvaguarda técnica e evidência forense.
+  - Modal interativo de DPO Sign-Off com confirmação e gravação no WORM.
+  - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -700,19 +740,20 @@ terapiainfoco/
 | `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
 | `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
 | `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
-| `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | **Em Aberto** |
-
+| `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | Merged |
+| `feat/executive-compliance-governance-package` | Dashboard Executivo de Governança, Compliance Package Multi-Normativo Forense (LGPD, CFP, ICP-Brasil, SOC2) & DPO Sign-Off (RFC §4.4, §5.2) | [PR #39](https://github.com/linuxsoares/terapiainfoco/pull/39) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos (RFC §5.2)**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **252 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo (RFC-001 §4.4, §5.2)**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos (RFC §5.2)**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **265 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Compliance Consolidado
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
-- [ ] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública.
+- [x] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública e DPO Sign-Off.
 - [ ] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados.
+- [ ] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia.
 
 ---
 
@@ -722,7 +763,7 @@ Com a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos (RFC §5
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (252 testes)
+# 2. Executar suíte completa de testes (265 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

@@ -101,7 +101,11 @@ import type {
   UpdateOtlpConfigDTO,
   TestOtlpExportDTO,
   OtlpStatusResponse,
-  OtlpExportResponse
+  OtlpExportResponse,
+  GenerateCompliancePackageDTO,
+  ApplyDpoSignOffDTO,
+  ExecutiveComplianceOverviewResponse,
+  ExecutiveCompliancePackageResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1081,6 +1085,45 @@ export const api = {
   async getStressSlos(): Promise<Array<{ id: string; name: string; targetDescription: string; thresholdMs?: number; maxErrorRate?: number; unit: string }>> {
     const res = await request<StressSlosResponse>('/system/stress/slos');
     return res.slos || [];
+  },
+
+  // 19. Governança Executiva & Compliance Package Forense Multi-Normativo (RFC-001 §4.4, §5.2)
+  async getGovernanceOverview(): Promise<ExecutiveComplianceOverviewResponse> {
+    return await request<ExecutiveComplianceOverviewResponse>('/audit/governance/overview');
+  },
+
+  async generateCompliancePackage(dto?: GenerateCompliancePackageDTO): Promise<ExecutiveCompliancePackageResponse> {
+    return await request<ExecutiveCompliancePackageResponse>('/audit/governance/package/generate', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+  },
+
+  async applyDpoSignOff(dto: ApplyDpoSignOffDTO): Promise<ExecutiveCompliancePackageResponse> {
+    return await request<ExecutiveCompliancePackageResponse>('/audit/governance/package/sign-off', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async downloadCompliancePackage(packageId?: string): Promise<void> {
+    const token = authStorage.getToken();
+    const query = packageId ? `?packageId=${encodeURIComponent(packageId)}` : '';
+    const res = await fetch(`${API_BASE}/audit/governance/package/download${query}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    if (!res.ok) throw new Error('Falha ao baixar Pacote Executivo de Conformidade');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `terapiainfoco-compliance-package-${packageId ? packageId.slice(0, 8) : new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 };
 

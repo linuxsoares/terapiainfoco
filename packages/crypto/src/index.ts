@@ -13,6 +13,8 @@ export * from './compliance';
 export * from './siem';
 export * from './benchmark';
 export * from './otlp';
+export * from './governance';
+
 
 
 
