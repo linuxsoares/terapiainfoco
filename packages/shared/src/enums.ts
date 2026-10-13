@@ -97,7 +97,11 @@ export enum AuditAction {
   STRESS_TEST_RUN = 'STRESS_TEST_RUN',
   // Ações de Exportação OTLP OpenTelemetry (RFC §5.2 - Opção N)
   OTLP_EXPORT_CONFIG_UPDATE = 'OTLP_EXPORT_CONFIG_UPDATE',
-  OTLP_BATCH_EXPORT = 'OTLP_BATCH_EXPORT'
+  OTLP_BATCH_EXPORT = 'OTLP_BATCH_EXPORT',
+  // Ações de Governança Executiva & Compliance Multi-Normativo
+  EXECUTIVE_COMPLIANCE_GENERATED = 'EXECUTIVE_COMPLIANCE_GENERATED',
+  COMPLIANCE_PACKAGE_EXPORT = 'COMPLIANCE_PACKAGE_EXPORT',
+  DPO_SIGNOFF_APPLIED = 'DPO_SIGNOFF_APPLIED'
 }
 
 export enum AuditResourceType {
@@ -176,6 +180,26 @@ export enum OtlpExportStatus {
   DEGRADED = 'DEGRADED',   // Coletor respondendo com latência alta ou retries
   ERROR = 'ERROR'          // Falha persistente de conexão ou autenticação
 }
+
+/**
+ * Frameworks Regulatórios & Padrões Normativos do Setor de Saúde Mental (RFC-001)
+ */
+export enum ComplianceFramework {
+  LGPD = 'LGPD',                   // Lei Geral de Proteção de Dados (Lei nº 13.709/2018)
+  CFP = 'CFP',                     // Resoluções CFP 001/2009, 011/2018, 006/2019, 004/2020
+  ICP_BRASIL = 'ICP_BRASIL',       // MP nº 2.200-2/2001 & PAdES Assinatura Qualificada
+  SOC2_ISO27001 = 'SOC2_ISO27001'  // SOC2 Type II Security/Privacy & ISO/IEC 27001:2022
+}
+
+/**
+ * Status de Conformidade de Controles Regulatórios
+ */
+export enum ComplianceControlStatus {
+  COMPLIANT = 'COMPLIANT',                     // 100% em conformidade com salvaguardas ativas
+  PARTIALLY_COMPLIANT = 'PARTIALLY_COMPLIANT', // Em transição ou mitigação compensatória
+  NON_COMPLIANT = 'NON_COMPLIANT'              // Não conforme ou sem controle implementado
+}
+
 
 
 

@@ -1121,6 +1121,37 @@ export interface OtlpExportResponse {
   stats: import('./models').OtlpExporterStats;
 }
 
+/**
+ * 21. GOVERNANÇA EXECUTIVA, AUDITORIA & COMPLIANCE MULTI-NORMATIVO (RFC-001 §4.4, §5.2)
+ */
+export interface GenerateCompliancePackageDTO {
+  dpoName?: string;
+  technicalResponsibleCrp?: string;
+  organization?: string;
+}
+
+export interface ApplyDpoSignOffDTO {
+  packageId: string;
+  dpoName: string;
+  statement?: string;
+}
+
+export interface ExecutiveComplianceOverviewResponse {
+  success: boolean;
+  globalScorePercentage: number;
+  status: import('./enums').ComplianceControlStatus;
+  frameworks: import('./models').ComplianceFrameworkEvaluation[];
+  forensicMetrics: import('./models').ForensicMetricsSnapshot;
+  lastPackage?: import('./models').ExecutiveCompliancePackage;
+}
+
+export interface ExecutiveCompliancePackageResponse {
+  success: boolean;
+  package: import('./models').ExecutiveCompliancePackage;
+  message: string;
+}
+
+
 
 
 
