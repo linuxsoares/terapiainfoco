@@ -94,7 +94,14 @@ import type {
   RunStressTestDTO,
   StressTestResponse,
   StressHistoryResponse,
-  StressSlosResponse
+  StressSlosResponse,
+  OtlpExporterConfig,
+  OtlpExporterStats,
+  OtlpBatchExportResult,
+  UpdateOtlpConfigDTO,
+  TestOtlpExportDTO,
+  OtlpStatusResponse,
+  OtlpExportResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -706,6 +713,30 @@ export const api = {
   async getRawPrometheusMetrics(): Promise<string> {
     const res = await request<RawMetricsResponse>('/system/telemetry/metrics-raw');
     return res.metrics;
+  },
+
+  async getOtlpStatus(): Promise<{ success: boolean; config: OtlpExporterConfig; stats: OtlpExporterStats }> {
+    return await request<OtlpStatusResponse>('/system/telemetry/otlp/status');
+  },
+
+  async updateOtlpConfig(data: UpdateOtlpConfigDTO): Promise<{ success: boolean; config: OtlpExporterConfig; message: string }> {
+    return await request<{ success: boolean; config: OtlpExporterConfig; message: string }>('/system/telemetry/otlp/config', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async flushOtlp(): Promise<{ success: boolean; result: OtlpBatchExportResult; stats: OtlpExporterStats }> {
+    return await request<OtlpExportResponse>('/system/telemetry/otlp/flush', {
+      method: 'POST'
+    });
+  },
+
+  async testOtlpConnection(data?: TestOtlpExportDTO): Promise<{ success: boolean; result: OtlpBatchExportResult }> {
+    return await request<{ success: boolean; result: OtlpBatchExportResult }>('/system/telemetry/otlp/test', {
+      method: 'POST',
+      body: JSON.stringify(data || {})
+    });
   },
 
   // 18. Autenticação Biométrica WebAuthn / Passkeys (Opção O - RFC-001)

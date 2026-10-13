@@ -1085,6 +1085,43 @@ export interface StressSlosResponse {
   }>;
 }
 
+/**
+ * 20. EXPORTAÇÃO AUTOMÁTICA OTLP & TELEMETRIA REMOTA (RFC §5.2 - Opção N)
+ */
+export interface UpdateOtlpConfigDTO {
+  enabled?: boolean;
+  provider?: import('./enums').OtlpExporterProvider;
+  endpoint?: string;
+  apiKey?: string;
+  batchSize?: number;
+  flushIntervalSeconds?: number;
+  customHeaders?: Record<string, string>;
+  exportTraces?: boolean;
+  exportMetrics?: boolean;
+  serviceName?: string;
+  environment?: string;
+}
+
+export interface TestOtlpExportDTO {
+  provider?: import('./enums').OtlpExporterProvider;
+  endpoint?: string;
+  apiKey?: string;
+  customHeaders?: Record<string, string>;
+}
+
+export interface OtlpStatusResponse {
+  success: boolean;
+  config: import('./models').OtlpExporterConfig;
+  stats: import('./models').OtlpExporterStats;
+}
+
+export interface OtlpExportResponse {
+  success: boolean;
+  result: import('./models').OtlpBatchExportResult;
+  stats: import('./models').OtlpExporterStats;
+}
+
+
 
 
 

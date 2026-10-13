@@ -24,7 +24,12 @@ import {
   Zap,
   CheckCircle2,
   XCircle,
-  X
+  X,
+  Send,
+  Settings2,
+  Cloud,
+  Play,
+  SlidersHorizontal
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -32,9 +37,12 @@ import type {
   SecurityMetrics, 
   PatientClinicalMetrics,
   TelemetryOverview,
-  TraceSpan
+  TraceSpan,
+  OtlpExporterConfig,
+  OtlpExporterStats,
+  OtlpBatchExportResult
 } from '@terapiainfoco/shared';
-import { AppointmentStatus, DocumentType } from '@terapiainfoco/shared';
+import { AppointmentStatus, DocumentType, OtlpExporterProvider } from '@terapiainfoco/shared';
 
 export function DashboardModule() {
   const [viewMode, setViewMode] = useState<'clinical' | 'security' | 'telemetry'>('clinical');
@@ -54,6 +62,35 @@ export function DashboardModule() {
   const [copiedPrometheus, setCopiedPrometheus] = useState<boolean>(false);
   const [copiedTraceId, setCopiedTraceId] = useState<string | null>(null);
 
+  // Exportador OTLP & Coletores Remotos (Datadog, New Relic, Dynatrace)
+  const [otlpConfig, setOtlpConfig] = useState<OtlpExporterConfig | null>(null);
+  const [otlpStats, setOtlpStats] = useState<OtlpExporterStats | null>(null);
+  const [flushingOtlp, setFlushingOtlp] = useState(false);
+  const [testingOtlp, setTestingOtlp] = useState(false);
+  const [testResult, setTestResult] = useState<OtlpBatchExportResult | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [otlpFeedback, setOtlpFeedback] = useState<string | null>(null);
+  const [configForm, setConfigForm] = useState<{
+    enabled: boolean;
+    provider: OtlpExporterProvider;
+    endpoint: string;
+    apiKey: string;
+    batchSize: number;
+    flushIntervalSeconds: number;
+    exportTraces: boolean;
+    exportMetrics: boolean;
+  }>({
+    enabled: true,
+    provider: OtlpExporterProvider.GENERIC_COLLECTOR,
+    endpoint: 'http://localhost:4318',
+    apiKey: '',
+    batchSize: 20,
+    flushIntervalSeconds: 10,
+    exportTraces: true,
+    exportMetrics: true
+  });
+
   // Análise longitudinal de paciente
   const [patients, setPatients] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
@@ -63,16 +100,21 @@ export function DashboardModule() {
   const loadData = async () => {
     try {
       setError(null);
-      const [clinical, security, telem] = await Promise.all([
+      const [clinical, security, telem, otlp] = await Promise.all([
         api.getClinicalOverview(),
         api.getSecurityMetrics(),
-        api.getTelemetryOverview().catch(() => null)
+        api.getTelemetryOverview().catch(() => null),
+        api.getOtlpStatus().catch(() => null)
       ]);
       setClinicalOverview(clinical);
       setSecurityMetrics(security);
       if (telem) {
         setTelemetry(telem);
         setTelemetryTraces(telem.recentTraces || []);
+      }
+      if (otlp) {
+        setOtlpConfig(otlp.config);
+        setOtlpStats(otlp.stats);
       }
 
       // Carrega lista de pacientes únicos a partir das sessões
@@ -105,16 +147,105 @@ export function DashboardModule() {
   const loadTelemetry = async () => {
     try {
       setLoadingTelemetry(true);
-      const [tOverview, tTraces] = await Promise.all([
+      const [tOverview, tTraces, otlp] = await Promise.all([
         api.getTelemetryOverview(),
-        api.getTelemetryTraces(40)
+        api.getTelemetryTraces(40),
+        api.getOtlpStatus().catch(() => null)
       ]);
       setTelemetry(tOverview);
       setTelemetryTraces(tTraces);
+      if (otlp) {
+        setOtlpConfig(otlp.config);
+        setOtlpStats(otlp.stats);
+      }
     } catch (err: any) {
       console.error('Falha ao carregar telemetria:', err);
     } finally {
       setLoadingTelemetry(false);
+    }
+  };
+
+  const handleFlushOtlp = async () => {
+    try {
+      setFlushingOtlp(true);
+      setOtlpFeedback(null);
+      const res = await api.flushOtlp();
+      if (res.stats) setOtlpStats(res.stats);
+      setOtlpFeedback(`Lote OTLP despachado com sucesso! ${res.result.spansCount} spans enviados para ${res.result.endpoint}.`);
+      setTimeout(() => setOtlpFeedback(null), 5000);
+    } catch (err: any) {
+      setOtlpFeedback(`Falha no flush OTLP: ${err?.message || err}`);
+      setTimeout(() => setOtlpFeedback(null), 5000);
+    } finally {
+      setFlushingOtlp(false);
+    }
+  };
+
+  const handleTestOtlp = async () => {
+    try {
+      setTestingOtlp(true);
+      setTestResult(null);
+      const res = await api.testOtlpConnection();
+      setTestResult(res.result);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        batchesSent: 0,
+        spansCount: 0,
+        metricsCount: 0,
+        durationMs: 0,
+        endpoint: otlpConfig?.endpoint || '',
+        error: err?.message || 'Falha no teste de conexão OTLP',
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      setTestingOtlp(false);
+    }
+  };
+
+  const handleOpenConfigModal = () => {
+    if (otlpConfig) {
+      setConfigForm({
+        enabled: otlpConfig.enabled,
+        provider: otlpConfig.provider,
+        endpoint: otlpConfig.endpoint,
+        apiKey: '',
+        batchSize: otlpConfig.batchSize,
+        flushIntervalSeconds: otlpConfig.flushIntervalSeconds,
+        exportTraces: otlpConfig.exportTraces,
+        exportMetrics: otlpConfig.exportMetrics
+      });
+    }
+    setShowConfigModal(true);
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      setSavingConfig(true);
+      const res = await api.updateOtlpConfig({
+        enabled: configForm.enabled,
+        provider: configForm.provider,
+        endpoint: configForm.endpoint,
+        ...(configForm.apiKey ? { apiKey: configForm.apiKey } : {}),
+        batchSize: configForm.batchSize,
+        flushIntervalSeconds: configForm.flushIntervalSeconds,
+        exportTraces: configForm.exportTraces,
+        exportMetrics: configForm.exportMetrics
+      });
+      setOtlpConfig(res.config);
+      setShowConfigModal(false);
+      setOtlpFeedback('Configuração do exportador OTLP atualizada com sucesso.');
+      setTimeout(() => setOtlpFeedback(null), 4000);
+
+      const statusRes = await api.getOtlpStatus().catch(() => null);
+      if (statusRes) {
+        setOtlpConfig(statusRes.config);
+        setOtlpStats(statusRes.stats);
+      }
+    } catch (err: any) {
+      alert(`Erro ao salvar configuração: ${err?.message || err}`);
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -1115,6 +1246,360 @@ export function DashboardModule() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Exportador Automático OpenTelemetry OTLP / Coletores Remotos */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            {/* Topo do Card OTLP */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <Cloud className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Exportador Automático OpenTelemetry OTLP (Coletores Remotos)
+                    </h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+                      otlpStats?.status === 'ACTIVE'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                        : otlpStats?.status === 'PAUSED'
+                        ? 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20'
+                        : otlpStats?.status === 'DEGRADED'
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        otlpStats?.status === 'ACTIVE'
+                          ? 'bg-emerald-500 animate-pulse'
+                          : otlpStats?.status === 'PAUSED'
+                          ? 'bg-slate-400'
+                          : otlpStats?.status === 'DEGRADED'
+                          ? 'bg-amber-500 animate-ping'
+                          : 'bg-rose-500'
+                      }`} />
+                      {otlpStats?.status === 'ACTIVE' ? 'Coletor Conectado & Exportando' :
+                       otlpStats?.status === 'PAUSED' ? 'Exportação Pausada' :
+                       otlpStats?.status === 'DEGRADED' ? 'Degradado / Em Retries' : 'Falha de Conexão'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Destino: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{otlpConfig?.provider || 'GENERIC_COLLECTOR'}</strong></span>
+                    <span>•</span>
+                    <span className="font-mono text-slate-600 dark:text-slate-300">{otlpConfig?.endpoint || 'http://localhost:4318'}</span>
+                    <span>•</span>
+                    <span>Lote máx: {otlpConfig?.batchSize || 20} spans</span>
+                    <span>•</span>
+                    <span>Auto-flush: {otlpConfig?.flushIntervalSeconds || 10}s</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleTestOtlp}
+                  disabled={testingOtlp}
+                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Testar envio sintético para o coletor OTLP configurado"
+                >
+                  <Play className={`w-3.5 h-3.5 text-teal-600 dark:text-teal-400 ${testingOtlp ? 'animate-spin' : ''}`} />
+                  <span>{testingOtlp ? 'Testando...' : 'Testar Conexão'}</span>
+                </button>
+
+                <button
+                  onClick={handleFlushOtlp}
+                  disabled={flushingOtlp || (otlpStats?.queuedSpansCount ?? 0) === 0}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  title="Forçar envio imediato dos spans acumulados no buffer"
+                >
+                  <Send className={`w-3.5 h-3.5 ${flushingOtlp ? 'animate-pulse' : ''}`} />
+                  <span>{flushingOtlp ? 'Despachando...' : 'Forçar Flush OTLP'}</span>
+                </button>
+
+                <button
+                  onClick={handleOpenConfigModal}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Settings2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Configurar</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Feedback / Alerta */}
+            {otlpFeedback && (
+              <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs text-indigo-700 dark:text-indigo-300 flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
+                <span>{otlpFeedback}</span>
+              </div>
+            )}
+
+            {/* Resultado do Teste de Conexão */}
+            {testResult && (
+              <div className={`p-4 rounded-2xl border text-xs space-y-1.5 animate-fade-in ${
+                testResult.success
+                  ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold">
+                    {testResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    <span className={testResult.success ? 'text-emerald-900 dark:text-emerald-200' : 'text-rose-900 dark:text-rose-200'}>
+                      {testResult.success ? 'Conexão OTLP Validada com Sucesso!' : 'Falha na Validação do Coletor OTLP'}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-slate-500">
+                    Latência: {testResult.durationMs}ms {testResult.statusCode ? `• HTTP ${testResult.statusCode}` : ''}
+                  </span>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                  Endpoint testado: {testResult.endpoint}
+                </p>
+                {testResult.error && (
+                  <p className="text-rose-700 dark:text-rose-300 font-medium">
+                    Erro reportado: {testResult.error}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Grade de 4 KPIs OTLP */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Spans em Buffer (Fila)</span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {otlpStats?.queuedSpansCount ?? 0}
+                  </span>
+                  <span className="text-xs text-slate-500">/ {otlpConfig?.batchSize || 20} para auto-flush</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Acumulados em memória RAM</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Exportado</span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {otlpStats?.totalExportedSpans ?? 0}
+                  </span>
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
+                    em {otlpStats?.totalExportedBatches ?? 0} lotes
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Spans enviados com sucesso</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Taxa de Sucesso OTLP</span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {otlpStats?.successRate ?? 100}%
+                  </span>
+                  {otlpStats && otlpStats.failedBatchesCount > 0 && (
+                    <span className="text-xs text-rose-500 font-medium">({otlpStats.failedBatchesCount} falhas)</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Confiabilidade de entrega</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Último Envio / Latência</span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                    {otlpStats?.lastLatencyMs !== undefined ? `${otlpStats.lastLatencyMs}ms` : '—'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 truncate">
+                  {otlpStats?.lastExportAt ? new Date(otlpStats.lastExportAt).toLocaleTimeString('pt-BR') : 'Nenhum envio recente'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuração do Coletor OTLP */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Configuração do Exportador OTLP
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Defina o coletor remoto para traces e métricas (RFC-001 §5.2)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConfigModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {/* Toggle Habilitado */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white">Habilitar Exportação OTLP</span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Ativa o envio em lote periódico de spans para o coletor</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={configForm.enabled}
+                  onChange={(e) => setConfigForm({ ...configForm, enabled: e.target.checked })}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </div>
+
+              {/* Seletor de Provedor */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Provedor / Destino OTLP
+                </label>
+                <select
+                  value={configForm.provider}
+                  onChange={(e) => {
+                    const prov = e.target.value as OtlpExporterProvider;
+                    let defaultEndpoint = configForm.endpoint;
+                    if (prov === OtlpExporterProvider.DATADOG) defaultEndpoint = 'https://otlp.datadoghq.com';
+                    else if (prov === OtlpExporterProvider.NEW_RELIC) defaultEndpoint = 'https://otlp.nr-data.net:4318';
+                    else if (prov === OtlpExporterProvider.DYNATRACE) defaultEndpoint = 'https://live.dynatrace.com/api/v2/otlp';
+                    else if (prov === OtlpExporterProvider.GENERIC_COLLECTOR) defaultEndpoint = 'http://localhost:4318';
+
+                    setConfigForm({
+                      ...configForm,
+                      provider: prov,
+                      endpoint: defaultEndpoint
+                    });
+                  }}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                >
+                  <option value={OtlpExporterProvider.GENERIC_COLLECTOR}>OpenTelemetry Collector Padrão (localhost:4318)</option>
+                  <option value={OtlpExporterProvider.DATADOG}>Datadog OTLP Intake (otlp.datadoghq.com)</option>
+                  <option value={OtlpExporterProvider.NEW_RELIC}>New Relic OTLP Intake (otlp.nr-data.net:4318)</option>
+                  <option value={OtlpExporterProvider.DYNATRACE}>Dynatrace OTLP HTTP Endpoint</option>
+                  <option value={OtlpExporterProvider.CUSTOM}>Endpoint OTLP Personalizado</option>
+                </select>
+              </div>
+
+              {/* Endpoint URL */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Endpoint URL (HTTP/HTTPS)
+                </label>
+                <input
+                  type="text"
+                  value={configForm.endpoint}
+                  onChange={(e) => setConfigForm({ ...configForm, endpoint: e.target.value })}
+                  placeholder="https://otlp.datadoghq.com"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-xs"
+                />
+              </div>
+
+              {/* Chave de API / Token */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Chave de API / Autenticação (opcional)
+                </label>
+                <input
+                  type="password"
+                  value={configForm.apiKey}
+                  onChange={(e) => setConfigForm({ ...configForm, apiKey: e.target.value })}
+                  placeholder="Deixe em branco para manter a atual ou insira nova chave"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-xs"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Datadog: dd-api-key • New Relic: api-key • Dynatrace: Api-Token • Genérico: Bearer
+                </span>
+              </div>
+
+              {/* Parâmetros de Lote e Flush */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tamanho do Lote (Spans)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={configForm.batchSize}
+                    onChange={(e) => setConfigForm({ ...configForm, batchSize: Number(e.target.value) || 20 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Intervalo de Flush (s)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={configForm.flushIntervalSeconds}
+                    onChange={(e) => setConfigForm({ ...configForm, flushIntervalSeconds: Number(e.target.value) || 10 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              {/* Checkboxes de exportação */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={configForm.exportTraces}
+                    onChange={(e) => setConfigForm({ ...configForm, exportTraces: e.target.checked })}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-medium text-slate-700 dark:text-slate-300 text-[11px]">Exportar Spans (Traces)</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={configForm.exportMetrics}
+                    onChange={(e) => setConfigForm({ ...configForm, exportMetrics: e.target.checked })}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-medium text-slate-700 dark:text-slate-300 text-[11px]">Exportar Métricas OTLP</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2 bg-slate-50 dark:bg-slate-800/50">
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(false)}
+                className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveConfig}
+                disabled={savingConfig}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                {savingConfig ? 'Salvando...' : 'Salvar Configuração (WORM)'}
+              </button>
+            </div>
           </div>
         </div>
       )}

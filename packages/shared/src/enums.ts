@@ -94,7 +94,10 @@ export enum AuditAction {
   KMS_KEY_REVOKED = 'KMS_KEY_REVOKED',
   KMS_POLICY_UPDATED = 'KMS_POLICY_UPDATED',
   // Ações de Testes de Carga, Stress Concorrente e SLOs (RFC §5.1, §5.2)
-  STRESS_TEST_RUN = 'STRESS_TEST_RUN'
+  STRESS_TEST_RUN = 'STRESS_TEST_RUN',
+  // Ações de Exportação OTLP OpenTelemetry (RFC §5.2 - Opção N)
+  OTLP_EXPORT_CONFIG_UPDATE = 'OTLP_EXPORT_CONFIG_UPDATE',
+  OTLP_BATCH_EXPORT = 'OTLP_BATCH_EXPORT'
 }
 
 export enum AuditResourceType {
@@ -109,7 +112,8 @@ export enum AuditResourceType {
   COMPLIANCE = 'COMPLIANCE',
   SIEM = 'SIEM',
   KMS = 'KMS',
-  BENCHMARK = 'BENCHMARK'
+  BENCHMARK = 'BENCHMARK',
+  TELEMETRY = 'TELEMETRY'
 }
 
 /**
@@ -151,5 +155,27 @@ export enum SloStatus {
   WARNING = 'WARNING',     // Próximo do limite de tolerância
   BREACHED = 'BREACHED'    // Meta de latência ou taxa de erro violada
 }
+
+/**
+ * Provedores de Coleta OpenTelemetry OTLP Suportados (RFC §5.2 - Opção N)
+ */
+export enum OtlpExporterProvider {
+  GENERIC_COLLECTOR = 'GENERIC_COLLECTOR', // OpenTelemetry Collector Padrão (porta 4318)
+  DATADOG = 'DATADOG',                     // Datadog OTLP Intake (otlp.datadoghq.com)
+  NEW_RELIC = 'NEW_RELIC',                 // New Relic OTLP Intake (otlp.nr-data.net:4318)
+  DYNATRACE = 'DYNATRACE',                 // Dynatrace OTLP HTTP Endpoint
+  CUSTOM = 'CUSTOM'                        // Endpoint customizado HTTP/OTLP
+}
+
+/**
+ * Status Operacional do Exportador de Telemetria OTLP
+ */
+export enum OtlpExportStatus {
+  ACTIVE = 'ACTIVE',       // Exportação ativa e operando normalmente
+  PAUSED = 'PAUSED',       // Exportação pausada administrativamente
+  DEGRADED = 'DEGRADED',   // Coletor respondendo com latência alta ou retries
+  ERROR = 'ERROR'          // Falha persistente de conexão ou autenticação
+}
+
 
 
