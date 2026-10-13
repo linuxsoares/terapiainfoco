@@ -59,4 +59,17 @@ export class EnvelopeEncryptionService {
       plaintextKey.fill(0);
     }
   }
+
+  /**
+   * Re-envelopa a DEK do envelope com uma versão mais recente da KEK (RFC §4.2 & NIST SP 800-57)
+   * sem precisar decifrar ou tocar no payload em repouso dos dados clínicos.
+   */
+  async reWrapEnvelope(envelope: EnvelopeEncryptedData, targetVersion?: number): Promise<EnvelopeEncryptedData> {
+    const newEncryptedDek = await this.kms.reWrapDataKey(envelope.encryptedDek, targetVersion);
+    return {
+      payload: envelope.payload,
+      encryptedDek: newEncryptedDek
+    };
+  }
 }
+

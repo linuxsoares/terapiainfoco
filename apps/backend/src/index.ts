@@ -14,6 +14,7 @@ import { backupsRoute } from './routes/backups';
 import { systemRoute } from './routes/system';
 import { webhookRoute } from './routes/webhooks';
 import { siemRoute } from './routes/siem';
+import { kmsRoute } from './routes/kms';
 import { getDb } from './db';
 
 export const app = new Hono();
@@ -37,7 +38,7 @@ app.use('*', telemetryMiddleware());
 app.use('*', logger());
 app.use('*', cors({
   origin: '*',
-  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'traceparent', 'tracestate']
 }));
 
@@ -117,6 +118,7 @@ app.route('/api/backups', backupsRoute);
 app.route('/api/system', systemRoute);
 app.route('/api/webhooks', webhookRoute);
 app.route('/api/siem', siemRoute);
+app.route('/api/kms', kmsRoute);
 
 
 

@@ -6,7 +6,9 @@ import {
   DocumentType,
   UserRole,
   AuditAction,
-  AuditResourceType
+  AuditResourceType,
+  KmsKeyStatus,
+  KmsProviderType
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -618,6 +620,44 @@ export interface SiemQueueItem {
   deadLetteredAt?: string | null;
   deadLetterReason?: string;
 }
+
+/**
+ * 15. CICLO DE VIDA E ROTAÇÃO DE CHAVES KMS (RFC §4.2, §4.3 & NIST SP 800-57)
+ */
+export interface KmsKeyMetadata {
+  keyId: string;
+  version: number;
+  algorithm: string;
+  status: KmsKeyStatus;
+  providerType: KmsProviderType;
+  createdAt: string;
+  rotatedAt?: string | null;
+  revokedAt?: string | null;
+  expiresAt: string;
+  encryptedDeksCount: number;
+  rotationReason?: string;
+}
+
+export interface KmsRotationPolicy {
+  enabled: boolean;
+  intervalDays: number;
+  autoReWrapLegacyDeks: boolean;
+  alertThresholdDays: number;
+  lastRotationDate?: string | null;
+  nextScheduledRotationDate: string;
+}
+
+export interface KmsSystemStatus {
+  activeKeyVersion: number;
+  totalKeysCount: number;
+  keys: KmsKeyMetadata[];
+  policy: KmsRotationPolicy;
+  reWrappedDeksCount: number;
+  complianceScore: number;
+  nistCompliance: boolean;
+  lastAuditAction?: string;
+}
+
 
 
 
