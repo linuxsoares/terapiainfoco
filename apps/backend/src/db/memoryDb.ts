@@ -6,7 +6,9 @@ import type {
   StoredPsychologicalDocument,
   StoredSessionTranscription,
   AuditLog,
-  User
+  User,
+  StoredAnamnesisRecord,
+  StoredClinicalRecordRectification
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -22,9 +24,12 @@ export class MemoryDatabase {
   public clinicalRecords: Map<string, StoredClinicalRecord> = new Map();
   public documents: Map<string, StoredPsychologicalDocument> = new Map();
   public sessionTranscriptions: Map<string, StoredSessionTranscription> = new Map();
+  public anamnesisRecords: Map<string, StoredAnamnesisRecord> = new Map();
+  public clinicalRecordRectifications: Map<string, StoredClinicalRecordRectification> = new Map();
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];
+
 
   constructor() {
     this.seedDefaultTherapist();
@@ -145,6 +150,8 @@ export class MemoryDatabase {
     this.clinicalRecords.clear();
     this.documents.clear();
     this.sessionTranscriptions.clear();
+    this.anamnesisRecords.clear();
+    this.clinicalRecordRectifications.clear();
     this.auditLogs = [];
     this.revokedTokens.clear();
     this.seedDefaultTherapist();

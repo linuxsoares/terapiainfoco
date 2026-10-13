@@ -2,12 +2,16 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { 
   SoapNote, 
   StoredClinicalRecord, 
-  DecryptedClinicalRecord 
+  DecryptedClinicalRecord,
+  CreateRectificationDTO,
+  ClinicalRecordRectification,
+  StoredClinicalRecordRectification
 } from '@terapiainfoco/shared';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
+
 
 export class ClinicalRecordService {
   /**
@@ -186,4 +190,130 @@ export class ClinicalRecordService {
       createdAt: record.createdAt
     };
   }
+
+  /**
+   * Averba Termo de Retificação Formal em prontuário previamente assinado e selado
+   * (Resolução CFP nº 001/2009 e RFC §3.4)
+   * Prontuários selados são imutáveis; correções são averbadas aditivamente com novo hash SHA-256.
+   */
+  static addRectification(params: {
+    clinicalRecordId: string;
+    therapistId: string;
+    dto: CreateRectificationDTO;
+    context: { actorId: string; ipAddress: string; userAgent?: string };
+  }): ClinicalRecordRectification {
+    const record = db.clinicalRecords.get(params.clinicalRecordId);
+    if (!record) {
+      throw new Error('Prontuário clínico não encontrado.');
+    }
+
+    if (!record.isSigned) {
+      throw new Error(
+        'Termos de Retificação aplicam-se exclusivamente a prontuários já selados e assinados. Para registros em rascunho, utilize a edição direta (CFP nº 001/2009).'
+      );
+    }
+
+    if (!params.dto.confirmedEthicsReview) {
+      throw new Error(
+        'É obrigatória a confirmação explícita de responsabilidade ética para averbação do termo de retificação.'
+      );
+    }
+
+    if (!params.dto.reason || !params.dto.reason.trim()) {
+      throw new Error('A motivação formal da retificação é obrigatória.');
+    }
+
+    if (!params.dto.rectifiedContent || !params.dto.rectifiedContent.trim()) {
+      throw new Error('O conteúdo retificado/aditivo é obrigatório.');
+    }
+
+    const id = randomUUID();
+    const signedAt = new Date();
+
+    // Cálculo do hash canônico SHA-256 da retificação
+    const rawPayload = [
+      id,
+      params.clinicalRecordId,
+      params.therapistId,
+      params.dto.rectifiedQuadrant,
+      params.dto.reason.trim(),
+      params.dto.rectifiedContent.trim(),
+      signedAt.toISOString()
+    ].join('|');
+
+    const signatureHash = createHash('sha256').update(rawPayload).digest('hex');
+
+    const stored: StoredClinicalRecordRectification = {
+      id,
+      clinicalRecordId: params.clinicalRecordId,
+      therapistId: params.therapistId,
+      rectifiedQuadrant: params.dto.rectifiedQuadrant,
+      encryptedReason: encryptField(params.dto.reason.trim()),
+      encryptedRectifiedContent: encryptField(params.dto.rectifiedContent.trim()),
+      signatureHash,
+      signedAt,
+      createdAt: signedAt
+    };
+
+    db.clinicalRecordRectifications.set(id, stored);
+
+    AuditService.log({
+      actorId: params.context.actorId,
+      resourceType: AuditResourceType.CLINICAL_RECORD,
+      resourceId: params.clinicalRecordId,
+      action: AuditAction.UPDATE,
+      ipAddress: params.context.ipAddress,
+      userAgent: `Termo de Retificação averbado: Quadrante=${params.dto.rectifiedQuadrant}, Hash=${signatureHash.slice(0, 16)}...`
+    });
+
+    return {
+      id,
+      clinicalRecordId: params.clinicalRecordId,
+      therapistId: params.therapistId,
+      rectifiedQuadrant: params.dto.rectifiedQuadrant,
+      reason: params.dto.reason.trim(),
+      rectifiedContent: params.dto.rectifiedContent.trim(),
+      signatureHash,
+      signedAt,
+      createdAt: signedAt
+    };
+  }
+
+  /**
+   * Lista todos os termos de retificação averbados para um prontuário
+   */
+  static getRectifications(
+    clinicalRecordId: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): ClinicalRecordRectification[] {
+    const results: ClinicalRecordRectification[] = [];
+
+    for (const rect of db.clinicalRecordRectifications.values()) {
+      if (rect.clinicalRecordId === clinicalRecordId) {
+        results.push({
+          id: rect.id,
+          clinicalRecordId: rect.clinicalRecordId,
+          therapistId: rect.therapistId,
+          rectifiedQuadrant: rect.rectifiedQuadrant,
+          reason: decryptField(rect.encryptedReason),
+          rectifiedContent: decryptField(rect.encryptedRectifiedContent),
+          signatureHash: rect.signatureHash,
+          signedAt: rect.signedAt,
+          createdAt: rect.createdAt
+        });
+      }
+    }
+
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.CLINICAL_RECORD,
+      resourceId: clinicalRecordId,
+      action: AuditAction.DECRYPT_READ,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent || 'Leitura de termos de retificação averbados'
+    });
+
+    return results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
 }
+
