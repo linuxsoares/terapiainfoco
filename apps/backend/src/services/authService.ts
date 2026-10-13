@@ -37,6 +37,7 @@ export class AuthService {
       crpRegion: user.crpRegion,
       therapistId: user.therapistId,
       twoFactorEnabled: user.twoFactorEnabled,
+      passkeysCount: user.passkeysCount ?? 0,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt
     };
@@ -476,7 +477,7 @@ export class AuthService {
   /**
    * Emissão padronizada de par Access + Refresh tokens
    */
-  private async issueTokens(user: User, ipAddress: string): Promise<LoginResponse> {
+  public async issueTokens(user: User, ipAddress: string): Promise<LoginResponse> {
     const now = Math.floor(Date.now() / 1000);
     const expiresIn = 3600; // 1 hora
     const refreshExpiresIn = 7 * 86400; // 7 dias

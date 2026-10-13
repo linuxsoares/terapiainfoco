@@ -448,6 +448,31 @@ terapiainfoco/
 
 ---
 
+### 21. Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 §4 & LGPD Art. 46 - Opção O)
+- [x] **Motor Criptográfico WebAuthn Level 3 (`@terapiainfoco/crypto`):**
+  - Desafios criptográficos anti-replay de 32 bytes (256 bits) codificados em Base64URL segura.
+  - Decodificação e validação estrita de `clientDataJSON` (origem, desafio e tipo de operação).
+  - Parser de `authenticatorData` com verificação de flags UP (User Present), UV (User Verified / Biometria ativa), AT (Attested Credential Data) e extração de `signCount`.
+  - Verificação de assinatura ECDSA P-256 (ES256) sobre `authenticatorData || SHA-256(clientDataJSON)` com `node:crypto.createVerify`.
+  - Suíte de 7 testes criptográficos automatizados cobrindo anti-tampering e rejeição de assinaturas inválidas (`webauthn.test.ts`).
+- [x] **Modelos, DTOs & Trilha WORM Compartilhados (`@terapiainfoco/shared`):**
+  - Modelos `PasskeyCredential`, `WebAuthnChallengeSession` e propriedade `passkeysCount` em `SafeUser`.
+  - DTOs de opções e verificação de registro e autenticação passwordless.
+  - Eventos de auditoria imutável `PASSKEY_REGISTER` e `PASSKEY_REVOKE` gravados na hash-chain WORM.
+- [x] **Serviço Backend & Endpoints REST (`apps/backend`):**
+  - `WebAuthnService` gerenciando geração de opções de desafio com TTL de 120s e consumo de uso único.
+  - Validação estrita de `signCount` para detecção de clonagem de credencial de hardware.
+  - Endpoints: `POST /api/auth/passkeys/register/options`, `POST /api/auth/passkeys/register/verify`, `POST /api/auth/passkeys/auth/options`, `POST /api/auth/passkeys/auth/verify`, `GET /api/auth/passkeys`, `DELETE /api/auth/passkeys/:id`.
+  - Suíte de 11 testes de integração automatizados (`passkeys.test.ts`).
+- [x] **Interface Frontend de Gestão de Passkeys (`SecurityModule.tsx` - Card 7):**
+  - Card 7 dedicado à Autenticação Biométrica com badge FIDO2 Level 3 e detecção de sensor biométrico nativo.
+  - Listagem de Passkeys cadastradas com contador de acessos (`counter`), data e identificador de credencial.
+  - Modal interativo para cadastro de nova biometria com TouchID, FaceID, Windows Hello ou chave física YubiKey.
+  - Botão *"Testar Autenticação Biométrica"* demonstrando a asserção e verificação da assinatura P-256 em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -480,24 +505,21 @@ terapiainfoco/
 | `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | Merged |
 | `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | Merged |
 | `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | Merged |
-| `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | **Em Aberto** |
+| `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | Merged |
+| `feat/webauthn-passkeys-biometrics` | Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 §4 & LGPD Art. 46 - Opção O) | [PR #33](https://github.com/linuxsoares/terapiainfoco/pull/33) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **157 testes automatizados**, os próximos passos de evolução do roadmap são:
-
-#### 📋 Ficha de Anamnese & Retificação Formal de Prontuário (RFC §3.4 & CFP nº 001/2009, 004/2020)
-- [x] **Ficha de Admissão & Anamnese Biopsicossocial:** Queixa principal, histórico da demanda, marcos do desenvolvimento, dinâmica familiar, rede de apoio, rotina/sono, histórico médico/psiquiátrico/familiar e contato de emergência com FLE (AES-256-GCM), versionamento (v1, v2...) e segregação RBAC (HTTP 403 para recepção).
-- [x] **Termo de Retificação Formal para Prontuários Selados:** Aditamento imutável vinculado ao prontuário assinado, seletor de quadrante afetado (`S`, `O`, `A`, `P` ou Geral), justificativa ética formal, canonical SHA-256 digest, revisão ética compulsória e auditoria WORM.
-
-#### 📊 Opção N: Métricas OpenTelemetry / Prometheus & Tracing Distribuído (RFC-001 §5.2)
-- [x] **Métricas Prometheus (`/metrics`):** Exportador OpenMetrics v0.0.4 com métricas RED (Rate, Errors, Duration P50/P95/P99), métricas de criptografia FLE e métricas de negócio.
-- [x] **Tracing OpenTelemetry (OTel):** Rastreamento de span ponta-a-ponta W3C (`traceparent`), propagação de contexto, atributos, eventos e Trace Explorer no frontend.
+Com a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **175 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🔑 Opção O: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID)
-- [ ] **Passkeys / WebAuthn:** Login sem senha ou segundo fator físico com chaves FIDO2 de hardware para o psicólogo titular.
+- [x] **Passkeys / WebAuthn:** Login sem senha ou segundo fator físico com chaves FIDO2 de hardware para o psicólogo titular e gestão completa no Card 7 do painel de segurança.
+
+#### 🛡️ Auditoria Contínua & Homologação de Produção (Próximas Fases)
+- [ ] **Simulador de Penetration Testing & Verificação de Conformidade CFP/LGPD:** Testes contínuos de integridade das hash-chains, verificação periódica de expiração de certificados ICP-Brasil e relatórios automáticos para o DPO.
+- [ ] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher real com retry exponencial para sistemas como Datadog, Splunk ou Elastic.
 
 ---
 

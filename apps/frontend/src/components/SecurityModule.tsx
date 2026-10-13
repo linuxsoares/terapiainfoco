@@ -26,7 +26,9 @@ import {
   Activity,
   Play,
   Workflow,
-  Database
+  Database,
+  Laptop,
+  Key
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -40,7 +42,8 @@ import type {
   LivenessProbeResponse,
   StartupProbeResponse,
   SyntheticJourneyResult,
-  ResilienceCheckResult
+  ResilienceCheckResult,
+  PasskeyInfoDTO
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -215,7 +218,83 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Autenticação Biométrica WebAuthn / Passkeys (Opção O)
+  const [passkeys, setPasskeys] = useState<PasskeyInfoDTO[]>([]);
+  const [loadingPasskeys, setLoadingPasskeys] = useState<boolean>(false);
+  const [registeringPasskey, setRegisteringPasskey] = useState<boolean>(false);
+  const [testingPasskey, setTestingPasskey] = useState<boolean>(false);
+  const [showAddPasskeyModal, setShowAddPasskeyModal] = useState<boolean>(false);
+  const [newPasskeyFriendlyName, setNewPasskeyFriendlyName] = useState<string>('');
+  const [isWebAuthnSupported] = useState<boolean>(() => api.isWebAuthnSupported());
+
+  const fetchPasskeys = async () => {
+    try {
+      setLoadingPasskeys(true);
+      const res = await api.listPasskeys();
+      setPasskeys(res);
+    } catch (err: any) {
+      console.warn('Falha ao listar passkeys:', err.message);
+    } finally {
+      setLoadingPasskeys(false);
+    }
+  };
+
+  const handleRegisterPasskey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setRegisteringPasskey(true);
+      const name = newPasskeyFriendlyName.trim() || 'Dispositivo Biométrico';
+      const res = await api.registerPasskeyWithBrowser(name);
+      setFeedback({ 
+        type: 'success', 
+        message: `Passkey "${res.friendlyName}" registrada com sucesso via FIDO2 WebAuthn!` 
+      });
+      setShowAddPasskeyModal(false);
+      setNewPasskeyFriendlyName('');
+      await fetchPasskeys();
+      const me = await api.getMe();
+      onUserUpdated(me);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao registrar Passkey biométrica.' });
+    } finally {
+      setRegisteringPasskey(false);
+    }
+  };
+
+  const handleDeletePasskey = async (id: string, friendlyName: string) => {
+    if (!confirm(`Deseja realmente revogar a Passkey biométrica "${friendlyName}"?`)) return;
+    try {
+      setLoadingPasskeys(true);
+      const res = await api.deletePasskey(id);
+      setFeedback({ type: 'success', message: res.message });
+      await fetchPasskeys();
+      const me = await api.getMe();
+      onUserUpdated(me);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao revogar Passkey.' });
+    } finally {
+      setLoadingPasskeys(false);
+    }
+  };
+
+  const handleTestBiometricLogin = async () => {
+    try {
+      setTestingPasskey(true);
+      const res = await api.authenticatePasskeyWithBrowser(currentUser.email);
+      setFeedback({ 
+        type: 'success', 
+        message: `Asserção biométrica verificada com sucesso! Login validado via WebAuthn P-256 (${res.user?.name || currentUser.name}).` 
+      });
+      await fetchPasskeys();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha na verificação biométrica.' });
+    } finally {
+      setTestingPasskey(false);
+    }
+  };
+
   React.useEffect(() => {
+    fetchPasskeys();
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
       fetchWebhooks();
@@ -434,6 +513,18 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                 <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 2FA Desativado
+              </span>
+            )}
+
+            {((currentUser.passkeysCount ?? 0) > 0 || passkeys.length > 0) ? (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
+                <Fingerprint className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                {passkeys.length || currentUser.passkeysCount} Passkey(s) FIDO2
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                <Fingerprint className="w-3.5 h-3.5 text-slate-400" />
+                0 Passkeys
               </span>
             )}
           </div>
@@ -1449,6 +1540,183 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* Card 7: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 Opção O & LGPD Art. 46) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-violet-500/20 shrink-0">
+              <Fingerprint className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Autenticação Biométrica WebAuthn / Passkeys • RFC-001 Opção O
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
+                  FIDO2 / Level 3
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  LGPD Art. 46
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                Autenticação sem senha (passwordless) e segundo fator resistente a phishing com chaves assimétricas 
+                ECDSA P-256 geradas no enclave de segurança (Apple TouchID / FaceID, Windows Hello ou YubiKey). 
+                Validação de signCount anti-clonagem e auditoria imutável WORM.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setShowAddPasskeyModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Cadastrar Nova Passkey</span>
+            </button>
+            <button
+              onClick={handleTestBiometricLogin}
+              disabled={testingPasskey || passkeys.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              title={passkeys.length === 0 ? 'Cadastre uma passkey para testar o login biométrico' : 'Testar verificação biométrica'}
+            >
+              {testingPasskey ? <RefreshCw className="w-4 h-4 animate-spin text-violet-500" /> : <KeyRound className="w-4 h-4 text-violet-500" />}
+              <span>Testar Autenticação</span>
+            </button>
+            <button
+              onClick={fetchPasskeys}
+              disabled={loadingPasskeys}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              title="Atualizar lista de Passkeys"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingPasskeys ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Status do Hardware Biométrico */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-xs">
+            {isWebAuthnSupported ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Hardware biométrico e API WebAuthn detectados no navegador.
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4 text-sky-500 shrink-0" />
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Navegador sem suporte direto a WebAuthn; modo de compatibilidade/simulação ativo.
+                </span>
+              </>
+            )}
+          </div>
+          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+            {passkeys.length} {passkeys.length === 1 ? 'chave ativa' : 'chaves ativas'}
+          </div>
+        </div>
+
+        {/* Lista de Passkeys Cadastradas */}
+        {loadingPasskeys && passkeys.length === 0 ? (
+          <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+            <RefreshCw className="w-5 h-5 animate-spin text-violet-500" />
+            <span>Carregando credenciais FIDO2...</span>
+          </div>
+        ) : passkeys.length === 0 ? (
+          <div className="p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/20 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+              <Fingerprint className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Nenhuma Passkey Biométrica Cadastrada
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
+                Adicione o TouchID do seu computador, FaceID do smartphone ou uma chave FIDO2 física para acessar sua conta de terapeuta com um único toque.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddPasskeyModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Cadastrar Minha Primeira Passkey</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2.5 pr-4">Dispositivo</th>
+                  <th className="py-2.5 pr-4">Identificador da Credencial</th>
+                  <th className="py-2.5 pr-4">Algoritmo</th>
+                  <th className="py-2.5 pr-4">Cadastrada em</th>
+                  <th className="py-2.5 pr-4">Sign Count</th>
+                  <th className="py-2.5 pr-4">Último Acesso</th>
+                  <th className="py-2.5 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {passkeys.map((p) => {
+                  const isMulti = p.deviceType === 'multiDevice';
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                            {isMulti ? <Laptop className="w-4 h-4" /> : <Key className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-900 dark:text-white block">
+                              {p.friendlyName}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {isMulti ? 'Sincronizada (iCloud / Google Password Mgr)' : 'Hardware Dedicado (Secure Enclave / TPM)'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-[11px] text-slate-500">
+                        {p.credentialId.slice(0, 16)}...
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          ES256 (P-256)
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-slate-500 text-[11px]">
+                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                          {p.counter}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-slate-500 text-[11px]">
+                        {p.lastUsedAt ? new Date(p.lastUsedAt).toLocaleString('pt-BR') : 'Nunca'}
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => handleDeletePasskey(p.id, p.friendlyName)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Revogar esta Passkey"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
 
       {/* Modal de Criação de Novo Webhook */}
       {showCreateWebhookModal && (
@@ -1588,6 +1856,80 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                   className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs disabled:opacity-50"
                 >
                   {loading ? 'Processando...' : 'Confirmar e Desativar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro de Nova Passkey */}
+      {showAddPasskeyModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Fingerprint className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                Cadastrar Nova Passkey / Biometria
+              </h3>
+              <button 
+                onClick={() => setShowAddPasskeyModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Dê um nome para identificar o seu dispositivo. Ao clicar em <strong>Iniciar Leitura</strong>, 
+              o sistema operacional solicitará sua confirmação biométrica (TouchID, FaceID, Windows Hello ou chave FIDO2).
+            </p>
+
+            <form onSubmit={handleRegisterPasskey} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Nome do Dispositivo:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: MacBook Consultório (TouchID)"
+                  value={newPasskeyFriendlyName}
+                  onChange={(e) => setNewPasskeyFriendlyName(e.target.value)}
+                  required
+                  autoFocus
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-[11px] text-violet-800 dark:text-violet-300 space-y-1">
+                <p className="font-semibold">🛡️ Chave Privada Blindada no Hardware</p>
+                <p>Nenhuma biometria ou dado pessoal deixa o seu computador. Apenas a chave pública é compartilhada com o servidor em conformidade com o Art. 46 da LGPD.</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPasskeyModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={registeringPasskey || !newPasskeyFriendlyName.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {registeringPasskey ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Aguardando Sensor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="w-3.5 h-3.5" />
+                      <span>Iniciar Leitura Biométrica</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

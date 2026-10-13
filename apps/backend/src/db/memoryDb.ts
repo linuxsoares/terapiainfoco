@@ -8,7 +8,9 @@ import type {
   AuditLog,
   User,
   StoredAnamnesisRecord,
-  StoredClinicalRecordRectification
+  StoredClinicalRecordRectification,
+  PasskeyCredential,
+  WebAuthnChallengeSession
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -29,6 +31,8 @@ export class MemoryDatabase {
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];
+  public passkeys: Map<string, PasskeyCredential> = new Map();
+  public webauthnChallenges: Map<string, WebAuthnChallengeSession> = new Map();
 
 
   constructor() {
@@ -154,6 +158,8 @@ export class MemoryDatabase {
     this.clinicalRecordRectifications.clear();
     this.auditLogs = [];
     this.revokedTokens.clear();
+    this.passkeys.clear();
+    this.webauthnChallenges.clear();
     this.seedDefaultTherapist();
     this.seedDefaultUsers();
   }

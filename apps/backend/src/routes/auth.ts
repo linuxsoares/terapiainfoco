@@ -1,8 +1,16 @@
 import { Hono } from 'hono';
 import { authService } from '../services/authService';
+import { WebAuthnService } from '../services/webauthnService';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { authRateLimiter } from '../middlewares/rateLimiter';
-import type { RegisterDTO, LoginDTO, TwoFactorVerifyDTO, RefreshTokenDTO } from '@terapiainfoco/shared';
+import type { 
+  RegisterDTO, 
+  LoginDTO, 
+  TwoFactorVerifyDTO, 
+  RefreshTokenDTO,
+  PasskeyRegistrationVerifyDTO,
+  PasskeyAuthenticationVerifyDTO
+} from '@terapiainfoco/shared';
 
 export const authRoute = new Hono();
 
@@ -165,3 +173,104 @@ authRoute.post('/2fa/disable', authMiddleware({ strict: true }), async (c) => {
     return c.json({ success: false, error: err.message || 'Falha ao desativar 2FA.' }, 400);
   }
 });
+
+/**
+ * --------------------------------------------------------------------------
+ * WEBAUTHN / PASSKEYS & BIOMETRIA FIDO2 (Opção O - RFC-001)
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * POST /api/auth/passkeys/register/options
+ * Inicia registro de nova Passkey gerando desafio WebAuthn
+ */
+authRoute.post('/passkeys/register/options', authMiddleware({ strict: true }), async (c) => {
+  try {
+    const user = c.get('user');
+    const options = await WebAuthnService.getRegistrationOptions(user.id);
+    return c.json(options, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao gerar desafio de Passkey.' }, 400);
+  }
+});
+
+/**
+ * POST /api/auth/passkeys/register/verify
+ * Conclui registro da Passkey validando clientDataJSON e authenticatorData
+ */
+authRoute.post('/passkeys/register/verify', authMiddleware({ strict: true }), async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json<PasskeyRegistrationVerifyDTO>();
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const userAgent = c.req.header('user-agent') || 'unknown';
+
+    const result = await WebAuthnService.verifyRegistration(user.id, body, ip, userAgent);
+    return c.json({ success: true, passkey: result }, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao registrar Passkey.' }, 400);
+  }
+});
+
+/**
+ * POST /api/auth/passkeys/auth/options
+ * Inicia desafio de login Passwordless / FIDO2
+ */
+authRoute.post('/passkeys/auth/options', authRateLimiter, async (c) => {
+  try {
+    const body = await c.req.json<{ email?: string }>().catch(() => ({ email: undefined }));
+    const options = await WebAuthnService.getAuthenticationOptions(body?.email);
+    return c.json(options, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao gerar desafio de autenticação.' }, 400);
+  }
+});
+
+/**
+ * POST /api/auth/passkeys/auth/verify
+ * Valida assinatura da Passkey e autentica o usuário emitindo tokens JWT
+ */
+authRoute.post('/passkeys/auth/verify', authRateLimiter, async (c) => {
+  try {
+    const body = await c.req.json<PasskeyAuthenticationVerifyDTO>();
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const userAgent = c.req.header('user-agent') || 'unknown';
+
+    const result = await WebAuthnService.verifyAuthentication(body, ip, userAgent);
+    return c.json(result, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao autenticar com Passkey.' }, 401);
+  }
+});
+
+/**
+ * GET /api/auth/passkeys
+ * Lista todas as Passkeys cadastradas pelo usuário logado
+ */
+authRoute.get('/passkeys', authMiddleware({ strict: true }), async (c) => {
+  try {
+    const user = c.get('user');
+    const passkeys = WebAuthnService.listPasskeys(user.id);
+    return c.json({ success: true, passkeys }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao listar Passkeys.' }, 400);
+  }
+});
+
+/**
+ * DELETE /api/auth/passkeys/:id
+ * Revoga uma Passkey existente
+ */
+authRoute.delete('/passkeys/:id', authMiddleware({ strict: true }), async (c) => {
+  try {
+    const user = c.get('user');
+    const passkeyId = c.req.param('id');
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+
+    const result = await WebAuthnService.deletePasskey(user.id, passkeyId, ip);
+    return c.json(result, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao revogar Passkey.' }, 400);
+  }
+});
+

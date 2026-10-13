@@ -8,5 +8,6 @@ export * from './passphrasePackage';
 export * from './encryptedCache';
 export * from './webhookSignature';
 export * from './dataMasking';
+export * from './webauthn';
 
 
