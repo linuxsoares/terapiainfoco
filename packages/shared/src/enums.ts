@@ -83,7 +83,11 @@ export enum AuditAction {
   PASSKEY_REVOKE = 'PASSKEY_REVOKE',
   // Ações de Auditoria Contínua & Conformidade RIPD/DPIA (Fase 4 do RFC-001)
   COMPLIANCE_AUDIT_RUN = 'COMPLIANCE_AUDIT_RUN',
-  DPIA_REPORT_EXPORT = 'DPIA_REPORT_EXPORT'
+  DPIA_REPORT_EXPORT = 'DPIA_REPORT_EXPORT',
+  // Ações de Integração SIEM Externa & Retry Resiliente
+  SIEM_DISPATCH = 'SIEM_DISPATCH',
+  SIEM_DLQ_MOVED = 'SIEM_DLQ_MOVED',
+  SIEM_DLQ_REPLAY = 'SIEM_DLQ_REPLAY'
 }
 
 export enum AuditResourceType {
@@ -95,7 +99,8 @@ export enum AuditResourceType {
   USER = 'USER',
   SECURITY = 'SECURITY',
   BACKUP = 'BACKUP',
-  COMPLIANCE = 'COMPLIANCE'
+  COMPLIANCE = 'COMPLIANCE',
+  SIEM = 'SIEM'
 }
 
 

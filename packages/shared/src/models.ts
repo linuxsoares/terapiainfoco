@@ -560,6 +560,65 @@ export interface DPIAReport {
   verifiedBy: string;
 }
 
+/**
+ * 14. CONECTORES SIEM EXTERNOS & RETRY EXPONENCIAL (RFC §4.4 & §5.2)
+ */
+export type SiemProvider = 'datadog' | 'splunk' | 'elastic' | 'generic';
+
+export type CircuitBreakerStatus = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+export interface SiemConnector {
+  id: string;
+  provider: SiemProvider;
+  name: string;
+  endpointUrl: string;
+  apiKey?: string;
+  indexOrSource?: string;
+  tags?: Record<string, string>;
+  subscribedEvents: WebhookEventType[];
+  enabled: boolean;
+  circuitBreakerStatus: CircuitBreakerStatus;
+  consecutiveFailures: number;
+  circuitOpenedAt?: string | null;
+  stats: {
+    totalDispatched: number;
+    successful: number;
+    retried: number;
+    dlqMoved: number;
+    lastLatencyMs?: number;
+    lastDispatchedAt?: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type QueueItemStatus = 'PENDING' | 'RETRYING' | 'DELIVERED' | 'DEAD_LETTER';
+
+export interface SiemDeliveryAttempt {
+  attemptNumber: number;
+  timestamp: string;
+  httpStatus?: number;
+  latencyMs: number;
+  error?: string;
+}
+
+export interface SiemQueueItem {
+  id: string;
+  connectorId: string;
+  provider: SiemProvider;
+  eventType: WebhookEventType;
+  payload: any;
+  status: QueueItemStatus;
+  currentAttempt: number;
+  maxAttempts: number;
+  nextRetryAt?: string | null;
+  attemptsHistory: SiemDeliveryAttempt[];
+  createdAt: string;
+  deliveredAt?: string | null;
+  deadLetteredAt?: string | null;
+  deadLetterReason?: string;
+}
+
 
 
 

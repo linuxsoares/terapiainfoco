@@ -10,5 +10,6 @@ export * from './webhookSignature';
 export * from './dataMasking';
 export * from './webauthn';
 export * from './compliance';
+export * from './siem';
 
 

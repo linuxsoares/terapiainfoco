@@ -13,6 +13,7 @@ import { analyticsRoute } from './routes/analytics';
 import { backupsRoute } from './routes/backups';
 import { systemRoute } from './routes/system';
 import { webhookRoute } from './routes/webhooks';
+import { siemRoute } from './routes/siem';
 import { getDb } from './db';
 
 export const app = new Hono();
@@ -115,6 +116,7 @@ app.route('/api/analytics', analyticsRoute);
 app.route('/api/backups', backupsRoute);
 app.route('/api/system', systemRoute);
 app.route('/api/webhooks', webhookRoute);
+app.route('/api/siem', siemRoute);
 
 
 

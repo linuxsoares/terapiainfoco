@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA (Fase 4 RFC-001) | 186/186 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos & Retry Resiliente | 214/214 Testes Passando
 
 
 
@@ -510,6 +510,46 @@ terapiainfoco/
 
 ---
 
+### 23. Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente com Dead-Letter Queue (RFC §4.4 & §5.2)
+- [x] **Motor Criptográfico & Adaptadores SIEM (`packages/crypto/src/siem.ts`):**
+  - `formatDatadogPayload`: Formatação oficial conforme schema v2 da API de Logs do Datadog (`ddsource`, `ddtags`, `service`, `status` de erro/info e metadados forenses).
+  - `formatSplunkPayload`: Formatação conforme Splunk HEC (HTTP Event Collector) com `time` em epoch seconds, `source`, `sourcetype` e `index`.
+  - `formatElasticPayload`: Mapeamento estruturado no padrão Elastic Common Schema (ECS 8.11.0) com categorização de eventos e tags de conformidade LGPD/CFP.
+  - `formatGenericWebhookPayload`: Payload com identificador de entrega UUIDv4, timestamp e selo normativo.
+  - `buildSiemHeaders`: Injeção automática de cabeçalhos de autenticação específicos (`DD-API-KEY`, `Authorization: Splunk ...`, `Authorization: ApiKey ...`).
+  - `calculateExponentialBackoff`: Algoritmo de backoff exponencial (`base * 2^(attempt - 1)`) com variação pseudo-aleatória de Jitter (±20%) mitigando *thundering herd* contra coletores corporativos e teto máximo de 30s.
+  - Suíte de 14 testes unitários cobrindo formatadores e cálculo de backoff (`siem.test.ts`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Entidades `SiemConnector`, `SiemQueueItem`, `SiemDeliveryAttempt`, `CircuitBreakerStatus` e `QueueItemStatus`.
+  - Ações de auditoria WORM `AuditAction.SIEM_DISPATCH`, `AuditAction.SIEM_DLQ_MOVED` e `AuditAction.SIEM_DLQ_REPLAY`.
+  - DTOs para CRUD de conectores, testes sob demanda, inspeção de fila e reprocessamento da Dead-Letter Queue.
+- [x] **Serviço Backend & Fila Resiliente (`apps/backend/src/services/siemService.ts`):**
+  - 3 Conectores padrão corporativos pré-configurados (Datadog Logs API, Splunk HEC e Elasticsearch ECS Lake).
+  - Fila resiliente de eventos assíncronos (`enqueueEvent`) com despacho multicanal.
+  - **Circuit Breaker Inteligente:** Monitoramento de falhas consecutivas com bloqueio preventivo (`OPEN`) após 5 erros contínuos e período de arrefecimento (30s) para transição em `HALF_OPEN`.
+  - **Dead-Letter Queue (DLQ):** Desvio seguro e automático de eventos que excedem 5 tentativas com registro compulsório na trilha WORM.
+  - Capacidade de **Replay** de itens individuais ou em lote (`replayAllDlq`).
+- [x] **Endpoints REST Administrativos com RBAC (`apps/backend/src/routes/siem.ts`):**
+  - `GET /api/siem/connectors`: Listagem dos conectores registrados.
+  - `POST /api/siem/connectors`: Cadastro de novo conector com validação estrita de HTTPS (TLS 1.3).
+  - `PATCH /api/siem/connectors/:id` e `DELETE /api/siem/connectors/:id`.
+  - `POST /api/siem/connectors/:id/test`: Teste sob demanda com inspeção de payload transformado.
+  - `GET /api/siem/queue`: Telemetria e estado dos Circuit Breakers em tempo real.
+  - `GET /api/siem/dlq`: Listagem de eventos retidos na Dead-Letter Queue.
+  - `POST /api/siem/dlq/:id/replay` e `POST /api/siem/dlq/replay-all`: Reprocessamento com auditoria WORM.
+  - Controle de Acesso Estrito: Acesso restrito a `ADMIN` (bloqueio 403 para secretária e 401 para anônimos).
+  - Suíte de 14 testes de integração passando (`siemConnectors.test.ts`).
+- [x] **Interface Frontend Integrada no Painel de Segurança (`SecurityModule.tsx` - Card 8):**
+  - Card 8 dedicado: *Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente*.
+  - KPIs: Conectores Ativos, Entregas Confirmadas, Fila de Retry e Dead-Letter Queue.
+  - Grade com badges do provedor, status visual de Circuit Breaker (Operacional / Testando / Aberto) e latência em ms.
+  - Botão *"Testar Conector"* com modal de inspeção do payload JSON transformado e cabeçalhos HTTP.
+  - Modal interativo *"Novo Conector SIEM"* com templates inteligentes para Datadog, Splunk e Elastic.
+  - Painel de Dead-Letter Queue (DLQ) com histórico de falhas e botão de reprocessamento (replay).
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -543,18 +583,18 @@ terapiainfoco/
 | `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | Merged |
 | `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | Merged |
 | `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | Merged |
-| `feat/webauthn-passkeys-biometrics` | Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 §4 & LGPD Art. 46 - Opção O) | [PR #33](https://github.com/linuxsoares/terapiainfoco/pull/33) | Merged |
-| `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | **Em Aberto** |
+| `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | Merged |
+| `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Fase 4 do RFC-001 (Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **186 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com os **Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **214 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Auditoria Contínua, Homologação & Hardening (Fase 4 do RFC-001 Concluída)
 - [x] **Simulador de Penetration Testing & Relatório RIPD/DPIA (LGPD Art. 38/50 & CFP):** 6 cenários automatizados de pentest, Score de Blindagem 100%, matrizes analíticas LGPD/CFP, selo canônico SHA-256 e download de relatório oficial.
-- [ ] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher real com retry exponencial para sistemas como Datadog, Splunk ou Elastic (RFC §4.4 e §5.2).
+- [x] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher resiliente com Exponential Backoff (±20% Jitter), Circuit Breaker e Dead-Letter Queue (DLQ) para Datadog, Splunk e Elasticsearch (RFC §4.4 e §5.2).
 - [ ] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
 - [ ] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano.
 

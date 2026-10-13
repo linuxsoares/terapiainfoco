@@ -934,6 +934,73 @@ export interface DPIAReportResponse {
   report: import('./models').DPIAReport;
 }
 
+/**
+ * DTOs de Conectores SIEM Externos & Retry Resiliente (RFC §4.4 & §5.2)
+ */
+export interface CreateSiemConnectorDTO {
+  provider: import('./models').SiemProvider;
+  name: string;
+  endpointUrl: string;
+  apiKey?: string;
+  indexOrSource?: string;
+  tags?: Record<string, string>;
+  subscribedEvents: import('./models').WebhookEventType[];
+}
+
+export interface UpdateSiemConnectorDTO {
+  name?: string;
+  endpointUrl?: string;
+  apiKey?: string;
+  indexOrSource?: string;
+  tags?: Record<string, string>;
+  subscribedEvents?: import('./models').WebhookEventType[];
+  enabled?: boolean;
+}
+
+export interface TestSiemConnectorDTO {
+  eventType?: import('./models').WebhookEventType;
+  mockHttpStatus?: number;
+}
+
+export interface SiemConnectorResponse {
+  success: boolean;
+  connector?: import('./models').SiemConnector;
+  connectors?: import('./models').SiemConnector[];
+  message?: string;
+  testResult?: {
+    httpStatus: number;
+    latencyMs: number;
+    success: boolean;
+    formattedPayload: any;
+    headersSent: Record<string, string>;
+    error?: string;
+  };
+}
+
+export interface SiemQueueResponse {
+  pendingCount: number;
+  retryingCount: number;
+  deliveredCount: number;
+  deadLetterCount: number;
+  circuitBreakers: Array<{
+    connectorId: string;
+    name: string;
+    provider: import('./models').SiemProvider;
+    status: import('./models').CircuitBreakerStatus;
+    consecutiveFailures: number;
+  }>;
+  recentItems: import('./models').SiemQueueItem[];
+}
+
+export interface SiemDlqReplayResponse {
+  success: boolean;
+  replayedCount: number;
+  successCount: number;
+  failedCount: number;
+  items: import('./models').SiemQueueItem[];
+  message?: string;
+}
+
 
 
 
