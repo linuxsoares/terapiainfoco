@@ -105,7 +105,11 @@ import type {
   GenerateCompliancePackageDTO,
   ApplyDpoSignOffDTO,
   ExecutiveComplianceOverviewResponse,
-  ExecutiveCompliancePackageResponse
+  ExecutiveCompliancePackageResponse,
+  SecurityHardeningOverviewResponse,
+  UnbanIpRequestDTO,
+  UnbanIpResponse,
+  VerifySecurityHeadersResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1124,6 +1128,22 @@ export const api = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // 20. Hardening de Segurança HTTP (CSP, HSTS) & Honeypot Anti-Probe (RFC-001 §4.4, §5.2)
+  async getSecurityHardeningOverview(): Promise<SecurityHardeningOverviewResponse> {
+    return await request<SecurityHardeningOverviewResponse>('/security/hardening/overview');
+  },
+
+  async unbanIpAddress(dto: UnbanIpRequestDTO): Promise<UnbanIpResponse> {
+    return await request<UnbanIpResponse>('/security/hardening/honeypot/unban', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySecurityHeaders(): Promise<VerifySecurityHeadersResponse> {
+    return await request<VerifySecurityHeadersResponse>('/security/hardening/headers/verify');
   }
 };
 

@@ -14,6 +14,7 @@ export * from './siem';
 export * from './benchmark';
 export * from './otlp';
 export * from './governance';
+export * from './securityHeaders';
 
 
 

@@ -816,6 +816,51 @@ export interface ExecutiveCompliancePackage {
   dpoSignOff?: DpoSignOff;
 }
 
+/**
+ * 22. HARDENING HTTP & HONEYPOT ANTI-PROBE (RFC-001 §4.4, §5.2)
+ */
+export interface SecurityHeaderCheck {
+  header: string;
+  expectedValue: string;
+  actualValue?: string;
+  present: boolean;
+  status: 'PASS' | 'WARN' | 'FAIL';
+  recommendation: string;
+}
+
+export interface SecurityHeadersEvaluationResult {
+  evaluatedAt: string;
+  scorePercentage: number;
+  grade: 'A+' | 'A' | 'B' | 'C' | 'F';
+  checks: SecurityHeaderCheck[];
+  totalPassed: number;
+  totalChecks: number;
+}
+
+export interface HoneypotProbeRecord {
+  id: string;
+  ipAddress: string;
+  path: string;
+  method: string;
+  userAgent: string;
+  headersPreview: Record<string, string>;
+  trappedAt: string;
+  banExpiresAt: string;
+  blockedAttemptsCount: number;
+  status: 'ACTIVE_BAN' | 'EXPIRED' | 'PARDONED';
+}
+
+export interface SecurityHardeningMetrics {
+  totalProbesTrapped: number;
+  activeBannedIpsCount: number;
+  uniqueAttackingIpsCount: number;
+  lastProbeAt?: string;
+  headersEvaluation: SecurityHeadersEvaluationResult;
+  honeypotEnabled: boolean;
+  banDurationMinutes: number;
+}
+
+
 
 
 
