@@ -700,7 +700,8 @@ terapiainfoco/
 | `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
 | `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
 | `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
-| `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | PR #38 | **Em Aberto** |
+| `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | **Em Aberto** |
+
 
 ---
 
