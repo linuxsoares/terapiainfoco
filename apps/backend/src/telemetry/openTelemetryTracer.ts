@@ -147,6 +147,12 @@ export class OpenTelemetryTracer {
     return new Span(traceId, name, options);
   }
 
+  private onSpanCompletedListener?: (span: TraceSpan) => void;
+
+  public setSpanCompletedListener(listener?: (span: TraceSpan) => void): void {
+    this.onSpanCompletedListener = listener;
+  }
+
   /**
    * Armazena um span concluído no buffer circular de observabilidade
    */
@@ -154,6 +160,14 @@ export class OpenTelemetryTracer {
     this.completedSpans.unshift(span);
     if (this.completedSpans.length > this.maxStoredSpans) {
       this.completedSpans.pop();
+    }
+
+    if (this.onSpanCompletedListener) {
+      try {
+        this.onSpanCompletedListener(span);
+      } catch (err) {
+        console.warn('[OpenTelemetryTracer] Erro no listener de span:', err);
+      }
     }
   }
 

@@ -10,7 +10,9 @@ import {
   KmsKeyStatus,
   KmsProviderType,
   StressScenario,
-  SloStatus
+  SloStatus,
+  OtlpExporterProvider,
+  OtlpExportStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -706,6 +708,50 @@ export interface StressTestReport {
   timestamp: string;
   executedBy: string;
 }
+
+/**
+ * 17. EXPORTAÇÃO AUTOMÁTICA OTLP & TELEMETRIA REMOTA (RFC §5.2 - Opção N)
+ */
+export interface OtlpExporterConfig {
+  enabled: boolean;
+  provider: OtlpExporterProvider;
+  endpoint: string;               // URL base do coletor (ex: https://otlp.datadoghq.com ou http://localhost:4318)
+  apiKey?: string;                // Chave de API mascarada na leitura
+  batchSize: number;              // Quantidade máxima de spans por lote
+  flushIntervalSeconds: number;   // Intervalo de auto-flush em segundos
+  customHeaders?: Record<string, string>;
+  exportTraces: boolean;
+  exportMetrics: boolean;
+  serviceName: string;
+  environment: string;
+}
+
+export interface OtlpExporterStats {
+  status: OtlpExportStatus;
+  queuedSpansCount: number;
+  totalExportedSpans: number;
+  totalExportedBatches: number;
+  failedBatchesCount: number;
+  successRate: number;            // 0 a 100%
+  lastExportAt?: string;
+  lastError?: string;
+  lastLatencyMs?: number;
+  endpoint: string;
+  provider: OtlpExporterProvider;
+}
+
+export interface OtlpBatchExportResult {
+  success: boolean;
+  batchesSent: number;
+  spansCount: number;
+  metricsCount: number;
+  durationMs: number;
+  statusCode?: number;
+  endpoint: string;
+  error?: string;
+  timestamp: string;
+}
+
 
 
 

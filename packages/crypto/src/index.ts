@@ -12,5 +12,7 @@ export * from './webauthn';
 export * from './compliance';
 export * from './siem';
 export * from './benchmark';
+export * from './otlp';
+
 
 

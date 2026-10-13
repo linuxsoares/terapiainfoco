@@ -1,7 +1,21 @@
 import { prometheus } from './prometheusRegistry';
 import { tracer } from './openTelemetryTracer';
+import { otlpBatchExporter } from './otlpBatchExporter';
 import { db } from '../db/memoryDb';
-import type { TelemetryOverview, TraceSpan } from '@terapiainfoco/shared';
+import type {
+  TelemetryOverview,
+  TraceSpan,
+  UpdateOtlpConfigDTO,
+  TestOtlpExportDTO,
+  OtlpExporterConfig,
+  OtlpExporterStats,
+  OtlpBatchExportResult
+} from '@terapiainfoco/shared';
+
+// Conecta o coletor de traces ao despachador em lote OTLP
+tracer.setSpanCompletedListener((span) => {
+  otlpBatchExporter.enqueueSpan(span);
+});
 
 export class TelemetryService {
   /**
@@ -92,4 +106,42 @@ export class TelemetryService {
     prometheus.setGauge('worm_audit_records_total', db.auditLogs.length);
     return prometheus.toPrometheusText();
   }
+
+  /**
+   * Obtém as configurações e status do exportador OTLP
+   */
+  public static getOtlpStatus(): { config: OtlpExporterConfig; stats: OtlpExporterStats } {
+    return {
+      config: otlpBatchExporter.getConfig(),
+      stats: otlpBatchExporter.getStats()
+    };
+  }
+
+  /**
+   * Atualiza a configuração do exportador OTLP com auditoria WORM
+   */
+  public static updateOtlpConfig(
+    update: UpdateOtlpConfigDTO,
+    actorId: string,
+    ip: string
+  ): OtlpExporterConfig {
+    return otlpBatchExporter.updateConfig(update, actorId, ip);
+  }
+
+  /**
+   * Força a emissão imediata do lote de telemetria acumulado
+   */
+  public static async flushOtlp(): Promise<OtlpBatchExportResult> {
+    return otlpBatchExporter.flush();
+  }
+
+  /**
+   * Testa a conectividade com o coletor remoto OTLP configurado
+   */
+  public static async testOtlpConnection(
+    params?: TestOtlpExportDTO
+  ): Promise<OtlpBatchExportResult> {
+    return otlpBatchExporter.testConnection(params);
+  }
 }
+

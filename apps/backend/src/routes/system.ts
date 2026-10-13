@@ -215,6 +215,60 @@ systemRoute.get('/telemetry/metrics-raw', (c) => {
 });
 
 /**
+ * Endpoints de Exportação Automática OTLP (RFC-001 §5.2 - Opção N)
+ */
+systemRoute.get('/telemetry/otlp/status', (c) => {
+  const status = TelemetryService.getOtlpStatus();
+  return c.json({
+    success: true,
+    config: status.config,
+    stats: status.stats
+  }, 200);
+});
+
+systemRoute.put('/telemetry/otlp/config', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const actor = (c as any).user;
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+
+  try {
+    const updated = TelemetryService.updateOtlpConfig(body, actor?.id || 'admin-system', ip);
+    return c.json({
+      success: true,
+      config: updated,
+      message: 'Configuração do exportador OTLP atualizada com sucesso.'
+    }, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      error: err?.message || 'Falha ao atualizar configuração OTLP.'
+    }, 400);
+  }
+});
+
+systemRoute.post('/telemetry/otlp/flush', async (c) => {
+  const result = await TelemetryService.flushOtlp();
+  const status = TelemetryService.getOtlpStatus();
+
+  return c.json({
+    success: result.success,
+    result,
+    stats: status.stats
+  }, result.success ? 200 : 502);
+});
+
+systemRoute.post('/telemetry/otlp/test', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const result = await TelemetryService.testOtlpConnection(body);
+
+  return c.json({
+    success: result.success,
+    result
+  }, result.success ? 200 : 502);
+});
+
+
+/**
  * 9. Testes de Carga, Stress Concorrente & Avaliação de SLOs RED (RFC §5.1, §5.2)
  */
 import { stressTestService } from '../services/stressTestService';

@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 15 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga & SLOs RED | 237/237 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 16 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP | 252/252 Testes Passando
 
 
 
@@ -624,6 +624,43 @@ terapiainfoco/
   - Histórico cronológico das baterias de stress test com data, duração e RPS.
   - Totalmente adaptativo com suporte completo a **Light Mode** e **Dark Mode**.
 
+### 26. Exportador Automático OpenTelemetry OTLP & Coletores Remotos (RFC-001 §5.2 - Opção N / Fase 5)
+- [x] **Motor de Serialização & Cabeçalhos OTLP (`packages/crypto/src/otlp.ts`):**
+  - Formatação oficial conforme especificação OpenTelemetry Protocol JSON v1 (`ExportTraceServiceRequest` e `ExportMetricsServiceRequest`).
+  - Conversão de atributos fortemente tipados (`stringValue`, `intValue`, `doubleValue`, `boolValue`).
+  - Conversão de timestamps de milissegundos para nanossegundos OTLP string (`BigInt * 1000000n`).
+  - Resolução dinâmica de URLs de endpoint por provedor (`resolveOtlpEndpoint`).
+  - Injeção de cabeçalhos de autenticação específicos por provedor (`buildOtlpHeaders`):
+    - Datadog OTLP: `dd-api-key`
+    - New Relic OTLP: `api-key`
+    - Dynatrace: `Authorization: Api-Token ...`
+    - Generic OTel Collector / Custom: `Authorization: Bearer ...`
+  - Suíte de 9 testes unitários dedicados passando (`otlp.test.ts`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Enums `OtlpExporterProvider` e `OtlpExportStatus`.
+  - Ações WORM `AuditAction.OTLP_EXPORT_CONFIG_UPDATE`, `AuditAction.OTLP_BATCH_EXPORT` e recurso `AuditResourceType.TELEMETRY`.
+  - Interfaces `OtlpExporterConfig`, `OtlpExporterStats`, `OtlpBatchExportResult`.
+  - DTOs padronizados: `UpdateOtlpConfigDTO`, `TestOtlpExportDTO`, `OtlpStatusResponse`, `OtlpExportResponse`.
+- [x] **Serviço Backend & Batch Exporter Resiliente (`apps/backend/src/telemetry/otlpBatchExporter.ts`):**
+  - `OtlpBatchExporter` com fila circular em memória e proteção de limite (max 500 spans).
+  - Auto-flush periódico baseado em temporizador (`flushIntervalSeconds`) e trigger imediato por tamanho de lote (`batchSize`).
+  - Despacho transparente sem blocking no ciclo de vida das rotas da API.
+  - Exportação de spans e snapshot de métricas RED/Prometheus via `/v1/metrics`.
+  - Registro de alterações de configuração na trilha WORM imutável (Hash-Chain SHA-256).
+  - Endpoints REST com RBAC restrito a `ADMIN`:
+    - `GET /api/system/telemetry/otlp/status`: status e configuração com API key mascarada.
+    - `PUT /api/system/telemetry/otlp/config`: atualização dinâmica e auditoria WORM.
+    - `POST /api/system/telemetry/otlp/flush`: disparo sob demanda de lote de spans.
+    - `POST /api/system/telemetry/otlp/test`: teste de conectividade sintético com diagnóstico em tempo real.
+  - Suíte de 6 testes de integração passando (`otlpExporter.test.ts`).
+- [x] **Interface Frontend de Gestão OTLP (`DashboardModule.tsx` - 3ª Aba):**
+  - Card dedicado: *Exportador Automático OpenTelemetry OTLP (Coletores Remotos)* na aba de Observabilidade.
+  - 4 KPIs em tempo real: Spans em Buffer, Total Exportado, Taxa de Sucesso (%) e Última Latência.
+  - Botão interativo *"Forçar Flush OTLP"* com envio do lote acumulado.
+  - Botão *"Testar Conexão"* com envio de probe e diagnóstico detalhado.
+  - Modal interativo *"Configuração do Exportador OTLP"* com seleção de provedor (Datadog, New Relic, Dynatrace, Genérico), chave de API, tamanho de lote e auto-flush.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -662,18 +699,20 @@ terapiainfoco/
 | `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | Merged |
 | `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
 | `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
-| `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | **Em Aberto** |
+| `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
+| `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | **Em Aberto** |
+
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Homologação sob Carga & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **237 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos (RFC §5.2)**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **252 testes automatizados**, os próximos passos de evolução do roadmap são:
 
-#### 🛡️ Homologação, Stress & Integrações Finais de Infraestrutura
-- [x] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano (NIST SP 800-57 & RFC §4.2).
-- [x] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
-- [ ] **Exportação Automática de Métricas OpenTelemetry OTLP via gRPC/HTTP para Datadog/NewRelic:** Coleta remota de traces e logs criptográficos em lote.
+#### 🛡️ Governança, Hardening & Compliance Consolidado
+- [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
+- [ ] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública.
+- [ ] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados.
 
 ---
 
@@ -683,7 +722,7 @@ Com a **Homologação sob Carga & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2)*
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (237 testes)
+# 2. Executar suíte completa de testes (252 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
