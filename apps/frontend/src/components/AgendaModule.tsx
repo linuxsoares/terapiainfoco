@@ -11,7 +11,8 @@ import {
   Play,
   Shield,
   PhoneOff,
-  ExternalLink
+  ExternalLink,
+  Link2
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
@@ -44,6 +45,7 @@ export function AgendaModule() {
   const [meetStatus, setMeetStatus] = useState<GoogleMeetStatusResponse | null>(null);
   const [meetTestResult, setMeetTestResult] = useState<GoogleMeetTestResponse | null>(null);
   const [testingMeet, setTestingMeet] = useState(false);
+  const [connectingOAuth, setConnectingOAuth] = useState(false);
 
   const fetchAppointments = async () => {
     try {
@@ -60,7 +62,54 @@ export function AgendaModule() {
 
   useEffect(() => {
     fetchAppointments();
+
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_MEET_AUTH_SUCCESS') {
+        setSuccessMsg(`Google Meet conectado com sucesso${event.data.email ? ` (${event.data.email})` : ''}!`);
+        api.getGoogleMeetStatus().then(setMeetStatus).catch(() => {});
+        setTimeout(() => setSuccessMsg(null), 5000);
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
   }, []);
+
+  const handleConnectGoogle = async () => {
+    try {
+      setConnectingOAuth(true);
+      const res = await api.getGoogleOAuthUrl();
+      if (res?.url) {
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        window.open(
+          res.url,
+          'google-oauth',
+          `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
+        );
+      }
+    } catch (err: any) {
+      setError(err.message || 'Falha ao iniciar autenticação Google');
+    } finally {
+      setConnectingOAuth(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      setConnectingOAuth(true);
+      await api.disconnectGoogleMeet();
+      const status = await api.getGoogleMeetStatus();
+      setMeetStatus(status);
+      setSuccessMsg('Google Meet desconectado desta sessão.');
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao desconectar Google Meet');
+    } finally {
+      setConnectingOAuth(false);
+    }
+  };
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -570,7 +619,7 @@ export function AgendaModule() {
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 space-y-2">
+              <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sky-900 dark:text-sky-200">Status da Integração:</span>
                   <span className={`px-2.5 py-0.5 rounded-full font-mono font-medium ${
@@ -578,7 +627,7 @@ export function AgendaModule() {
                       ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
                       : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                   }`}>
-                    {meetStatus?.configured ? 'Workspace Conectado' : 'Contingência Simutada Ativa'}
+                    {meetStatus?.configured ? 'Workspace Conectado' : 'Contingência Simulada Ativa'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
@@ -588,6 +637,44 @@ export function AgendaModule() {
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                   <span>Política Padrão (Knocking):</span>
                   <span className="font-mono text-slate-900 dark:text-white font-medium">{meetStatus?.defaultAccessType || 'TRUSTED'}</span>
+                </div>
+
+                {/* Seção OAuth 2.0 Account */}
+                <div className="pt-2.5 border-t border-sky-200/60 dark:border-sky-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 block">Conta Google Vinculada:</span>
+                    {meetStatus?.oauth?.connectedEmail ? (
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{meetStatus.oauth.connectedEmail}</span>
+                    ) : meetStatus?.oauth?.hasRefreshToken ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Refresh Token ativo no ambiente</span>
+                    ) : meetStatus?.oauth?.hasClientId ? (
+                      <span className="text-amber-600 dark:text-amber-400">Credenciais prontas — aguardando autorização</span>
+                    ) : (
+                      <span className="text-slate-500 italic">GOOGLE_CLIENT_ID não configurado no .env</span>
+                    )}
+                  </div>
+                  <div>
+                    {meetStatus?.configured ? (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectGoogle}
+                        disabled={connectingOAuth}
+                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-medium text-xs transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {connectingOAuth ? 'Desconectando...' : 'Desconectar'}
+                      </button>
+                    ) : meetStatus?.oauth?.hasClientId ? (
+                      <button
+                        type="button"
+                        onClick={handleConnectGoogle}
+                        disabled={connectingOAuth}
+                        className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        {connectingOAuth ? 'Abrindo Google...' : 'Conectar Google Meet'}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

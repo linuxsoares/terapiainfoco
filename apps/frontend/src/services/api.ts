@@ -251,6 +251,16 @@ export const api = {
     });
   },
 
+  async getGoogleOAuthUrl(): Promise<{ success: boolean; url: string }> {
+    return await request<{ success: boolean; url: string }>('/auth/google/authorize?format=json');
+  },
+
+  async disconnectGoogleMeet(): Promise<{ success: boolean; message: string }> {
+    return await request<{ success: boolean; message: string }>('/auth/google/disconnect', {
+      method: 'POST'
+    });
+  },
+
   // 3. Prontuários & SOAP (RFC §3.3, §3.4)
   async saveSoapDraft(data: UpdateSoapNoteDTO & {
     appointmentId: string;

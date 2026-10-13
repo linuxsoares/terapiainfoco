@@ -1192,6 +1192,13 @@ export interface GoogleMeetStatusResponse {
     calendarV3: boolean;
     knockingWaitingRoom: boolean;
     endConference: boolean;
+    oauthFlow: boolean;
+  };
+  oauth?: {
+    hasClientId: boolean;
+    hasClientSecret: boolean;
+    hasRefreshToken: boolean;
+    connectedEmail?: string;
   };
 }
 

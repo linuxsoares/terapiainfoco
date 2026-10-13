@@ -19,6 +19,14 @@ export const config = {
   },
   /** Configurações da API do Google Workspace & Google Meet (RFC §3.2) */
   google: {
+    /** ID do cliente OAuth 2.0 (Google Cloud Console) */
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    /** Chave secreta do cliente OAuth 2.0 (Google Cloud Console) */
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    /** URI de redirecionamento configurada no console */
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback',
+    /** Refresh token persistente para renovação automática sem expiração */
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
     /** Token OAuth Bearer com escopo https://www.googleapis.com/auth/meetings.space.created */
     meetAccessToken: process.env.GOOGLE_MEET_ACCESS_TOKEN || process.env.GOOGLE_WORKSPACE_ACCESS_TOKEN || '',
     /** Token OAuth legado para Google Calendar com conferenceData */

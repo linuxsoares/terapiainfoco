@@ -14,17 +14,28 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
   const originalFetch = globalThis.fetch;
   const originalMeetToken = config.google.meetAccessToken;
   const originalCalToken = config.google.calendarAccessToken;
+  const originalClientId = config.google.clientId;
+  const originalClientSecret = config.google.clientSecret;
+  const originalRefreshToken = config.google.refreshToken;
 
   beforeEach(() => {
     db.clear();
+    GoogleMeetService.clearTokens();
     config.google.meetAccessToken = '';
     config.google.calendarAccessToken = '';
+    config.google.clientId = '';
+    config.google.clientSecret = '';
+    config.google.refreshToken = '';
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    GoogleMeetService.clearTokens();
     config.google.meetAccessToken = originalMeetToken;
     config.google.calendarAccessToken = originalCalToken;
+    config.google.clientId = originalClientId;
+    config.google.clientSecret = originalClientSecret;
+    config.google.refreshToken = originalRefreshToken;
   });
 
   it('deve usar link personalizado quando informado explicitamente pelo terapeuta', async () => {
@@ -240,5 +251,133 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
     expect(endData.success).toBe(true);
     expect(endData.conferenceEnded).toBe(true);
     expect(endData.spaceName).toBe('spaces/space-clinical-456');
+  });
+
+  describe('Google OAuth 2.0 Flow & Token Lifecycle', () => {
+    it('deve gerar URL de autorização correta com offline access e escopos', () => {
+      config.google.clientId = 'test-client-id.apps.googleusercontent.com';
+      config.google.redirectUri = 'http://localhost:3000/api/auth/google/callback';
+
+      const authUrl = GoogleMeetService.getAuthorizationUrl();
+      const url = new URL(authUrl);
+
+      expect(url.origin).toBe('https://accounts.google.com');
+      expect(url.pathname).toBe('/o/oauth2/v2/auth');
+      expect(url.searchParams.get('client_id')).toBe('test-client-id.apps.googleusercontent.com');
+      expect(url.searchParams.get('redirect_uri')).toBe('http://localhost:3000/api/auth/google/callback');
+      expect(url.searchParams.get('access_type')).toBe('offline');
+      expect(url.searchParams.get('prompt')).toBe('consent');
+      expect(url.searchParams.get('scope')).toContain('https://www.googleapis.com/auth/meetings.space.created');
+    });
+
+    it('deve trocar authorization code por tokens e armazenar estado em memória', async () => {
+      config.google.clientId = 'test-client-id';
+      config.google.clientSecret = 'test-client-secret';
+
+      globalThis.fetch = mock(async (url: any, init: any) => {
+        const urlStr = url.toString();
+        if (urlStr.includes('/oauth2/v2/userinfo')) {
+          return new Response(JSON.stringify({ email: 'psicologo@clinica.com' }), { status: 200 });
+        }
+        if (urlStr.includes('/token')) {
+          return new Response(JSON.stringify({
+            access_token: 'dynamically-acquired-access-token',
+            refresh_token: 'dynamically-acquired-refresh-token',
+            expires_in: 3600,
+            token_type: 'Bearer'
+          }), { status: 200 });
+        }
+        return new Response('Not found', { status: 404 });
+      }) as any;
+
+      const tokens = await GoogleMeetService.exchangeCodeForTokens('test-auth-code');
+
+      expect(tokens.accessToken).toBe('dynamically-acquired-access-token');
+      expect(tokens.refreshToken).toBe('dynamically-acquired-refresh-token');
+      expect(tokens.email).toBe('psicologo@clinica.com');
+
+      // Verifica se o token efetivo agora utiliza o token dinâmico
+      const effective = await GoogleMeetService.getEffectiveAccessToken();
+      expect(effective).toBe('dynamically-acquired-access-token');
+
+      const diag = GoogleMeetService.getDiagnostics();
+      expect(diag.oauth?.connectedEmail).toBe('psicologo@clinica.com');
+      expect(diag.configured).toBe(true);
+    });
+
+    it('deve renovar access_token expirado automaticamente via refresh_token', async () => {
+      config.google.clientId = 'test-client-id';
+      config.google.clientSecret = 'test-client-secret';
+      config.google.refreshToken = 'persistent-refresh-token-from-env';
+
+      let refreshCalls = 0;
+      globalThis.fetch = mock(async (url: any, init: any) => {
+        const urlStr = url.toString();
+        if (urlStr.includes('/token')) {
+          refreshCalls++;
+          return new Response(JSON.stringify({
+            access_token: `renewed-access-token-${refreshCalls}`,
+            expires_in: 3600
+          }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      }) as any;
+
+      const effectiveToken = await GoogleMeetService.getEffectiveAccessToken();
+      expect(effectiveToken).toBe('renewed-access-token-1');
+      expect(refreshCalls).toBe(1);
+
+      // Chamada subsequente imediata deve reutilizar o token em cache sem nova chamada HTTP
+      const cachedToken = await GoogleMeetService.getEffectiveAccessToken();
+      expect(cachedToken).toBe('renewed-access-token-1');
+      expect(refreshCalls).toBe(1);
+    });
+
+    it('deve responder rotas de API OAuth no endpoint /api/auth/google', async () => {
+      config.google.clientId = 'api-test-client-id';
+      config.google.clientSecret = 'api-test-client-secret';
+
+      // 1. GET /api/auth/google/authorize?format=json
+      const authRes = await app.request('/api/auth/google/authorize?format=json');
+      expect(authRes.status).toBe(200);
+      const authData = await authRes.json();
+      expect(authData.success).toBe(true);
+      expect(authData.url).toContain('accounts.google.com');
+
+      // 2. GET /api/auth/google/callback?code=fake-code
+      globalThis.fetch = mock(async (url: any) => {
+        const urlStr = url.toString();
+        if (urlStr.includes('/userinfo')) {
+          return new Response(JSON.stringify({ email: 'terapeuta@exemplo.com' }), { status: 200 });
+        }
+        return new Response(JSON.stringify({
+          access_token: 'auth-route-token',
+          expires_in: 3600
+        }), { status: 200 });
+      }) as any;
+
+      const callbackRes = await app.request('/api/auth/google/callback?code=fake-code');
+      expect(callbackRes.status).toBe(200);
+      const htmlText = await callbackRes.text();
+      expect(htmlText).toContain('Google Meet Conectado');
+      expect(htmlText).toContain('terapeuta@exemplo.com');
+
+      // 3. GET /api/auth/google/status
+      const statusRes = await app.request('/api/auth/google/status');
+      expect(statusRes.status).toBe(200);
+      const statusData = await statusRes.json();
+      expect(statusData.connected).toBe(true);
+      expect(statusData.oauth.connectedEmail).toBe('terapeuta@exemplo.com');
+
+      // 4. POST /api/auth/google/disconnect
+      const disconnectRes = await app.request('/api/auth/google/disconnect', { method: 'POST' });
+      expect(disconnectRes.status).toBe(200);
+      const disconnectData = await disconnectRes.json();
+      expect(disconnectData.success).toBe(true);
+
+      const statusAfter = await app.request('/api/auth/google/status');
+      const statusAfterData = await statusAfter.json();
+      expect(statusAfterData.oauth.connectedEmail).toBeUndefined();
+    });
   });
 });

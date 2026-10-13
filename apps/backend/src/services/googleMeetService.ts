@@ -46,6 +46,218 @@ export function generateGoogleMeetCode(): string {
 export class GoogleMeetService {
   private static readonly MEET_API_BASE = 'https://meet.googleapis.com/v2';
   private static readonly CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
+  private static readonly OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+  private static readonly OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+
+  // Armazenamento em memória dos tokens dinâmicos obtidos pelo fluxo OAuth 2.0 Web
+  private static runtimeAccessToken: string | null = null;
+  private static runtimeRefreshToken: string | null = null;
+  private static tokenExpiresAt: number = 0;
+  private static connectedEmail: string | null = null;
+
+  /**
+   * Gera a URL oficial de autorização do Google OAuth 2.0 (Consent Screen)
+   * Permite que o psicólogo autorize a clínica a criar reuniões no Google Meet em seu nome.
+   */
+  static getAuthorizationUrl(redirectUri?: string, state?: string): string {
+    const clientId = config.google.clientId;
+    if (!clientId) {
+      throw new Error('GOOGLE_CLIENT_ID não configurado nas variáveis de ambiente.');
+    }
+
+    const uri = redirectUri || config.google.redirectUri;
+    const scopes = [
+      'https://www.googleapis.com/auth/meetings.space.created',
+      'https://www.googleapis.com/auth/meetings.space.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ].join(' ');
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: uri,
+      response_type: 'code',
+      scope: scopes,
+      access_type: 'offline', // Garante o retorno do refresh_token para renovação perpétua
+      prompt: 'consent',     // Força emissão de novo refresh_token
+      include_granted_scopes: 'true'
+    });
+
+    if (state) {
+      params.append('state', state);
+    }
+
+    return `${this.OAUTH_AUTH_URL}?${params.toString()}`;
+  }
+
+  /**
+   * Troca o authorization code retornado pelo Google por tokens (access_token + refresh_token)
+   */
+  static async exchangeCodeForTokens(code: string, redirectUri?: string): Promise<{
+    accessToken: string;
+    refreshToken?: string;
+    expiresIn: number;
+    email?: string;
+  }> {
+    const clientId = config.google.clientId;
+    const clientSecret = config.google.clientSecret;
+    const uri = redirectUri || config.google.redirectUri;
+
+    if (!clientId || !clientSecret) {
+      throw new Error('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET devem estar configurados.');
+    }
+
+    const res = await fetch(this.OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: uri,
+        grant_type: 'authorization_code'
+      }).toString()
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Falha ao trocar código OAuth no Google (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json() as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in: number;
+      token_type: string;
+    };
+
+    let email: string | undefined;
+    try {
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${data.access_token}` }
+      });
+      if (userRes.ok) {
+        const u = await userRes.json() as any;
+        email = u.email;
+      }
+    } catch {
+      // Ignora falha de leitura de e-mail opcional
+    }
+
+    this.setTokens({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
+      email
+    });
+
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
+      email
+    };
+  }
+
+  /**
+   * Renova o access_token utilizando o refresh_token de forma silenciosa e automática
+   */
+  static async refreshAccessToken(refreshTokenInput?: string): Promise<{ accessToken: string; expiresIn: number } | null> {
+    const clientId = config.google.clientId;
+    const clientSecret = config.google.clientSecret;
+    const refreshToken = refreshTokenInput || this.runtimeRefreshToken || config.google.refreshToken;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+      return null;
+    }
+
+    try {
+      const res = await fetch(this.OAUTH_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token'
+        }).toString()
+      });
+
+      if (!res.ok) {
+        console.warn('⚠️ Falha ao renovar token do Google OAuth:', await res.text());
+        return null;
+      }
+
+      const data = await res.json() as {
+        access_token: string;
+        expires_in: number;
+      };
+
+      this.runtimeAccessToken = data.access_token;
+      this.tokenExpiresAt = Date.now() + (data.expires_in * 1000);
+
+      return {
+        accessToken: data.access_token,
+        expiresIn: data.expires_in
+      };
+    } catch (err: any) {
+      console.warn('⚠️ Exceção ao renovar token OAuth:', err?.message || err);
+      return null;
+    }
+  }
+
+  /**
+   * Obtém o token de acesso efetivo (renovando automaticamente se expirado)
+   */
+  static async getEffectiveAccessToken(): Promise<string | null> {
+    // 1. Token dinâmico em memória ainda válido (com folga de 60 segundos)
+    if (this.runtimeAccessToken && Date.now() < this.tokenExpiresAt - 60000) {
+      return this.runtimeAccessToken;
+    }
+
+    // 2. Tenta renovar via refresh_token se houver credenciais OAuth
+    const refreshed = await this.refreshAccessToken();
+    if (refreshed?.accessToken) {
+      return refreshed.accessToken;
+    }
+
+    // 3. Fallback para token estático fixado no .env
+    if (config.google.meetAccessToken) {
+      return config.google.meetAccessToken;
+    }
+
+    return null;
+  }
+
+  /**
+   * Define os tokens em tempo de execução
+   */
+  static setTokens(tokens: { accessToken: string; refreshToken?: string; expiresIn?: number; email?: string }): void {
+    this.runtimeAccessToken = tokens.accessToken;
+    if (tokens.refreshToken) {
+      this.runtimeRefreshToken = tokens.refreshToken;
+    }
+    if (tokens.expiresIn) {
+      this.tokenExpiresAt = Date.now() + (tokens.expiresIn * 1000);
+    }
+    if (tokens.email) {
+      this.connectedEmail = tokens.email;
+    }
+  }
+
+  /**
+   * Desconecta as credenciais dinâmicas do Google
+   */
+  static clearTokens(): void {
+    this.runtimeAccessToken = null;
+    this.runtimeRefreshToken = null;
+    this.tokenExpiresAt = 0;
+    this.connectedEmail = null;
+  }
 
   /**
    * Orquestra a criação de uma sala no Google Meet.
@@ -85,8 +297,8 @@ export class GoogleMeetService {
       };
     }
 
-    // 2. Tentar Google Meet REST API v2 (POST /v2/spaces)
-    const meetToken = params.accessToken || config.google.meetAccessToken;
+    // 2. Tentar Google Meet REST API v2 (POST /v2/spaces) usando token efetivo
+    const meetToken = params.accessToken || (await this.getEffectiveAccessToken());
     if (meetToken) {
       try {
         const spaceResult = await this.callMeetApiCreateSpace(meetToken, accessType);
@@ -241,7 +453,7 @@ export class GoogleMeetService {
    * GET https://meet.googleapis.com/v2/spaces/{name}
    */
   static async getSpace(spaceNameOrCode: string, token?: string): Promise<any | null> {
-    const authToken = token || config.google.meetAccessToken;
+    const authToken = token || (await this.getEffectiveAccessToken());
     if (!authToken) return null;
 
     const normalizedName = spaceNameOrCode.startsWith('spaces/') 
@@ -270,7 +482,7 @@ export class GoogleMeetService {
    * Escopo: https://www.googleapis.com/auth/meetings.space.created
    */
   static async endActiveConference(spaceName: string, token?: string): Promise<boolean> {
-    const authToken = token || config.google.meetAccessToken;
+    const authToken = token || (await this.getEffectiveAccessToken());
     if (!authToken) return false;
 
     const normalizedName = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
@@ -294,18 +506,22 @@ export class GoogleMeetService {
    * Retorna telemetria e diagnóstico do status da integração com Google Workspace
    */
   static getDiagnostics(): GoogleMeetStatusResponse {
-    const hasMeetToken = Boolean(config.google.meetAccessToken);
+    const hasDynamicToken = Boolean(this.runtimeAccessToken);
+    const hasStaticMeetToken = Boolean(config.google.meetAccessToken);
     const hasCalToken = Boolean(config.google.calendarAccessToken);
+    const hasRefreshToken = Boolean(this.runtimeRefreshToken || config.google.refreshToken);
+
+    const isConnected = hasDynamicToken || hasStaticMeetToken || (hasRefreshToken && Boolean(config.google.clientId && config.google.clientSecret));
 
     let activeProvider = MeetProvider.SIMULATED;
-    if (hasMeetToken) {
+    if (hasDynamicToken || hasStaticMeetToken || hasRefreshToken) {
       activeProvider = MeetProvider.GOOGLE_MEET_V2;
     } else if (hasCalToken) {
       activeProvider = MeetProvider.GOOGLE_CALENDAR;
     }
 
     return {
-      configured: hasMeetToken || hasCalToken,
+      configured: isConnected || hasCalToken,
       activeProvider,
       defaultAccessType: config.google.defaultAccessType,
       scopes: [
@@ -317,7 +533,14 @@ export class GoogleMeetService {
         spacesV2: true,
         calendarV3: true,
         knockingWaitingRoom: true,
-        endConference: true
+        endConference: true,
+        oauthFlow: true
+      },
+      oauth: {
+        hasClientId: Boolean(config.google.clientId),
+        hasClientSecret: Boolean(config.google.clientSecret),
+        hasRefreshToken: Boolean(this.runtimeRefreshToken || config.google.refreshToken),
+        connectedEmail: this.connectedEmail || undefined
       }
     };
   }

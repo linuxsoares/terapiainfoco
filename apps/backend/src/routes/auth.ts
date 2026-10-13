@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { authService } from '../services/authService';
 import { WebAuthnService } from '../services/webauthnService';
+import { GoogleMeetService } from '../services/googleMeetService';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { authRateLimiter } from '../middlewares/rateLimiter';
 import type { 
@@ -273,4 +274,153 @@ authRoute.delete('/passkeys/:id', authMiddleware({ strict: true }), async (c) =>
     return c.json({ success: false, error: err.message || 'Falha ao revogar Passkey.' }, 400);
   }
 });
+
+/**
+ * GET /api/auth/google/authorize
+ * Redireciona o psicólogo para a tela de consentimento do Google OAuth 2.0 (ou retorna URL em JSON)
+ */
+authRoute.get('/google/authorize', async (c) => {
+  try {
+    const redirectUri = c.req.query('redirect_uri');
+    const state = c.req.query('state');
+    const format = c.req.query('format');
+
+    const authUrl = GoogleMeetService.getAuthorizationUrl(redirectUri, state);
+
+    if (format === 'json') {
+      return c.json({ success: true, url: authUrl });
+    }
+
+    return c.redirect(authUrl);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+/**
+ * GET /api/auth/google/callback
+ * Recebe o código de autorização do Google após o consentimento do usuário
+ */
+authRoute.get('/google/callback', async (c) => {
+  const code = c.req.query('code');
+  const error = c.req.query('error');
+  const errorDescription = c.req.query('error_description');
+
+  if (error) {
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Erro de Conexão - Google Meet</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; text-align: center; }
+          .card { background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #dc2626; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+          .badge { display: inline-block; background: #ef4444; color: #fff; font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 9999px; margin-bottom: 1rem; font-weight: 600; }
+          h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; }
+          p { color: #94a3b8; font-size: 0.875rem; line-height: 1.5; margin: 0.5rem 0; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">Autorização Não Concluída</div>
+          <h2>Falha na Conexão Google</h2>
+          <p>${error}: ${errorDescription || 'Autorização negada pelo usuário ou escopos recusados.'}</p>
+        </div>
+      </body>
+      </html>
+    `, 400);
+  }
+
+  if (!code) {
+    return c.json({ success: false, error: 'Código de autorização não informado na requisição.' }, 400);
+  }
+
+  try {
+    const tokens = await GoogleMeetService.exchangeCodeForTokens(code);
+
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Google Meet Conectado com Sucesso</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; text-align: center; }
+          .card { background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #334155; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+          .badge { display: inline-block; background: #10b981; color: #fff; font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 9999px; margin-bottom: 1rem; font-weight: 600; }
+          h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; }
+          p { color: #94a3b8; font-size: 0.875rem; line-height: 1.5; margin: 0.5rem 0; }
+          .email { font-family: monospace; color: #38bdf8; font-weight: 600; word-break: break-all; margin: 0.75rem 0; }
+          .btn { display: inline-block; margin-top: 1.5rem; padding: 0.75rem 1.5rem; background: #0ea5e9; color: #fff; text-decoration: none; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: background 0.2s; }
+          .btn:hover { background: #0284c7; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">✓ Conexão Ativa</div>
+          <h2>Google Meet Conectado!</h2>
+          <p>Sua conta Google Workspace foi vinculada ao TerapiaInFoco para geração automática de salas de teleconsulta (Google Meet REST API v2).</p>
+          ${tokens.email ? `<p class="email">${tokens.email}</p>` : ''}
+          <a href="/agenda" class="btn">Retornar à Agenda</a>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'GOOGLE_MEET_AUTH_SUCCESS', email: ${JSON.stringify(tokens.email || null)} }, '*');
+            setTimeout(() => window.close(), 1500);
+          }
+        </script>
+      </body>
+      </html>
+    `, 200);
+  } catch (err: any) {
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Erro de Troca de Tokens</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; text-align: center; }
+          .card { background: #1e293b; padding: 2.5rem; border-radius: 1.5rem; border: 1px solid #dc2626; max-width: 440px; }
+          p { color: #f87171; font-size: 0.875rem; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>Falha ao Vincular Conta Google</h2>
+          <p>${err.message || 'Erro inesperado durante a troca de credenciais OAuth.'}</p>
+        </div>
+      </body>
+      </html>
+    `, 500);
+  }
+});
+
+/**
+ * GET /api/auth/google/status
+ * Status da conexão OAuth 2.0 com Google Meet
+ */
+authRoute.get('/google/status', (c) => {
+  const diag = GoogleMeetService.getDiagnostics();
+  return c.json({
+    success: true,
+    connected: diag.configured,
+    activeProvider: diag.activeProvider,
+    oauth: diag.oauth
+  });
+});
+
+/**
+ * POST /api/auth/google/disconnect
+ * Desconecta as credenciais dinâmicas do Google Meet
+ */
+authRoute.post('/google/disconnect', (c) => {
+  GoogleMeetService.clearTokens();
+  return c.json({
+    success: true,
+    message: 'Credenciais Google Meet revogadas com sucesso nesta sessão.'
+  });
+});
+
 
