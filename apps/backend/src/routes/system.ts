@@ -310,6 +310,28 @@ systemRoute.get('/stress/slos', (c) => {
   }, 200);
 });
 
+/**
+ * 10. Diagnóstico & Teste da Google Meet REST API v2 (RFC §3.2)
+ */
+import { GoogleMeetService } from '../services/googleMeetService';
 
+systemRoute.get('/google-meet/status', (c) => {
+  const diagnostics = GoogleMeetService.getDiagnostics();
+  return c.json({
+    success: true,
+    ...diagnostics
+  }, 200);
+});
 
-
+systemRoute.post('/google-meet/test', async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { accessType?: import('@terapiainfoco/shared').MeetAccessType };
+  try {
+    const testResult = await GoogleMeetService.testCreateSpace(body.accessType);
+    return c.json(testResult, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      error: err.message || 'Falha ao testar emissão de sala no Google Meet'
+    }, 500);
+  }
+});

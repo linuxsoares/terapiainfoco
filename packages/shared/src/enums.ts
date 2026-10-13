@@ -105,7 +105,10 @@ export enum AuditAction {
   // Ações de Hardening HTTP & Honeypot Anti-Probe (RFC-001 §4.4, §5.2)
   HONEYPOT_PROBE_BLOCKED = 'HONEYPOT_PROBE_BLOCKED',
   HONEYPOT_IP_UNBANNED = 'HONEYPOT_IP_UNBANNED',
-  SECURITY_HEADERS_EVALUATED = 'SECURITY_HEADERS_EVALUATED'
+  SECURITY_HEADERS_EVALUATED = 'SECURITY_HEADERS_EVALUATED',
+  // Ações de Google Meet REST API v2 & Teleconferência
+  MEET_SPACE_CREATED = 'MEET_SPACE_CREATED',
+  MEET_CONFERENCE_ENDED = 'MEET_CONFERENCE_ENDED'
 }
 
 export enum AuditResourceType {
@@ -122,7 +125,8 @@ export enum AuditResourceType {
   KMS = 'KMS',
   BENCHMARK = 'BENCHMARK',
   TELEMETRY = 'TELEMETRY',
-  HONEYPOT = 'HONEYPOT'
+  HONEYPOT = 'HONEYPOT',
+  MEET = 'MEET'
 }
 
 /**
@@ -205,6 +209,21 @@ export enum ComplianceControlStatus {
   NON_COMPLIANT = 'NON_COMPLIANT'              // Não conforme ou sem controle implementado
 }
 
+/**
+ * Provedor de geração do link de teleatendimento
+ */
+export enum MeetProvider {
+  GOOGLE_MEET_V2 = 'google_meet_v2',       // Google Meet REST API v2 (POST https://meet.googleapis.com/v2/spaces)
+  GOOGLE_CALENDAR = 'google_calendar',     // Google Calendar API v3 com conferenceData
+  CUSTOM = 'custom',                       // Link personalizado/recorrente informado pelo terapeuta
+  SIMULATED = 'simulated'                  // Fallback determinístico de contingência (dev / offline)
+}
 
-
-
+/**
+ * Políticas de controle de admissão (Knocking) no Google Meet (RFC §3.2 & CFP 011/2018)
+ */
+export enum MeetAccessType {
+  OPEN = 'OPEN',             // Qualquer participante com o link acessa diretamente
+  TRUSTED = 'TRUSTED',       // Apenas organização ou convidados entram direto; outros batem na porta (sala de espera recomendada)
+  RESTRICTED = 'RESTRICTED'  // Apenas pessoas explicitamente convidadas entram direto; outros batem na porta
+}

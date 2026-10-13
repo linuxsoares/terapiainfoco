@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 17 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot Anti-Probe | 277/277 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 18 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 Orquestrado (spaces.create) com Fluxo Completo OAuth 2.0 (Client ID/Secret) | 291/291 Testes Passando
 
 
 
@@ -721,6 +721,36 @@ terapiainfoco/
   - Modal de Desbloqueio Auditado de IP solicitando justificativa formal registrada no ledger WORM.
   - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
 
+### 29. Integração Google Meet REST API v2 & Orquestração de Teleconsultas (RFC-001 §3.2 & CFP 011/2018)
+- [x] **Motor de Integração Google Meet REST API v2 (`apps/backend/src/services/googleMeetService.ts`):**
+  - Implementação oficial da Google Meet REST API v2 (`POST https://meet.googleapis.com/v2/spaces`) conforme documentação Google Workspace Developers.
+  - Escopo OAuth 2.0 requerido: `https://www.googleapis.com/auth/meetings.space.created` e `https://www.googleapis.com/auth/meetings.space.readonly`.
+  - Configuração estrita de política de controle de admissão `accessType`:
+    - `TRUSTED` (padrão recomendado CFP): Knocking obrigatório com sala de espera, impedindo que pacientes entrem acidentalmente antes da psicóloga admiti-los.
+    - `OPEN`: Acesso livre sem knocking.
+    - `RESTRICTED`: Acesso restrito apenas a participantes convidados explicitamente.
+  - Encerramento ativo de conferência: `POST https://meet.googleapis.com/v2/spaces/{name}:endActiveConference` ao concluir o atendimento.
+  - Suporte a links personalizados (salas fixas/recorrentes do terapeuta).
+  - Fallback em camadas resiliente: Google Calendar API v3 (`conferenceDataVersion=1`) e gerador determinístico formatado no padrão oficial `xxx-yyyy-zzz` (`3-4-3`) para contingência e desenvolvimento local.
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Enums `MeetProvider` (`google_meet_v2`, `google_calendar`, `custom`, `simulated`) e `MeetAccessType` (`OPEN`, `TRUSTED`, `RESTRICTED`).
+  - Atualização de `Appointment`, `StoredAppointment` e `DecryptedAppointment` com `meetSpaceName`, `meetProvider` e `meetAccessType`.
+  - Ações de auditoria WORM `AuditAction.MEET_SPACE_CREATED`, `AuditAction.MEET_CONFERENCE_ENDED` e `AuditResourceType.MEET`.
+  - DTOs `GoogleMeetStatusResponse` e `GoogleMeetTestResponse`.
+- [x] **Serviço de Agendamento Assíncrono & Trilha WORM (`AppointmentService`):**
+  - Orquestração transparente de salas Meet v2 durante agendamento clínico ou agendamento público na landing page.
+  - Cifragem compulsória da URL de teleconsulta via Field-Level Encryption (`AES-256-GCM`).
+  - Endpoint `POST /api/appointments/:id/end-meet` para encerramento de sala com auditoria WORM.
+  - Endpoints administrativos `GET /api/system/google-meet/status` e `POST /api/system/google-meet/test`.
+- [x] **Interface Frontend Integrada no Módulo de Agenda (`AgendaModule.tsx`):**
+  - Badges visuais de provedor Meet (`Google Meet v2 API`, `Google Calendar`, `Sala Fixa`, `Simulado`) e política de knocking (`Sala de Espera Ativa`).
+  - Botão de ação direta *"Encerrar Meet"* para teleconsultas em andamento.
+  - Modal de agendamento com seletor de admissão e opções explicativas de conformidade ética do CFP.
+  - Modal interativo de Diagnóstico e Teste da Google Meet REST API v2 com medição de latência em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes Automatizados (`googleMeetService.test.ts`):**
+  - 10 testes unitários e de integração cobrindo criação v2, knocking, fallbacks, encerramento de conferência e rotas REST (287 testes totais passando).
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -762,18 +792,20 @@ terapiainfoco/
 | `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
 | `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | Merged |
 | `feat/executive-compliance-governance-package` | Dashboard Executivo de Governança, Compliance Package Multi-Normativo Forense (LGPD, CFP, ICP-Brasil, SOC2) & DPO Sign-Off (RFC §4.4, §5.2) | [PR #39](https://github.com/linuxsoares/terapiainfoco/pull/39) | Merged |
-| `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | [PR #40](https://github.com/linuxsoares/terapiainfoco/pull/40) | **Em Aberto** |
+| `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | [PR #40](https://github.com/linuxsoares/terapiainfoco/pull/40) | Merged |
+| `feat/google-meet-api-integration` | Integração Google Meet REST API v2 (spaces.create), Knocking TRUSTED, Fluxo OAuth 2.0 Web (Google Cloud Client ID/Secret, Code Exchange & Auto-Refresh) e Diagnósticos no Painel (RFC §3.2 & CFP 011/2018) | [PR #41](https://github.com/linuxsoares/terapiainfoco/pull/41) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe (RFC §4.4, §5.2)**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **277 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **287 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
 - [x] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública e DPO Sign-Off.
 - [x] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados com quarentena em memória e trilha WORM.
+- [x] **Integração Oficial Google Meet REST API v2 (spaces.create & endActiveConference):** Emissão de links Meet via API v2 com política de knocking TRUSTED (sala de espera CFP) e diagnósticos.
 - [ ] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia.
 - [ ] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
 
@@ -785,7 +817,7 @@ Com o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe (
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (277 testes)
+# 2. Executar suíte completa de testes (287 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

@@ -109,7 +109,10 @@ import type {
   SecurityHardeningOverviewResponse,
   UnbanIpRequestDTO,
   UnbanIpResponse,
-  VerifySecurityHeadersResponse
+  VerifySecurityHeadersResponse,
+  MeetAccessType,
+  GoogleMeetStatusResponse,
+  GoogleMeetTestResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -229,6 +232,33 @@ export const api = {
       body: JSON.stringify({ status })
     });
     return res.appointment;
+  },
+
+  async endMeetConference(appointmentId: string): Promise<{ success: boolean; conferenceEnded: boolean; message: string }> {
+    return await request<{ success: boolean; conferenceEnded: boolean; message: string }>(`/appointments/${appointmentId}/end-meet`, {
+      method: 'POST'
+    });
+  },
+
+  async getGoogleMeetStatus(): Promise<{ success: boolean } & GoogleMeetStatusResponse> {
+    return await request<{ success: boolean } & GoogleMeetStatusResponse>('/system/google-meet/status');
+  },
+
+  async testGoogleMeet(accessType?: MeetAccessType): Promise<GoogleMeetTestResponse> {
+    return await request<GoogleMeetTestResponse>('/system/google-meet/test', {
+      method: 'POST',
+      body: JSON.stringify({ accessType })
+    });
+  },
+
+  async getGoogleOAuthUrl(): Promise<{ success: boolean; url: string }> {
+    return await request<{ success: boolean; url: string }>('/auth/google/authorize?format=json');
+  },
+
+  async disconnectGoogleMeet(): Promise<{ success: boolean; message: string }> {
+    return await request<{ success: boolean; message: string }>('/auth/google/disconnect', {
+      method: 'POST'
+    });
   },
 
   // 3. Prontuários & SOAP (RFC §3.3, §3.4)

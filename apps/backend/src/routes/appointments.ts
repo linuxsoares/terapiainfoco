@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import { AppointmentService } from '../services/appointmentService';
+import { GoogleMeetService } from '../services/googleMeetService';
+import { db } from '../db/memoryDb';
+import { AuditService } from '../services/auditService';
 import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
-import type { 
-  CreateAppointmentDTO, 
-  UpdateAppointmentStatusDTO,
-  PublicBookingDTO
+import { 
+  AuditAction, 
+  AuditResourceType,
+  type CreateAppointmentDTO, 
+  type UpdateAppointmentStatusDTO,
+  type PublicBookingDTO
 } from '@terapiainfoco/shared';
 
 export const appointmentsRoute = new Hono();
@@ -24,13 +29,12 @@ appointmentsRoute.get('/available-slots', async (c) => {
 
 // Agendamento público de teleconsulta diretamente pela landing page (com proteção anti-spam)
 appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
-
   const body = await c.req.json<PublicBookingDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
   try {
-    const booking = AppointmentService.bookPublicAppointment(body, {
+    const booking = await AppointmentService.bookPublicAppointment(body, {
       ipAddress: ip,
       userAgent
     });
@@ -40,7 +44,6 @@ appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
   }
 });
 
-
 // Criar agendamento com validação de buffer e geração do Google Meet (§3.1, §3.2)
 appointmentsRoute.post('/', async (c) => {
   const body = await c.req.json<CreateAppointmentDTO & { therapistId: string }>();
@@ -48,7 +51,7 @@ appointmentsRoute.post('/', async (c) => {
   const userAgent = c.req.header('user-agent');
 
   try {
-    const appointment = AppointmentService.createAppointment(
+    const appointment = await AppointmentService.createAppointment(
       body.therapistId || 'therapist-001',
       body,
       { actorId: body.therapistId || 'therapist-001', ipAddress: ip, userAgent }
@@ -78,9 +81,46 @@ appointmentsRoute.patch('/:id/status', async (c) => {
   }
 });
 
+// Encerrar chamada no Google Meet REST API v2 (:endActiveConference)
+appointmentsRoute.post('/:id/end-meet', async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+
+  const appt = db.appointments.get(id);
+  if (!appt) {
+    return c.json({ success: false, error: 'Consulta não encontrada' }, 404);
+  }
+
+  let ended = false;
+  if (appt.meetSpaceName) {
+    ended = await GoogleMeetService.endActiveConference(appt.meetSpaceName);
+  }
+
+  AuditService.log({
+    actorId: 'therapist-001',
+    resourceType: AuditResourceType.MEET,
+    resourceId: appt.meetSpaceName || id,
+    action: AuditAction.MEET_CONFERENCE_ENDED,
+    ipAddress: ip,
+    userAgent
+  });
+
+  return c.json({
+    success: true,
+    conferenceEnded: ended,
+    appointmentId: id,
+    spaceName: appt.meetSpaceName || null,
+    message: ended 
+      ? 'Conferência ativa encerrada no Google Meet com sucesso.' 
+      : 'Conferência finalizada localmente (sem chamada remota ativa).'
+  });
+});
+
 // Listar consultas do terapeuta
 appointmentsRoute.get('/therapist/:therapistId', async (c) => {
   const therapistId = c.req.param('therapistId');
   const appointments = AppointmentService.getTherapistAppointments(therapistId);
   return c.json({ success: true, appointments });
 });
+

@@ -3,6 +3,8 @@ import {
   AppointmentStatus, 
   AuditAction, 
   AuditResourceType,
+  MeetProvider,
+  MeetAccessType,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
   type DecryptedAppointment,
@@ -18,34 +20,21 @@ import { eq } from 'drizzle-orm';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
+import { GoogleMeetService, generateGoogleMeetCode } from './googleMeetService';
 import { config } from '../config';
 
-
-/**
- * Gera um código válido e estritamente formatado do Google Meet: xxx-yyyy-zzz (3-4-3 letras minúsculas)
- * Exemplo: abc-defg-hij
- */
-export function generateGoogleMeetCode(): string {
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  const getChunk = (len: number) => {
-    let chunk = '';
-    for (let i = 0; i < len; i++) {
-      chunk += letters.charAt(Math.floor(Math.random() * letters.length));
-    }
-    return chunk;
-  };
-  return `${getChunk(3)}-${getChunk(4)}-${getChunk(3)}`;
-}
+export { generateGoogleMeetCode };
 
 export class AppointmentService {
   /**
-   * Agenda uma consulta validando buffers e gerando link do Google Meet (§3.1, §3.2)
+   * Agenda uma consulta validando buffers e orquestrando emissão da sala do Google Meet (§3.1, §3.2)
+   * Integra com Google Meet REST API v2 (spaces.create) com política de knocking (CFP 011/2018)
    */
-  static createAppointment(
+  static async createAppointment(
     therapistId: string,
     dto: CreateAppointmentDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedAppointment {
+  ): Promise<DecryptedAppointment> {
     const start = new Date(dto.scheduledStart);
     const end = new Date(dto.scheduledEnd);
     const bufferMin = dto.bufferMinutes ?? config.defaultBufferMinutes;
@@ -55,22 +44,14 @@ export class AppointmentService {
 
     const id = randomUUID();
     
-    // Gera código estritamente no formato Google Meet: xxx-yyyy-zzz (3-4-3 letras minúsculas)
-    let meetCode: string;
-    let rawMeetUrl: string;
-
-    if (dto.meetUrl?.trim()) {
-      let customUrl = dto.meetUrl.trim();
-      if (!customUrl.startsWith('http')) {
-        customUrl = `https://meet.google.com/${customUrl}`;
-      }
-      const match = customUrl.match(/meet\.google\.com\/([a-z0-9-]+)/i);
-      meetCode = match ? match[1].toLowerCase() : 'custom';
-      rawMeetUrl = customUrl;
-    } else {
-      meetCode = generateGoogleMeetCode();
-      rawMeetUrl = `https://meet.google.com/${meetCode}`;
-    }
+    // Orquestra emissão do Google Meet via Google Meet REST API v2 com fallback resiliente
+    const meetResult = await GoogleMeetService.createMeetingSpace({
+      summary: `Teleconsulta — Dra. Vanessa Andrade (CRP 06/142980)`,
+      startTime: start,
+      endTime: end,
+      accessType: dto.accessType,
+      customUrl: dto.meetUrl
+    });
 
     const storedAppointment: StoredAppointment = {
       id,
@@ -79,9 +60,12 @@ export class AppointmentService {
       scheduledStart: start,
       scheduledEnd: end,
       status: AppointmentStatus.CONFIRMADA,
-      googleEventId: `gevent-${randomUUID()}`,
-      meetAccessCode: meetCode,
-      encryptedMeetUrl: encryptField(rawMeetUrl),
+      googleEventId: meetResult.googleEventId || `gevent-${randomUUID()}`,
+      meetAccessCode: meetResult.accessCode,
+      meetSpaceName: meetResult.spaceName,
+      meetProvider: meetResult.provider,
+      meetAccessType: meetResult.accessType,
+      encryptedMeetUrl: encryptField(meetResult.meetUrl),
       createdAt: new Date()
     };
 
@@ -106,6 +90,17 @@ export class AppointmentService {
       userAgent: context.userAgent
     });
 
+    if (meetResult.provider === MeetProvider.GOOGLE_MEET_V2) {
+      AuditService.log({
+        actorId: context.actorId,
+        resourceType: AuditResourceType.MEET,
+        resourceId: meetResult.spaceName || id,
+        action: AuditAction.MEET_SPACE_CREATED,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      });
+    }
+
     return {
       id,
       therapistId,
@@ -114,8 +109,11 @@ export class AppointmentService {
       scheduledEnd: end,
       status: storedAppointment.status,
       googleEventId: storedAppointment.googleEventId,
-      meetAccessCode: meetCode,
-      meetUrl: rawMeetUrl,
+      meetAccessCode: meetResult.accessCode,
+      meetSpaceName: meetResult.spaceName,
+      meetProvider: meetResult.provider,
+      meetAccessType: meetResult.accessType,
+      meetUrl: meetResult.meetUrl,
       createdAt: storedAppointment.createdAt
     };
   }
@@ -178,6 +176,9 @@ export class AppointmentService {
       status: appointment.status,
       googleEventId: appointment.googleEventId,
       meetAccessCode: appointment.meetAccessCode,
+      meetSpaceName: appointment.meetSpaceName,
+      meetProvider: appointment.meetProvider,
+      meetAccessType: appointment.meetAccessType,
       meetUrl: decryptField(appointment.encryptedMeetUrl),
       createdAt: appointment.createdAt
     };
@@ -199,6 +200,9 @@ export class AppointmentService {
           status: app.status,
           googleEventId: app.googleEventId,
           meetAccessCode: app.meetAccessCode,
+          meetSpaceName: app.meetSpaceName,
+          meetProvider: app.meetProvider,
+          meetAccessType: app.meetAccessType,
           meetUrl: decryptField(app.encryptedMeetUrl),
           createdAt: app.createdAt
         });
@@ -259,10 +263,10 @@ export class AppointmentService {
    * Agendamento público de teleconsulta diretamente pela landing page
    * Aplica Field-Level Encryption e Blind Indexing aos dados do visitante e gera link Meet
    */
-  static bookPublicAppointment(
+  static async bookPublicAppointment(
     dto: PublicBookingDTO,
     context: { ipAddress: string; userAgent?: string }
-  ): PublicBookingResponse {
+  ): Promise<PublicBookingResponse> {
     if (!dto.consentTeleconsultationSigned) {
       throw new Error(
         'É obrigatório aceitar o Termo de Consentimento Livre e Esclarecido (TCLE) para agendamento de teleconsulta (Res. CFP nº 011/2018 e LGPD Art. 11).'
@@ -297,7 +301,7 @@ export class AppointmentService {
     }
 
     // 2. Agenda a consulta com verificação de buffers e sala do Google Meet
-    const appointment = this.createAppointment(
+    const appointment = await this.createAppointment(
       therapistId,
       {
         patientId: patient.id,
