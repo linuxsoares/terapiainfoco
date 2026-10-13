@@ -15,6 +15,9 @@ import { systemRoute } from './routes/system';
 import { webhookRoute } from './routes/webhooks';
 import { siemRoute } from './routes/siem';
 import { kmsRoute } from './routes/kms';
+import { securityHardeningRoute } from './routes/securityHardening';
+import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
+import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { getDb } from './db';
 
 export const app = new Hono();
@@ -41,6 +44,9 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'traceparent', 'tracestate']
 }));
+app.use('*', securityHeadersMiddleware());
+app.use('*', honeypotMiddleware());
+
 
 // Prometheus Metrics Exporter (RFC-001 §5.2 / OpenMetrics Standard)
 app.get('/metrics', (c) => {
@@ -119,6 +125,7 @@ app.route('/api/system', systemRoute);
 app.route('/api/webhooks', webhookRoute);
 app.route('/api/siem', siemRoute);
 app.route('/api/kms', kmsRoute);
+app.route('/api/security/hardening', securityHardeningRoute);
 
 
 

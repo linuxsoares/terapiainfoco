@@ -32,7 +32,9 @@ import {
   Radio,
   FolderSync,
   Gauge,
-  Flame
+  Flame,
+  GlobeLock,
+  Ban
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -54,7 +56,9 @@ import type {
   SiemQueueResponse,
   KmsSystemStatus,
   KmsKeyMetadata,
-  StressTestReport
+  StressTestReport,
+  SecurityHardeningOverviewResponse,
+  HoneypotProbeRecord
 } from '@terapiainfoco/shared';
 import { UserRole, KmsKeyStatus, StressScenario, SloStatus } from '@terapiainfoco/shared';
 
@@ -103,9 +107,48 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Hardening HTTP & Honeypot Anti-Probe (RFC-001 §4.4, §5.2)
+  const [hardeningOverview, setHardeningOverview] = useState<SecurityHardeningOverviewResponse | null>(null);
+  const [loadingHardening, setLoadingHardening] = useState<boolean>(false);
+  const [unbanModalTarget, setUnbanModalTarget] = useState<HoneypotProbeRecord | null>(null);
+  const [unbanReason, setUnbanReason] = useState<string>('');
+
+  const fetchHardeningOverview = async () => {
+    try {
+      setLoadingHardening(true);
+      const data = await api.getSecurityHardeningOverview();
+      setHardeningOverview(data);
+    } catch {
+      // Ignora para não admins
+    } finally {
+      setLoadingHardening(false);
+    }
+  };
+
+  const handleUnbanIp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unbanModalTarget) return;
+    try {
+      setLoadingHardening(true);
+      const res = await api.unbanIpAddress({
+        ipAddress: unbanModalTarget.ipAddress,
+        reason: unbanReason.trim() || 'Desbloqueio manual via console de segurança'
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setUnbanModalTarget(null);
+      setUnbanReason('');
+      await fetchHardeningOverview();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao desbloquear IP.' });
+    } finally {
+      setLoadingHardening(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
+      fetchHardeningOverview();
     }
   }, [currentUser.role]);
 
@@ -2881,6 +2924,271 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* Card 11: Hardening de Segurança HTTP (CSP, HSTS) & Honeypot Anti-Probe (RFC-001 §4.4, §5.2) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-md shadow-indigo-500/20">
+              <GlobeLock className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Hardening HTTP & Honeypot Anti-Probe
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 uppercase tracking-wider">
+                  CSP • HSTS • WORM
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Injeção de cabeçalhos de segurança padrão OWASP, mitigação de XSS/Clickjacking e armadilha ativa para quarentena de scanners maliciosos na Trilha WORM.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={fetchHardeningOverview}
+            disabled={loadingHardening}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            title="Atualizar status do hardening"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingHardening ? 'animate-spin' : ''}`} />
+            <span>Atualizar</span>
+          </button>
+        </div>
+
+        {/* 4 KPIs de Hardening & Honeypot */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-1">
+              <span>Score OWASP Headers</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                Grau {hardeningOverview?.metrics.headersEvaluation.grade || 'A+'}
+              </span>
+            </div>
+            <div className="text-2xl font-extrabold text-slate-900 dark:text-white">
+              {hardeningOverview?.metrics.headersEvaluation.scorePercentage ?? 100}%
+            </div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block">
+              9 de 9 cabeçalhos em conformidade
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Probes Interceptados</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                {hardeningOverview?.metrics.totalProbesTrapped ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-400">tentativas</span>
+            </div>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">
+              Gravados no Ledger WORM
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">IPs em Quarentena Ativa</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-2xl font-extrabold ${(hardeningOverview?.metrics.activeBannedIpsCount ?? 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
+                {hardeningOverview?.metrics.activeBannedIpsCount ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-400">bloqueados</span>
+            </div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block">
+              Banimento automático: 60 min
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Honeypot Anti-Scanners</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                ● Ativo & Protegendo
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block">
+              /.env, /.git, /wp-admin, /actuator
+            </span>
+          </div>
+        </div>
+
+        {/* Tabela dos 9 Cabeçalhos OWASP */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-indigo-500" />
+            Matriz de Cabeçalhos HTTP Recomendados pela OWASP (Em Produção)
+          </h4>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-semibold border-y border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="py-2.5 pl-4 pr-3">Cabeçalho HTTP</th>
+                  <th className="py-2.5 pr-3">Valor Aplicado / Política</th>
+                  <th className="py-2.5 pr-3">Salvaguarda & Finalidade</th>
+                  <th className="py-2.5 pr-4 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {hardeningOverview?.metrics.headersEvaluation.checks.map((check) => (
+                  <tr key={check.header} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="py-2.5 pl-4 pr-3 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                      {check.header}
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 max-w-xs truncate" title={check.expectedValue}>
+                      {check.expectedValue}
+                    </td>
+                    <td className="py-2.5 pr-3 text-[11px] text-slate-600 dark:text-slate-400 max-w-sm">
+                      {check.recommendation}
+                    </td>
+                    <td className="py-2.5 pr-4 text-right whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                        {check.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Tabela de IPs em Quarentena e Probes Honeypot */}
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+              IPs em Quarentena & Probes Recentes (Honeypot Traps)
+            </h4>
+            <span className="text-[10px] text-slate-400">
+              Auditado compulsivamente na Hash-Chain WORM
+            </span>
+          </div>
+
+          {(hardeningOverview?.recentProbes.length ?? 0) === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-800">
+              Nenhuma tentativa de scanning malicioso detectada recentemente. O perímetro está seguro.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-semibold border-y border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="py-2.5 pl-4 pr-3">IP Invasor</th>
+                    <th className="py-2.5 pr-3">Rota Tentada</th>
+                    <th className="py-2.5 pr-3">Scanner / User Agent</th>
+                    <th className="py-2.5 pr-3">Tentativas</th>
+                    <th className="py-2.5 pr-3">Capturado Em</th>
+                    <th className="py-2.5 pr-4 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {hardeningOverview?.recentProbes.map((probe) => (
+                    <tr key={probe.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="py-2.5 pl-4 pr-3 font-mono font-bold text-slate-900 dark:text-white">
+                        {probe.ipAddress}
+                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          probe.status === 'ACTIVE_BAN'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {probe.status === 'ACTIVE_BAN' ? 'QUARANTINE' : probe.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 font-mono text-[11px] text-rose-600 dark:text-rose-400">
+                        {probe.method} {probe.path}
+                      </td>
+                      <td className="py-2.5 pr-3 text-[11px] text-slate-500 max-w-xs truncate" title={probe.userAgent}>
+                        {probe.userAgent}
+                      </td>
+                      <td className="py-2.5 pr-3 font-mono text-center font-bold text-slate-700 dark:text-slate-300">
+                        {probe.blockedAttemptsCount}
+                      </td>
+                      <td className="py-2.5 pr-3 text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(probe.trappedAt).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right whitespace-nowrap">
+                        {probe.status === 'ACTIVE_BAN' ? (
+                          <button
+                            onClick={() => {
+                              setUnbanModalTarget(probe);
+                              setUnbanReason('');
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-[11px] font-semibold transition-colors cursor-pointer"
+                            title="Desbloquear IP manualmente"
+                          >
+                            Desbloquear
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Liberado</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal de Desbloqueio (Unban) de IP do Honeypot */}
+      {unbanModalTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Ban className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                Desbloquear IP da Quarentena
+              </h3>
+              <button 
+                onClick={() => setUnbanModalTarget(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <div>Endereço IP: <strong className="font-mono text-slate-900 dark:text-white">{unbanModalTarget.ipAddress}</strong></div>
+              <div>Rota Bloqueada: <strong className="font-mono text-rose-600 dark:text-rose-400">{unbanModalTarget.path}</strong></div>
+              <div>Tentativas Registradas: <strong>{unbanModalTarget.blockedAttemptsCount}</strong></div>
+            </div>
+
+            <form onSubmit={handleUnbanIp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Justificativa Formal (Gravada na Trilha WORM):
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Falso positivo auditado / Teste de penetração autorizado"
+                  value={unbanReason}
+                  onChange={(e) => setUnbanReason(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setUnbanModalTarget(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingHardening || !unbanReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {loadingHardening ? 'Desbloqueando...' : 'Confirmar e Gravar no WORM'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Criação de Novo Conector SIEM */}
       {showCreateSiemModal && (

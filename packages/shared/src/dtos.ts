@@ -1151,6 +1151,34 @@ export interface ExecutiveCompliancePackageResponse {
   message: string;
 }
 
+/**
+ * 22. HARDENING HTTP & HONEYPOT ANTI-PROBE (RFC-001 §4.4, §5.2)
+ */
+export interface SecurityHardeningOverviewResponse {
+  success: boolean;
+  metrics: import('./models').SecurityHardeningMetrics;
+  activeBannedIps: import('./models').HoneypotProbeRecord[];
+  recentProbes: import('./models').HoneypotProbeRecord[];
+}
+
+export interface UnbanIpRequestDTO {
+  ipAddress: string;
+  reason?: string;
+}
+
+export interface UnbanIpResponse {
+  success: boolean;
+  ipAddress: string;
+  message: string;
+  unbannedAt: string;
+}
+
+export interface VerifySecurityHeadersResponse {
+  success: boolean;
+  evaluation: import('./models').SecurityHeadersEvaluationResult;
+}
+
+
 
 
 

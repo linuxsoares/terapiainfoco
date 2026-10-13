@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 16 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo | 265/265 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 17 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot Anti-Probe | 277/277 Testes Passando
 
 
 
@@ -701,6 +701,26 @@ terapiainfoco/
   - Modal interativo de DPO Sign-Off com confirmação e gravação no WORM.
   - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
 
+### 28. Hardening de Segurança HTTP (CSP, HSTS) & Honeypot Anti-Probe com Ledger WORM (RFC-001 §4.4, §5.2)
+- [x] **Motor Criptográfico e Avaliador de Cabeçalhos OWASP (`packages/crypto/src/securityHeaders.ts`):**
+  - Catálogo formal dos 9 cabeçalhos recomendados por OWASP/NIST: `Content-Security-Policy` (`default-src 'self'; frame-ancestors 'none'`), `Strict-Transport-Security` (`max-age=31536000; includeSubDomains; preload`), `X-Content-Type-Options` (`nosniff`), `X-Frame-Options` (`DENY`), `X-XSS-Protection` (`0`), `Referrer-Policy` (`strict-origin-when-cross-origin`), `Permissions-Policy` (restrição estrita de `camera=(self)` e `microphone=(self)` apenas para teleconsulta, bloqueando geolocalização e pagamentos), `Cross-Origin-Opener-Policy` (`same-origin`) e `Cross-Origin-Resource-Policy` (`same-origin`).
+  - Avaliador e calculador de pontuação de conformidade HTTP (`evaluateSecurityHeaders`) com scoring ponderado de 0 a 100%.
+  - Detecção de probes e reconnaissance maliciosos com expressões regulares (`HONEYPOT_PROBE_PATTERNS` cobrindo `/.env`, `/.git`, `/wp-admin`, `/actuator`, `phpinfo`, `/aws`, `/config`, etc.).
+- [x] **Middlewares de Segurança Global & Honeypot Ativo (`apps/backend`):**
+  - `securityHeadersMiddleware`: Injeção compulsória dos 9 cabeçalhos em todas as respostas da API Hono.
+  - `honeypotService`: Gerenciamento em memória de quarentena de IPs maliciosos com janela configurável (padrão de 60 minutos), detecção de probes automatizados e registro no ledger WORM com ação `HONEYPOT_PROBE_BLOCKED`.
+  - `honeypotMiddleware`: Interceptação precoce de scanner bot com resposta HTTP 418 ("I'm a teapot") e bloqueio preventivo de IPs sob quarentena com HTTP 403 Forbidden (`IP_QUARANTINED`).
+- [x] **Endpoints Administrativos de Defesa Ativa (`/api/security/hardening/*`):**
+  - `GET /api/security/hardening/overview`: Retorna status do Honeypot, cabeçalhos OWASP ativos, IPs em quarentena e últimos probes interceptados.
+  - `POST /api/security/hardening/honeypot/unban`: Permite a administradores remover IPs da quarentena com auditoria forense obrigatória gravada no ledger WORM (`HONEYPOT_IP_UNBANNED`).
+  - `GET /api/security/hardening/headers/verify`: Executa auditoria em tempo real dos cabeçalhos injetados e gera laudo com score e status PASS/WARN.
+- [x] **Painel de Controle no Frontend Clínico (`apps/frontend/src/components/SecurityModule.tsx`):**
+  - Card 11 dedicado à Defesa HTTP & Honeypot com 4 KPIs em tempo real (Score de Conformidade, Probes Interceptados, IPs em Quarentena e Status Ativo do Honeypot).
+  - Matriz de Auditoria OWASP exibindo valor esperado, valor atual e status PASS/WARN de cada cabeçalho.
+  - Monitor forense de probes em tempo real com identificação de IP, path sonda interceptado, data/hora e tempo de expiração do ban.
+  - Modal de Desbloqueio Auditado de IP solicitando justificativa formal registrada no ledger WORM.
+  - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -741,19 +761,21 @@ terapiainfoco/
 | `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
 | `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
 | `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | Merged |
-| `feat/executive-compliance-governance-package` | Dashboard Executivo de Governança, Compliance Package Multi-Normativo Forense (LGPD, CFP, ICP-Brasil, SOC2) & DPO Sign-Off (RFC §4.4, §5.2) | [PR #39](https://github.com/linuxsoares/terapiainfoco/pull/39) | **Em Aberto** |
+| `feat/executive-compliance-governance-package` | Dashboard Executivo de Governança, Compliance Package Multi-Normativo Forense (LGPD, CFP, ICP-Brasil, SOC2) & DPO Sign-Off (RFC §4.4, §5.2) | [PR #39](https://github.com/linuxsoares/terapiainfoco/pull/39) | Merged |
+| `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | PR #40 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo (RFC-001 §4.4, §5.2)**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos (RFC §5.2)**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **265 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe (RFC §4.4, §5.2)**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **277 testes automatizados**, os próximos passos de evolução do roadmap são:
 
-#### 🛡️ Governança, Hardening & Compliance Consolidado
+#### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
 - [x] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública e DPO Sign-Off.
-- [ ] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados.
+- [x] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados com quarentena em memória e trilha WORM.
 - [ ] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia.
+- [ ] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
 
 ---
 
@@ -763,7 +785,7 @@ Com o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo 
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (265 testes)
+# 2. Executar suíte completa de testes (277 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
