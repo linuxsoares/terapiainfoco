@@ -379,5 +379,42 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
       const statusAfterData = await statusAfter.json();
       expect(statusAfterData.oauth.connectedEmail).toBeUndefined();
     });
+
+    it('deve permitir que psicólogos (PSICOLOGO_TITULAR) acessem diagnóstico e teste do Google Meet sem 403', async () => {
+      // 1. Login com o psicólogo padrão
+      const loginRes = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'psicologo@terapiainfoco.com.br',
+          password: 'Senha@123456'
+        })
+      });
+      const loginData = await loginRes.json();
+      const therapistToken = loginData.accessToken;
+      expect(therapistToken).toBeDefined();
+
+      // 2. GET /api/system/google-meet/status com token de psicólogo
+      const statusRes = await app.request('/api/system/google-meet/status', {
+        headers: { Authorization: `Bearer ${therapistToken}` }
+      });
+      expect(statusRes.status).toBe(200);
+      const statusData = await statusRes.json();
+      expect(statusData.success).toBe(true);
+
+      // 3. POST /api/system/google-meet/test com token de psicólogo
+      const testRes = await app.request('/api/system/google-meet/test', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${therapistToken}`
+        },
+        body: JSON.stringify({ accessType: MeetAccessType.TRUSTED })
+      });
+      expect(testRes.status).toBe(200);
+      const testData = await testRes.json();
+      expect(testData.success).toBe(true);
+      expect(testData.meetingUri).toContain('meet.google.com');
+    });
   });
 });
