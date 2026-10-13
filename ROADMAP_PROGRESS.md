@@ -762,7 +762,7 @@ terapiainfoco/
 | `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | Merged |
 | `feat/opentelemetry-otlp-exporter-batch` | Exportação Automática de Métricas e Traces OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic & Batch Exporter (RFC §5.2) | [PR #38](https://github.com/linuxsoares/terapiainfoco/pull/38) | Merged |
 | `feat/executive-compliance-governance-package` | Dashboard Executivo de Governança, Compliance Package Multi-Normativo Forense (LGPD, CFP, ICP-Brasil, SOC2) & DPO Sign-Off (RFC §4.4, §5.2) | [PR #39](https://github.com/linuxsoares/terapiainfoco/pull/39) | Merged |
-| `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | PR #40 | **Em Aberto** |
+| `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | [PR #40](https://github.com/linuxsoares/terapiainfoco/pull/40) | **Em Aberto** |
 
 ---
 
