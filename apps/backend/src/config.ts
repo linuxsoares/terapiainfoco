@@ -1,3 +1,5 @@
+import { MeetAccessType } from '@terapiainfoco/shared';
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
   env: process.env.NODE_ENV || 'development',
@@ -14,5 +16,15 @@ export const config = {
     publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
     secretKey: process.env.SUPABASE_SECRET_KEY || '',
     jwksUrl: process.env.SUPABASE_JWKS_URL || ''
+  },
+  /** Configurações da API do Google Workspace & Google Meet (RFC §3.2) */
+  google: {
+    /** Token OAuth Bearer com escopo https://www.googleapis.com/auth/meetings.space.created */
+    meetAccessToken: process.env.GOOGLE_MEET_ACCESS_TOKEN || process.env.GOOGLE_WORKSPACE_ACCESS_TOKEN || '',
+    /** Token OAuth legado para Google Calendar com conferenceData */
+    calendarAccessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN || '',
+    /** Tipo de controle de admissão (sala de espera / knocking): TRUSTED (padrão CFP), OPEN ou RESTRICTED */
+    defaultAccessType: (process.env.GOOGLE_MEET_ACCESS_TYPE as MeetAccessType) || MeetAccessType.TRUSTED
   }
 };
+

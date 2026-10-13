@@ -86,7 +86,7 @@ export class SyntheticService {
         appointmentTime.setMinutes(0, 0, 0);
         const endTime = new Date(appointmentTime.getTime() + 50 * 60 * 1000);
 
-        const booking = AppointmentService.bookPublicAppointment(
+        const booking = await AppointmentService.bookPublicAppointment(
           {
             therapistId: 'therapist-001',
             patientName: `[PROBE] Paciente Sintético ${Date.now() % 10000}`,

@@ -14,7 +14,9 @@ import {
   OtlpExporterProvider,
   OtlpExportStatus,
   ComplianceFramework,
-  ComplianceControlStatus
+  ComplianceControlStatus,
+  MeetProvider,
+  MeetAccessType
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -85,9 +87,12 @@ export interface Appointment {
   scheduledEnd: Date | string;
   status: AppointmentStatus;
   
-  // Integração Google Meet
+  // Integração Google Meet REST API v2 & Calendar
   googleEventId?: string;
   meetAccessCode?: string;
+  meetSpaceName?: string;
+  meetProvider?: MeetProvider;
+  meetAccessType?: MeetAccessType;
   
   createdAt: Date | string;
 }

@@ -1,4 +1,4 @@
-import { AppointmentStatus, DocumentType, UserRole } from './enums';
+import { AppointmentStatus, DocumentType, UserRole, MeetProvider, MeetAccessType } from './enums';
 import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
@@ -19,6 +19,7 @@ export interface CreateAppointmentDTO {
   scheduledEnd: string;   // ISO string
   bufferMinutes?: number;
   meetUrl?: string;
+  accessType?: MeetAccessType;
 }
 
 export interface UpdateAppointmentStatusDTO {
@@ -1178,18 +1179,34 @@ export interface VerifySecurityHeadersResponse {
   evaluation: import('./models').SecurityHeadersEvaluationResult;
 }
 
+/**
+ * Diagnóstico & Status da Integração Google Meet REST API v2
+ */
+export interface GoogleMeetStatusResponse {
+  configured: boolean;
+  activeProvider: MeetProvider;
+  defaultAccessType: MeetAccessType;
+  scopes: string[];
+  features: {
+    spacesV2: boolean;
+    calendarV3: boolean;
+    knockingWaitingRoom: boolean;
+    endConference: boolean;
+  };
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * Resposta de Teste de Emissão de Sala no Google Meet
+ */
+export interface GoogleMeetTestResponse {
+  success: boolean;
+  provider: MeetProvider;
+  spaceName?: string;
+  meetingCode: string;
+  meetingUri: string;
+  accessType: MeetAccessType;
+  latencyMs: number;
+  message?: string;
+}
 
 
