@@ -648,9 +648,9 @@ export function AgendaModule() {
                     ) : meetStatus?.oauth?.hasRefreshToken ? (
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">Refresh Token ativo no ambiente</span>
                     ) : meetStatus?.oauth?.hasClientId ? (
-                      <span className="text-amber-600 dark:text-amber-400">Credenciais prontas — aguardando autorização</span>
+                      <span className="text-amber-600 dark:text-amber-400">Credenciais detectadas no servidor — Clique em Conectar</span>
                     ) : (
-                      <span className="text-slate-500 italic">GOOGLE_CLIENT_ID não configurado no .env</span>
+                      <span className="text-slate-500 italic">GOOGLE_CLIENT_ID não detectado nas variáveis de ambiente</span>
                     )}
                   </div>
                   <div>

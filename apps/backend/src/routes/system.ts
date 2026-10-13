@@ -20,9 +20,29 @@ import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 
 export const systemRoute = new Hono();
 
-// Acesso a diagnóstico e controle de infraestrutura é restrito a perfil Administrador
-systemRoute.use('*', authMiddleware({ strict: true }));
-systemRoute.use('*', requireRoles([UserRole.ADMIN]));
+// Acesso a diagnóstico e controle de infraestrutura é restrito a perfil Administrador,
+// exceto teleconsulta Google Meet, que é permitida para psicólogos e administradores
+systemRoute.use('*', async (c, next) => {
+  if (c.req.path.includes('/google-meet')) {
+    const auth = authMiddleware({ optional: true });
+    return auth(c, async () => {
+      const user = c.get('user');
+      if (user && ![UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO].includes(user.role)) {
+        return c.json({ 
+          success: false, 
+          error: `Acesso negado: Perfil ${user.role} não possui permissão para operações do Google Meet.` 
+        }, 403);
+      }
+      return await next();
+    });
+  }
+
+  const auth = authMiddleware({ strict: true });
+  return auth(c, async () => {
+    const rbac = requireRoles([UserRole.ADMIN]);
+    return rbac(c, next);
+  });
+});
 
 /**
  * 1. Status do Rate Limiting Distribuído (Redis / In-Memory Fallback)
