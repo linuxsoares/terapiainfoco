@@ -502,6 +502,64 @@ export interface WebAuthnChallengeSession {
   expiresAt: number; // timestamp ms
 }
 
+/**
+ * 14. AUDITORIA CONTÍNUA, PENTESTING AUTOMATIZADO & RELATÓRIO RIPD/DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)
+ */
+export type PentestCategory = 
+  | 'RBAC_AUTHORIZATION' 
+  | 'RATE_LIMITING' 
+  | 'WEBHOOK_TAMPERING' 
+  | 'WORM_INTEGRITY' 
+  | 'PASSKEY_REPLAY' 
+  | 'ICP_BRASIL_SECURITY';
+
+export interface PentestScenarioResult {
+  scenarioId: string;
+  title: string;
+  category: PentestCategory;
+  status: 'passed' | 'failed';
+  latencyMs: number;
+  attackVectorSimulated: string;
+  defenseMechanismTriggered: string;
+  legalBasisRef: string;
+  details?: string;
+}
+
+export interface LgpdArticleCompliance {
+  article: string;
+  title: string;
+  requirement: string;
+  technicalSafeguard: string;
+  status: 'COMPLIANT' | 'WARNING';
+}
+
+export interface CfpResolutionCompliance {
+  resolution: string;
+  title: string;
+  requirement: string;
+  technicalSafeguard: string;
+  status: 'COMPLIANT' | 'WARNING';
+}
+
+export interface DPIAReport {
+  reportId: string;
+  generatedAt: string;
+  dpoName: string;
+  overallScore: number; // 0 a 100
+  complianceStatus: 'FULL_COMPLIANCE' | 'ACTION_REQUIRED';
+  executiveSummary: string;
+  pentestSummary: {
+    totalScenarios: number;
+    passed: number;
+    failed: number;
+  };
+  scenarios: PentestScenarioResult[];
+  lgpdArticles: LgpdArticleCompliance[];
+  cfpResolutions: CfpResolutionCompliance[];
+  canonicalHash: string;
+  verifiedBy: string;
+}
+
 
 
 

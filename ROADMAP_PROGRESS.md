@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel | 157/157 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA (Fase 4 RFC-001) | 186/186 Testes Passando
 
 
 
@@ -473,6 +473,43 @@ terapiainfoco/
 
 ---
 
+### 22. Auditoria Contínua de Segurança, Pentest Automatizado & Relatório RIPD/DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)
+- [x] **Motor Criptográfico de Auditoria e Anti-Tampering (`packages/crypto/src/compliance.ts`):**
+  - Verificação sequencial rigorosa de integridade de hash-chains WORM (`verifyHashChainIntegrity`), identificando o índice exato de quebra em caso de adulteração.
+  - Teste ativo de detecção de adulteração em repouso (`simulateCryptographicTamperingTest`) confirmando validação por Auth Tag AES-256-GCM de 128 bits e determinismo de Blind Index HMAC-SHA256.
+  - Cálculo de digest canônico determinístico SHA-256 de objetos JSON ordenados (`calculateReportCanonicalHash`) para selagem pericial e probatória do relatório.
+  - Suíte de testes unitários criptográficos com 6 cenários cobrindo integridade e detecção de violações (`compliance.test.ts`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Entidades `PentestScenarioResult`, `LgpdArticleCompliance`, `CfpResolutionCompliance` e `DPIAReport`.
+  - Ações de auditoria WORM `AuditAction.COMPLIANCE_AUDIT_RUN` e `AuditAction.DPIA_REPORT_EXPORT`.
+  - DTOs padronizados para execução de pentest e exportação oficial do RIPD.
+- [x] **Serviço Backend & Bateria de Pentests Automatizados (`apps/backend/src/services/complianceService.ts`):**
+  - Execução sequencial de 6 cenários de penetration testing automatizado com latência, vetor de ataque, mecanismo defensivo e base legal:
+    1. *Bypass RBAC em Prontuário SOAP*: Bloqueio mandatório com HTTP 403 Forbidden para perfis não autorizados (CFP 001/2009 e LGPD Art. 11).
+    2. *Ataque de Força Bruta & Enumeração de Credenciais*: Interceptação com HTTP 429 Too Many Requests pelo Rate Limiter (LGPD Art. 46).
+    3. *Adulteração de Payload em Webhook Assinado*: Rejeição por violação de assinatura HMAC-SHA256 e proteção anti-replay (LGPD Art. 48).
+    4. *Corrupção Estrutural de Hash-Chain WORM*: Detecção imediata de violação de integridade por elo quebrado (LGPD Art. 37).
+    5. *Replay Attack em Desafio WebAuthn / Passkeys*: Rejeição por expiração/reuso de desafio criptográfico FIDO2 (LGPD Art. 46).
+    6. *Adulteração de Ciphertext / Chave FLE*: Rejeição mandatória da decifragem pela Auth Tag GCM de 16 bytes (LGPD Art. 46 e RFC §4.2).
+  - Cálculo de Score de Blindagem Criptográfica (100% Blindado).
+  - Mapeamento analítico de conformidade para 9 artigos centrais da LGPD e 4 resoluções deontológicas do CFP (001/2009, 011/2018, 006/2019, 004/2020).
+  - Geração de selo canônico SHA-256 e gravação na trilha WORM.
+- [x] **Endpoints REST Seguros com RBAC (`apps/backend/src/routes/audit.ts`):**
+  - `POST /api/audit/compliance/run`: disparo sob demanda da bateria de pentest restrito a `ADMIN` e `PSICOLOGO_TITULAR`.
+  - `GET /api/audit/compliance/report`: consulta do último relatório RIPD/DPIA consolidado.
+  - `GET /api/audit/compliance/download-ripd`: download direto do arquivo assinado em JSON com cabeçalho `Content-Disposition`.
+  - Suíte de 5 testes de integração com validação estrita de RBAC e auditoria WORM (`complianceAudit.test.ts`).
+- [x] **Interface Frontend Integrada (`apps/frontend/src/components/AuditModule.tsx`):**
+  - Aba 2 *"Relatório de Impacto (RIPD / DPIA) & Pentest"* no Módulo de Auditoria.
+  - Card executivo com Score 100%, status "BLINDADO & CONFORME", DPO e data da auditoria.
+  - Selo probatório com digest SHA-256 canônico e botão de cópia rápida.
+  - Grid interativo dos 6 cenários de pentest com badge de bloqueio, latência, vetor de ataque e salvaguarda aplicada.
+  - Matriz técnica detalhada para os 9 artigos da LGPD e matriz deontológica para as 4 resoluções do CFP.
+  - Botões para disparo de pentest em tempo real e download imediato do relatório oficial assinado.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -506,20 +543,20 @@ terapiainfoco/
 | `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | Merged |
 | `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | Merged |
 | `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | Merged |
-| `feat/webauthn-passkeys-biometrics` | Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 §4 & LGPD Art. 46 - Opção O) | [PR #33](https://github.com/linuxsoares/terapiainfoco/pull/33) | **Em Aberto** |
+| `feat/webauthn-passkeys-biometrics` | Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 §4 & LGPD Art. 46 - Opção O) | [PR #33](https://github.com/linuxsoares/terapiainfoco/pull/33) | Merged |
+| `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **175 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Fase 4 do RFC-001 (Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **186 testes automatizados**, os próximos passos de evolução do roadmap são:
 
-#### 🔑 Opção O: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID)
-- [x] **Passkeys / WebAuthn:** Login sem senha ou segundo fator físico com chaves FIDO2 de hardware para o psicólogo titular e gestão completa no Card 7 do painel de segurança.
-
-#### 🛡️ Auditoria Contínua & Homologação de Produção (Próximas Fases)
-- [ ] **Simulador de Penetration Testing & Verificação de Conformidade CFP/LGPD:** Testes contínuos de integridade das hash-chains, verificação periódica de expiração de certificados ICP-Brasil e relatórios automáticos para o DPO.
-- [ ] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher real com retry exponencial para sistemas como Datadog, Splunk ou Elastic.
+#### 🛡️ Auditoria Contínua, Homologação & Hardening (Fase 4 do RFC-001 Concluída)
+- [x] **Simulador de Penetration Testing & Relatório RIPD/DPIA (LGPD Art. 38/50 & CFP):** 6 cenários automatizados de pentest, Score de Blindagem 100%, matrizes analíticas LGPD/CFP, selo canônico SHA-256 e download de relatório oficial.
+- [ ] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher real com retry exponencial para sistemas como Datadog, Splunk ou Elastic (RFC §4.4 e §5.2).
+- [ ] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
+- [ ] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano.
 
 ---
 

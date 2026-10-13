@@ -80,7 +80,10 @@ export enum AuditAction {
   UNMASK_DATA = 'UNMASK_DATA',
   // Ações de Autenticação Biométrica WebAuthn / Passkeys (Opção O)
   PASSKEY_REGISTER = 'PASSKEY_REGISTER',
-  PASSKEY_REVOKE = 'PASSKEY_REVOKE'
+  PASSKEY_REVOKE = 'PASSKEY_REVOKE',
+  // Ações de Auditoria Contínua & Conformidade RIPD/DPIA (Fase 4 do RFC-001)
+  COMPLIANCE_AUDIT_RUN = 'COMPLIANCE_AUDIT_RUN',
+  DPIA_REPORT_EXPORT = 'DPIA_REPORT_EXPORT'
 }
 
 export enum AuditResourceType {
@@ -91,7 +94,8 @@ export enum AuditResourceType {
   DOCUMENT = 'DOCUMENT',
   USER = 'USER',
   SECURITY = 'SECURITY',
-  BACKUP = 'BACKUP'
+  BACKUP = 'BACKUP',
+  COMPLIANCE = 'COMPLIANCE'
 }
 
 

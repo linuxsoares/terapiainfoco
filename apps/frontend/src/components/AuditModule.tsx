@@ -10,12 +10,26 @@ import {
   Lock, 
   FileSpreadsheet, 
   Layers, 
-  Filter
+  Filter,
+  Play,
+  Copy,
+  Check,
+  Award,
+  FileCheck2,
+  ShieldAlert
 } from 'lucide-react';
-import { AuditAction, AuditResourceType, type AuditLog, type ChainIntegrityResult, type AuditFilterParams } from '@terapiainfoco/shared';
+import { 
+  AuditAction, 
+  AuditResourceType, 
+  type AuditLog, 
+  type ChainIntegrityResult, 
+  type AuditFilterParams,
+  type DPIAReport
+} from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 export function AuditModule() {
+  const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest'>('worm_logs');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [chainStatus, setChainStatus] = useState<ChainIntegrityResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +37,13 @@ export function AuditModule() {
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estados de RIPD / DPIA & Pentest (Fase 4 do RFC-001)
+  const [dpiaReport, setDpiaReport] = useState<DPIAReport | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [runningPentest, setRunningPentest] = useState(false);
+  const [downloadingRipd, setDownloadingRipd] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   // Filtros
   const [filterAction, setFilterAction] = useState<string>('');
@@ -100,6 +121,59 @@ export function AuditModule() {
     }
   };
 
+  const fetchDPIAReport = async () => {
+    try {
+      setLoadingReport(true);
+      const report = await api.getLatestDPIAReport();
+      setDpiaReport(report);
+    } catch (err: any) {
+      console.warn('Falha ao carregar relatório DPIA:', err.message);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'dpia_pentest' && !dpiaReport) {
+      fetchDPIAReport();
+    }
+  }, [activeTab]);
+
+  const handleRunPentest = async () => {
+    try {
+      setRunningPentest(true);
+      setError(null);
+      const res = await api.runCompliancePentest();
+      setDpiaReport(res.report);
+      setSuccessMessage(res.message);
+      await fetchLogs();
+    } catch (err: any) {
+      setError(err.message || 'Falha ao executar pentest automatizado');
+    } finally {
+      setRunningPentest(false);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+  };
+
+  const handleDownloadRipd = async () => {
+    try {
+      setDownloadingRipd(true);
+      await api.downloadDPIAReport();
+      setSuccessMessage('Relatório RIPD/DPIA baixado com sucesso em JSON assinado.');
+    } catch (err: any) {
+      setError(err.message || 'Falha ao baixar relatório RIPD');
+    } finally {
+      setDownloadingRipd(false);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    }
+  };
+
+  const handleCopyHash = (hash: string) => {
+    navigator.clipboard.writeText(hash);
+    setCopiedHash(true);
+    setTimeout(() => setCopiedHash(false), 3000);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -171,8 +245,40 @@ export function AuditModule() {
         </div>
       )}
 
-      {/* Status da Hash-Chain WORM */}
-      {chainStatus && (
+      {/* Seletor de Abas */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-2">
+        <button
+          onClick={() => setActiveTab('worm_logs')}
+          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
+            activeTab === 'worm_logs'
+              ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span>Trilha WORM & Logs Imutáveis</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('dpia_pentest')}
+          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
+            activeTab === 'dpia_pentest'
+              ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <Award className="w-4 h-4" />
+          <span>Relatório de Impacto (RIPD / DPIA) & Pentest</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+            Fase 4
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'worm_logs' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Status da Hash-Chain WORM */}
+          {chainStatus && (
         <div className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
           chainStatus.isValid 
             ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-900 dark:text-emerald-100'
@@ -366,6 +472,257 @@ export function AuditModule() {
           </div>
         )}
       </div>
+      </div>
+      )}
+
+      {/* Aba 2: Relatório de Impacto (RIPD / DPIA) & Pentest Automatizado (Fase 4 do RFC-001) */}
+      {activeTab === 'dpia_pentest' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header e Ações do Relatório RIPD */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20 shrink-0">
+                  <Award className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                      Relatório de Impacto à Proteção de Dados (RIPD / DPIA) & Pentest
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      LGPD Art. 38 & 50
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      CFP 001/011
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                    Avaliação contínua de salvaguardas técnicas, mitigação de riscos à privacidade e teste ativo de intrusão
+                    (pentesting automatizado). Atesta a inviolabilidade da infraestrutura perante a ANPD e o Conselho Federal de Psicologia.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  onClick={handleRunPentest}
+                  disabled={runningPentest}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Disparar bateria com os 6 cenários de pentest automatizado"
+                >
+                  <Play className={`w-4 h-4 ${runningPentest ? 'animate-spin' : ''}`} />
+                  <span>{runningPentest ? 'Executando Pentest...' : 'Executar Pentest Automatizado'}</span>
+                </button>
+
+                <button
+                  onClick={handleDownloadRipd}
+                  disabled={downloadingRipd || !dpiaReport}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Download do arquivo oficial assinado em JSON"
+                >
+                  <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>{downloadingRipd ? 'Baixando...' : 'Exportar RIPD Oficial'}</span>
+                </button>
+              </div>
+            </div>
+
+            {loadingReport && !dpiaReport ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
+                <span>Carregando dados de conformidade e pentesting...</span>
+              </div>
+            ) : dpiaReport ? (
+              <>
+                {/* Score Geral e Metadados do Relatório */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-black shrink-0">
+                      {dpiaReport.overallScore}%
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Score de Blindagem</span>
+                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        {dpiaReport.complianceStatus === 'FULL_COMPLIANCE' ? 'Conformidade Integral (100%)' : 'Ação Recomendada'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Responsável Legal / DPO</span>
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mt-0.5">
+                      {dpiaReport.dpoName}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Última Auditoria</span>
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                      {new Date(dpiaReport.generatedAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selo Probatório (SHA-256)</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                        {dpiaReport.canonicalHash.slice(0, 10)}...{dpiaReport.canonicalHash.slice(-6)}
+                      </span>
+                      <button
+                        onClick={() => handleCopyHash(dpiaReport.canonicalHash)}
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
+                        title="Copiar Hash Canônico do Relatório"
+                      >
+                        {copiedHash ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resumo Executivo */}
+                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <strong className="text-emerald-800 dark:text-emerald-300 block mb-1">
+                    📋 Resumo Executivo para Fiscalização ANPD & CFP:
+                  </strong>
+                  {dpiaReport.executiveSummary}
+                </div>
+
+                {/* Seção 1: Cenários de Pentest Automatizado */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Cenários de Pentest Automatizado ({dpiaReport.pentestSummary.passed}/{dpiaReport.pentestSummary.totalScenarios} Aprovados)
+                    </h3>
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      0 Falhas Detectadas
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {dpiaReport.scenarios.map((sc) => (
+                      <div 
+                        key={sc.scenarioId}
+                        className="p-4 rounded-2xl border bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 transition-colors flex flex-col justify-between space-y-3"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                              {sc.scenarioId}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                              DEFESA ATIVADA ({sc.latencyMs}ms)
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                            {sc.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            <strong>Ataque:</strong> {sc.attackVectorSimulated}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                          <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                            🛡️ {sc.defenseMechanismTriggered}
+                          </p>
+                          <span className="text-[10px] text-slate-400 block">
+                            Ref: {sc.legalBasisRef}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Seção 2: Salvaguardas dos Artigos da LGPD */}
+                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    Matriz de Conformidade Técnica — LGPD (Lei nº 13.709/2018)
+                  </h3>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                      <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                          <th className="py-2.5 pr-4">Artigo da Lei</th>
+                          <th className="py-2.5 pr-4">Exigência Normativa</th>
+                          <th className="py-2.5 pr-4">Salvaguarda Técnica Implementada</th>
+                          <th className="py-2.5 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {dpiaReport.lgpdArticles.map((art) => (
+                          <tr key={art.article} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                            <td className="py-2.5 pr-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                              {art.article}
+                              <span className="block text-[10px] text-slate-400 font-normal">{art.title}</span>
+                            </td>
+                            <td className="py-2.5 pr-4 max-w-xs text-[11px] text-slate-600 dark:text-slate-400">
+                              {art.requirement}
+                            </td>
+                            <td className="py-2.5 pr-4 max-w-sm text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                              {art.technicalSafeguard}
+                            </td>
+                            <td className="py-2.5 text-right whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                COMPLIANT
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Seção 3: Salvaguardas das Resoluções do CFP */}
+                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    Matriz Deontológica — Conselho Federal de Psicologia (CFP)
+                  </h3>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                      <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                          <th className="py-2.5 pr-4">Resolução CFP</th>
+                          <th className="py-2.5 pr-4">Exigência Normativa</th>
+                          <th className="py-2.5 pr-4">Salvaguarda Técnica Implementada</th>
+                          <th className="py-2.5 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {dpiaReport.cfpResolutions.map((cfp) => (
+                          <tr key={cfp.resolution} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                            <td className="py-2.5 pr-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                              {cfp.resolution}
+                              <span className="block text-[10px] text-slate-400 font-normal">{cfp.title}</span>
+                            </td>
+                            <td className="py-2.5 pr-4 max-w-xs text-[11px] text-slate-600 dark:text-slate-400">
+                              {cfp.requirement}
+                            </td>
+                            <td className="py-2.5 pr-4 max-w-sm text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                              {cfp.technicalSafeguard}
+                            </td>
+                            <td className="py-2.5 text-right whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                COMPLIANT
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

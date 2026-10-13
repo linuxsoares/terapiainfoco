@@ -916,6 +916,24 @@ export interface PasskeyListResponse {
   passkeys: PasskeyInfoDTO[];
 }
 
+/**
+ * DTOs de Auditoria Contínua, Pentest & Relatório RIPD/DPIA (Fase 4 do RFC-001)
+ */
+export interface RunCompliancePentestDTO {
+  includeHistoricalWormAudit?: boolean;
+}
+
+export interface CompliancePentestResponse {
+  success: boolean;
+  message: string;
+  report: import('./models').DPIAReport;
+}
+
+export interface DPIAReportResponse {
+  success: boolean;
+  report: import('./models').DPIAReport;
+}
+
 
 
 
