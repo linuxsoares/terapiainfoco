@@ -662,7 +662,7 @@ terapiainfoco/
 | `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | Merged |
 | `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
 | `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
-| `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | PR #37 | **Em Aberto** |
+| `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | [PR #37](https://github.com/linuxsoares/terapiainfoco/pull/37) | **Em Aberto** |
 
 ---
 
