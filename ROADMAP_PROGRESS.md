@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos & Retry Resiliente | 214/214 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 15 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga & SLOs RED | 237/237 Testes Passando
 
 
 
@@ -582,6 +582,48 @@ terapiainfoco/
   - Botão *"Re-envelopar DEKs"* e modal de configuração da *"Política de Auto-Rotação"*.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 25. Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (RFC-001 §5.1, §5.2 e Opção N)
+- [x] **Motor Estatístico & Estresse Criptográfico (`packages/crypto/src/benchmark.ts`):**
+  - Implementação determinística de cálculo de percentis RED (`calculatePercentiles`): P50, P90, P95, P99, além de min, max e média com precisão decimal.
+  - Função `runConcurrentCryptoStress` simulando alta concorrência em Envelope Encryption com KMS e Blind Indexing HMAC-SHA256, mensurando taxas de erro e latência.
+  - Suíte de 4 testes unitários criptográficos com 100% de aprovação (`benchmark.test.ts`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Enums `StressScenario` (`CRYPTO_CONCURRENCY`, `AVAILABLE_SLOTS`, `PUBLIC_BOOKING`, `MIXED_LOAD`) e `SloStatus` (`MET`, `WARNING`, `BREACHED`).
+  - Ações WORM `AuditAction.STRESS_TEST_RUN` e recurso `AuditResourceType.BENCHMARK`.
+  - Interfaces `StressPercentiles`, `StressSloEvaluation` e `StressTestReport`.
+  - DTOs padronizados `RunStressTestDTO`, `StressTestResponse`, `StressHistoryResponse` e `StressSlosResponse`.
+- [x] **Serviço Backend & REST API de Estresse (`apps/backend/src/services/stressTestService.ts`):**
+  - `StressTestService` com execução isolada de 4 cenários clínicos fundamentais:
+    1. *Consulta de Horários Disponíveis*: Leitura concorrente com validação de buffer de 10 min.
+    2. *Agendamento Concorrente com Google Meet & TCLE*: Cifragem de PII, Blind Indexing e bloqueio determinístico de sobreposições.
+    3. *Estresse Criptográfico*: Múltiplas operações paralelas de Envelope Encryption (KMS) e blind index.
+    4. *Cenário Realista Misto*: 60% leitura de agenda, 20% agendamentos e 20% operações criptográficas de prontuário.
+  - **Avaliação Contratual de 4 SLOs RED:**
+    1. `read_p99_latency`: P99 de leitura < 200ms.
+    2. `crypto_p99_latency`: P99 de operações criptográficas < 500ms.
+    3. `error_rate_under_one_percent`: Taxa de erro < 1.0%.
+    4. `worm_audit_integrity`: 100% dos eventos com garantia de imutabilidade.
+  - Execução de baseline automático no boot com registro na trilha WORM.
+  - Endpoints administrativos REST:
+    - `POST /api/system/stress/run`: Disparo de bateria de testes de estresse sob demanda.
+    - `GET /api/system/stress/history`: Histórico dos últimos benchmarks executados.
+    - `GET /api/system/stress/slos`: Status contratual consolidado dos SLOs RED.
+  - Proteção RBAC restrita a perfil `ADMIN` (HTTP 401 para anônimos e HTTP 403 para não-ADMIN).
+  - Suíte de 6 testes de integração passando (`stressTesting.test.ts`).
+- [x] **Scripts Executáveis de Carga (CLI & k6):**
+  - `scripts/load-test.ts`: Script executável via Bun CLI (`bun test:load`) simulando concorrência massiva direta na API com painel RED em tempo real.
+  - `scripts/k6-stress-test.js`: Script padrão da indústria para k6 com estágios de aquecimento, rampa para 1.000 requisições simultâneas e validação de thresholds de SLO.
+  - Adicionado script `"test:load": "bun scripts/load-test.ts"` no `package.json` raiz.
+- [x] **Painel Frontend de Homologação sob Carga (`SecurityModule.tsx` - Card 10):**
+  - Card 10 dedicado: *Homologação sob Carga & SLOs RED (k6 / Stress Concorrente)*.
+  - 4 KPIs RED em tempo real: RPS (Req/s), Latência P99, Taxa de Erro (%) e SLOs Contratuais Atingidos.
+  - Formulário interativo de configuração: seletor de cenário, total de requisições (50 a 1.000) e concorrência (5 a 50).
+  - Botão *"Disparar Teste de Carga"* com medição e progresso em tempo real.
+  - Distribuição visual de latência por barras (P50, P90, P95, P99, Média, Min e Max).
+  - Matriz de auditoria de SLOs contratuais com badges de status (`MET`, `WARNING`, `BREACHED`).
+  - Histórico cronológico das baterias de stress test com data, duração e RPS.
+  - Totalmente adaptativo com suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -619,17 +661,18 @@ terapiainfoco/
 | `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | Merged |
 | `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | Merged |
 | `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
-| `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | **Em Aberto** |
+| `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | Merged |
+| `feat/load-testing-stress-benchmarks-slo` | Homologação sob Carga, Stress Concorrente & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2) | PR #37 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **227 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Homologação sob Carga & Auditoria de SLOs RED (k6 / RFC §5.1, §5.2)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **237 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Homologação, Stress & Integrações Finais de Infraestrutura
 - [x] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano (NIST SP 800-57 & RFC §4.2).
-- [ ] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
+- [x] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
 - [ ] **Exportação Automática de Métricas OpenTelemetry OTLP via gRPC/HTTP para Datadog/NewRelic:** Coleta remota de traces e logs criptográficos em lote.
 
 ---
@@ -640,7 +683,7 @@ Com a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (227 testes)
+# 2. Executar suíte completa de testes (237 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

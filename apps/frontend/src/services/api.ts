@@ -89,7 +89,12 @@ import type {
   ReWrapDeksResponse,
   UpdateKmsPolicyDTO,
   UpdateKmsPolicyResponse,
-  RevokeKmsKeyDTO
+  RevokeKmsKeyDTO,
+  StressTestReport,
+  RunStressTestDTO,
+  StressTestResponse,
+  StressHistoryResponse,
+  StressSlosResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1026,8 +1031,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 18. Homologação sob Carga, Stress Concorrente & Avaliação de SLOs RED (RFC §5.1, §5.2)
+  async runStressTest(dto?: RunStressTestDTO): Promise<StressTestReport> {
+    const res = await request<StressTestResponse>('/system/stress/run', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+    return res.report;
+  },
+
+  async getStressHistory(): Promise<StressTestReport[]> {
+    const res = await request<StressHistoryResponse>('/system/stress/history');
+    return res.reports || [];
+  },
+
+  async getStressSlos(): Promise<Array<{ id: string; name: string; targetDescription: string; thresholdMs?: number; maxErrorRate?: number; unit: string }>> {
+    const res = await request<StressSlosResponse>('/system/stress/slos');
+    return res.slos || [];
   }
 };
+
 
 
 

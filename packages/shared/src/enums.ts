@@ -92,7 +92,9 @@ export enum AuditAction {
   KMS_KEY_ROTATED = 'KMS_KEY_ROTATED',
   KMS_KEY_RE_WRAPPED = 'KMS_KEY_RE_WRAPPED',
   KMS_KEY_REVOKED = 'KMS_KEY_REVOKED',
-  KMS_POLICY_UPDATED = 'KMS_POLICY_UPDATED'
+  KMS_POLICY_UPDATED = 'KMS_POLICY_UPDATED',
+  // Ações de Testes de Carga, Stress Concorrente e SLOs (RFC §5.1, §5.2)
+  STRESS_TEST_RUN = 'STRESS_TEST_RUN'
 }
 
 export enum AuditResourceType {
@@ -106,7 +108,8 @@ export enum AuditResourceType {
   BACKUP = 'BACKUP',
   COMPLIANCE = 'COMPLIANCE',
   SIEM = 'SIEM',
-  KMS = 'KMS'
+  KMS = 'KMS',
+  BENCHMARK = 'BENCHMARK'
 }
 
 /**
@@ -127,6 +130,26 @@ export enum KmsProviderType {
   AWS_KMS = 'AWS_KMS',
   GCP_CLOUD_KMS = 'GCP_CLOUD_KMS',
   HASHICORP_VAULT = 'HASHICORP_VAULT'
+}
+
+/**
+ * Cenários de Testes de Carga & Stress Concorrente (k6 / Artillery / RFC §5.1, §5.2)
+ */
+export enum StressScenario {
+  READ_CONCURRENCY = 'READ_CONCURRENCY',               // Consultas concorrentes de horários livres
+  CRYPTO_ENVELOPE_STRESS = 'CRYPTO_ENVELOPE_STRESS',   // Cifragem em massa AES-256-GCM + Blind Index
+  WORM_LEDGER_STRESS = 'WORM_LEDGER_STRESS',           // Gravações simultâneas na Hash-Chain WORM
+  RATE_LIMIT_SATURATION = 'RATE_LIMIT_SATURATION',     // Saturação e resiliência de HTTP 429
+  FULL_SYSTEM_MIXED = 'FULL_SYSTEM_MIXED'              // Carga mista ponta a ponta simulando pico real
+}
+
+/**
+ * Status de Conformidade de Service Level Objective (SLO)
+ */
+export enum SloStatus {
+  MET = 'MET',             // SLO rigorosamente cumprido dentro da meta
+  WARNING = 'WARNING',     // Próximo do limite de tolerância
+  BREACHED = 'BREACHED'    // Meta de latência ou taxa de erro violada
 }
 
 

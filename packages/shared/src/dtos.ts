@@ -1053,6 +1053,39 @@ export interface UpdateKmsPolicyResponse {
   message: string;
 }
 
+/**
+ * 19. TESTES DE CARGA, STRESS CONCORRENTE & SLOS RED (RFC §5.1, §5.2)
+ */
+export interface RunStressTestDTO {
+  scenario?: import('./enums').StressScenario;
+  totalRequests?: number;
+  concurrency?: number;
+}
+
+export interface StressTestResponse {
+  success: boolean;
+  report: import('./models').StressTestReport;
+  message: string;
+}
+
+export interface StressHistoryResponse {
+  success: boolean;
+  reports: import('./models').StressTestReport[];
+}
+
+export interface StressSlosResponse {
+  success: boolean;
+  slos: Array<{
+    id: string;
+    name: string;
+    targetDescription: string;
+    thresholdMs?: number;
+    maxErrorRate?: number;
+    unit: string;
+  }>;
+}
+
+
 
 
 
