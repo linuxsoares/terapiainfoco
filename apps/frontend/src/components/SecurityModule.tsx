@@ -49,9 +49,11 @@ import type {
   SiemConnector,
   SiemQueueItem,
   SiemProvider,
-  SiemQueueResponse
+  SiemQueueResponse,
+  KmsSystemStatus,
+  KmsKeyMetadata
 } from '@terapiainfoco/shared';
-import { UserRole } from '@terapiainfoco/shared';
+import { UserRole, KmsKeyStatus } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
   currentUser: SafeUser;
@@ -459,6 +461,107 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)
+  const [kmsStatus, setKmsStatus] = useState<KmsSystemStatus | null>(null);
+  const [loadingKms, setLoadingKms] = useState<boolean>(false);
+  const [rotatingKms, setRotatingKms] = useState<boolean>(false);
+  const [reWrappingKms, setReWrappingKms] = useState<boolean>(false);
+  const [showRotateKmsModal, setShowRotateKmsModal] = useState<boolean>(false);
+  const [showKmsPolicyModal, setShowKmsPolicyModal] = useState<boolean>(false);
+  const [revokeKeyModalTarget, setRevokeKeyModalTarget] = useState<KmsKeyMetadata | null>(null);
+  const [rotateReason, setRotateReason] = useState<string>('Rotação periódica programada (NIST SP 800-57)');
+  const [rotateReWrapOption, setRotateReWrapOption] = useState<boolean>(true);
+  const [policyIntervalDays, setPolicyIntervalDays] = useState<number>(90);
+  const [policyAutoReWrap, setPolicyAutoReWrap] = useState<boolean>(true);
+  const [policyAlertDays, setPolicyAlertDays] = useState<number>(15);
+  const [revokeReason, setRevokeReason] = useState<string>('Descontinuação por ciclo de vida de segurança');
+
+  const fetchKmsData = async () => {
+    try {
+      setLoadingKms(true);
+      const data = await api.getKmsStatus();
+      setKmsStatus(data);
+      if (data.policy) {
+        setPolicyIntervalDays(data.policy.intervalDays);
+        setPolicyAutoReWrap(data.policy.autoReWrapLegacyDeks);
+        setPolicyAlertDays(data.policy.alertThresholdDays);
+      }
+    } catch {
+      // Ignora se não for admin
+    } finally {
+      setLoadingKms(false);
+    }
+  };
+
+  const handleRotateKmsKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setRotatingKms(true);
+      const res = await api.rotateKmsKey({
+        reason: rotateReason.trim() || 'Rotação periódica programada (NIST SP 800-57)',
+        reWrapExisting: rotateReWrapOption
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setShowRotateKmsModal(false);
+      await fetchKmsData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao rotacionar KEK mestre.' });
+    } finally {
+      setRotatingKms(false);
+    }
+  };
+
+  const handleReWrapKmsDeks = async () => {
+    try {
+      setReWrappingKms(true);
+      const res = await api.reWrapKmsDeks();
+      setFeedback({ type: 'success', message: res.message });
+      await fetchKmsData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao re-envelopar DEKs.' });
+    } finally {
+      setReWrappingKms(false);
+    }
+  };
+
+  const handleUpdateKmsPolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoadingKms(true);
+      const res = await api.updateKmsPolicy({
+        enabled: true,
+        intervalDays: Number(policyIntervalDays),
+        autoReWrapLegacyDeks: policyAutoReWrap,
+        alertThresholdDays: Number(policyAlertDays)
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setShowKmsPolicyModal(false);
+      await fetchKmsData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política KMS.' });
+    } finally {
+      setLoadingKms(false);
+    }
+  };
+
+  const handleRevokeKmsKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!revokeKeyModalTarget) return;
+    try {
+      setLoadingKms(true);
+      const res = await api.revokeKmsKey(revokeKeyModalTarget.version, {
+        reason: revokeReason.trim() || 'Revogação manual por política de segurança'
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setRevokeKeyModalTarget(null);
+      await fetchKmsData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao revogar chave KMS.' });
+    } finally {
+      setLoadingKms(false);
+    }
+  };
+
   React.useEffect(() => {
     fetchPasskeys();
     if (currentUser.role === UserRole.ADMIN) {
@@ -467,6 +570,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchProbes();
       fetchSyntheticData();
       fetchSiemData();
+      fetchKmsData();
     }
   }, [currentUser.role]);
 
@@ -2168,6 +2272,235 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* Card 9: Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20">
+              <KeyRound className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Gestão de Chaves KMS & Rotação Contínua
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700 uppercase tracking-wider">
+                  NIST SP 800-57 • RFC §4.2
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Envelope Encryption, custódia HSM, ciclo de vida de chaves mestras (KEK) e re-wrapping automático de DEKs em repouso.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={fetchKmsData}
+              disabled={loadingKms}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              title="Atualizar status do KMS"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingKms ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            <button
+              onClick={() => setShowKmsPolicyModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <Workflow className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Política</span>
+            </button>
+            <button
+              onClick={handleReWrapKmsDeks}
+              disabled={reWrappingKms || loadingKms}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              title="Re-envelopar DEKs legadas para a versão ativa mais recente"
+            >
+              <FolderSync className={`w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ${reWrappingKms ? 'animate-spin' : ''}`} />
+              <span>{reWrappingKms ? 'Re-envelopando...' : 'Re-envelopar DEKs'}</span>
+            </button>
+            <button
+              onClick={() => setShowRotateKmsModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Rotacionar KEK Agora</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 KPIs de Governança Criptográfica KMS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60">
+            <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 text-xs font-semibold mb-1">
+              <span>KEK Ativa no HSM</span>
+              <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 font-mono text-[10px]">
+                AES-256-GCM
+              </span>
+            </div>
+            <div className="text-2xl font-black text-amber-900 dark:text-amber-100 font-mono">
+              v{kmsStatus?.activeKeyVersion ?? 1}
+            </div>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1">
+              Chave Mestre em uso para novas DEKs
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 text-xs font-semibold mb-1">
+              <span>Versões Gerenciadas</span>
+              <span className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 font-mono text-[10px]">
+                NIST SP 800-57
+              </span>
+            </div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+              {kmsStatus?.totalKeysCount ?? 1}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Histórico seguro mantido para decifragem
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-semibold mb-1">
+              <span>Score de Blindagem</span>
+              <span className="p-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 font-mono text-[10px]">
+                {kmsStatus?.complianceScore ?? 100}%
+              </span>
+            </div>
+            <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100 font-mono">
+              {kmsStatus?.nistCompliance ? '100% OK' : 'Atenção'}
+            </div>
+            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 mt-1">
+              Sem chaves expiradas ou não rotacionadas
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-1">
+              <span>Auto-Rotação Agendada</span>
+              <span className="p-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 font-mono text-[10px]">
+                {kmsStatus?.policy?.intervalDays ?? 90}d
+              </span>
+            </div>
+            <div className="text-2xl font-black text-indigo-900 dark:text-indigo-100 font-mono">
+              {kmsStatus?.policy?.enabled ? 'Ativa' : 'Pausada'}
+            </div>
+            <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+              {kmsStatus?.policy?.nextScheduledRotationDate 
+                ? `Próxima em ${new Date(kmsStatus.policy.nextScheduledRotationDate).toLocaleDateString('pt-BR')}`
+                : 'Programada'}
+            </p>
+          </div>
+        </div>
+
+        {/* Banner Arquitetural: Envelope Encryption & Resiliência */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-amber-950/10 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3.5">
+          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 mt-0.5">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+            <p className="font-bold text-slate-900 dark:text-white">
+              Como funciona o Ciclo de Vida e Re-wrapping no TerapiaInFoco (RFC §4.2)
+            </p>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+              A KEK mestre (Key Encryption Key) reside exclusivamente no Hardware Security Module (HSM). 
+              Os prontuários e notas SOAP são protegidos por chaves DEK (Data Encryption Keys) únicas. 
+              Ao rotacionar a KEK para uma nova versão, o processo de <strong>Re-wrapping</strong> re-envelopa as DEKs sem 
+              necessitar decifrar ou expor o payload clínico em repouso, eliminando pontos únicos de falha e prevenindo vazamentos em massa.
+            </p>
+          </div>
+        </div>
+
+        {/* Tabela do Ciclo de Vida das KEKs (NIST SP 800-57) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              Ciclo de Vida das Chaves Mestras (KEKs)
+            </h3>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+              {kmsStatus?.keys?.length ?? 1} versões registradas
+            </span>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2.5 pl-4 pr-3 font-semibold">Versão & Key ID</th>
+                  <th className="py-2.5 pr-3 font-semibold">Algoritmo & Provedor</th>
+                  <th className="py-2.5 pr-3 font-semibold">Status NIST</th>
+                  <th className="py-2.5 pr-3 font-semibold">Criada em</th>
+                  <th className="py-2.5 pr-3 font-semibold">Rotacionada em / Expiração</th>
+                  <th className="py-2.5 pr-3 font-semibold">DEKs Envelopadas</th>
+                  <th className="py-2.5 pr-4 font-semibold text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(kmsStatus?.keys || []).map((k) => (
+                  <tr key={k.version} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3 pl-4 pr-3 font-mono font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px]">
+                          v{k.version}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]" title={k.keyId}>
+                          {k.keyId}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-3 text-slate-700 dark:text-slate-300">
+                      <span className="font-mono text-[11px] font-semibold">{k.algorithm}</span>
+                      <span className="text-[10px] text-slate-400 block">{k.providerType}</span>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        k.status === KmsKeyStatus.ACTIVE
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                          : k.status === KmsKeyStatus.ROTATED
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                      }`}>
+                        {k.status}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-3 text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {new Date(k.createdAt).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="py-3 pr-3 text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {k.rotatedAt ? (
+                        <span title={`Rotacionada em ${new Date(k.rotatedAt).toLocaleString('pt-BR')}`}>
+                          Rotacionada ({new Date(k.rotatedAt).toLocaleDateString('pt-BR')})
+                        </span>
+                      ) : (
+                        <span>Expira em {new Date(k.expiresAt).toLocaleDateString('pt-BR')}</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-3 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                      {k.encryptedDeksCount}
+                    </td>
+                    <td className="py-3 pr-4 text-right whitespace-nowrap">
+                      {k.status === KmsKeyStatus.ROTATED ? (
+                        <button
+                          onClick={() => setRevokeKeyModalTarget(k)}
+                          className="px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-semibold transition-colors cursor-pointer"
+                          title="Revogar chave legada permanentemente"
+                        >
+                          Revogar
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">
+                          {k.status === KmsKeyStatus.ACTIVE ? 'Em Uso' : 'Inativa'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {/* Modal de Criação de Novo Conector SIEM */}
       {showCreateSiemModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -2595,6 +2928,228 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                       <span>Iniciar Leitura Biométrica</span>
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Rotação de Chave Mestre KEK */}
+      {showRotateKmsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                Rotacionar Chave Mestre KEK (NIST SP 800-57)
+              </h3>
+              <button 
+                onClick={() => setShowRotateKmsModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Esta operação gera uma nova versão de KEK (AES-256-GCM) no repositório seguro do KMS.
+              A chave atual passará ao estado <strong>ROTATED</strong> e permanecerá ativa para leitura histórica.
+            </p>
+
+            <form onSubmit={handleRotateKmsKey} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Justificativa da Rotação (Trilha WORM):
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={rotateReason}
+                  onChange={(e) => setRotateReason(e.target.value)}
+                  placeholder="Ex: Auditoria trimestral NIST SP 800-57"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rotateReWrapOption}
+                  onChange={(e) => setRotateReWrapOption(e.target.checked)}
+                  className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                />
+                <div className="text-[11px] text-slate-700 dark:text-slate-300">
+                  <span className="font-bold text-amber-900 dark:text-amber-200 block">Re-envelopar DEKs Legadas Imediatamente</span>
+                  Re-encripta as chaves de dados dos terapeutas para a nova KEK ativa sem tocar no texto clínico em repouso.
+                </div>
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowRotateKmsModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={rotatingKms || !rotateReason.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {rotatingKms ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Gerando Nova Versão...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Confirmar Rotação KEK</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Política de Auto-Rotação KMS */}
+      {showKmsPolicyModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Workflow className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                Política de Rotação Automática KMS
+              </h3>
+              <button 
+                onClick={() => setShowKmsPolicyModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateKmsPolicy} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Intervalo de Rotação (Dias):
+                </label>
+                <select
+                  value={policyIntervalDays}
+                  onChange={(e) => setPolicyIntervalDays(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                >
+                  <option value={30}>30 Dias (Alta Segurança / Homologação)</option>
+                  <option value={90}>90 Dias (Recomendação NIST SP 800-57)</option>
+                  <option value={180}>180 Dias (Semestral)</option>
+                  <option value={365}>365 Dias (Anual RFC-001 §4.2 Padrão)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Alerta Preventivo de Expiração (Dias):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={policyAlertDays}
+                  onChange={(e) => setPolicyAlertDays(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={policyAutoReWrap}
+                  onChange={(e) => setPolicyAutoReWrap(e.target.checked)}
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-xs text-slate-700 dark:text-slate-300">
+                  Executar Re-wrapping de DEKs legadas automaticamente a cada rotação
+                </span>
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowKmsPolicyModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingKms}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                >
+                  Salvar Política
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Revogação de Versão Legada de KEK */}
+      {revokeKeyModalTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-rose-200 dark:border-rose-900/60 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-rose-100 dark:border-rose-950">
+              <h3 className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5" />
+                Revogar KEK Versão {revokeKeyModalTarget.version}
+              </h3>
+              <button 
+                onClick={() => setRevokeKeyModalTarget(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-800 dark:text-rose-300 space-y-1">
+              <p className="font-bold">⚠️ Ação Criptográfica Irreversível</p>
+              <p>
+                Ao revogar a versão {revokeKeyModalTarget.version}, qualquer DEK que ainda dependa dela não poderá mais ser decifrada.
+                Certifique-se de que todas as DEKs foram previamente re-envelopadas para a KEK ativa.
+              </p>
+            </div>
+
+            <form onSubmit={handleRevokeKmsKey} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Justificativa Formal (Trilha WORM):
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setRevokeKeyModalTarget(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingKms || !revokeReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {loadingKms ? 'Revogando...' : 'Confirmar Revogação'}
                 </button>
               </div>
             </form>

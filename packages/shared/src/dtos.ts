@@ -1001,6 +1001,59 @@ export interface SiemDlqReplayResponse {
   message?: string;
 }
 
+/**
+ * 18. GESTÃO DE CHAVES KMS & ROTAÇÃO CONTÍNUA (NIST SP 800-57 & RFC §4.2)
+ */
+export interface RotateKmsKeyDTO {
+  reason: string;
+  reWrapExisting?: boolean;
+}
+
+export interface ReWrapDeksDTO {
+  targetKeyVersion?: number;
+}
+
+export interface UpdateKmsPolicyDTO {
+  enabled?: boolean;
+  intervalDays?: number;
+  autoReWrapLegacyDeks?: boolean;
+  alertThresholdDays?: number;
+}
+
+export interface RevokeKmsKeyDTO {
+  reason: string;
+}
+
+export interface KmsStatusResponse {
+  success: boolean;
+  status: import('./models').KmsSystemStatus;
+  message?: string;
+}
+
+export interface RotateKmsKeyResponse {
+  success: boolean;
+  newKey: import('./models').KmsKeyMetadata;
+  previousKey: import('./models').KmsKeyMetadata;
+  reWrappedCount: number;
+  message: string;
+}
+
+export interface ReWrapDeksResponse {
+  success: boolean;
+  targetVersion: number;
+  totalExamined: number;
+  reWrappedCount: number;
+  skippedCount: number;
+  message: string;
+}
+
+export interface UpdateKmsPolicyResponse {
+  success: boolean;
+  policy: import('./models').KmsRotationPolicy;
+  message: string;
+}
+
+
 
 
 

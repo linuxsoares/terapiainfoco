@@ -548,6 +548,40 @@ terapiainfoco/
   - Painel de Dead-Letter Queue (DLQ) com histórico de falhas e botão de reprocessamento (replay).
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 24. Gestão de Chaves KMS & Rotação Contínua de KEKs (NIST SP 800-57 & RFC-001 §4.2, §4.3)
+- [x] **Motor Criptográfico de Ciclo de Vida de Chaves (`packages/crypto/src/kms.ts` & `envelope.ts`):**
+  - Implementação completa dos estados do ciclo de vida de chaves conforme NIST SP 800-57 (`ACTIVE`, `ROTATED`, `REVOKED`, `DESTROYED`).
+  - Prefixação e identificação determinística de versão no envelope de DEK (`v{version}:{base64}`) com 100% de compatibilidade reversa para chaves legadas.
+  - Geração de novas chaves DEK sempre associadas à KEK ativa (`ACTIVE`).
+  - Método `rotateMasterKey`: transição de estado da KEK anterior para `ROTATED` com registro de justificativa, geração de nova chave de 256 bits e ativação transparente.
+  - Método `reWrapDataKey`: re-envelopamento seguro de DEKs legadas para a KEK mais recente sem expor a chave fora da camada segura.
+  - Método `reWrapEnvelope`: re-envelopamento em nível de envelope sem decifrar nem tocar no payload clínico em repouso (Envelope Encryption puro).
+  - Bloqueio estrito de decifragem para chaves em estado `REVOKED` e bloqueio de revogação acidental da chave ativa atual.
+  - 7 testes unitários passando em `kmsRotation.test.ts` (86 testes totais em `packages/crypto`).
+- [x] **Modelos, Contratos & DTOs Compartilhados (`packages/shared`):**
+  - Enums `KmsKeyStatus` e `KmsProviderType`.
+  - Ações WORM `AuditAction.KMS_KEY_ROTATED`, `KMS_KEY_RE_WRAPPED`, `KMS_KEY_REVOKED`, `KMS_POLICY_UPDATED` e `AuditResourceType.KMS`.
+  - Interfaces `KmsKeyMetadata`, `KmsRotationPolicy`, `KmsSystemStatus` e DTOs de rotação, re-wrapping, política e revogação.
+- [x] **Serviço Backend & Trilha WORM (`apps/backend/src/services/kmsService.ts`):**
+  - `KmsService` gerenciando ciclo de vida, persistência e política de agendamento automático (intervalo padrão de 90 dias recomendado pelo NIST SP 800-57).
+  - Re-envelopamento em lote de DEKs de terapeutas com contagem de examinadas e atualizadas.
+  - Registro compulsório de todas as operações criptográficas na trilha de auditoria WORM imutável (Hash-Chain SHA-256).
+- [x] **API REST Administrativa com RBAC (`apps/backend/src/routes/kms.ts`):**
+  - `GET /api/kms/status`: Retorna versão ativa, métricas, score de conformidade (100%) e histórico de chaves.
+  - `POST /api/kms/rotate`: Disparo de rotação de KEK sob demanda com opção de re-wrapping imediato.
+  - `POST /api/kms/re-wrap`: Execução de re-envelopamento de DEKs legadas.
+  - `PUT /api/kms/policy`: Atualização dos parâmetros da política de rotação automática.
+  - `POST /api/kms/revoke/:version`: Revogação controlada de versões históricas com bloqueio para versão ativa.
+  - Protegido por `authMiddleware({ strict: true })` e `requireRoles([UserRole.ADMIN])`.
+  - Suíte com 6 testes de integração passando (`kmsRotation.test.ts`).
+- [x] **Interface Frontend Integrada no Painel de Segurança (`SecurityModule.tsx` - Card 9):**
+  - Card 9 dedicado: *Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)*.
+  - 4 KPIs: KEK Ativa no HSM (v2 AES-256-GCM), Versões Gerenciadas, Score de Blindagem (100% OK) e Auto-Rotação Agendada (em dias).
+  - Tabela do Ciclo de Vida das KEKs com histórico de rotação, badges de status, datas, DEKs protegidas e botão de revogação.
+  - Botão *"Rotacionar KEK Agora"* com modal de confirmação, justificativa WORM e opção de re-wrap automático.
+  - Botão *"Re-envelopar DEKs"* e modal de configuração da *"Política de Auto-Rotação"*.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -584,19 +618,19 @@ terapiainfoco/
 | `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | Merged |
 | `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | [PR #32](https://github.com/linuxsoares/terapiainfoco/pull/32) | Merged |
 | `feat/continuous-compliance-pentest-ripd` | Auditoria Contínua, Penetration Testing Automatizado & Relatório RIPD/DPO (RFC-001 Fase 4 & LGPD Art. 38/50) | [PR #34](https://github.com/linuxsoares/terapiainfoco/pull/34) | Merged |
-| `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | **Em Aberto** |
+| `feat/siem-integration-exponential-retry` | Conectores SIEM Externos (Datadog, Splunk, Elastic), Dispatcher Resiliente com Exponential Backoff e DLQ (RFC §4.4, §5.2) | [PR #35](https://github.com/linuxsoares/terapiainfoco/pull/35) | Merged |
+| `feat/kms-auto-key-rotation-lifecycle` | Gestão de Chaves KMS, Rotação Contínua de KEKs e Re-wrapping de DEKs (NIST SP 800-57 & RFC §4.2) | [PR #36](https://github.com/linuxsoares/terapiainfoco/pull/36) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com os **Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **214 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **227 testes automatizados**, os próximos passos de evolução do roadmap são:
 
-#### 🛡️ Auditoria Contínua, Homologação & Hardening (Fase 4 do RFC-001 Concluída)
-- [x] **Simulador de Penetration Testing & Relatório RIPD/DPIA (LGPD Art. 38/50 & CFP):** 6 cenários automatizados de pentest, Score de Blindagem 100%, matrizes analíticas LGPD/CFP, selo canônico SHA-256 e download de relatório oficial.
-- [x] **Integração Completa dos Webhooks SIEM com Provedores Externos:** Dispatcher resiliente com Exponential Backoff (±20% Jitter), Circuit Breaker e Dead-Letter Queue (DLQ) para Datadog, Splunk e Elasticsearch (RFC §4.4 e §5.2).
+#### 🛡️ Homologação, Stress & Integrações Finais de Infraestrutura
+- [x] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano (NIST SP 800-57 & RFC §4.2).
 - [ ] **Homologação em Staging / Produção com Testes de Carga & Stress (k6 / Artillery):** Validação de concorrência com 1.000 requisições simultâneas e medição dos percentis RED P99 sob stress.
-- [ ] **Auditoria e Rotação Contínua Automatizada de Chaves KMS (Auto Key Rotation cron):** Ciclo de vida de rotação agendada de KEKs e recifragem em segundo plano.
+- [ ] **Exportação Automática de Métricas OpenTelemetry OTLP via gRPC/HTTP para Datadog/NewRelic:** Coleta remota de traces e logs criptográficos em lote.
 
 ---
 
@@ -606,7 +640,7 @@ Com os **Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente*
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (146 testes)
+# 2. Executar suíte completa de testes (227 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -615,6 +649,7 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 
 

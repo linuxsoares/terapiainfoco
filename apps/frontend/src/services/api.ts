@@ -80,7 +80,16 @@ import type {
   TestSiemConnectorDTO,
   SiemConnectorResponse,
   SiemQueueResponse,
-  SiemDlqReplayResponse
+  SiemDlqReplayResponse,
+  KmsSystemStatus,
+  KmsKeyMetadata,
+  RotateKmsKeyDTO,
+  RotateKmsKeyResponse,
+  ReWrapDeksDTO,
+  ReWrapDeksResponse,
+  UpdateKmsPolicyDTO,
+  UpdateKmsPolicyResponse,
+  RevokeKmsKeyDTO
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -983,8 +992,43 @@ export const api = {
     await request<{ success: boolean; message: string }>(`/siem/dlq/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  // 17. Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.2)
+  async getKmsStatus(): Promise<KmsSystemStatus> {
+    const res = await request<{ success: boolean; status: KmsSystemStatus }>('/kms/status');
+    return res.status;
+  },
+
+  async rotateKmsKey(dto: RotateKmsKeyDTO): Promise<RotateKmsKeyResponse> {
+    return await request<RotateKmsKeyResponse>('/kms/rotate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async reWrapKmsDeks(dto?: ReWrapDeksDTO): Promise<ReWrapDeksResponse> {
+    return await request<ReWrapDeksResponse>('/kms/re-wrap', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+  },
+
+  async updateKmsPolicy(dto: UpdateKmsPolicyDTO): Promise<UpdateKmsPolicyResponse> {
+    return await request<UpdateKmsPolicyResponse>('/kms/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async revokeKmsKey(version: number, dto: RevokeKmsKeyDTO): Promise<{ success: boolean; key: KmsKeyMetadata; message: string }> {
+    return await request<{ success: boolean; key: KmsKeyMetadata; message: string }>(`/kms/revoke/${version}`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 

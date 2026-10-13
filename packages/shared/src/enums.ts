@@ -87,7 +87,12 @@ export enum AuditAction {
   // Ações de Integração SIEM Externa & Retry Resiliente
   SIEM_DISPATCH = 'SIEM_DISPATCH',
   SIEM_DLQ_MOVED = 'SIEM_DLQ_MOVED',
-  SIEM_DLQ_REPLAY = 'SIEM_DLQ_REPLAY'
+  SIEM_DLQ_REPLAY = 'SIEM_DLQ_REPLAY',
+  // Ações de Ciclo de Vida e Rotação de Chaves KMS (RFC §4.2, NIST SP 800-57)
+  KMS_KEY_ROTATED = 'KMS_KEY_ROTATED',
+  KMS_KEY_RE_WRAPPED = 'KMS_KEY_RE_WRAPPED',
+  KMS_KEY_REVOKED = 'KMS_KEY_REVOKED',
+  KMS_POLICY_UPDATED = 'KMS_POLICY_UPDATED'
 }
 
 export enum AuditResourceType {
@@ -100,7 +105,28 @@ export enum AuditResourceType {
   SECURITY = 'SECURITY',
   BACKUP = 'BACKUP',
   COMPLIANCE = 'COMPLIANCE',
-  SIEM = 'SIEM'
+  SIEM = 'SIEM',
+  KMS = 'KMS'
+}
+
+/**
+ * Estados do Ciclo de Vida da Chave Mestre KEK (NIST SP 800-57 & RFC-001 §4.2)
+ */
+export enum KmsKeyStatus {
+  ACTIVE = 'ACTIVE',       // Chave atual usada para novas encriptações e decriptações
+  ROTATED = 'ROTATED',     // Chave legada/rotacionada: somente leitura para decriptação histórica
+  REVOKED = 'REVOKED',     // Chave revogada por política de segurança (não permite novas decriptações)
+  DESTROYED = 'DESTROYED'  // Chave expurgada/destruída permanentemente
+}
+
+/**
+ * Tipos de Provedor de KMS Suportados
+ */
+export enum KmsProviderType {
+  LOCAL_MOCK = 'LOCAL_MOCK',
+  AWS_KMS = 'AWS_KMS',
+  GCP_CLOUD_KMS = 'GCP_CLOUD_KMS',
+  HASHICORP_VAULT = 'HASHICORP_VAULT'
 }
 
 
