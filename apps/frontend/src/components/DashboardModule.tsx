@@ -264,7 +264,7 @@ export function DashboardModule() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Gráfico de Sessões Mensais */}
             <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
@@ -274,7 +274,7 @@ export function DashboardModule() {
                     Frequência de teleconsultas realizadas e agendadas
                   </p>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border border-teal-500/20 self-start sm:self-auto">
                   Total: {clinicalOverview.totalSessions} sessões
                 </span>
               </div>

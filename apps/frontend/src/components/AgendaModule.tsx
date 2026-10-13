@@ -234,15 +234,15 @@ export function AgendaModule() {
                       <span className="font-mono text-slate-700 dark:text-slate-300">Sala: {app.meetAccessCode || 'Padrão'}</span>
                     </p>
 
-                    <div className="pt-1">
+                    <div className="pt-1 max-w-full overflow-hidden">
                       <a
                         href={app.meetUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 hover:underline font-mono bg-sky-50 dark:bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-500/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 hover:underline font-mono bg-sky-50 dark:bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-500/20 transition-colors max-w-full truncate"
                       >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>{app.meetUrl}</span>
+                        <Video className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{app.meetUrl}</span>
                       </a>
                     </div>
                   </div>
@@ -287,9 +287,9 @@ export function AgendaModule() {
       {/* Modal de Agendamento */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl transition-colors duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl transition-colors duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 Agendar Nova Consulta
               </h3>
@@ -313,7 +313,7 @@ export function AgendaModule() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Data</label>
                   <input
@@ -356,7 +356,7 @@ export function AgendaModule() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
                   <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                     Link da Sala do Google Meet
                   </label>
@@ -371,10 +371,10 @@ export function AgendaModule() {
                   </a>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
-                    placeholder="Cole seu link (ex: meet.google.com/xxx-yyyy-zzz) ou use o botão ao lado"
+                    placeholder="Cole seu link (ex: meet.google.com/xxx-yyyy-zzz)"
                     value={customMeetUrl}
                     onChange={(e) => setCustomMeetUrl(e.target.value)}
                     className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono text-xs"

@@ -31,7 +31,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden my-8">
+      <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-y-auto max-h-[90vh] my-auto">
         
         {/* Close Button */}
         <button
@@ -42,7 +42,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
         </button>
 
         {!submitted ? (
-          <div className="p-6 sm:p-8 space-y-5">
+          <div className="p-5 sm:p-8 space-y-5">
             {/* Modal Header */}
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
@@ -164,7 +164,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
           </div>
         ) : (
           /* Success Screen */
-          <div className="p-8 text-center space-y-5">
+          <div className="p-6 sm:p-8 text-center space-y-5">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle className="w-10 h-10" />
             </div>

@@ -12,7 +12,9 @@ import {
   ChevronDown,
   UserCheck,
   BarChart3,
-  Database
+  Database,
+  Menu,
+  X
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
 import { AgendaModule } from './components/AgendaModule';
@@ -72,6 +74,7 @@ export default function App() {
   });
 
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Inicializa login silencioso com token JWT real do psicólogo padrão
   useEffect(() => {
@@ -120,68 +123,77 @@ export default function App() {
     <PrivacyProvider>
       <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
         {/* Top Navbar */}
-        <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between transition-colors duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-lg shadow-lg shadow-teal-500/20">
+        <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between transition-colors duration-200">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Botão de Menu Mobile (Hambúrguer) */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 -ml-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl md:hidden transition-colors"
+              aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-base sm:text-lg shadow-lg shadow-teal-500/20 shrink-0">
               Ψ
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">TerapiaInFoco</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-bold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">TerapiaInFoco</span>
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
                   Painel Clínico
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Plataforma de Gestão Clínica • RFC-001</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">Plataforma de Gestão Clínica • RFC-001</p>
             </div>
           </div>
 
           {/* Controles do Topo: Tema, Anti-Shoulder Surfing, e-Psi, Status 2FA e Seletor de Perfil RBAC */}
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4">
             <ThemeToggle />
             <PrivacyToggleButton />
 
-          {/* Indicador de 2FA */}
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-              currentUser.twoFactorEnabled
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700'
-                : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 hover:scale-105'
-            }`}
-            title="Clique para gerenciar 2FA"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>{currentUser.twoFactorEnabled ? '2FA Ativo 🔒' : 'Ativar 2FA'}</span>
-          </button>
-
-          {/* Registro CRP se for psicólogo */}
-          {currentUser.crp && (
-            <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>CRP {currentUser.crp}</span>
-            </div>
-          )}
-
-          {/* Seletor de Perfil RBAC */}
-          <div className="relative">
+            {/* Indicador de 2FA */}
             <button
-              onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className="flex items-center gap-2.5 border-l border-slate-200 dark:border-slate-800 pl-3 md:pl-4 py-1 hover:opacity-80 transition-opacity text-left"
+              onClick={() => setActiveTab('security')}
+              className={`hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                currentUser.twoFactorEnabled
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 hover:scale-105'
+              }`}
+              title="Clique para gerenciar 2FA"
             >
-              <div className="w-8 h-8 rounded-full bg-teal-100 border border-teal-200 dark:bg-slate-800 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-teal-800 dark:text-teal-300">
-                {currentUser.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{currentUser.name}</p>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
-                    {DEMO_USERS[currentUser.role]?.roleName || currentUser.role}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </div>
-              </div>
+              <Lock className="w-3.5 h-3.5" />
+              <span>{currentUser.twoFactorEnabled ? '2FA Ativo 🔒' : 'Ativar 2FA'}</span>
             </button>
+
+            {/* Registro CRP se for psicólogo */}
+            {currentUser.crp && (
+              <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>CRP {currentUser.crp}</span>
+              </div>
+            )}
+
+            {/* Seletor de Perfil RBAC */}
+            <div className="relative">
+              <button
+                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-2 sm:pl-3 md:pl-4 py-1 hover:opacity-80 transition-opacity text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-teal-100 border border-teal-200 dark:bg-slate-800 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-teal-800 dark:text-teal-300 shrink-0">
+                  {currentUser.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{currentUser.name}</p>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
+                      {DEMO_USERS[currentUser.role]?.roleName || currentUser.role}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </div>
+                </div>
+              </button>
 
             {/* Dropdown de Papéis RBAC */}
             {roleDropdownOpen && (
@@ -232,10 +244,176 @@ export default function App() {
       {/* Banner de Modo Anti-Shoulder Surfing */}
       <PrivacyBanner />
 
+      {/* Mobile Drawer (Menu Lateral Deslizante para Mobile) */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 md:hidden animate-fade-in"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed top-0 bottom-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col justify-between z-50 md:hidden shadow-2xl transition-transform duration-300 ease-in-out ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-base">
+                Ψ
+              </div>
+              <div>
+                <span className="font-bold text-slate-900 dark:text-white text-sm">TerapiaInFoco</span>
+                <p className="text-[10px] text-slate-400">Navegação Clínica</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Fechar menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Módulos RFC-001
+            </div>
+
+            <button
+              onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'dashboard'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>0. Dashboard & Métricas</span>
+              </div>
+              {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'agenda'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>1. Agenda & Meet</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('patients'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'patients'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              <span>2. Pacientes & FLE</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('soap'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'soap'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span>3 & 4. SOAP & IA</span>
+              </div>
+              {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('documents'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'documents'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>5. Documentos CFP</span>
+              </div>
+              {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('audit'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'audit'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Trilha WORM (Audit)</span>
+              </div>
+              {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('backups'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'backups'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Database className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>Backups & DR (KMS)</span>
+              </div>
+              {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <button
+            onClick={() => { setActiveTab('security'); setMobileMenuOpen(false); }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'security'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Segurança & 2FA</span>
+            </div>
+            {currentUser.twoFactorEnabled && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            )}
+          </button>
+
+          {currentUser.crp && (
+            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>CRP {currentUser.crp} (e-Psi)</span>
+            </div>
+          )}
+        </div>
+      </aside>
+
       {/* Main Layout */}
       <div className="flex flex-1">
-        {/* Sidebar Nav */}
-        <aside className="w-64 border-r border-slate-200 bg-white/70 dark:border-slate-800/80 dark:bg-slate-900/40 p-4 flex flex-col gap-1 shrink-0 transition-colors duration-200">
+        {/* Sidebar Nav (Desktop) */}
+        <aside className="hidden md:flex w-64 border-r border-slate-200 bg-white/70 dark:border-slate-800/80 dark:bg-slate-900/40 p-4 flex-col gap-1 shrink-0 transition-colors duration-200">
           <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             Módulos RFC-001
           </div>
@@ -381,7 +559,7 @@ export default function App() {
         </aside>
 
         {/* Workspace Body */}
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-20 md:pb-8 overflow-y-auto overflow-x-hidden">
           <div className="max-w-5xl mx-auto">
             {/* Bloqueio Amigável de Autorização RBAC para Recepção / Secretária */}
             {isBlockedClinicalTab ? (
@@ -429,6 +607,65 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Barra Inferior de Navegação Rápida) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'dashboard'
+              ? 'text-teal-600 dark:text-teal-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 mb-0.5" />
+          <span>Início</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('agenda')}
+          className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'agenda'
+              ? 'text-teal-600 dark:text-teal-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Calendar className="w-5 h-5 mb-0.5" />
+          <span>Agenda</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('patients')}
+          className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'patients'
+              ? 'text-teal-600 dark:text-teal-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Users className="w-5 h-5 mb-0.5" />
+          <span>Pacientes</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('soap')}
+          className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'soap'
+              ? 'text-purple-600 dark:text-purple-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Sparkles className="w-5 h-5 mb-0.5 text-purple-500" />
+          <span>SOAP IA</span>
+        </button>
+
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-teal-600 transition-colors cursor-pointer"
+        >
+          <Menu className="w-5 h-5 mb-0.5" />
+          <span>Mais</span>
+        </button>
+      </nav>
     </div>
   </PrivacyProvider>
   );
