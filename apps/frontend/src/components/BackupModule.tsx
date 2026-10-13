@@ -375,9 +375,9 @@ export function BackupModule({ currentUser }: BackupModuleProps) {
       {/* Modal de Confirmação de Restauração Emergencial (DR) */}
       {restoreModalSnapshot && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center shrink-0">
                 <RotateCcw className="w-5 h-5" />
               </div>
               <div>
@@ -402,11 +402,11 @@ export function BackupModule({ currentUser }: BackupModuleProps) {
               </p>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setRestoreModalSnapshot(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer text-center"
               >
                 Cancelar
               </button>
@@ -414,7 +414,7 @@ export function BackupModule({ currentUser }: BackupModuleProps) {
                 type="button"
                 onClick={handleRestoreBackup}
                 disabled={restoreLoading}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md shadow-rose-500/20"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-md shadow-rose-500/20 text-center"
               >
                 {restoreLoading ? 'Restaurando...' : 'Confirmar Restauração'}
               </button>

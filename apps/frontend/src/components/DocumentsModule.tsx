@@ -471,7 +471,7 @@ export function DocumentsModule() {
               </div>
 
               {/* Folha Formal Clínica (Visualização A4 / Papel Timbrado) */}
-              <div className="bg-white text-slate-900 p-8 sm:p-12 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-8 font-serif min-h-[650px] flex flex-col justify-between">
+              <div className="bg-white text-slate-900 p-4 sm:p-8 md:p-12 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-6 sm:space-y-8 font-serif min-h-[650px] flex flex-col justify-between">
                 {/* Cabeçalho Profissional */}
                 <div className="border-b-2 border-slate-800 pb-6 text-center space-y-1">
                   <div className="flex items-center justify-center gap-2">
@@ -597,7 +597,7 @@ export function DocumentsModule() {
       {/* Modal de Criação de Documento */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <FileCheck2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />
@@ -689,9 +689,9 @@ export function DocumentsModule() {
       {/* Modal: Validador Público de QR Code (Simulador do Terceiro / Validador) */}
       {showValidatorModal && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <QrCode className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 Portal de Validação Pública de Autenticidade
               </h3>
@@ -702,7 +702,7 @@ export function DocumentsModule() {
               Este validador simula a página pública acessada por terceiros (RH, empresas ou convênios) ao escanear o QR Code de um documento impresso ou digital.
             </p>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 placeholder="Insira o Token de Validação..."
@@ -804,9 +804,9 @@ export function DocumentsModule() {
       {/* Modal de Assinatura com Certificado Digital ICP-Brasil (PAdES) */}
       {showIcpModal && selectedDoc && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Award className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 Assinatura Digital ICP-Brasil (PAdES)
               </h3>
@@ -828,7 +828,7 @@ export function DocumentsModule() {
                 Certificado Digital Detectado
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-[11px] text-slate-500">Titular:</span>
                   <p className="font-semibold text-slate-900 dark:text-white mt-0.5">Dra. Vanessa Andrade</p>
@@ -845,18 +845,18 @@ export function DocumentsModule() {
                   <span className="text-[11px] text-slate-500">Tipo de Certificado:</span>
                   <p className="font-semibold text-slate-900 dark:text-white mt-0.5">e-CPF A1 (PAdES)</p>
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <span className="text-[11px] text-slate-500">Carimbo do Tempo (TSA):</span>
                   <p className="font-semibold text-slate-900 dark:text-white mt-0.5">Autoridade de Carimbo do Tempo Homologada (RFC 3161)</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowIcpModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-center"
               >
                 Cancelar
               </button>
@@ -864,7 +864,7 @@ export function DocumentsModule() {
                 type="button"
                 onClick={handleSignIcp}
                 disabled={icpLoading}
-                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer disabled:opacity-50 text-center"
               >
                 <Award className="w-4 h-4" />
                 <span>{icpLoading ? 'Aplicando Assinatura ICP-Brasil...' : 'Confirmar Assinatura Digital ICP-Brasil'}</span>

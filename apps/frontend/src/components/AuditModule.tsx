@@ -257,7 +257,7 @@ export function AuditModule() {
         <select
           value={filterAction}
           onChange={(e) => setFilterAction(e.target.value)}
-          className="text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-teal-500"
+          className="text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-teal-500 w-full sm:w-auto"
         >
           <option value="">Todas as Ações</option>
           <option value={AuditAction.CREATE}>CREATE</option>
@@ -273,7 +273,7 @@ export function AuditModule() {
         <select
           value={filterResourceType}
           onChange={(e) => setFilterResourceType(e.target.value)}
-          className="text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-teal-500"
+          className="text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-teal-500 w-full sm:w-auto"
         >
           <option value="">Todos os Recursos</option>
           <option value={AuditResourceType.PATIENT}>PATIENT</option>

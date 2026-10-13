@@ -69,7 +69,7 @@ export const ValidationPortal: React.FC = () => {
 
         {/* Barra de Pesquisa por Token */}
         <div className="max-w-xl mx-auto mb-10">
-          <form onSubmit={handleSearch} className="flex gap-2">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
               <input
@@ -83,7 +83,7 @@ export const ValidationPortal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !tokenInput.trim()}
-              className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 shrink-0"
             >
               {loading ? 'Validando...' : 'Verificar Autenticidade'}
             </button>
@@ -95,7 +95,7 @@ export const ValidationPortal: React.FC = () => {
           <div className="max-w-2xl mx-auto">
             {result?.valid && result.document ? (
               <div className="bg-gradient-to-b from-emerald-50/50 to-white rounded-3xl p-6 sm:p-8 border border-emerald-500/30 shadow-lg space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-emerald-200/60">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-emerald-200/60">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20">
                       <ShieldCheck className="w-6 h-6" />

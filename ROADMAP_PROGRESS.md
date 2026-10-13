@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 12/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança | 137/137 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança + Suporte Mobile Completo | 137/137 Testes Passando
 
 
 
@@ -394,6 +394,26 @@ terapiainfoco/
 - [x] **Suíte de Testes Automatizados E2E (`apps/backend/test/syntheticClinicalJourney.test.ts`):**
   - 10 testes de integração cobrindo execução da jornada completa, cenário de resiliência, isolamento PGlite, endpoints REST, proteção RBAC e integridade pós-execução do ledger WORM.
 
+### 18. Experiência Multi-Dispositivo & Otimização Mobile (Painel Clínico & Landing Page)
+- [x] **Navegação Móvel Adaptativa & Ergonomia de Toque (`App.tsx`):**
+  - Ocultação inteligente da sidebar desktop rígida em telas menores que 768px (`hidden md:flex`).
+  - Menu drawer off-canvas deslizante com overlay e backdrop blur, permitindo acesso fluido a todos os 8 módulos clínicos, seletor de usuário/papéis RBAC e status de segurança.
+  - Barra de navegação inferior nativa (`fixed bottom-0 md:hidden`) com acesso a 1 toque aos módulos essenciais (*Início*, *Agenda*, *Pacientes*, *SOAP IA* e *Mais*).
+  - Topbar reconfigurada com padding compacto (`px-3 sm:px-6 py-2.5 sm:py-3.5`) e contenção de tela cheia para o dropdown de perfil do terapeuta (`max-w-[calc(100vw-1.5rem)]`).
+  - Container principal adaptado com padding inferior (`pb-20 md:pb-8`) evitando sobreposição com a barra de navegação móvel e rolagem horizontal bloqueada (`overflow-x-hidden`).
+- [x] **Adaptação e Rolagem Bounded de Modais Clínicos:**
+  - `AgendaModule`: Modal de novo agendamento com altura máxima controlada (`max-h-[90vh] overflow-y-auto`), campos responsivos em 1 ou 2 colunas e proteção contra quebra de layout em URLs longas do Google Meet.
+  - `PatientsModule`: Barra de busca de pacientes em coluna flexível no mobile e modais de cadastro e portabilidade LGPD com rolagem vertical suave e seleção de formato em grade responsiva.
+  - `SoapModule`: Pipeline de transcrição de áudio, botões de ação e gravação de rascunho SOAP com alvos de toque em largura total (`w-full sm:w-auto`).
+  - `DocumentsModule`: Papel timbrado A4 com padding adaptativo (`p-4 sm:p-8 md:p-12`), e modais de novo documento, visualizador de QR Code público e assinatura ICP-Brasil com rolagem vertical garantida.
+  - `AuditModule` & `BackupModule`: Seletores de filtro responsivos e modal de restauração de desastre (DR) flexível.
+  - `DashboardModule`: Cabeçalhos e badges flexíveis para exibição harmônica em telas verticais.
+- [x] **Landing Page & Portal de Validação Pública Responsivos:**
+  - `ValidationPortal`: Campo de busca por token e botão de verificação convertidos para pilha vertical em telas móveis (`flex-col sm:flex-row`).
+  - `LeadModal`: Container com altura máxima segura (`max-h-[90vh] overflow-y-auto my-auto`) prevenindo corte de formulário quando o teclado virtual é aberto.
+- [x] **Preservação de Temas:**
+  - 100% de paridade visual e funcional mantida em ambos os temas: **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -425,7 +445,8 @@ terapiainfoco/
 | `fix/supabase-persistence-sync` | Persistência ativa de pacientes, usuários e agendamentos no Supabase, sincronização com Supabase Auth Admin e migração 0001 (users/docs) | PR #26 | Merged |
 | `fix/supabase-persistence-sync` | Script supabase_full_schema.sql e fallback direto de gravação PostgREST | PR #27 | Merged |
 | `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | Merged |
-| `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | **Em Aberto** |
+| `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | Merged |
+| `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | **Em Aberto** |
 
 ---
 

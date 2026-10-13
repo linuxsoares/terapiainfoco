@@ -258,7 +258,7 @@ export function PatientsModule() {
           Localizar Paciente via Blind Index
         </h2>
 
-        <form onSubmit={handleSearch} className="flex gap-3 max-w-xl">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-xl">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -401,7 +401,7 @@ export function PatientsModule() {
       {/* Modal de Portabilidade / Exportação LGPD Art. 18 */}
       {showExportModal && searchResult && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
@@ -431,7 +431,7 @@ export function PatientsModule() {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Formato de Exportação
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setExportFormat('json')}
@@ -687,9 +687,9 @@ export function PatientsModule() {
       {/* Modal de Cadastro */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 Cadastrar Novo Paciente
               </h3>
@@ -708,7 +708,7 @@ export function PatientsModule() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
                   <input
