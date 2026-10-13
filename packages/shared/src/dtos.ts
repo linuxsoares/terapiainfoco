@@ -836,6 +836,87 @@ export interface RawMetricsResponse {
   metrics: string;
 }
 
+/**
+ * 19. DTOs DE WEBAUTHN / PASSKEYS & BIOMETRIA FIDO2 (Opção O - RFC-001)
+ */
+export interface PasskeyRegistrationOptionsResponse {
+  success: boolean;
+  challenge: string;
+  rp: {
+    name: string;
+    id: string;
+  };
+  user: {
+    id: string;
+    name: string;
+    displayName: string;
+  };
+  pubKeyCredParams: Array<{
+    type: 'public-key';
+    alg: number;
+  }>;
+  authenticatorSelection: {
+    authenticatorAttachment?: 'platform' | 'cross-platform';
+    userVerification: 'preferred' | 'required' | 'discouraged';
+    residentKey: 'preferred' | 'required' | 'discouraged';
+    requireResidentKey?: boolean;
+  };
+  timeout: number;
+  attestation: 'none' | 'direct' | 'indirect';
+  excludeCredentials?: Array<{
+    id: string;
+    type: 'public-key';
+    transports?: string[];
+  }>;
+}
+
+export interface PasskeyRegistrationVerifyDTO {
+  friendlyName: string;
+  clientDataJSON: string;
+  attestationObject?: string;
+  authenticatorData?: string;
+  credentialId: string;
+  publicKeyPem?: string; // Para registro simulado/headless
+}
+
+export interface PasskeyAuthenticationOptionsResponse {
+  success: boolean;
+  challenge: string;
+  timeout: number;
+  rpId: string;
+  userVerification: 'preferred' | 'required' | 'discouraged';
+  allowCredentials?: Array<{
+    id: string;
+    type: 'public-key';
+    transports?: string[];
+  }>;
+}
+
+export interface PasskeyAuthenticationVerifyDTO {
+  credentialId: string;
+  clientDataJSON: string;
+  authenticatorData: string;
+  signature: string;
+  userHandle?: string;
+}
+
+export interface PasskeyInfoDTO {
+  id: string;
+  credentialId: string;
+  friendlyName: string;
+  deviceType: 'singleDevice' | 'multiDevice';
+  backedUp: boolean;
+  counter: number;
+  createdAt: Date | string;
+  lastUsedAt?: Date | string | null;
+}
+
+export interface PasskeyListResponse {
+  success: boolean;
+  passkeys: PasskeyInfoDTO[];
+}
+
+
 
 
 

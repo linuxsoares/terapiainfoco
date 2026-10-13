@@ -247,6 +247,7 @@ export interface User {
   twoFactorEnabled: boolean;
   twoFactorSecret?: string;
   twoFactorBackupCodes?: string[];
+  passkeysCount?: number;
   createdAt: Date | string;
   lastLoginAt?: Date | string | null;
 }
@@ -263,6 +264,7 @@ export interface SafeUser {
   crpRegion?: string;
   therapistId?: string;
   twoFactorEnabled: boolean;
+  passkeysCount?: number;
   createdAt: Date | string;
   lastLoginAt?: Date | string | null;
 }
@@ -471,6 +473,35 @@ export interface TelemetryOverview {
   system: TelemetrySystemMetrics;
   recentTraces: TraceSpan[];
 }
+
+/**
+ * 13. AUTENTICAÇÃO BIOMÉTRICA WEBAUTHN / PASSKEYS (FIDO2 / TouchID / FaceID - RFC-001 Opção O)
+ */
+export type PasskeyDeviceType = 'singleDevice' | 'multiDevice';
+
+export interface PasskeyCredential {
+  id: string; // UUID interno
+  userId: string;
+  credentialId: string; // base64url
+  publicKeyPem: string; // SPKI PEM format
+  counter: number; // Sign count anti-replay
+  deviceType: PasskeyDeviceType;
+  backedUp: boolean;
+  transports?: Array<'internal' | 'usb' | 'ble' | 'nfc' | 'hybrid'>;
+  friendlyName: string; // ex: "MacBook TouchID", "YubiKey 5C"
+  aaguid?: string;
+  createdAt: Date | string;
+  lastUsedAt?: Date | string | null;
+}
+
+export interface WebAuthnChallengeSession {
+  challenge: string; // base64url
+  userId?: string;
+  userEmail?: string;
+  type: 'registration' | 'authentication';
+  expiresAt: number; // timestamp ms
+}
+
 
 
 

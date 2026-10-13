@@ -77,7 +77,10 @@ export enum AuditAction {
   BACKUP_VERIFY = 'BACKUP_VERIFY',
   BACKUP_RESTORE = 'BACKUP_RESTORE',
   // Ações de Mascaramento Dinâmico de Dados e Privacidade (Opção K - DDM)
-  UNMASK_DATA = 'UNMASK_DATA'
+  UNMASK_DATA = 'UNMASK_DATA',
+  // Ações de Autenticação Biométrica WebAuthn / Passkeys (Opção O)
+  PASSKEY_REGISTER = 'PASSKEY_REGISTER',
+  PASSKEY_REVOKE = 'PASSKEY_REVOKE'
 }
 
 export enum AuditResourceType {
