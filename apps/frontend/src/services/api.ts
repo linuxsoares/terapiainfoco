@@ -72,7 +72,15 @@ import type {
   PasskeyListResponse,
   DPIAReport,
   CompliancePentestResponse,
-  DPIAReportResponse
+  DPIAReportResponse,
+  SiemConnector,
+  SiemQueueItem,
+  CreateSiemConnectorDTO,
+  UpdateSiemConnectorDTO,
+  TestSiemConnectorDTO,
+  SiemConnectorResponse,
+  SiemQueueResponse,
+  SiemDlqReplayResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -908,6 +916,73 @@ export const api = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // 18. Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente (RFC §4.4 & §5.2)
+  async getSiemConnectors(): Promise<SiemConnector[]> {
+    const res = await request<SiemConnectorResponse>('/siem/connectors');
+    return res.connectors || [];
+  },
+
+  async createSiemConnector(dto: CreateSiemConnectorDTO): Promise<SiemConnector> {
+    const res = await request<SiemConnectorResponse>('/siem/connectors', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    if (!res.connector) throw new Error(res.message || 'Falha ao criar conector SIEM');
+    return res.connector;
+  },
+
+  async updateSiemConnector(id: string, dto: UpdateSiemConnectorDTO): Promise<SiemConnector> {
+    const res = await request<SiemConnectorResponse>(`/siem/connectors/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto)
+    });
+    if (!res.connector) throw new Error(res.message || 'Falha ao atualizar conector SIEM');
+    return res.connector;
+  },
+
+  async deleteSiemConnector(id: string): Promise<void> {
+    await request<{ success: boolean; message: string }>(`/siem/connectors/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async testSiemConnector(id: string, dto?: TestSiemConnectorDTO): Promise<NonNullable<SiemConnectorResponse['testResult']>> {
+    const res = await request<SiemConnectorResponse>(`/siem/connectors/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+    if (!res.testResult) throw new Error(res.message || 'Falha ao testar conector SIEM');
+    return res.testResult;
+  },
+
+  async getSiemQueue(): Promise<SiemQueueResponse> {
+    return await request<SiemQueueResponse>('/siem/queue');
+  },
+
+  async getSiemDlq(): Promise<SiemQueueItem[]> {
+    const res = await request<{ success: boolean; count: number; items: SiemQueueItem[] }>('/siem/dlq');
+    return res.items || [];
+  },
+
+  async replaySiemDlqItem(id: string): Promise<SiemQueueItem> {
+    const res = await request<{ success: boolean; item: SiemQueueItem }>(`/siem/dlq/${id}/replay`, {
+      method: 'POST'
+    });
+    return res.item;
+  },
+
+  async replayAllSiemDlq(): Promise<SiemDlqReplayResponse> {
+    return await request<SiemDlqReplayResponse>('/siem/dlq/replay-all', {
+      method: 'POST'
+    });
+  },
+
+  async deleteSiemDlqItem(id: string): Promise<void> {
+    await request<{ success: boolean; message: string }>(`/siem/dlq/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
 

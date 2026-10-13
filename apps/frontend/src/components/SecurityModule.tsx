@@ -28,7 +28,9 @@ import {
   Workflow,
   Database,
   Laptop,
-  Key
+  Key,
+  Radio,
+  FolderSync
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -43,7 +45,11 @@ import type {
   StartupProbeResponse,
   SyntheticJourneyResult,
   ResilienceCheckResult,
-  PasskeyInfoDTO
+  PasskeyInfoDTO,
+  SiemConnector,
+  SiemQueueItem,
+  SiemProvider,
+  SiemQueueResponse
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -293,6 +299,166 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Conectores SIEM Externos & Retry Resiliente com DLQ (RFC §4.4 & §5.2)
+  const [siemConnectors, setSiemConnectors] = useState<SiemConnector[]>([]);
+  const [loadingSiemConnectors, setLoadingSiemConnectors] = useState<boolean>(false);
+  const [siemQueueStats, setSiemQueueStats] = useState<SiemQueueResponse | null>(null);
+  const [siemDlqItems, setSiemDlqItems] = useState<SiemQueueItem[]>([]);
+  const [testingSiemId, setTestingSiemId] = useState<string | null>(null);
+  const [siemTestResultModal, setSiemTestResultModal] = useState<{ connectorName: string; result: any } | null>(null);
+  const [showCreateSiemModal, setShowCreateSiemModal] = useState<boolean>(false);
+  const [replayingDlqId, setReplayingDlqId] = useState<string | null>(null);
+  const [replayingAllDlq, setReplayingAllDlq] = useState<boolean>(false);
+
+  // Form de novo conector SIEM
+  const [newSiemProvider, setNewSiemProvider] = useState<SiemProvider>('datadog');
+  const [newSiemName, setNewSiemName] = useState<string>('Datadog SIEM Core (Logs v2)');
+  const [newSiemUrl, setNewSiemUrl] = useState<string>('https://http-intake.logs.datadoghq.com/api/v2/logs');
+  const [newSiemApiKey, setNewSiemApiKey] = useState<string>('');
+  const [newSiemIndexOrSource, setNewSiemIndexOrSource] = useState<string>('clinical-platform');
+  const [newSiemEvents, setNewSiemEvents] = useState<WebhookEventType[]>([
+    'SECURITY_ALERT',
+    'AUTH_LOGIN_FAILED',
+    'BACKUP_RESTORE'
+  ]);
+
+  const handleProviderChange = (prov: SiemProvider) => {
+    setNewSiemProvider(prov);
+    switch (prov) {
+      case 'datadog':
+        setNewSiemName('Datadog SIEM Core (Logs v2)');
+        setNewSiemUrl('https://http-intake.logs.datadoghq.com/api/v2/logs');
+        setNewSiemIndexOrSource('clinical-platform');
+        break;
+      case 'splunk':
+        setNewSiemName('Splunk HEC Cluster');
+        setNewSiemUrl('https://splunk-hec.clinica.com.br:8088/services/collector/event');
+        setNewSiemIndexOrSource('security_audit');
+        break;
+      case 'elastic':
+        setNewSiemName('Elasticsearch Security Lake (ECS 8.11)');
+        setNewSiemUrl('https://elastic-cluster.clinica.com.br:9200/terapiainfoco-audit/_doc');
+        setNewSiemIndexOrSource('terapiainfoco-audit-logs');
+        break;
+      case 'generic':
+        setNewSiemName('Coletor SIEM Customizado');
+        setNewSiemUrl('https://siem.clinica.com.br/events');
+        setNewSiemIndexOrSource('');
+        break;
+    }
+  };
+
+  const fetchSiemData = async () => {
+    try {
+      setLoadingSiemConnectors(true);
+      const [connectors, queue, dlq] = await Promise.all([
+        api.getSiemConnectors(),
+        api.getSiemQueue(),
+        api.getSiemDlq()
+      ]);
+      setSiemConnectors(connectors);
+      setSiemQueueStats(queue);
+      setSiemDlqItems(dlq);
+    } catch (err: any) {
+      console.warn('Falha ao coletar dados SIEM:', err.message);
+    } finally {
+      setLoadingSiemConnectors(false);
+    }
+  };
+
+  const handleCreateSiemConnector = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSiemName || !newSiemUrl || newSiemEvents.length === 0) {
+      setFeedback({ type: 'error', message: 'Preencha nome, URL e selecione ao menos um evento.' });
+      return;
+    }
+
+    try {
+      setLoadingSiemConnectors(true);
+      const created = await api.createSiemConnector({
+        provider: newSiemProvider,
+        name: newSiemName.trim(),
+        endpointUrl: newSiemUrl.trim(),
+        apiKey: newSiemApiKey.trim() || undefined,
+        indexOrSource: newSiemIndexOrSource.trim() || undefined,
+        subscribedEvents: newSiemEvents
+      });
+      setFeedback({ type: 'success', message: `Conector SIEM "${created.name}" criado com sucesso!` });
+      setShowCreateSiemModal(false);
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao criar conector SIEM.' });
+    } finally {
+      setLoadingSiemConnectors(false);
+    }
+  };
+
+  const handleDeleteSiemConnector = async (id: string, name: string) => {
+    if (!confirm(`Deseja realmente remover o conector SIEM "${name}"?`)) return;
+    try {
+      setLoadingSiemConnectors(true);
+      await api.deleteSiemConnector(id);
+      setFeedback({ type: 'success', message: `Conector "${name}" removido com sucesso!` });
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao remover conector.' });
+    } finally {
+      setLoadingSiemConnectors(false);
+    }
+  };
+
+  const handleTestSiemConnector = async (id: string, name: string) => {
+    try {
+      setTestingSiemId(id);
+      const result = await api.testSiemConnector(id);
+      setSiemTestResultModal({ connectorName: name, result });
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao testar conector SIEM.' });
+    } finally {
+      setTestingSiemId(null);
+    }
+  };
+
+  const handleReplayDlqItem = async (id: string) => {
+    try {
+      setReplayingDlqId(id);
+      await api.replaySiemDlqItem(id);
+      setFeedback({ type: 'success', message: 'Evento reprocessado com sucesso a partir da Dead-Letter Queue!' });
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao reprocessar item da DLQ.' });
+    } finally {
+      setReplayingDlqId(null);
+    }
+  };
+
+  const handleReplayAllDlq = async () => {
+    try {
+      setReplayingAllDlq(true);
+      const res = await api.replayAllSiemDlq();
+      setFeedback({ 
+        type: 'success', 
+        message: `Reprocessamento concluído: ${res.successCount} eventos entregues com sucesso, ${res.failedCount} falharam.` 
+      });
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao reprocessar eventos da DLQ.' });
+    } finally {
+      setReplayingAllDlq(false);
+    }
+  };
+
+  const handleDeleteDlqItem = async (id: string) => {
+    try {
+      await api.deleteSiemDlqItem(id);
+      setFeedback({ type: 'success', message: 'Item descartado da Dead-Letter Queue.' });
+      await fetchSiemData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao descartar item da DLQ.' });
+    }
+  };
+
   React.useEffect(() => {
     fetchPasskeys();
     if (currentUser.role === UserRole.ADMIN) {
@@ -300,6 +466,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchWebhooks();
       fetchProbes();
       fetchSyntheticData();
+      fetchSiemData();
     }
   }, [currentUser.role]);
 
@@ -1717,6 +1884,504 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* Card 8: Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente com DLQ (RFC §4.4 & §5.2) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-cyan-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-sky-500/20 shrink-0">
+              <Radio className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-700">
+                  RFC §4.4 & §5.2
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  LGPD Art. 48
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                Encaminhamento contínuo e adaptativo de eventos da trilha de auditoria para plataformas enterprise SIEM/SOC. 
+                Proteção com Circuit Breaker, reenvio com Exponential Backoff (±20% Jitter) e desvio seguro para Dead-Letter Queue (DLQ).
+              </p>
+            </div>
+          </div>
+
+          {currentUser.role === UserRole.ADMIN && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => setShowCreateSiemModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Novo Conector SIEM</span>
+              </button>
+
+              <button
+                onClick={fetchSiemData}
+                disabled={loadingSiemConnectors}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Atualizar dados SIEM"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingSiemConnectors ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* KPIs SIEM */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Conectores Ativos</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xl font-bold text-slate-900 dark:text-white">
+                {siemConnectors.filter(c => c.enabled).length}/{siemConnectors.length}
+              </span>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Online</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Entregas Confirmadas</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                {siemQueueStats?.deliveredCount ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-400">eventos</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Fila de Retry Ativa</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                {siemQueueStats?.retryingCount ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-400">backoff agendado</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Dead-Letter Queue (DLQ)</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xl font-bold ${siemDlqItems.length > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
+                {siemDlqItems.length}
+              </span>
+              <span className="text-[10px] text-slate-400">retidos para revisão</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Lista de Conectores SIEM */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Conectores SIEM Corporativos Registrados
+          </h4>
+
+          {siemConnectors.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-800">
+              Nenhum conector SIEM configurado. Clique em "Novo Conector SIEM" para adicionar.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {siemConnectors.map((c) => (
+                <div 
+                  key={c.id}
+                  className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-4 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase font-mono ${
+                        c.provider === 'datadog'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                          : c.provider === 'splunk'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                          : c.provider === 'elastic'
+                          ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-300 dark:border-teal-700'
+                          : 'bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
+                      }`}>
+                        {c.provider.toUpperCase()}
+                      </span>
+
+                      {/* Badge Circuit Breaker */}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        c.circuitBreakerStatus === 'CLOSED'
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                          : c.circuitBreakerStatus === 'HALF_OPEN'
+                          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+                      }`} title={`Circuit Breaker: ${c.circuitBreakerStatus}`}>
+                        {c.circuitBreakerStatus === 'CLOSED' ? '● Operacional' : c.circuitBreakerStatus === 'HALF_OPEN' ? '▲ Testando' : '✕ Circuito Aberto'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h5 className="text-sm font-bold text-slate-900 dark:text-white truncate" title={c.name}>
+                        {c.name}
+                      </h5>
+                      <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5" title={c.endpointUrl}>
+                        {c.endpointUrl}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Latência Média:</span>
+                        <strong className="text-slate-900 dark:text-white font-mono">{c.stats.lastLatencyMs || 0}ms</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Despachos c/ Sucesso:</span>
+                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{c.stats.successful}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                        <span>Retries / DLQ:</span>
+                        <strong className="text-slate-900 dark:text-white font-mono">{c.stats.retried} / {c.stats.dlqMoved}</strong>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {c.subscribedEvents.slice(0, 3).map((ev) => (
+                        <span key={ev} className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/50">
+                          {ev}
+                        </span>
+                      ))}
+                      {c.subscribedEvents.length > 3 && (
+                        <span className="text-[9px] text-slate-400 self-center">+{c.subscribedEvents.length - 3}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <button
+                      onClick={() => handleTestSiemConnector(c.id, c.name)}
+                      disabled={testingSiemId === c.id}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                      title="Dispara teste simulado e exibe o payload transformado para inspeção"
+                    >
+                      <Send className={`w-3 h-3 ${testingSiemId === c.id ? 'animate-spin' : ''}`} />
+                      <span>{testingSiemId === c.id ? 'Testando...' : 'Testar Conector'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteSiemConnector(c.id, c.name)}
+                      className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                      title="Remover conector"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Seção Dead-Letter Queue (DLQ) & Gestão de Incidentes */}
+        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FolderSync className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Dead-Letter Queue (DLQ) — Eventos Esgotados após 5 Tentativas
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                {siemDlqItems.length}
+              </span>
+            </div>
+
+            {siemDlqItems.length > 0 && (
+              <button
+                onClick={handleReplayAllDlq}
+                disabled={replayingAllDlq}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw className={`w-3 h-3 ${replayingAllDlq ? 'animate-spin' : ''}`} />
+                <span>{replayingAllDlq ? 'Reprocessando...' : 'Reprocessar Todos na DLQ'}</span>
+              </button>
+            )}
+          </div>
+
+          {siemDlqItems.length === 0 ? (
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 text-center">
+              ✅ A Dead-Letter Queue está limpa. Nenhum evento de segurança esgotou o limite de tentativas.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="py-2 pr-3">ID do Evento</th>
+                    <th className="py-2 pr-3">Tipo</th>
+                    <th className="py-2 pr-3">Provedor</th>
+                    <th className="py-2 pr-3">Motivo da Falha</th>
+                    <th className="py-2 pr-3">Retido Em</th>
+                    <th className="py-2 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {siemDlqItems.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
+                      <td className="py-2.5 pr-3 font-mono font-bold text-slate-900 dark:text-white">
+                        {item.id.slice(0, 12)}...
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                          {item.eventType}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 font-bold uppercase text-[10px] text-slate-600 dark:text-slate-300">
+                        {item.provider}
+                      </td>
+                      <td className="py-2.5 pr-3 text-[11px] text-rose-600 dark:text-rose-400 max-w-xs truncate" title={item.deadLetterReason}>
+                        {item.deadLetterReason || 'Falha persistente'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-[10px] text-slate-400 whitespace-nowrap">
+                        {item.deadLetteredAt ? new Date(item.deadLetteredAt).toLocaleString('pt-BR') : '-'}
+                      </td>
+                      <td className="py-2.5 text-right whitespace-nowrap space-x-1.5">
+                        <button
+                          onClick={() => handleReplayDlqItem(item.id)}
+                          disabled={replayingDlqId === item.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                          title="Tentar enviar novamente"
+                        >
+                          <RotateCcw className={`w-2.5 h-2.5 ${replayingDlqId === item.id ? 'animate-spin' : ''}`} />
+                          <span>Reenviar</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDlqItem(item.id)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer"
+                          title="Descartar item da DLQ"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal de Criação de Novo Conector SIEM */}
+      {showCreateSiemModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Radio className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                Cadastrar Novo Conector SIEM Corporativo
+              </h3>
+              <button 
+                onClick={() => setShowCreateSiemModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSiemConnector} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Selecione o Provedor SIEM:
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['datadog', 'splunk', 'elastic', 'generic'] as SiemProvider[]).map((p) => (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => handleProviderChange(p)}
+                      className={`p-2 rounded-xl border text-xs font-bold uppercase transition-all ${
+                        newSiemProvider === p
+                          ? 'bg-sky-50 dark:bg-sky-950 border-sky-500 text-sky-700 dark:text-sky-300 ring-2 ring-sky-500/30'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Nome do Conector:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSiemName}
+                  onChange={(e) => setNewSiemName(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Endpoint HTTPS:
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={newSiemUrl}
+                  onChange={(e) => setNewSiemUrl(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Chave de API / Token:
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Chave secreta"
+                    value={newSiemApiKey}
+                    onChange={(e) => setNewSiemApiKey(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Index / Source:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: clinical-platform"
+                    value={newSiemIndexOrSource}
+                    onChange={(e) => setNewSiemIndexOrSource(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Eventos Inscritos:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {[
+                    { id: 'SECURITY_ALERT' as WebhookEventType, label: '🚨 Alertas de Segurança' },
+                    { id: 'AUTH_LOGIN_FAILED' as WebhookEventType, label: '⛔ Falhas de Login' },
+                    { id: 'BACKUP_RESTORE' as WebhookEventType, label: '🔄 Disaster Recovery' },
+                    { id: 'DATA_EXPORT_LGPD' as WebhookEventType, label: '📦 Exportação LGPD' },
+                    { id: 'CONSENT_REVOKED' as WebhookEventType, label: '⚠️ Revogação de TCLE' },
+                    { id: 'DOCUMENT_SIGNED' as WebhookEventType, label: '✍️ Laudos CFP' }
+                  ].map((ev) => (
+                    <label 
+                      key={ev.id}
+                      className={`p-2 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors ${
+                        newSiemEvents.includes(ev.id)
+                          ? 'bg-sky-50 border-sky-300 dark:bg-sky-950/40 dark:border-sky-700 text-sky-900 dark:text-sky-200 font-semibold'
+                          : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newSiemEvents.includes(ev.id)}
+                        onChange={() => {
+                          if (newSiemEvents.includes(ev.id)) {
+                            setNewSiemEvents(newSiemEvents.filter(x => x !== ev.id));
+                          } else {
+                            setNewSiemEvents([...newSiemEvents, ev.id]);
+                          }
+                        }}
+                        className="rounded text-sky-600 focus:ring-sky-500"
+                      />
+                      <span className="text-[11px]">{ev.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSiemModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingSiemConnectors || newSiemEvents.length === 0}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {loadingSiemConnectors ? 'Salvando...' : 'Salvar Conector SIEM'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Inspeção do Teste SIEM */}
+      {siemTestResultModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Radio className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Teste de Integração SIEM: {siemTestResultModal.connectorName}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setSiemTestResultModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs">
+              <span className={`px-2.5 py-1 rounded-full font-bold ${
+                siemTestResultModal.result.success
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+              }`}>
+                HTTP {siemTestResultModal.result.httpStatus} • {siemTestResultModal.result.success ? 'Conexão Estabelecida' : 'Falha na Resposta'}
+              </span>
+              <span className="font-mono text-slate-500">
+                Latência: <strong>{siemTestResultModal.result.latencyMs}ms</strong>
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase">
+                Cabeçalhos HTTP Transmitidos:
+              </span>
+              <pre className="p-3 bg-slate-900 text-slate-200 rounded-xl font-mono text-[11px] overflow-x-auto">
+                {JSON.stringify(siemTestResultModal.result.headersSent, null, 2)}
+              </pre>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase">
+                Payload Formatado pelo Conector (Esquema do Provedor):
+              </span>
+              <pre className="p-3 bg-slate-900 text-emerald-400 rounded-xl font-mono text-[11px] overflow-x-auto max-h-60 overflow-y-auto">
+                {JSON.stringify(siemTestResultModal.result.formattedPayload, null, 2)}
+              </pre>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => setSiemTestResultModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                Fechar Inspeção
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Criação de Novo Webhook */}
       {showCreateWebhookModal && (
