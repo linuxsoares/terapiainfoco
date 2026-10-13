@@ -3,7 +3,7 @@
 > **Documento de Continuidade Operacional**  
 > **Data:** 13/10/2026  
 > **Repositório:** `terapiainfoco` (Monorepo Bun Workspaces)  
-> **Status Geral:** 8 Módulos Principais + 13 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP | 146/146 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 14 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel | 157/157 Testes Passando
 
 
 
@@ -418,6 +418,34 @@ terapiainfoco/
 - [x] **Preservação de Temas:**
   - 100% de paridade visual e funcional mantida em ambos os temas: **Light Mode** e **Dark Mode**.
 
+### 20. Métricas OpenTelemetry / Prometheus & Tracing Distribuído W3C (RFC-001 §5.2 - Opção N)
+- [x] **Motor & Registro de Métricas Prometheus (`apps/backend/src/telemetry/prometheusRegistry.ts`):**
+  - Registro in-memory de alta performance sem dependências externas, conforme formato oficial OpenMetrics / Prometheus (`text/plain; version=0.0.4; charset=utf-8`).
+  - Suporte a métricas do tipo `Counter`, `Gauge` e `Histogram` com buckets cumulativos (`_bucket`, `_sum`, `_count`).
+  - **Métricas RED (Rate, Errors, Duration):** `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, `http_errors_total` com cálculo de percentis P50, P95, P99 e taxa de requisições por segundo.
+  - **Métricas de Criptografia FLE / KMS LGPD:** `crypto_operations_total` (cifra/decifra AES-256-GCM, blind index HMAC-SHA256), `crypto_operation_duration_seconds`, `crypto_active_keys_in_ram`.
+  - **Métricas de Negócio & Sistema:** `clinical_sessions_completed_total`, `clinical_ai_soap_generations_total`, `worm_audit_records_total`, `process_uptime_seconds`, `process_memory_rss_bytes`, `process_memory_heap_bytes`.
+- [x] **Tracing Distribuído OpenTelemetry (OTel) & Padrão W3C Trace Context (`openTelemetryTracer.ts`):**
+  - Geração e propagação dos cabeçalhos oficiais W3C: `traceparent: 00-{traceId}-{spanId}-01`.
+  - Geração criptográfica segura de IDs hexadecimais (128-bit trace ID e 64-bit span ID).
+  - Spans hierárquicos com ciclo de vida completo (`startSpan`, `end`), kinds (`SERVER`, `INTERNAL`, `CLIENT`), atributos estruturados, captura de exceções/eventos e status (`OK` | `ERROR`).
+  - Buffer circular em memória com os últimos spans completados para inspeção.
+- [x] **Middleware Global Hono (`telemetryMiddleware.ts`):**
+  - Interceptação de 100% das requisições HTTP da API.
+  - Injeção automática dos cabeçalhos de resposta: `x-trace-id`, `traceparent` e `x-response-time`.
+  - Normalização inteligente de rotas com UUIDs (`normalizeRoutePath`) mitigando problemas de alta cardinalidade no Prometheus.
+- [x] **Endpoints Backend (`GET /metrics` e `/api/system/telemetry/*`):**
+  - Endpoint root `GET /metrics` aberto no padrão oficial Prometheus v0.0.4.
+  - Endpoints administrativos `/api/system/telemetry/overview`, `/traces` e `/metrics-raw` com controle estrito RBAC restrito a `ADMIN` (HTTP 403 para outros perfis).
+- [x] **Visualizador de Observabilidade & Trace Explorer no Frontend (`DashboardModule.tsx`):**
+  - 3ª aba *"Observabilidade RED & OTel"* integrada harmoniosamente no `DashboardModule`.
+  - 4 Cards RED: Taxa de Requisições (req/s), Taxa de Erros (%), Latência Percentis (P50/P95/P99) e Concorrência Ativa (in-flight).
+  - 4 Cards de Infraestrutura: Cifragens FLE (AES-256-GCM), Blind Indexes HMAC, Memória do Processo (RSS/Heap) e Operações de Negócio/WORM.
+  - **Trace Explorer Interativo:** Listagem dos spans W3C com status, duração e painel de detalhes exibindo atributos OTel, Trace/Span IDs e eventos de ciclo de vida.
+  - **Modal de Prévia Prometheus:** Inspeção do payload bruto exportado por `GET /metrics` com botão de cópia com um clique.
+- [x] **Suíte de Testes Automatizados (`telemetry.test.ts`):**
+  - 11 testes cobrindo formato OpenMetrics, histogramas, propagação de cabeçalhos W3C, spans hierárquicos, bloqueio RBAC e snapshot RED.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -451,21 +479,22 @@ terapiainfoco/
 | `feat/health-readiness-probes` | Health Check Abrangente, Liveness, Readiness & Startup Probes (Opção L) | PR #28 | Merged |
 | `feat/synthetic-monitoring-e2e` | Monitoramento Sintético, Testes E2E Automatizados & Resiliência PGlite (Opção M) | PR #29 | Merged |
 | `feat/mobile` | Responsividade Mobile Completa: Drawer, Bottom Nav, Modais com Rolagem & Validação Pública | PR #30 | Merged |
-| `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | **Em Aberto** |
+| `feat/anamnese-e-retificacao-prontuario` | Ficha de Admissão & Anamnese Biopsicossocial (CFP 001/2009, 004/2020) e Termo de Retificação Formal de Prontuário Selado (RFC §3.4) | [PR #31](https://github.com/linuxsoares/terapiainfoco/pull/31) | Merged |
+| `feat/opentelemetry-prometheus-metrics` | Métricas OpenTelemetry, Prometheus (RED/OpenMetrics v0.0.4) & Tracing Distribuído W3C (Opção N) | PR #32 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **146 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **157 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 📋 Ficha de Anamnese & Retificação Formal de Prontuário (RFC §3.4 & CFP nº 001/2009, 004/2020)
 - [x] **Ficha de Admissão & Anamnese Biopsicossocial:** Queixa principal, histórico da demanda, marcos do desenvolvimento, dinâmica familiar, rede de apoio, rotina/sono, histórico médico/psiquiátrico/familiar e contato de emergência com FLE (AES-256-GCM), versionamento (v1, v2...) e segregação RBAC (HTTP 403 para recepção).
 - [x] **Termo de Retificação Formal para Prontuários Selados:** Aditamento imutável vinculado ao prontuário assinado, seletor de quadrante afetado (`S`, `O`, `A`, `P` ou Geral), justificativa ética formal, canonical SHA-256 digest, revisão ética compulsória e auditoria WORM.
 
 #### 📊 Opção N: Métricas OpenTelemetry / Prometheus & Tracing Distribuído (RFC-001 §5.2)
-- [ ] **Métricas Prometheus (`/metrics`):** Exportador de métricas RED (Rate, Errors, Duration) e métricas de negócios (sessões/min, latência de IA).
-- [ ] **Tracing OpenTelemetry (OTel):** Rastreamento de span ponta-a-ponta entre requisições HTTP, queries SQL e operações KMS.
+- [x] **Métricas Prometheus (`/metrics`):** Exportador OpenMetrics v0.0.4 com métricas RED (Rate, Errors, Duration P50/P95/P99), métricas de criptografia FLE e métricas de negócio.
+- [x] **Tracing OpenTelemetry (OTel):** Rastreamento de span ponta-a-ponta W3C (`traceparent`), propagação de contexto, atributos, eventos e Trace Explorer no frontend.
 
 #### 🔑 Opção O: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID)
 - [ ] **Passkeys / WebAuthn:** Login sem senha ou segundo fator físico com chaves FIDO2 de hardware para o psicólogo titular.

@@ -14,6 +14,7 @@ import { globalEncryptedCache } from '@terapiainfoco/crypto';
 import { auditService } from '../services/auditService';
 import { HealthService } from '../services/healthService';
 import { SyntheticService } from '../services/syntheticService';
+import { TelemetryService } from '../telemetry/telemetryService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 
 
@@ -182,5 +183,36 @@ systemRoute.get('/synthetic/resilience', async (c) => {
   const result = await SyntheticService.checkResilience();
   return c.json(result, 200);
 });
+
+/**
+ * 8. Telemetria OpenTelemetry & Métricas RED / Prometheus (Opção N - RFC-001 §5.2)
+ */
+systemRoute.get('/telemetry/overview', (c) => {
+  const overview = TelemetryService.getOverview();
+  return c.json({
+    success: true,
+    telemetry: overview
+  }, 200);
+});
+
+systemRoute.get('/telemetry/traces', (c) => {
+  const limit = Math.min(100, Number(c.req.query('limit')) || 50);
+  const traces = TelemetryService.getTraces(limit);
+  return c.json({
+    success: true,
+    count: traces.length,
+    traces
+  }, 200);
+});
+
+systemRoute.get('/telemetry/metrics-raw', (c) => {
+  const metrics = TelemetryService.getPrometheusMetricsText();
+  return c.json({
+    success: true,
+    format: 'prometheus_text',
+    metrics
+  }, 200);
+});
+
 
 

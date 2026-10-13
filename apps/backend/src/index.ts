@@ -29,12 +29,24 @@ try {
 
 
 // Middlewares globais
+import { telemetryMiddleware } from './telemetry/telemetryMiddleware';
+import { TelemetryService } from './telemetry/telemetryService';
+
+app.use('*', telemetryMiddleware());
 app.use('*', logger());
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization']
+  allowHeaders: ['Content-Type', 'Authorization', 'traceparent', 'tracestate']
 }));
+
+// Prometheus Metrics Exporter (RFC-001 §5.2 / OpenMetrics Standard)
+app.get('/metrics', (c) => {
+  const metrics = TelemetryService.getPrometheusMetricsText();
+  return c.text(metrics, 200, {
+    'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'
+  });
+});
 
 // Importação do serviço de observabilidade e probes de saúde (RFC §5.2)
 import { HealthService } from './services/healthService';

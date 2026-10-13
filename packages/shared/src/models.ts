@@ -402,5 +402,76 @@ export interface StoredClinicalRecordRectification {
   createdAt: Date | string;
 }
 
+/**
+ * 12. MÉTRICAS OPENTELEMETRY / PROMETHEUS & TRACING DISTRIBUÍDO (RFC-001 §5.2 - Opção N)
+ */
+export type SpanKind = 'SERVER' | 'CLIENT' | 'INTERNAL' | 'PRODUCER' | 'CONSUMER';
+export type SpanStatus = 'OK' | 'ERROR';
+
+export interface TraceSpan {
+  traceId: string;       // 32-hex chars W3C Trace ID
+  spanId: string;        // 16-hex chars W3C Span ID
+  parentSpanId?: string; // 16-hex chars Parent Span ID
+  name: string;          // ex: http.request, crypto.encrypt_fle, db.query, ai.generate_soap
+  kind: SpanKind;
+  startTimeMs: number;
+  endTimeMs?: number;
+  durationMs?: number;
+  status: SpanStatus;
+  attributes: Record<string, string | number | boolean>;
+  events?: Array<{
+    name: string;
+    timestampMs: number;
+    attributes?: Record<string, string | number | boolean>;
+  }>;
+}
+
+export interface RedMetrics {
+  requestRatePerSec: number;
+  errorRatePercentage: number;
+  totalRequests: number;
+  totalErrors: number;
+  activeRequests: number;
+  p50DurationMs: number;
+  p95DurationMs: number;
+  p99DurationMs: number;
+}
+
+export interface CryptoTelemetryMetrics {
+  totalEncryptions: number;
+  totalDecryptions: number;
+  totalBlindIndexes: number;
+  avgDurationMs: number;
+  activeKeysInRam: number;
+}
+
+export interface BusinessTelemetryMetrics {
+  activePatients: number;
+  sessionsCompletedTotal: number;
+  aiSoapGenerationsTotal: number;
+  avgAiDurationMs: number;
+  wormAuditRecordsTotal: number;
+}
+
+export interface TelemetrySystemMetrics {
+  uptimeSeconds: number;
+  memoryRssMb: number;
+  heapUsedMb: number;
+  heapTotalMb: number;
+  cpuUsagePercent?: number;
+}
+
+export interface TelemetryOverview {
+  timestamp: string;
+  service: string;
+  version: string;
+  red: RedMetrics;
+  crypto: CryptoTelemetryMetrics;
+  business: BusinessTelemetryMetrics;
+  system: TelemetrySystemMetrics;
+  recentTraces: TraceSpan[];
+}
+
+
 
 
