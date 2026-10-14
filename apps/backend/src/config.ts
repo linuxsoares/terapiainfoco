@@ -23,8 +23,8 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     /** Chave secreta do cliente OAuth 2.0 (Google Cloud Console) */
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    /** URI de redirecionamento configurada no console */
-    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback',
+    /** URI de redirecionamento configurada no console (se vazia, inferida dinamicamente do proxy/Host) */
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
     /** Refresh token persistente para renovação automática sem expiração */
     refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
     /** Token OAuth Bearer com escopo https://www.googleapis.com/auth/meetings.space.created */

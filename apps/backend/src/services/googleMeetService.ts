@@ -65,7 +65,7 @@ export class GoogleMeetService {
       throw new Error('GOOGLE_CLIENT_ID não configurado nas variáveis de ambiente.');
     }
 
-    const uri = redirectUri || config.google.redirectUri;
+    const uri = redirectUri || config.google.redirectUri || 'http://localhost:3000/api/auth/google/callback';
     const scopes = [
       'https://www.googleapis.com/auth/meetings.space.created',
       'https://www.googleapis.com/auth/meetings.space.readonly',
@@ -101,7 +101,7 @@ export class GoogleMeetService {
   }> {
     const clientId = config.google.clientId;
     const clientSecret = config.google.clientSecret;
-    const uri = redirectUri || config.google.redirectUri;
+    const uri = redirectUri || config.google.redirectUri || 'http://localhost:3000/api/auth/google/callback';
 
     if (!clientId || !clientSecret) {
       throw new Error('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET devem estar configurados.');
