@@ -1488,6 +1488,71 @@ export interface ZkpProofListResponse {
   metrics: import('./models').ZkpSystemMetrics;
 }
 
+/**
+ * DTOs de Monitoramento de Vazamentos na Dark Web & Resposta a Incidentes (RFC-001 §4.4, LGPD Art. 46/48)
+ */
+export interface CheckCredentialBreachDTO {
+  emailOrIdentifier?: string;
+  passwordSample?: string;
+}
+
+export interface TriggerDarkWebScanDTO {
+  scope?: 'ALL_STAFF' | 'ADMINS_ONLY' | 'SPECIFIC_USER';
+  targetEmail?: string;
+  simulateBreachDump?: boolean;
+}
+
+export interface ContainIncidentDTO {
+  incidentId: string;
+  reason?: string;
+  forcePasswordReset?: boolean;
+}
+
+export interface ResolveIncidentDTO {
+  incidentId: string;
+  alertId?: string;
+  resolutionNotes: string;
+  reportedToAnpd: boolean;
+  anpdProtocolNumber?: string;
+}
+
+export interface CredentialBreachCheckResponse {
+  success: boolean;
+  result: import('./models').KAnonymityLookupResult;
+  message: string;
+}
+
+export interface ThreatScanResponse {
+  success: boolean;
+  newIncidentsCount: number;
+  incidents: import('./models').CredentialBreachRecord[];
+  alertsGenerated: import('./models').DpoIncidentAlert[];
+  message: string;
+}
+
+export interface ThreatIntelligenceOverviewResponse {
+  success: boolean;
+  incidents: import('./models').CredentialBreachRecord[];
+  alerts: import('./models').DpoIncidentAlert[];
+  metrics: import('./models').ThreatIntelligenceMetrics;
+}
+
+export interface ContainIncidentResponse {
+  success: boolean;
+  incident: import('./models').CredentialBreachRecord;
+  sessionsRevokedCount: number;
+  dpoAlert?: import('./models').DpoIncidentAlert;
+  message: string;
+}
+
+export interface ResolveIncidentResponse {
+  success: boolean;
+  incident: import('./models').CredentialBreachRecord;
+  alert?: import('./models').DpoIncidentAlert;
+  message: string;
+}
+
+
 
 
 

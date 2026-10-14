@@ -21,6 +21,7 @@ export * from './networkResilience';
 export * from './mediaSharding';
 export * from './sessionRecovery';
 export * from './zkpProof';
+export * from './breachMonitor';
 
 
 
