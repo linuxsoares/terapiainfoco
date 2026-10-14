@@ -1645,3 +1645,51 @@ export interface DlpOverviewResponse {
   overview: import('./models').DlpAuditOverview;
 }
 
+/**
+ * 24. CARTÓRIO NOTARIAL DIGITAL DE PRONTUÁRIOS & AUDITORIA FORENSE ZERO-KNOWLEDGE
+ * (LGPD Art. 18 & CFP nº 001/2009)
+ */
+
+export interface SealClinicalRecordDTO {
+  recordId: string;
+  patientId: string;
+  therapistId: string;
+  therapistCrp: string;
+  clinicalCanonicalHash?: string;
+}
+
+export interface VerifyNotarySealDTO {
+  sealTokenOrBlindIndex: string;
+}
+
+export interface VerifyNotaryChainDTO {
+  patientId: string;
+}
+
+export interface IssueNotaryCertificateDTO {
+  recordId: string;
+  patientId: string;
+}
+
+export interface SealClinicalRecordResponse {
+  success: boolean;
+  block: import('./models').ClinicalNotaryBlock;
+  message: string;
+}
+
+export interface VerifyNotaryResponse {
+  success: boolean;
+  result: import('./models').NotaryChainVerificationResult;
+}
+
+export interface NotaryOverviewResponse {
+  success: boolean;
+  overview: import('./models').NotaryLedgerOverview;
+}
+
+export interface NotaryCertificateResponse {
+  success: boolean;
+  certificate: import('./models').NotaryCertificate;
+}
+
+

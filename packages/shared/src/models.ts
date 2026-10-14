@@ -22,7 +22,9 @@ import {
   ConsentLegalBasis,
   DlpPolicyMode,
   DlpRiskLevel,
-  SteganographyInspectionStatus
+  SteganographyInspectionStatus,
+  NotaryStatus,
+  NotaryVerificationStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1369,5 +1371,66 @@ export interface DlpAuditOverview {
   activePolicy: DlpPolicyMode;
   recentEvents: DlpEventLog[];
 }
+
+/**
+ * 29. CARTÓRIO NOTARIAL DIGITAL DE PRONTUÁRIOS & AUDITORIA FORENSE ZERO-KNOWLEDGE
+ * (LGPD Art. 18 & Resolução CFP nº 001/2009)
+ */
+
+export interface ClinicalNotaryBlock {
+  notaryId: string;
+  recordId: string;
+  recordBlindIndex: string;
+  patientId: string;
+  versionNumber: number;
+  clinicalCanonicalHash: string;
+  previousNotaryHash: string;
+  blockHash: string;
+  digitalNotarySeal: string; // Token público notary_v1_<base64url>
+  notaryTimestamp: string;
+  therapistId: string;
+  therapistCrp: string;
+  status: NotaryStatus;
+  hasRectifications: boolean;
+  rectificationCount: number;
+  wormAuditLogId?: string;
+}
+
+export interface NotaryChainVerificationResult {
+  valid: boolean;
+  status: NotaryVerificationStatus;
+  totalBlocks: number;
+  brokenIndex?: number;
+  message: string;
+  verifiedAt: string;
+  recordBlindIndex?: string;
+  blockDetails?: ClinicalNotaryBlock;
+}
+
+export interface NotaryLedgerOverview {
+  totalNotarizedRecords: number;
+  totalVerifiedChains: number;
+  integrityPercentage: number;
+  tamperingAttemptsDetected: number;
+  activeNotaryVersion: string;
+  recentNotaryBlocks: ClinicalNotaryBlock[];
+}
+
+export interface NotaryCertificate {
+  certificateId: string;
+  issuedAt: string;
+  recordId: string;
+  recordBlindIndex: string;
+  patientIdMasked: string;
+  therapistCrp: string;
+  notarizedAt: string;
+  versionNumber: number;
+  blockHash: string;
+  digitalNotarySeal: string;
+  cfpComplianceAssertion: string;
+  lgpdComplianceAssertion: string;
+  verifierUrl: string;
+}
+
 
 

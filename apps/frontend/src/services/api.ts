@@ -179,7 +179,16 @@ import type {
   EvaluateClipboardDlpResponse,
   InspectClipboardDlpResponse,
   DlpOverviewResponse,
-  DlpPolicyMode
+  DlpPolicyMode,
+  ClinicalNotaryBlock,
+  NotaryChainVerificationResult,
+  SealClinicalRecordDTO,
+  VerifyNotarySealDTO,
+  IssueNotaryCertificateDTO,
+  SealClinicalRecordResponse,
+  VerifyNotaryResponse,
+  NotaryOverviewResponse,
+  NotaryCertificateResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1521,6 +1530,35 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ policyMode })
     });
+  },
+
+  async sealClinicalRecord(dto: SealClinicalRecordDTO): Promise<SealClinicalRecordResponse> {
+    return await request<SealClinicalRecordResponse>('/notary/seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyNotarySeal(dto: VerifyNotarySealDTO): Promise<VerifyNotaryResponse> {
+    return await request<VerifyNotaryResponse>('/notary/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientNotaryBlocks(patientId: string): Promise<{ success: boolean; patientId: string; blocks: ClinicalNotaryBlock[]; chainVerification: NotaryChainVerificationResult }> {
+    return await request<{ success: boolean; patientId: string; blocks: ClinicalNotaryBlock[]; chainVerification: NotaryChainVerificationResult }>(`/notary/patient/${patientId}`);
+  },
+
+  async issueNotaryCertificate(dto: IssueNotaryCertificateDTO): Promise<NotaryCertificateResponse> {
+    return await request<NotaryCertificateResponse>('/notary/certificate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getNotaryOverview(): Promise<NotaryOverviewResponse> {
+    return await request<NotaryOverviewResponse>('/notary/overview');
   }
 };
 
