@@ -1350,5 +1350,57 @@ export interface NetworkSimulationPresetsResponse {
   presets: import('./models').NetworkProfilePreset[];
 }
 
+/**
+ * 26. GRAVAÇÃO EM REPOUSO COM SHARDING & DESTRUIÇÃO PROGRAMADA (CRYPTO-SHREDDING) (RFC-001 §3.2, §3.3, §4.2, CFP 011/2018)
+ */
+export interface CreateMediaSessionDTO {
+  sessionId: string;
+  patientId?: string;
+  codec?: import('./enums').AudioCodecType;
+  estimatedDurationSeconds?: number;
+}
+
+export interface UploadMediaChunkDTO {
+  chunkIndex: number;
+  audioDataBase64: string; // Payload bruto do chunk de áudio em base64
+  isLastChunk?: boolean;
+}
+
+export interface FinalizeMediaRecordingDTO {
+  recordingId: string;
+}
+
+export interface ExecuteCryptoShreddingDTO {
+  recordingId?: string;
+  reason?: string;
+  method?: import('./enums').CryptoShreddingMethod;
+}
+
+export interface MediaRecordingResponse {
+  success: boolean;
+  recording: import('./models').MediaRecordingManifest;
+  message: string;
+}
+
+export interface MediaSessionListResponse {
+  success: boolean;
+  recordings: import('./models').MediaRecordingManifest[];
+  metrics: import('./models').MediaStorageMetrics;
+}
+
+export interface CryptoShreddingResponse {
+  success: boolean;
+  certificate: import('./models').CryptoShreddingCertificate;
+  message: string;
+}
+
+export interface SimulateMediaPipelineResponse {
+  success: boolean;
+  recording: import('./models').MediaRecordingManifest;
+  certificate?: import('./models').CryptoShreddingCertificate;
+  message: string;
+}
+
+
 
 
