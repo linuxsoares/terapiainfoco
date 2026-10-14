@@ -132,7 +132,15 @@ import type {
   RunNetworkSimulationDTO,
   NetworkSimulationResponse,
   NetworkResilienceHistoryResponse,
-  NetworkResilienceMetrics
+  NetworkResilienceMetrics,
+  CreateMediaSessionDTO,
+  UploadMediaChunkDTO,
+  ExecuteCryptoShreddingDTO,
+  MediaRecordingResponse,
+  MediaSessionListResponse,
+  CryptoShreddingResponse,
+  SimulateMediaPipelineResponse,
+  MediaStorageMetrics
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1270,6 +1278,53 @@ export const api = {
 
   async getNetworkResilienceMetrics(): Promise<{ success: boolean; metrics: NetworkResilienceMetrics }> {
     return await request<{ success: boolean; metrics: NetworkResilienceMetrics }>('/teleconsultation/network-resilience/metrics');
+  },
+
+  // 24. Gravação com Sharding Criptográfico & Destruição Programada / Crypto-Shredding (RFC-001 §3.2, §3.3, §4.2 e CFP 011/2018)
+  async createMediaRecording(dto: CreateMediaSessionDTO): Promise<MediaRecordingResponse> {
+    return await request<MediaRecordingResponse>('/teleconsultation/media/recordings', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async uploadMediaChunk(recordingId: string, dto: UploadMediaChunkDTO): Promise<{ success: boolean; shard: any; message: string }> {
+    return await request<{ success: boolean; shard: any; message: string }>(`/teleconsultation/media/recordings/${recordingId}/chunks`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async finalizeMediaRecording(recordingId: string): Promise<MediaRecordingResponse> {
+    return await request<MediaRecordingResponse>(`/teleconsultation/media/recordings/${recordingId}/finalize`, {
+      method: 'POST'
+    });
+  },
+
+  async simulateMediaPipeline(recordingId: string, autoShred = true): Promise<SimulateMediaPipelineResponse> {
+    return await request<SimulateMediaPipelineResponse>(`/teleconsultation/media/recordings/${recordingId}/simulate-pipeline`, {
+      method: 'POST',
+      body: JSON.stringify({ autoShred })
+    });
+  },
+
+  async executeCryptoShredding(recordingId: string, dto?: ExecuteCryptoShreddingDTO): Promise<CryptoShreddingResponse> {
+    return await request<CryptoShreddingResponse>(`/teleconsultation/media/recordings/${recordingId}/shred`, {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+  },
+
+  async getMediaRecordings(): Promise<MediaSessionListResponse> {
+    return await request<MediaSessionListResponse>('/teleconsultation/media/recordings');
+  },
+
+  async getMediaRecordingCertificate(recordingId: string): Promise<CryptoShreddingResponse> {
+    return await request<CryptoShreddingResponse>(`/teleconsultation/media/recordings/${recordingId}/certificate`);
+  },
+
+  async getMediaStorageMetrics(): Promise<{ success: boolean; metrics: MediaStorageMetrics }> {
+    return await request<{ success: boolean; metrics: MediaStorageMetrics }>('/teleconsultation/media/metrics');
   }
 };
 

@@ -1012,6 +1012,70 @@ export interface NetworkProfilePreset {
   expectedMosRange: string;
 }
 
+/**
+ * 26. GRAVAÇÃO EM REPOUSO COM SHARDING & DESTRUIÇÃO PROGRAMADA (CRYPTO-SHREDDING) (RFC-001 §3.2, §3.3, §4.2, CFP 011/2018)
+ */
+export interface MediaShardMetadata {
+  shardId: string;
+  shardIndex: number;
+  ivHex: string;
+  authTagHex: string;
+  encryptedDek: string; // DEK do shard cifrada pela KEK mestre
+  sha256Hash: string;   // Hash do shard cifrado para validação Merkle
+  byteLength: number;
+  status: import('./enums').MediaShardStatus;
+  createdAt: string;
+  shreddedAt?: string;
+}
+
+export interface EncryptedMediaShard {
+  metadata: MediaShardMetadata;
+  ciphertextBase64: string;
+}
+
+export interface MediaRecordingManifest {
+  id: string;
+  sessionId: string;
+  patientId?: string;
+  therapistId: string;
+  totalShards: number;
+  totalBytes: number;
+  durationSeconds: number;
+  codec: import('./enums').AudioCodecType;
+  merkleRoot: string;
+  status: import('./enums').MediaRecordingStatus;
+  createdAt: string;
+  finalizedAt?: string;
+  shreddedAt?: string;
+  shards: MediaShardMetadata[];
+  wormAuditId?: string;
+}
+
+export interface CryptoShreddingCertificate {
+  certificateId: string;
+  recordingId: string;
+  sessionId: string;
+  destroyedAt: string;
+  shreddedShardsCount: number;
+  totalBytesPurged: number;
+  method: import('./enums').CryptoShreddingMethod;
+  probatoryWormDigest: string; // Hash SHA-256 canônico atestando destruição irrestrita
+  lgpdBasis: string;           // LGPD Art. 16 (Término de tratamento de dados sensíveis de saúde)
+  cfpComplianceRule: string;   // Resolução CFP nº 011/2018 (Sigilo estrito e guarda restrita ao prontuário)
+}
+
+export interface MediaStorageMetrics {
+  totalRecordings: number;
+  activeEncryptedRecordings: number;
+  shreddedRecordingsCount: number;
+  totalShardsCreated: number;
+  activeShardsInStorage: number;
+  shreddedShardsCount: number;
+  totalBytesPurged: number;
+  lastShreddedAt?: string;
+}
+
+
 
 
 

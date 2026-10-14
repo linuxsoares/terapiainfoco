@@ -19,6 +19,7 @@ import { securityHardeningRoute } from './routes/securityHardening';
 import { webrtcSecurityRoute } from './routes/webrtcSecurity';
 import { wafRoute } from './routes/waf';
 import { networkResilienceRoute } from './routes/networkResilience';
+import { mediaShardingRoute } from './routes/mediaSharding';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -134,6 +135,8 @@ app.route('/api/security/hardening', securityHardeningRoute);
 app.route('/api/teleconsultation/webrtc', webrtcSecurityRoute);
 app.route('/api/security/waf', wafRoute);
 app.route('/api/teleconsultation/network-resilience', networkResilienceRoute);
+app.route('/api/teleconsultation/media', mediaShardingRoute);
+
 
 
 

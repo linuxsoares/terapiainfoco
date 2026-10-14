@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 21 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) | 347/347 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 22 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) | 366/366 Testes Passando
 
 
 
@@ -834,6 +834,43 @@ terapiainfoco/
   - Laudo pericial com score MOS colorido, submétricas acústicas (R-Factor, fonemas perdidos, atraso total, vídeo), diretriz ética CFP 011/2018 e digest probatório SHA-256.
   - Tabela forense de simulações recentes com suporte a Light Mode e Dark Mode.
 
+### 33. Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (*Crypto-Shredding*) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018)
+- [x] **Core Criptográfico (`packages/crypto/src/mediaSharding.ts`):**
+  - **Particionamento em Chunks (`splitBufferIntoChunks`):** Fatiamento determinístico de áudios brutos em fragmentos de tamanho configurável (default 64KB).
+  - **Envelope Encryption por Shard:** Geração de DEK simétrica de 32 bytes (`AES-256-GCM`) exclusiva e efêmera para cada shard, cifrada com KEK Mestre do KMS (`encryptDEK` / `decryptDEK`).
+  - **Cifragem de Shard (`encryptMediaShard`):** Encriptação individual com IV de 12 bytes e Auth Tag de 16 bytes, garantindo confidencialidade e autenticidade ponta a ponta.
+  - **Árvore de Merkle Determinística (`calculateMerkleRoot`):** Cálculo de hash SHA-256 por shard e agregação em nós emparelhados até a raiz global, permitindo atestação matemática de integridade do arquivo completo sem necessidade de decifrá-lo.
+  - **Decifragem Transitória em RAM para Transcrição (`decryptMediaShard`, `reassembleAndVerifyMedia`):** Desembrulho temporário estritamente em memória volátil durante a execução da esteira de transcrição / diarização / SOAP.
+  - **Destruição Programada Irreversível (*Crypto-Shredding* via `executeCryptoShredding`):**
+    - Sobrescrita compulsória de buffers brutos e decifrados com zeros (*zero-fill secure wipe*).
+    - Purga criptográfica irreversível da DEK cifrada em repouso (`encryptedDEK: 'DEK_PURGED_CRYPTO_SHREDDED'`), tornando a decifragem dos shards de mídia matematicamente impossível mesmo em caso de exfiltração de backups brutos.
+    - Emissão de Laudo Pericial Forense (`CryptoShreddingCertificate`) com carimbo de tempo ISO, contagem de bytes e shards expurgados, motivo legal (LGPD Art. 16 e Resolução CFP nº 011/2018) e selagem através de digest SHA-256 canônico (`probatoryDigest`).
+  - Suíte de 13 testes unitários dedicados passando (`packages/crypto/test/mediaSharding.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `AuditAction.MEDIA_RECORDING_SHARDED`, `AuditAction.MEDIA_DECRYPTED_FOR_TRANSCRIPTION`, `AuditAction.MEDIA_CRYPTO_SHREDDED` e `AuditResourceType.MEDIA_RECORDING`.
+  - Enums `MediaShardStatus`, `MediaRecordingStatus` e `CryptoShreddingMethod`.
+  - Interfaces `MediaShardMetadata`, `EncryptedMediaShard`, `MediaRecordingManifest`, `CryptoShreddingCertificate` e `MediaStorageMetrics`.
+  - DTOs `CreateMediaSessionDTO`, `UploadMediaChunkDTO`, `FinalizeMediaRecordingDTO`, `ExecuteCryptoShreddingDTO`, `MediaRecordingResponse`, `MediaSessionListResponse`, `CryptoShreddingResponse` e `SimulateMediaPipelineResponse`.
+- [x] **Backend Service & Rotas REST Hono (`apps/backend`):**
+  - `MediaShardingService`: Singleton em memória gerenciando sessões de teleconsulta gravadas, ingestão em streaming de shards, validação de integridade Merkle Root, esteira de transcrição simulada com auto-shredding, expurgamento compulsório sob demanda e selagem probatória na trilha WORM.
+  - Endpoints REST protegidos por autenticação estrita e RBAC (`ADMIN` e `PSICOLOGO_TITULAR`) em `/api/teleconsultation/media/*`:
+    - `POST /recordings`: Cria sessão de gravação particionada vinculada a um agendamento.
+    - `POST /recordings/:id/chunks`: Ingestão de chunk em base64 com cifragem e DEK dedicada.
+    - `POST /recordings/:id/finalize`: Consolidação do manifesto e cravamento da Merkle Root SHA-256.
+    - `POST /recordings/:id/simulate-pipeline`: Reconstituição transitória em RAM, extração de texto simulada e auto-expurgo criptográfico.
+    - `POST /recordings/:id/shred`: Execução de Crypto-Shredding imediato com emissão de certificado e zero-fill.
+    - `GET /recordings`: Listagem das gravações e seu status de retenção.
+    - `GET /recordings/:id/certificate`: Consulta do Certificado Forense de Crypto-Shredding emitido.
+    - `GET /metrics`: Agregados estatísticos para o dashboard clínico e de segurança.
+  - Suíte de 6 testes de integração passando (`apps/backend/test/mediaSharding.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 15 (*Gravação Cifrada em Repouso com Sharding & Crypto-Shredding Forense WORM*) no `SecurityModule.tsx` exibindo 4 KPIs em tempo real (Sessões Gravadas, Shards Cifrados em Repouso, Volume Total Protegido e Expurgos Irreversíveis Executados).
+  - Simulador interativo de gravação de áudio particionado em shards (geração de chunks simulados, envelope encryption e consolidação com Merkle Root).
+  - Visualizador topológico dos shards de cada sessão exibindo status criptográfico, tamanho, IV e sinalização de chave purgada.
+  - Ações com feedback imediato: *Transcrever & Auto-Expurgar* (simulação da esteira SOAP + eliminação compulsória) e *Crypto-Shredding Imediato*.
+  - Modal pericial do Certificado Forense de Crypto-Shredding com carimbo cronológico, motivo legal fundamentado no CFP e LGPD, contagem de bytes/shards destruídos e selo probatório SHA-256.
+  - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -880,13 +917,14 @@ terapiainfoco/
 | `fix/google-meet-rbac-routes` | Correção de RBAC em rotas Google Meet (/api/system/google-meet/*) para perfil PSICOLOGO_TITULAR e ajuste de mensagens | [PR #42](https://github.com/linuxsoares/terapiainfoco/pull/42) | Merged |
 | `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | Merged |
 | `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | Merged |
-| `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | **Em Aberto** |
+| `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | Merged |
+| `feat/media-recording-sharding-crypto-shredding` | Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (Crypto-Shredding) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018) | [PR #47](https://github.com/linuxsoares/terapiainfoco/pull/47) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **347 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **366 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -896,8 +934,9 @@ Com o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligib
 - [x] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia com DTLS-SRTP, Safety Numbers (SAS) e selo WORM.
 - [x] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
 - [x] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica (MOS ITU-T G.107) e diretriz ética CFP 011/2018.
-- [ ] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
-- [ ] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica.**
+- [x] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
+- [ ] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC §3.2).**
+- [ ] **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos.**
 
 ---
 
@@ -907,7 +946,7 @@ Com o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligib
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (347 testes)
+# 2. Executar suíte completa de testes (366 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

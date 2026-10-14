@@ -119,7 +119,11 @@ export enum AuditAction {
   WAF_RULE_UPDATED = 'WAF_RULE_UPDATED',
   // Ações de Simulação de Resiliência de Rede & Contingência Clínica (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
   NETWORK_RESILIENCE_SIMULATED = 'NETWORK_RESILIENCE_SIMULATED',
-  CLINICAL_CONTINGENCY_TRIGGERED = 'CLINICAL_CONTINGENCY_TRIGGERED'
+  CLINICAL_CONTINGENCY_TRIGGERED = 'CLINICAL_CONTINGENCY_TRIGGERED',
+  // Ações de Sharding de Mídia & Destruição Programada / Crypto-Shredding (RFC-001 §3.2, §3.3, §4.2 e CFP 011/2018)
+  MEDIA_RECORDING_SHARDED = 'MEDIA_RECORDING_SHARDED',
+  MEDIA_DECRYPTED_FOR_TRANSCRIPTION = 'MEDIA_DECRYPTED_FOR_TRANSCRIPTION',
+  MEDIA_CRYPTO_SHREDDED = 'MEDIA_CRYPTO_SHREDDED'
 }
 
 export enum AuditResourceType {
@@ -140,7 +144,8 @@ export enum AuditResourceType {
   MEET = 'MEET',
   WEBRTC_SESSION = 'WEBRTC_SESSION',
   WAF = 'WAF',
-  NETWORK_RESILIENCE = 'NETWORK_RESILIENCE'
+  NETWORK_RESILIENCE = 'NETWORK_RESILIENCE',
+  MEDIA_RECORDING = 'MEDIA_RECORDING'
 }
 
 /**
@@ -324,4 +329,33 @@ export enum AudioCodecType {
   G722 = 'G722',                             // G.722 Wideband
   G711_ALAW = 'G711_ALAW'                    // G.711 A-law (Legado Telefônico)
 }
+
+/**
+ * Estados do Shard Individual de Mídia em Repouso (RFC-001 §3.2, §3.3, §4.2)
+ */
+export enum MediaShardStatus {
+  ACTIVE_ENCRYPTED = 'ACTIVE_ENCRYPTED',         // Shard cifrado com DEK efêmera exclusiva em repouso
+  DECRYPTED_PROCESSING = 'DECRYPTED_PROCESSING', // Em decifragem estritamente temporária em RAM para IA
+  SHREDDED_DESTROYED = 'SHREDDED_DESTROYED'       // Shard destruído via sobrescrita segura e purga de DEK
+}
+
+/**
+ * Estados do Ciclo de Vida da Gravação de Teleconsulta
+ */
+export enum MediaRecordingStatus {
+  RECORDING = 'RECORDING',                               // Em gravação e fatiamento contínuo
+  SHARDED_ENCRYPTED = 'SHARDED_ENCRYPTED',               // Gravação concluída e 100% particionada e cifrada em repouso
+  PROCESSING_TRANSCRIPTION = 'PROCESSING_TRANSCRIPTION', // Em processamento pela IA de transcrição/SOAP
+  SHREDDED_PURGED = 'SHREDDED_PURGED',                   // Áudio bruto destruído com emissão de laudo forense WORM
+  FAILED = 'FAILED'
+}
+
+/**
+ * Método de Destruição / Expurgamento Criptográfico (Crypto-Shredding)
+ */
+export enum CryptoShreddingMethod {
+  ZERO_FILL_AND_KEY_DESTROY = 'ZERO_FILL_AND_KEY_DESTROY', // Sobrescrita de payload com zeros e purga irreversível da DEK
+  CRYPTOGRAPHIC_ERASURE = 'CRYPTOGRAPHIC_ERASURE'           // Destruição instantânea da DEK tornando o ciphertext irrecuperável
+}
+
 
