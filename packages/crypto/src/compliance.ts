@@ -96,8 +96,10 @@ export function simulateCryptographicTamperingTest(): TamperDetectionTestResult 
   try {
     const keyBuf = Buffer.from(testKey, 'hex');
     const encrypted = encryptAesGcm(sampleNote, keyBuf);
-    // Adulteração intencional de 1 caractere no meio do payload
-    const tamperedPayload = encrypted.ciphertext.substring(0, 10) + 'X' + encrypted.ciphertext.substring(11);
+    // Adulteração intencional garantida de 1 caractere no meio do payload
+    const charToReplace = encrypted.ciphertext[10];
+    const replacement = charToReplace === 'X' ? 'Y' : 'X';
+    const tamperedPayload = encrypted.ciphertext.substring(0, 10) + replacement + encrypted.ciphertext.substring(11);
     
     try {
       decryptAesGcm({

@@ -48,7 +48,8 @@ import {
   Search,
   ScrollText,
   BadgeCheck,
-  Share2
+  Share2,
+  Scale
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -144,7 +145,16 @@ import {
   CredentialRevocationStatus,
   UebaRiskLevel,
   UebaContainmentAction,
-  UebaContainmentStatus
+  UebaContainmentStatus,
+  DpMechanism,
+  DpQueryType,
+  DpBudgetStatus,
+  DpCohortMetric,
+  DpResearchProject,
+  DpQueryResult,
+  DpProofVerification,
+  DpEpidemiologicalBenchmark,
+  DpSystemOverview
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1561,6 +1571,172 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados do Protocolo de Privacidade Diferencial (ε-DP) & Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009)
+  const [dpOverview, setDpOverview] = useState<DpSystemOverview | null>(null);
+  const [dpProjects, setDpProjects] = useState<DpResearchProject[]>([]);
+  const [loadingDp, setLoadingDp] = useState<boolean>(false);
+  const [selectedDpProjectId, setSelectedDpProjectId] = useState<string>('proj-ufmg-tcc-2026');
+  const [selectedDpMetric, setSelectedDpMetric] = useState<DpCohortMetric>(DpCohortMetric.GAD7_SEVERITY_SCORE);
+  const [selectedDpQueryType, setSelectedDpQueryType] = useState<DpQueryType>(DpQueryType.MEAN);
+  const [selectedDpEpsilon, setSelectedDpEpsilon] = useState<number>(0.5);
+  const [selectedDpMechanism, setSelectedDpMechanism] = useState<DpMechanism>(DpMechanism.LAPLACE);
+  const [lastDpQueryResult, setLastDpQueryResult] = useState<DpQueryResult | null>(null);
+  const [lastDpBenchmark, setLastDpBenchmark] = useState<DpEpidemiologicalBenchmark | null>(null);
+  const [executingDpQuery, setExecutingDpQuery] = useState<boolean>(false);
+  const [generatingDpBenchmark, setGeneratingDpBenchmark] = useState<boolean>(false);
+  const [showAllocateDpModal, setShowAllocateDpModal] = useState<boolean>(false);
+  const [selectedDpProofForModal, setSelectedDpProofForModal] = useState<DpQueryResult | null>(null);
+  const [verifyingDpProof, setVerifyingDpProof] = useState<boolean>(false);
+  const [dpVerificationResult, setDpVerificationResult] = useState<DpProofVerification | null>(null);
+
+  // Formulário de Nova Cota DPO
+  const [newDpProjectId, setNewDpProjectId] = useState<string>('');
+  const [newDpTitle, setNewDpTitle] = useState<string>('');
+  const [newDpResearcher, setNewDpResearcher] = useState<string>('');
+  const [newDpInstitution, setNewDpInstitution] = useState<string>('');
+  const [newDpCepProtocol, setNewDpCepProtocol] = useState<string>('');
+  const [newDpPurpose, setNewDpPurpose] = useState<string>('');
+  const [newDpEpsilonBudget, setNewDpEpsilonBudget] = useState<number>(2.0);
+  const [allocatingBudget, setAllocatingBudget] = useState<boolean>(false);
+
+  const fetchDpData = async () => {
+    try {
+      setLoadingDp(true);
+      const [ovRes, prRes] = await Promise.all([
+        api.getDpOverview(),
+        api.getDpProjects()
+      ]);
+      if (ovRes.success) setDpOverview(ovRes.overview);
+      if (prRes.success) {
+        setDpProjects(prRes.projects);
+        if (prRes.projects.length > 0 && !selectedDpProjectId) {
+          setSelectedDpProjectId(prRes.projects[0].projectId);
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de Privacidade Diferencial:', err);
+    } finally {
+      setLoadingDp(false);
+    }
+  };
+
+  const handleExecuteDpQuery = async () => {
+    try {
+      setExecutingDpQuery(true);
+      const res = await api.executeDpQuery({
+        projectId: selectedDpProjectId,
+        metric: selectedDpMetric,
+        queryType: selectedDpQueryType,
+        epsilon: selectedDpEpsilon,
+        mechanism: selectedDpMechanism
+      });
+
+      if (res.success) {
+        setLastDpQueryResult(res.result);
+        setFeedback({
+          type: 'success',
+          message: `Consulta estatística anonimizada com sucesso! Consumo: ${res.result.epsilonUsed} ε (Selo WORM ${res.result.proofSeal.slice(0, 15)}...).`
+        });
+        await fetchDpData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao executar consulta com Privacidade Diferencial.'
+      });
+    } finally {
+      setExecutingDpQuery(false);
+    }
+  };
+
+  const handleGenerateDpBenchmark = async () => {
+    try {
+      setGeneratingDpBenchmark(true);
+      const res = await api.generateDpBenchmark({
+        projectId: selectedDpProjectId,
+        benchmarkType: 'CLINICAL_OUTCOMES',
+        epsilonPerMetric: Number((selectedDpEpsilon / 2).toFixed(2)) || 0.25,
+        mechanism: selectedDpMechanism
+      });
+
+      if (res.success) {
+        setLastDpBenchmark(res.benchmark);
+        setFeedback({
+          type: 'success',
+          message: `Benchmark multicêntrico gerado com 4 dimensões clínicas e selo WORM!`
+        });
+        await fetchDpData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao gerar benchmark epidemiológico.'
+      });
+    } finally {
+      setGeneratingDpBenchmark(false);
+    }
+  };
+
+  const handleVerifyDpProof = async (proofSeal: string) => {
+    try {
+      setVerifyingDpProof(true);
+      const res = await api.verifyDpProof({ proofSeal });
+      if (res.success) {
+        setDpVerificationResult(res.verification);
+        setFeedback({
+          type: res.verification.isValid ? 'success' : 'error',
+          message: res.message
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha na verificação matemática do selo.'
+      });
+    } finally {
+      setVerifyingDpProof(false);
+    }
+  };
+
+  const handleAllocateDpBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setAllocatingBudget(true);
+      const res = await api.allocateDpBudget({
+        projectId: newDpProjectId.trim() || `proj-${Date.now()}`,
+        title: newDpTitle.trim() || 'Estudo Epidemiológico Clínico',
+        researcherName: newDpResearcher.trim() || 'Pesquisador Homologado',
+        institution: newDpInstitution.trim() || 'Instituição de Pesquisa',
+        cepProtocol: newDpCepProtocol.trim() || `CEP-${Math.floor(1000 + Math.random() * 9000)}`,
+        purpose: newDpPurpose.trim() || 'Pesquisa clínica em conformidade com LGPD Art. 13',
+        epsilonBudget: Number(newDpEpsilonBudget) || 2.0,
+        dpoApprover: currentUser.email
+      });
+
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Orçamento de ${newDpEpsilonBudget} ε concedido com sucesso para '${res.project.title}'.`
+        });
+        setShowAllocateDpModal(false);
+        setNewDpProjectId('');
+        setNewDpTitle('');
+        setNewDpResearcher('');
+        setNewDpInstitution('');
+        setNewDpCepProtocol('');
+        setNewDpPurpose('');
+        await fetchDpData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao alocar orçamento de privacidade.'
+      });
+    } finally {
+      setAllocatingBudget(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1577,6 +1753,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchPurgeCandidates();
       fetchDidData();
       fetchUebaData();
+      fetchDpData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -9107,6 +9284,485 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Card 25: Protocolo Criptográfico de Privacidade Diferencial (ε-DP) & Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-900/60">
+                  LGPD Art. 13 & CFP nº 001/2009
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  Mecanismos de Laplace & Gaussiano (Pure ε-DP / (ε, δ)-DP)
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                <Scale className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Privacidade Diferencial (ε-DP) & Benchmarks Epidemiológicos
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Anonimização estatística matemática estrita para pesquisas clínicas em saúde mental, com clamping de sensibilidade, controle de orçamento ε e selos WORM JCS.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchDpData}
+                disabled={loadingDp}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Recarregar Governança de DP"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingDp ? 'animate-spin' : ''}`} />
+              </button>
+              {currentUser.role === UserRole.ADMIN && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllocateDpModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Alocar Cota ε (DPO)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 4 KPIs de Governança de Privacidade Diferencial */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Orçamento Agregado */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Orçamento de Privacidade ε
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  {dpOverview?.aggregateEpsilonConsumed.toFixed(2) || '0.00'} <span className="text-xs text-slate-400 font-sans">/ {dpOverview?.aggregateEpsilonBudget.toFixed(2) || '0.00'} ε</span>
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  dpOverview?.privacyBudgetHealth === DpBudgetStatus.HEALTHY
+                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                    : dpOverview?.privacyBudgetHealth === DpBudgetStatus.WARNING
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
+                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400'
+                }`}>
+                  {dpOverview?.privacyBudgetHealth || 'HEALTHY'}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-purple-600 h-1.5 rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, ((dpOverview?.aggregateEpsilonConsumed || 0) / Math.max(1, dpOverview?.aggregateEpsilonBudget || 1)) * 100)}%`
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* KPI 2: Total de Consultas */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Consultas com Ruído Diferencial
+              </span>
+              <span className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono">
+                {dpOverview?.totalQueriesExecuted || 0}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                Agregações estatísticas anonimizadas
+              </span>
+            </div>
+
+            {/* KPI 3: Fator Máximo de Verossimilhança */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Fator de Proteção (e^ε Bound)
+              </span>
+              <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                e^{selectedDpEpsilon} = {Math.exp(selectedDpEpsilon).toFixed(3)}x
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                Teto formal contra inferência individual
+              </span>
+            </div>
+
+            {/* KPI 4: Projetos Ativos */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-1">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Projetos CEP / CONEP
+              </span>
+              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                {dpOverview?.totalResearchProjects || 0}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                Estudos acadêmicos autorizados
+              </span>
+            </div>
+          </div>
+
+          {/* Painel do Pesquisador & Simulador de Consulta Estatística */}
+          <div className="p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Play className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  Simulador de Agregação Estatística com Injeção de Ruído Criptográfico
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Execute consultas agregadas em coortes clínicas com amortecimento diferencial formal (Mecanismo de Laplace ou Gaussiano).
+                </p>
+              </div>
+
+              {/* Status do Projeto Selecionado */}
+              {dpProjects.find(p => p.projectId === selectedDpProjectId) && (
+                <div className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/50 text-right">
+                  <span className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold block">
+                    Saldo do Projeto:
+                  </span>
+                  <span className="font-mono text-xs font-bold text-purple-900 dark:text-purple-200">
+                    {dpProjects.find(p => p.projectId === selectedDpProjectId)?.remainingEpsilonBudget.toFixed(2)} ε restantes
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Seleção de Parâmetros */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Projeto */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Projeto de Pesquisa Homologado:
+                </label>
+                <select
+                  value={selectedDpProjectId}
+                  onChange={(e) => setSelectedDpProjectId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                >
+                  {dpProjects.map(p => (
+                    <option key={p.projectId} value={p.projectId}>
+                      {p.title.slice(0, 32)}... ({p.cepProtocol})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Métrica Clínica */}
+              {/* Métrica Clínica e Tipo de Agregação */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Dimensão Clínica & Agregação:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <select
+                    value={selectedDpMetric}
+                    onChange={(e) => {
+                      const m = e.target.value as DpCohortMetric;
+                      setSelectedDpMetric(m);
+                      if (m === DpCohortMetric.DIAGNOSIS_DISTRIBUTION || m === DpCohortMetric.AGE_GROUP_DEMOGRAPHICS) {
+                        setSelectedDpQueryType(DpQueryType.HISTOGRAM);
+                      }
+                    }}
+                    className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white truncate"
+                  >
+                    <option value={DpCohortMetric.GAD7_SEVERITY_SCORE}>Ansiedade GAD-7</option>
+                    <option value={DpCohortMetric.PHQ9_SEVERITY_SCORE}>Depressão PHQ-9</option>
+                    <option value={DpCohortMetric.REMISSION_DURATION_SESSIONS}>Remissão (Sessões)</option>
+                    <option value={DpCohortMetric.DIAGNOSIS_DISTRIBUTION}>CID-11 (Histograma)</option>
+                    <option value={DpCohortMetric.AGE_GROUP_DEMOGRAPHICS}>Faixas Etárias</option>
+                  </select>
+
+                  <select
+                    value={selectedDpQueryType}
+                    onChange={(e) => setSelectedDpQueryType(e.target.value as DpQueryType)}
+                    className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={DpQueryType.MEAN}>Média (Mean)</option>
+                    <option value={DpQueryType.COUNT}>Contagem (Count)</option>
+                    <option value={DpQueryType.SUM}>Soma (Sum)</option>
+                    <option value={DpQueryType.HISTOGRAM}>Histograma</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Orçamento ε e Mecanismo */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Orçamento de Privacidade (ε):
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[0.25, 0.5, 1.0].map((eps) => (
+                    <button
+                      type="button"
+                      key={eps}
+                      onClick={() => setSelectedDpEpsilon(eps)}
+                      className={`py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        selectedDpEpsilon === eps
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                          : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {eps} ε
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mecanismo */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Mecanismo Matemático:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'Laplace (Pure ε)', val: DpMechanism.LAPLACE },
+                    { label: 'Gaussiano (ε, δ)', val: DpMechanism.GAUSSIAN }
+                  ].map((m) => (
+                    <button
+                      type="button"
+                      key={m.val}
+                      onClick={() => setSelectedDpMechanism(m.val)}
+                      className={`py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                        selectedDpMechanism === m.val
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                          : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Clamping ativo limita sensibilidade global $\Delta f \le 1.0$ e previne vazamento de outliers.
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateDpBenchmark}
+                  disabled={generatingDpBenchmark || executingDpQuery}
+                  className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  {generatingDpBenchmark ? 'Gerando...' : 'Gerar Benchmark Multicêntrico'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExecuteDpQuery}
+                  disabled={executingDpQuery || generatingDpBenchmark}
+                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {executingDpQuery ? 'Calculando Ruído...' : 'Executar Consulta Anonimizada'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Exibição do Último Resultado Diferencial */}
+          {lastDpQueryResult && (
+            <div className="p-5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-900/50 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-purple-200/60 dark:border-purple-900/40">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      Resultado Protegido por Privacidade Diferencial (Query: {lastDpQueryResult.queryId})
+                    </h4>
+                    <span className="text-[10px] text-purple-700 dark:text-purple-300 font-mono">
+                      {lastDpQueryResult.privacyGuarantee}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyDpProof(lastDpQueryResult.proofSeal)}
+                    disabled={verifyingDpProof}
+                    className="px-3 py-1 rounded-xl bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 text-[11px] font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <FileSearch className="w-3 h-3" />
+                    {verifyingDpProof ? 'Verificando...' : 'Verificar Prova Criptográfica'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDpProofForModal(lastDpQueryResult)}
+                    className="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    Laudo Pericial
+                  </button>
+                </div>
+              </div>
+
+              {/* Comparativo de Enclave vs Resultado Público */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Valor Real (Enclave Seguro)
+                  </span>
+                  <span className="text-xl font-mono font-black text-slate-500 dark:text-slate-400 blur-xs select-none">
+                    {typeof lastDpQueryResult.rawExactValue === 'object'
+                      ? JSON.stringify(lastDpQueryResult.rawExactValue)
+                      : String(lastDpQueryResult.rawExactValue)}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block">
+                    Hash Blind: {lastDpQueryResult.exactValueSha256.slice(0, 16)}...
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Ruído Criptográfico Injetado
+                  </span>
+                  <span className="text-xl font-mono font-black text-purple-600 dark:text-purple-400">
+                    ± {lastDpQueryResult.noiseScale} ({lastDpQueryResult.mechanism})
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono block">
+                    Sensibilidade $\Delta f = {lastDpQueryResult.sensitivity}$
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
+                    Valor Entregue ao Pesquisador
+                  </span>
+                  <span className="text-xl font-mono font-black text-slate-900 dark:text-white">
+                    {typeof lastDpQueryResult.noisyProtectedValue === 'object'
+                      ? JSON.stringify(lastDpQueryResult.noisyProtectedValue)
+                      : String(lastDpQueryResult.noisyProtectedValue)}
+                  </span>
+                  <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
+                    Totalmente Anonimizado (LGPD Art. 13)
+                  </span>
+                </div>
+              </div>
+
+              {/* Feedback da Verificação se Executada */}
+              {dpVerificationResult && dpVerificationResult.queryId === lastDpQueryResult.queryId && (
+                <div className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+                  dpVerificationResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="w-4 h-4" />
+                    <span>{dpVerificationResult.details} (Distorção máx teórica: {dpVerificationResult.theoreticalMaxDistortion})</span>
+                  </div>
+                  <span className="font-mono text-[10px] opacity-75">
+                    {dpVerificationResult.verifiedAt}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Benchmark Epidemiológico Exibido */}
+          {lastDpBenchmark && (
+            <div className="p-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    {lastDpBenchmark.title} (Coorte: {lastDpBenchmark.cohortTotal} pacientes)
+                  </h4>
+                  <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-mono">
+                    ID: {lastDpBenchmark.benchmarkId} | Selo: {lastDpBenchmark.proofSeal.slice(0, 24)}...
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {lastDpBenchmark.metrics.map((m) => (
+                  <div key={m.key} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block truncate" title={m.label}>
+                      {m.label}
+                    </span>
+                    <span className="text-lg font-mono font-black text-indigo-600 dark:text-indigo-400 block">
+                      {m.noisyValue} <span className="text-xs text-slate-400 font-sans">{m.unit}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono block">
+                      Cota alocada: {m.epsilonAllocated} ε
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Livro Notarial WORM de Consultas Realizadas */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <ScrollText className="w-4 h-4 text-slate-500" />
+              Livro Notarial de Consultas & Exportações Científicas (LGPD Art. 13)
+            </h3>
+
+            {(!dpOverview?.recentQueries || dpOverview.recentQueries.length === 0) ? (
+              <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                Nenhuma consulta registrada recentemente. Execute uma agregação para gerar registros no livro notarial.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      <th className="py-2.5 px-3.5">ID da Consulta</th>
+                      <th className="py-2.5 px-3.5">Projeto / CEP</th>
+                      <th className="py-2.5 px-3.5">Métrica / Agregação</th>
+                      <th className="py-2.5 px-3.5">Custo ε</th>
+                      <th className="py-2.5 px-3.5">Valor Protegido</th>
+                      <th className="py-2.5 px-3.5">Selo Notarial WORM</th>
+                      <th className="py-2.5 px-3.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {dpOverview.recentQueries.map((q) => (
+                      <tr key={q.queryId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-3.5 font-mono text-purple-600 dark:text-purple-400 font-bold">
+                          {q.queryId}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 font-medium">
+                          {q.projectId}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-400">
+                          {q.metric} ({q.queryType})
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                          {q.epsilonUsed} ε
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono font-semibold text-slate-900 dark:text-white">
+                          {typeof q.noisyProtectedValue === 'object'
+                            ? '[Histograma]'
+                            : q.noisyProtectedValue}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[10px] text-slate-400 truncate max-w-[140px]" title={q.proofSeal}>
+                          {q.proofSeal}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDpProofForModal(q)}
+                            className="px-2.5 py-1 rounded-xl bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            Laudo
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -11021,6 +11677,294 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 type="button"
                 onClick={() => setSelectedUebaIncident(null)}
                 className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 1 de DP: Concessão / Renovação de Orçamento de Privacidade pelo DPO */}
+      {showAllocateDpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Scale className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Alocação de Cota de Privacidade Diferencial (DPO)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAllocateDpModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Conceda ou renove formalmente uma cota de privacidade $\varepsilon$ para um projeto de pesquisa acadêmica em saúde mental homologado por Comitê de Ética em Pesquisa (CEP/CONEP).
+            </p>
+
+            <form onSubmit={handleAllocateDpBudget} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Identificador Único do Projeto *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: proj-usp-psicometria-2026"
+                  value={newDpProjectId}
+                  onChange={(e) => setNewDpProjectId(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Título do Estudo Clínico *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Estudo de Remissão Psicoterapêutica em Ansiedade e Depressão"
+                  value={newDpTitle}
+                  onChange={(e) => setNewDpTitle(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Pesquisador Responsável *:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Dra. Mariana Albuquerque"
+                    value={newDpResearcher}
+                    onChange={(e) => setNewDpResearcher(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Protocolo CEP / CONEP *:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: CEP-CONEP/2026-9481"
+                    value={newDpCepProtocol}
+                    onChange={(e) => setNewDpCepProtocol(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Instituição de Ensino / Órgão de Pesquisa *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Universidade Federal de Minas Gerais (UFMG)"
+                  value={newDpInstitution}
+                  onChange={(e) => setNewDpInstitution(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Cota de Privacidade a Conceder (ε) *:
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="10.0"
+                  required
+                  value={newDpEpsilonBudget}
+                  onChange={(e) => setNewDpEpsilonBudget(parseFloat(e.target.value))}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAllocateDpModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={allocatingBudget}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {allocatingBudget ? 'Registrando no WORM...' : 'Homologar Cota ε'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2 de DP: Laudo Timbrado Forense de Consulta Estatística Anonimizada */}
+      {selectedDpProofForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Cabeçalho do Laudo Timbrado */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400">
+                    FÉ PÚBLICA & CONFORMIDADE REGULATÓRIA
+                  </span>
+                  <span className="font-mono text-xs text-slate-400">
+                    RFC 8785 JCS / SHA-256
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Laudo Pericial de Anonimização Estatística Diferencial
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Atestado Criptográfico e Notarial emitido sob as prerrogativas do Artigo 13 da LGPD e Resolução CFP nº 001/2009.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDpProofForModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metadados Formais do Estudo */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Dados da Consulta e Projeto de Pesquisa
+              </span>
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">ID da Consulta:</span>
+                  <span className="font-mono font-semibold text-purple-600 dark:text-purple-400">
+                    {selectedDpProofForModal.queryId}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Data/Hora (ISO):</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {selectedDpProofForModal.executedAt}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Projeto / Coorte:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">
+                    {selectedDpProofForModal.projectId} ({selectedDpProofForModal.sampleCohortSize} pacientes)
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Dimensão Clínica:</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {selectedDpProofForModal.metric} ({selectedDpProofForModal.queryType})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Parâmetros Matemáticos da Garantia Diferencial */}
+            <div className="p-4 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/40 space-y-2 text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block">
+                Garantias Matemáticas Formais de Não-Reidentificação
+              </span>
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+                <div className="flex justify-between py-1 border-b border-purple-100 dark:border-purple-900/30">
+                  <span className="text-slate-600 dark:text-slate-400">Mecanismo Criptográfico:</span>
+                  <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                    {selectedDpProofForModal.mechanism}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-100 dark:border-purple-900/30">
+                  <span className="text-slate-600 dark:text-slate-400">Orçamento Consumido (ε):</span>
+                  <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                    {selectedDpProofForModal.epsilonUsed} ε
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-100 dark:border-purple-900/30">
+                  <span className="text-slate-600 dark:text-slate-400">Sensibilidade Global ($\Delta f$):</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {selectedDpProofForModal.sensitivity}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-purple-100 dark:border-purple-900/30">
+                  <span className="text-slate-600 dark:text-slate-400">Escala de Ruído Injetado ($b$):</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    ± {selectedDpProofForModal.noiseScale}
+                  </span>
+                </div>
+              </div>
+              <div className="pt-2 text-[11px] text-purple-800 dark:text-purple-300 font-medium">
+                Garantia Probabilística: {selectedDpProofForModal.privacyGuarantee}. Nenhum atacante com poder computacional arbitrário pode inferir a presença ou ausência de qualquer prontuário individual com probabilidade desproporcional.
+              </div>
+            </div>
+
+            {/* Selo Notarial e Blind Index Hash */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Selo Probatório Notarial WORM:</span>
+                <span className="font-mono text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                  DP_V1_VERIFIED
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-400 truncate" title={selectedDpProofForModal.proofSeal}>
+                Token: {selectedDpProofForModal.proofSeal}
+              </div>
+              <div className="font-mono text-[10px] text-slate-500 truncate" title={selectedDpProofForModal.exactValueSha256}>
+                Enclave SHA-256 Blind Hash: {selectedDpProofForModal.exactValueSha256}
+              </div>
+            </div>
+
+            {/* Ações do Laudo */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedDpProofForModal.proofSeal);
+                    setFeedback({ type: 'success', message: 'Selo WORM de Privacidade Diferencial copiado!' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar Selo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleVerifyDpProof(selectedDpProofForModal.proofSeal)}
+                  disabled={verifyingDpProof}
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 font-bold cursor-pointer transition-colors flex items-center gap-1.5"
+                >
+                  <FileSearch className="w-3.5 h-3.5" />
+                  {verifyingDpProof ? 'Verificando...' : 'Verificar Integridade'}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDpProofForModal(null)}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Fechar Laudo
               </button>

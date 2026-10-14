@@ -171,7 +171,13 @@ export enum AuditAction {
   UEBA_CONTAINMENT_TRIGGERED = 'UEBA_CONTAINMENT_TRIGGERED',
   UEBA_CONTAINMENT_RELEASED = 'UEBA_CONTAINMENT_RELEASED',
   UEBA_PROFILE_LEARNED = 'UEBA_PROFILE_LEARNED',
-  UEBA_RISK_THRESHOLD_MODIFIED = 'UEBA_RISK_THRESHOLD_MODIFIED'
+  UEBA_RISK_THRESHOLD_MODIFIED = 'UEBA_RISK_THRESHOLD_MODIFIED',
+  // Ações de Privacidade Diferencial e Pesquisa Epidemiológica (LGPD Art. 13 & CFP nº 001/2009)
+  DP_QUERY_EXECUTED = 'DP_QUERY_EXECUTED',
+  DP_BUDGET_ALLOCATED = 'DP_BUDGET_ALLOCATED',
+  DP_BUDGET_EXHAUSTED = 'DP_BUDGET_EXHAUSTED',
+  DP_DATASET_EXPORTED = 'DP_DATASET_EXPORTED',
+  DP_PROOF_VERIFIED = 'DP_PROOF_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -202,7 +208,8 @@ export enum AuditResourceType {
   NOTARY_LEDGER = 'NOTARY_LEDGER',
   PURGE_LEDGER = 'PURGE_LEDGER',
   CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID',
-  UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE'
+  UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE',
+  DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE'
 }
 
 /**
@@ -699,3 +706,51 @@ export enum UebaContainmentStatus {
   RELEASED = 'RELEASED',                     // Contenção liberada formalmente pelo DPO ou administrador
   ACKNOWLEDGED = 'ACKNOWLEDGED'              // Incidente revisado e arquivado para conformidade
 }
+
+/**
+ * Mecanismos Matemáticos de Adição de Ruído Criptográfico (Differential Privacy)
+ */
+export enum DpMechanism {
+  LAPLACE = 'LAPLACE',   // Pure ε-DP: Mecanismo de Laplace para sensibilidade L1 (Δf / ε)
+  GAUSSIAN = 'GAUSSIAN'  // (ε, δ)-DP: Mecanismo Gaussiano com relaxamento delta
+}
+
+/**
+ * Tipos de Agregações Estatísticas Suportadas com Proteção Diferencial
+ */
+export enum DpQueryType {
+  COUNT = 'COUNT',         // Sensibilidade Δf = 1 (contagens de coortes e prevalências)
+  MEAN = 'MEAN',           // Sensibilidade Δf = (B - A) / n (médias clínicas com clipping)
+  SUM = 'SUM',             // Sensibilidade Δf = B - A (somatórios com truncamento)
+  HISTOGRAM = 'HISTOGRAM'  // Sensibilidade Δf = 1 (partições de frequência mutuamente exclusivas)
+}
+
+/**
+ * Estado do Orçamento de Privacidade (Privacy Budget Accountant)
+ */
+export enum DpBudgetStatus {
+  HEALTHY = 'HEALTHY',     // Orçamento restante > 20%
+  WARNING = 'WARNING',     // Orçamento restante <= 20% (alerta prévio ao pesquisador e DPO)
+  EXHAUSTED = 'EXHAUSTED'  // Orçamento esgotado (novas consultas bloqueadas por mitigação anti-reconstrução)
+}
+
+/**
+ * Métricas Epidemiológicas e Clínicas de Pesquisa em Saúde Mental
+ */
+export enum DpCohortMetric {
+  DIAGNOSIS_DISTRIBUTION = 'DIAGNOSIS_DISTRIBUTION',           // Prevalência de transtornos mentais (CID-11)
+  GAD7_SEVERITY_SCORE = 'GAD7_SEVERITY_SCORE',                 // Escore psicométrico de ansiedade (0 - 21)
+  PHQ9_SEVERITY_SCORE = 'PHQ9_SEVERITY_SCORE',                 // Escore psicométrico de depressão (0 - 27)
+  REMISSION_DURATION_SESSIONS = 'REMISSION_DURATION_SESSIONS', // Número de sessões clínicas até remissão sintomática
+  AGE_GROUP_DEMOGRAPHICS = 'AGE_GROUP_DEMOGRAPHICS'            // Distribuição demográfica de faixas etárias
+}
+
+/**
+ * Status do Projeto de Pesquisa Clínica Homologado pelo CEP / DPO
+ */
+export enum DpResearchStatus {
+  ACTIVE = 'ACTIVE',     // Autorizado com cota de privacidade vigente
+  DEPLETED = 'DEPLETED', // Orçamento ε completamente consumido
+  REVOKED = 'REVOKED'    // Acesso suspenso por violação de protocolo ético
+}
+

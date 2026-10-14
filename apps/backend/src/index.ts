@@ -29,6 +29,7 @@ import { clinicalNotaryRoutes } from './routes/clinicalNotary';
 import { securePurgeRoutes } from './routes/securePurge';
 import { didRouter } from './routes/clinicalDid';
 import { uebaRouter } from './routes/ueba';
+import { dpRouter } from './routes/differentialPrivacy';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -154,6 +155,7 @@ app.route('/api/notary', clinicalNotaryRoutes);
 app.route('/api/purge', securePurgeRoutes);
 app.route('/api/did', didRouter);
 app.route('/api/ueba', uebaRouter);
+app.route('/api/differential-privacy', dpRouter);
 
 
 
