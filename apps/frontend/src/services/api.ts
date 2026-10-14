@@ -112,7 +112,17 @@ import type {
   VerifySecurityHeadersResponse,
   MeetAccessType,
   GoogleMeetStatusResponse,
-  GoogleMeetTestResponse
+  GoogleMeetTestResponse,
+  InitiateWebRtcAuditSessionDTO,
+  InitiateWebRtcAuditSessionResponse,
+  VerifyWebRtcFingerprintDTO,
+  VerifyWebRtcFingerprintResponse,
+  RecordWebRtcMetricsDTO,
+  RecordWebRtcMetricsResponse,
+  TerminateWebRtcSessionDTO,
+  TerminateWebRtcSessionResponse,
+  WebRtcSessionListResponse,
+  WebRtcSessionAuditRecord
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1174,6 +1184,43 @@ export const api = {
 
   async verifySecurityHeaders(): Promise<VerifySecurityHeadersResponse> {
     return await request<VerifySecurityHeadersResponse>('/security/hardening/headers/verify');
+  },
+
+  // 21. Auditoria de Sessão WebRTC & Fingerprint de Segurança (RFC-001 §3.2, §4.4, §5.2 e CFP 011/2018)
+  async initiateWebRtcSession(dto: InitiateWebRtcAuditSessionDTO): Promise<InitiateWebRtcAuditSessionResponse> {
+    return await request<InitiateWebRtcAuditSessionResponse>('/teleconsultation/webrtc/session/initiate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyWebRtcFingerprint(dto: VerifyWebRtcFingerprintDTO): Promise<VerifyWebRtcFingerprintResponse> {
+    return await request<VerifyWebRtcFingerprintResponse>('/teleconsultation/webrtc/session/verify-fingerprint', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async recordWebRtcMetrics(dto: RecordWebRtcMetricsDTO): Promise<RecordWebRtcMetricsResponse> {
+    return await request<RecordWebRtcMetricsResponse>('/teleconsultation/webrtc/session/metrics', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async terminateWebRtcSession(dto: TerminateWebRtcSessionDTO): Promise<TerminateWebRtcSessionResponse> {
+    return await request<TerminateWebRtcSessionResponse>('/teleconsultation/webrtc/session/terminate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getWebRtcSessions(): Promise<WebRtcSessionListResponse> {
+    return await request<WebRtcSessionListResponse>('/teleconsultation/webrtc/sessions');
+  },
+
+  async getWebRtcSession(sessionId: string): Promise<{ success: boolean; session: WebRtcSessionAuditRecord }> {
+    return await request<{ success: boolean; session: WebRtcSessionAuditRecord }>(`/teleconsultation/webrtc/session/${sessionId}`);
   }
 };
 
