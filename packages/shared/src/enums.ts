@@ -148,7 +148,12 @@ export enum AuditAction {
   CLIPBOARD_WATERMARK_EMBEDDED = 'CLIPBOARD_WATERMARK_EMBEDDED',
   CLIPBOARD_EXFILTRATION_BLOCKED = 'CLIPBOARD_EXFILTRATION_BLOCKED',
   CLIPBOARD_WATERMARK_INSPECTED = 'CLIPBOARD_WATERMARK_INSPECTED',
-  CLIPBOARD_POLICY_VIOLATION = 'CLIPBOARD_POLICY_VIOLATION'
+  CLIPBOARD_POLICY_VIOLATION = 'CLIPBOARD_POLICY_VIOLATION',
+  // Ações de Cartório Notarial Digital & Auditoria Forense de Prontuários (LGPD Art. 18 & CFP nº 001/2009)
+  NOTARY_SEAL_GENERATED = 'NOTARY_SEAL_GENERATED',
+  NOTARY_CHAIN_VERIFIED = 'NOTARY_CHAIN_VERIFIED',
+  NOTARY_TAMPERING_DETECTED = 'NOTARY_TAMPERING_DETECTED',
+  NOTARY_CERTIFICATE_ISSUED = 'NOTARY_CERTIFICATE_ISSUED'
 }
 
 export enum AuditResourceType {
@@ -175,7 +180,8 @@ export enum AuditResourceType {
   ZKP_PROOF = 'ZKP_PROOF',
   THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE',
   CONSENT_RECORD = 'CONSENT_RECORD',
-  CLIPBOARD_DLP = 'CLIPBOARD_DLP'
+  CLIPBOARD_DLP = 'CLIPBOARD_DLP',
+  NOTARY_LEDGER = 'NOTARY_LEDGER'
 }
 
 /**
@@ -531,4 +537,25 @@ export enum SteganographyInspectionStatus {
   NO_WATERMARK = 'NO_WATERMARK',             // Nenhum padrão esteganográfico zero-width detectado no texto
   INVALID_PAYLOAD = 'INVALID_PAYLOAD'        // Caracteres zero-width presentes, mas não correspondem à estrutura de pacote válida
 }
+
+/**
+ * Status Notarial do Bloco de Prontuário Clínico (CFP nº 001/2009 & LGPD Art. 18)
+ */
+export enum NotaryStatus {
+  NOTARIZED = 'NOTARIZED',       // Selado e imutável no cartório digital com fé pública
+  RECTIFIED = 'RECTIFIED',       // Aditado formalmente por termo de retificação com novo hash encadeado
+  REVOKED = 'REVOKED',           // Revogado por determinação judicial ou fiscalizatória do CRP
+  DISPUTED = 'DISPUTED'          // Em disputa pericial ou sindicância ética
+}
+
+/**
+ * Status do Resultado da Verificação Notarial Digital Forense
+ */
+export enum NotaryVerificationStatus {
+  VALID_GENUINE = 'VALID_GENUINE',       // Selo e encadeamento temporal 100% íntegros e auditados
+  CHAIN_BROKEN = 'CHAIN_BROKEN',         // Quebra na hash-chain temporal de sessões do paciente
+  CONTENT_TAMPERED = 'CONTENT_TAMPERED', // O conteúdo da nota clínica não confere com o hash canônico notarial
+  NOT_FOUND = 'NOT_FOUND'                // Selo ou blind index não localizado no cartório digital
+}
+
 

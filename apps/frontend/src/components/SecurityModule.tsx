@@ -45,7 +45,9 @@ import {
   EyeOff,
   Award,
   FileSearch,
-  Search
+  Search,
+  ScrollText,
+  BadgeCheck
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -93,7 +95,10 @@ import type {
   ConsentReceipt,
   ConsentReceiptResponse,
   DlpAuditOverview,
-  DlpInspectionResult
+  DlpInspectionResult,
+  NotaryChainVerificationResult,
+  NotaryLedgerOverview,
+  NotaryCertificate
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -119,7 +124,8 @@ import {
   ConsentScope,
   DlpPolicyMode,
   DlpRiskLevel,
-  SteganographyInspectionStatus
+  SteganographyInspectionStatus,
+  NotaryVerificationStatus
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1108,6 +1114,84 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados do Cartório Notarial Digital & Blind Audit (LGPD Art. 18 & CFP nº 001/2009)
+  const [notaryOverview, setNotaryOverview] = useState<NotaryLedgerOverview | null>(null);
+  const [loadingNotary, setLoadingNotary] = useState<boolean>(false);
+  const [verifySealInput, setVerifySealInput] = useState<string>('');
+  const [verifyingSeal, setVerifyingSeal] = useState<boolean>(false);
+  const [verifySealResult, setVerifySealResult] = useState<NotaryChainVerificationResult | null>(null);
+  const [selectedNotaryCertificate, setSelectedNotaryCertificate] = useState<NotaryCertificate | null>(null);
+  const [issuingCertificate, setIssuingCertificate] = useState<boolean>(false);
+
+  const fetchNotaryData = async () => {
+    try {
+      setLoadingNotary(true);
+      const res = await api.getNotaryOverview();
+      if (res.success) {
+        setNotaryOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados notariais:', err);
+    } finally {
+      setLoadingNotary(false);
+    }
+  };
+
+  const handleVerifyNotarySeal = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!verifySealInput.trim()) return;
+    try {
+      setVerifyingSeal(true);
+      setVerifySealResult(null);
+      const res = await api.verifyNotarySeal({ sealTokenOrBlindIndex: verifySealInput.trim() });
+      if (res.success) {
+        setVerifySealResult(res.result);
+        setFeedback({
+          type: res.result.valid ? 'success' : 'error',
+          message: res.result.valid
+            ? 'Fé Pública Digital confirmada com sucesso via Blind Index (LGPD Art. 18)!'
+            : `ALERTA: Adulteração ou inconsistência detectada (${res.result.status}): ${res.result.message}`
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao verificar selo notarial.'
+      });
+    } finally {
+      setVerifyingSeal(false);
+    }
+  };
+
+  const handleIssueNotaryCertificate = async (recordId: string, patientId: string) => {
+    try {
+      setIssuingCertificate(true);
+      const res = await api.issueNotaryCertificate({
+        recordId,
+        patientId
+      });
+      if (res.success) {
+        setSelectedNotaryCertificate(res.certificate);
+        setFeedback({
+          type: 'success',
+          message: `Certidão Notarial nº ${res.certificate.certificateId} emitida com sucesso!`
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao emitir certidão notarial.'
+      });
+    } finally {
+      setIssuingCertificate(false);
+    }
+  };
+
+  const handleLoadNotaryDemoSample = (seal: string) => {
+    setVerifySealInput(seal);
+    setVerifySealResult(null);
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1119,6 +1203,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchThreatIntelligenceData();
       fetchConsentData();
       fetchDlpData();
+      fetchNotaryData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -7231,6 +7316,300 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* CARD 21: Cartório Notarial Digital & Fé Pública de Prontuários (LGPD Art. 18 & CFP nº 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <ScrollText className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Cartório Notarial Digital & Fé Pública de Prontuários
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  CFP nº 001/2009
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                  LGPD Art. 18
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  Blind Indexing HMAC-SHA256
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                  Zero-Knowledge Proof
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Encadeamento temporal notarial de evoluções SOAP com selo de fé pública digital (<code className="font-mono text-amber-600 dark:text-amber-400">notary_v1_*</code>), verificação de integridade intrínseca e certidões periciais sem expor dados clínicos confidenciais.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={fetchNotaryData}
+                disabled={loadingNotary}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Atualizar Livro Notarial"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingNotary ? 'animate-spin text-amber-500' : ''}`} />
+                Atualizar Livro
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Blocos Selados</span>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {notaryOverview?.totalNotarizedRecords ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Evoluções com fé pública WORM</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">Cadeias Auditadas</span>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                {notaryOverview?.totalVerifiedChains ?? 0}
+              </div>
+              <span className="text-[10px] text-amber-600/80 mt-1 block">Prontuários com hash-chain</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40">
+              <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-300">Tentativas de Fraude</span>
+              <div className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
+                {notaryOverview?.tamperingAttemptsDetected ?? 0}
+              </div>
+              <span className="text-[10px] text-purple-600/80 mt-1 block">Adulterações bloqueadas</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Conformidade Notarial</span>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1.5">
+                <BadgeCheck className="w-6 h-6 text-emerald-500" />
+                {notaryOverview?.integrityPercentage ?? 100}%
+              </div>
+              <span className="text-[10px] text-emerald-600/80 mt-1 block">Cadeias WORM íntegras</span>
+            </div>
+          </div>
+
+          {/* Validador Zero-Knowledge de Selo Notarial */}
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-amber-500" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Validador Notarial Público Zero-Knowledge (LGPD Art. 18 & CFP nº 001/2009)
+                </h3>
+              </div>
+              {notaryOverview?.recentNotaryBlocks && notaryOverview.recentNotaryBlocks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleLoadNotaryDemoSample(notaryOverview.recentNotaryBlocks[0].digitalNotarySeal)}
+                  className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  Carregar Selo Mais Recente da Cadeia
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleVerifyNotarySeal} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Selo Notarial Público (<code className="font-mono text-amber-600 dark:text-amber-400">notary_v1_...</code>):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={verifySealInput}
+                    onChange={(e) => setVerifySealInput(e.target.value)}
+                    placeholder="Cole aqui o token de fé pública notary_v1_..."
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={verifyingSeal || !verifySealInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {verifyingSeal ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Auditar Selo
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Resultado da Verificação Forense */}
+            {verifySealResult && (
+              <div className={`p-4 rounded-xl border transition-all ${
+                !verifySealResult.valid
+                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+                  : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+              }`}>
+                <div className="flex items-start gap-3">
+                  {!verifySealResult.valid ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <BadgeCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`text-xs font-bold ${
+                        !verifySealResult.valid
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-emerald-700 dark:text-emerald-300'
+                      }`}>
+                        {!verifySealResult.valid
+                          ? 'ALERTA DE ADULTERAÇÃO FORENSE: SELO OU CADEIA INCONSISTENTE'
+                          : 'FÉ PÚBLICA DIGITAL CONFIRMADA COM SUCESSO'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        verifySealResult.status === NotaryVerificationStatus.VALID_GENUINE
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                      }`}>
+                        Status: {verifySealResult.status}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {verifySealResult.message}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] font-mono">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Blind Index do Prontuário:</span>
+                        <span className="text-slate-900 dark:text-slate-200 break-all">
+                          {verifySealResult.recordBlindIndex || verifySealResult.blockDetails?.recordBlindIndex || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Hash Canônico Notarial:</span>
+                        <span className="text-slate-900 dark:text-slate-200 break-all">
+                          {verifySealResult.blockDetails?.clinicalCanonicalHash || 'SHA-256 Validado'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Sequenciamento da Cadeia:</span>
+                        <span className={verifySealResult.valid ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-rose-600 dark:text-rose-400 font-semibold'}>
+                          {verifySealResult.valid ? 'Cadeia Contínua & Consistente' : 'Inconsistência Sequencial'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Data e Hora da Verificação:</span>
+                        <span className="text-slate-900 dark:text-slate-200">{new Date(verifySealResult.verifiedAt).toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Livro Notarial de Blocos Clínicos Encadeados (Ledger WORM) */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-amber-500" />
+              Livro Notarial de Blocos Clínicos Encadeados (Ledger WORM)
+            </h3>
+
+            {(!notaryOverview?.recentNotaryBlocks || notaryOverview.recentNotaryBlocks.length === 0) ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/30 text-center text-xs text-slate-500">
+                Nenhum bloco clínico selado no cartório digital ainda.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Bloco / Notary ID</th>
+                      <th className="py-2.5 px-3.5">Blind Index Paciente</th>
+                      <th className="py-2.5 px-3.5">Timestamp</th>
+                      <th className="py-2.5 px-3.5">Hash do Bloco (SHA-256)</th>
+                      <th className="py-2.5 px-3.5">Selo Notarial Público</th>
+                      <th className="py-2.5 px-3.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {notaryOverview.recentNotaryBlocks.map((block) => (
+                      <tr key={block.notaryId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900 dark:text-white">v{block.versionNumber}</span>
+                            <span className="font-mono text-[10px] text-slate-400">({block.notaryId.slice(0, 8)})</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                          <span title={block.recordBlindIndex}>
+                            {block.recordBlindIndex.slice(0, 16)}...
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          {new Date(block.notaryTimestamp).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                          <span title={block.blockHash}>
+                            {block.blockHash.slice(0, 14)}...
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 max-w-[120px] truncate" title={block.digitalNotarySeal}>
+                              {block.digitalNotarySeal.slice(0, 18)}...
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(block.digitalNotarySeal);
+                                setFeedback({ type: 'success', message: 'Selo notarial copiado para a área de transferência!' });
+                              }}
+                              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                              title="Copiar Selo Notarial"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLoadNotaryDemoSample(block.digitalNotarySeal)}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
+                              title="Testar no Validador"
+                            >
+                              Testar
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <button
+                            type="button"
+                            disabled={issuingCertificate}
+                            onClick={() => handleIssueNotaryCertificate(block.recordId, block.patientId)}
+                            className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold shadow-sm flex items-center gap-1 ml-auto transition-colors cursor-pointer"
+                          >
+                            <Award className="w-3 h-3" />
+                            Certidão
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -8192,6 +8571,103 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Timbrado de Certidão Notarial Forense (CFP nº 001/2009 & LGPD Art. 18) */}
+      {selectedNotaryCertificate && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial de Autenticidade e Fé Pública
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {selectedNotaryCertificate.certificateId}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedNotaryCertificate(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Data e Hora de Emissão:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(selectedNotaryCertificate.issuedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Paciente (Pseudonimizado):</span>
+                <span className="font-semibold text-slate-900 dark:text-white font-mono">
+                  {selectedNotaryCertificate.patientIdMasked}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Terapeuta Responsável:</span>
+                <span className="font-semibold text-slate-900 dark:text-white font-mono">
+                  CRP {selectedNotaryCertificate.therapistCrp}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Blind Index do Prontuário:</span>
+                <span className="font-mono text-[11px] text-slate-900 dark:text-slate-200">
+                  {selectedNotaryCertificate.recordBlindIndex.slice(0, 20)}...
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Hash do Bloco Notarial:</span>
+                <span className="font-mono text-[11px] text-slate-900 dark:text-slate-200">
+                  {selectedNotaryCertificate.blockHash.slice(0, 20)}...
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                Declaração Pericial de Fé Pública e Não-Adulteração:
+              </div>
+              <p className="leading-relaxed">
+                {selectedNotaryCertificate.cfpComplianceAssertion} — {selectedNotaryCertificate.lgpdComplianceAssertion}
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="font-mono text-[10px] text-slate-400 truncate max-w-[260px]" title={selectedNotaryCertificate.digitalNotarySeal}>
+                Selo: {selectedNotaryCertificate.digitalNotarySeal.slice(0, 24)}...
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedNotaryCertificate.digitalNotarySeal);
+                    setFeedback({ type: 'success', message: 'Selo Notarial copiado para validação pericial!' });
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors"
+                >
+                  Copiar Selo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotaryCertificate(null)}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-sm cursor-pointer transition-colors"
+                >
+                  Fechar Certidão
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

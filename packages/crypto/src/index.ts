@@ -24,6 +24,7 @@ export * from './zkpProof';
 export * from './breachMonitor';
 export * from './consentLedger';
 export * from './clipboardDlp';
+export * from './clinicalNotary';
 
 
 
