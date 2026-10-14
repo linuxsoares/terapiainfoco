@@ -165,7 +165,15 @@ import type {
   ThreatScanResponse,
   ThreatIntelligenceOverviewResponse,
   ContainIncidentResponse,
-  ResolveIncidentResponse
+  ResolveIncidentResponse,
+  GrantGranularConsentDTO,
+  RevokeGranularConsentDTO,
+  EnforceConsentDTO,
+  GranularConsentResponse,
+  ConsentReceiptResponse,
+  EnforceConsentResponse,
+  ConsentLedgerOverviewResponse,
+  PatientConsentLedger
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1448,6 +1456,40 @@ export const api = {
 
   async getThreatIntelligenceOverview(): Promise<ThreatIntelligenceOverviewResponse> {
     return await request<ThreatIntelligenceOverviewResponse>('/security/threat-intelligence/overview');
+  },
+
+  async getPatientConsentLedger(patientId: string): Promise<{ success: boolean; ledger: PatientConsentLedger }> {
+    return await request<{ success: boolean; ledger: PatientConsentLedger }>(`/consent/patient/${patientId}`);
+  },
+
+  async grantGranularConsent(dto: GrantGranularConsentDTO): Promise<GranularConsentResponse> {
+    return await request<GranularConsentResponse>('/consent/grant', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async revokeGranularConsent(dto: RevokeGranularConsentDTO): Promise<GranularConsentResponse> {
+    return await request<GranularConsentResponse>('/consent/revoke', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async enforceConsent(dto: EnforceConsentDTO): Promise<EnforceConsentResponse> {
+    return await request<EnforceConsentResponse>('/consent/enforce', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyConsentToken(token: string): Promise<ConsentReceiptResponse> {
+    return await request<ConsentReceiptResponse>(`/consent/verify/${encodeURIComponent(token)}`);
+  },
+
+  async getConsentOverview(patientId?: string): Promise<ConsentLedgerOverviewResponse> {
+    const url = patientId ? `/consent/overview?patientId=${encodeURIComponent(patientId)}` : '/consent/overview';
+    return await request<ConsentLedgerOverviewResponse>(url);
   }
 };
 

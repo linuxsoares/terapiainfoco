@@ -4,13 +4,15 @@ import {
   type GenerateSoapProposalResponse,
   AuditAction, 
   AuditResourceType,
-  SpeakerRole 
+  SpeakerRole,
+  ConsentScope
 } from '@terapiainfoco/shared';
 import { sanitizePii, type PiiEntityDetection } from '@terapiainfoco/crypto';
 import { db } from '../db/memoryDb';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { TranscriptionService } from './transcriptionService';
+import { ConsentService } from './consentService';
 
 export class AiSoapService {
   /**
@@ -36,6 +38,16 @@ export class AiSoapService {
     const patient = db.patients.get(appointment.patientId);
     if (!patient) {
       throw new Error('Paciente não encontrado para a consulta informada.');
+    }
+
+    // Validação de Consentimento Ativo do Titular (LGPD Art. 11, I e Art. 8º §5º - Smart Revocation)
+    const consentEnforcement = ConsentService.getInstance().enforceScope(
+      patient.id,
+      ConsentScope.AI_CLINICAL_SYNTHESIS,
+      params.context
+    );
+    if (!consentEnforcement.permitted) {
+      throw new Error(consentEnforcement.reason);
     }
 
     // 1. Obter falas da transcrição (passadas diretamente ou do repositório)

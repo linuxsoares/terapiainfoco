@@ -137,7 +137,12 @@ export enum AuditAction {
   SESSION_FORCE_REVOKED = 'SESSION_FORCE_REVOKED',
   DPO_BREACH_ALERT_DISPATCHED = 'DPO_BREACH_ALERT_DISPATCHED',
   INCIDENT_CONTAINED = 'INCIDENT_CONTAINED',
-  INCIDENT_RESOLVED = 'INCIDENT_RESOLVED'
+  INCIDENT_RESOLVED = 'INCIDENT_RESOLVED',
+  // Ações de Gestão Granular de Consentimento & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019)
+  CONSENT_GRANTED = 'CONSENT_GRANTED',
+  CONSENT_REVOKED = 'CONSENT_REVOKED',
+  CONSENT_RECEIPT_VERIFIED = 'CONSENT_RECEIPT_VERIFIED',
+  CONSENT_ENFORCEMENT_BLOCKED = 'CONSENT_ENFORCEMENT_BLOCKED'
 }
 
 export enum AuditResourceType {
@@ -162,7 +167,8 @@ export enum AuditResourceType {
   MEDIA_RECORDING = 'MEDIA_RECORDING',
   CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY',
   ZKP_PROOF = 'ZKP_PROOF',
-  THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE'
+  THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE',
+  CONSENT_RECORD = 'CONSENT_RECORD'
 }
 
 /**
@@ -457,6 +463,34 @@ export enum IncidentContainmentStatus {
   FALSE_POSITIVE = 'FALSE_POSITIVE'                  // Marcado como falso positivo após perícia técnica
 }
 
+/**
+ * Escopos / Finalidades Determinadas de Consentimento Clínico (LGPD Art. 7º, 8º, 9º, 11 e CFP 006/2019)
+ */
+export enum ConsentScope {
+  TELECONSULTATION_AUDIO_RECORDING = 'TELECONSULTATION_AUDIO_RECORDING', // Gravação e transmissão audiovisual para teleconsulta (CFP 011/2018)
+  AI_CLINICAL_SYNTHESIS = 'AI_CLINICAL_SYNTHESIS',                       // Síntese SOAP e transcrição assistida por inteligência artificial com sanitização prévia
+  ANONYMIZED_RESEARCH = 'ANONYMIZED_RESEARCH',                           // Dados agregados, irreversivelmente anonimizados para estudos clínicos e pesquisa científica (LGPD Art. 7º, IV)
+  INTERPROFESSIONAL_SHARING = 'INTERPROFESSIONAL_SHARING',               // Compartilhamento interprofissional com médicos/psiquiatras da equipe multiprofissional (CFP 006/2019)
+  COMMUNICATION_REMINDERS = 'COMMUNICATION_REMINDERS'                    // Envio de lembretes de consultas e notificações operacionais por e-mail/WhatsApp/SMS
+}
 
+/**
+ * Estado Atual do Consentimento do Paciente para cada Finalidade (LGPD Art. 8º §5º)
+ */
+export enum ConsentStatus {
+  GRANTED = 'GRANTED',   // Consentimento expresso ativo e vigente
+  REVOKED = 'REVOKED',   // Revogado formalmente pelo titular (Smart Revocation)
+  EXPIRED = 'EXPIRED',   // Expirado por término do ciclo de tratamento ou decurso de prazo
+  REFUSED = 'REFUSED'    // Recusado expressamente pelo titular na admissão
+}
 
-
+/**
+ * Bases Legais Normativas do Consentimento & Tratamento em Saúde Mental
+ */
+export enum ConsentLegalBasis {
+  LGPD_ART_7_I_CONSENT = 'LGPD_ART_7_I_CONSENT',                   // Consentimento livre, informado e inequívoco (Art. 7º, I)
+  LGPD_ART_11_I_SENSITIVE = 'LGPD_ART_11_I_SENSITIVE',             // Consentimento específico e destacado para dados sensíveis de saúde (Art. 11, I)
+  LGPD_ART_16_I_LEGAL_DUTY = 'LGPD_ART_16_I_LEGAL_DUTY',           // Guarda legal obrigatória de prontuário por 5 anos (Art. 16, I & CFP 001/2009)
+  CFP_011_2018_TELEPSY = 'CFP_011_2018_TELEPSY',                   // Prestação de serviços psicológicos realizados por meios de tecnologias da informação
+  CFP_006_2019_INTERPROFESSIONAL = 'CFP_006_2019_INTERPROFESSIONAL' // Emissão e compartilhamento ético de documentos psicológicos
+}

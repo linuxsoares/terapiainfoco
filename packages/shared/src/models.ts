@@ -16,7 +16,10 @@ import {
   ComplianceFramework,
   ComplianceControlStatus,
   MeetProvider,
-  MeetAccessType
+  MeetAccessType,
+  ConsentScope,
+  ConsentStatus,
+  ConsentLegalBasis
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1238,17 +1241,64 @@ export interface KAnonymityLookupResult {
   zeroKnowledgePreserved: boolean;
 }
 
+/**
+ * 22. GESTÃO GRANULAR DE CONSENTIMENTO DO PACIENTE & SMART REVOCATION (LGPD Art. 7/8/9/11/18 & CFP 006/2019)
+ */
+export interface PatientConsentScopePreference {
+  scope: ConsentScope;
+  status: ConsentStatus;
+  grantedAt?: string;
+  revokedAt?: string;
+  termVersion: string;
+  receiptHash: string;
+  revocationReason?: string;
+  legalBasis: ConsentLegalBasis;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
+export interface ConsentReceipt {
+  receiptId: string;
+  patientId: string;
+  scope: ConsentScope;
+  action: 'GRANT' | 'REVOKE';
+  status: ConsentStatus;
+  termVersion: string;
+  legalBasis: ConsentLegalBasis;
+  receiptHash: string;
+  verificationToken: string; // Token tcle_v1_<base64>
+  timestamp: string;
+  revocationReason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  wormAuditLogId?: string;
+}
 
+export interface PatientConsentLedger {
+  patientId: string;
+  patientName: string;
+  preferences: Record<ConsentScope, PatientConsentScopePreference>;
+  receiptsHistory: ConsentReceipt[];
+  lastUpdatedAt: string;
+}
 
+export interface ConsentValidationResult {
+  permitted: boolean;
+  scope: ConsentScope;
+  status: ConsentStatus;
+  reason: string;
+  evaluatedAt: string;
+  termVersion?: string;
+  receiptHash?: string;
+}
 
-
-
-
-
-
-
-
-
-
+export interface ConsentLedgerOverview {
+  totalPatientsWithConsent: number;
+  activeConsentsByScope: Record<ConsentScope, number>;
+  revocationsCount: number;
+  blockedProcessingsCount: number;
+  complianceRatePercent: number;
+  lastRevocationAt?: string;
+  termVersionActive: string;
+}
 
