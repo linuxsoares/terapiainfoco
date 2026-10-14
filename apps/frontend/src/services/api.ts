@@ -156,7 +156,16 @@ import type {
   ZkpProofResponse,
   ZkpVerificationResponse,
   ZkpProofListResponse,
-  ZkpSystemMetrics
+  ZkpSystemMetrics,
+  CheckCredentialBreachDTO,
+  TriggerDarkWebScanDTO,
+  ContainIncidentDTO,
+  ResolveIncidentDTO,
+  CredentialBreachCheckResponse,
+  ThreatScanResponse,
+  ThreatIntelligenceOverviewResponse,
+  ContainIncidentResponse,
+  ResolveIncidentResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1406,6 +1415,39 @@ export const api = {
 
   async getZkpMetrics(): Promise<{ success: boolean; metrics: ZkpSystemMetrics }> {
     return await request<{ success: boolean; metrics: ZkpSystemMetrics }>('/security/zkp/metrics');
+  },
+
+  // 22. Monitor de Vazamentos na Dark Web & Contenção de Incidentes (RFC-001 §4.4, LGPD Art. 46/48)
+  async checkCredentialBreach(dto: CheckCredentialBreachDTO): Promise<CredentialBreachCheckResponse> {
+    return await request<CredentialBreachCheckResponse>('/security/threat-intelligence/check', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async triggerDarkWebScan(dto?: TriggerDarkWebScanDTO): Promise<ThreatScanResponse> {
+    return await request<ThreatScanResponse>('/security/threat-intelligence/scan', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+  },
+
+  async containIncident(dto: ContainIncidentDTO): Promise<ContainIncidentResponse> {
+    return await request<ContainIncidentResponse>('/security/threat-intelligence/contain', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async resolveIncident(dto: ResolveIncidentDTO): Promise<ResolveIncidentResponse> {
+    return await request<ResolveIncidentResponse>('/security/threat-intelligence/resolve', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getThreatIntelligenceOverview(): Promise<ThreatIntelligenceOverviewResponse> {
+    return await request<ThreatIntelligenceOverviewResponse>('/security/threat-intelligence/overview');
   }
 };
 

@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 24 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC §3.2 & CFP nº 011/2018) + Protocolo Forense de Assinaturas com Provas de Conhecimento Zero (ZKP - RFC §3.4, §3.5 & CFP nº 006/2019) | 394/394 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 25 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC §3.2 & CFP nº 011/2018) + Protocolo Forense de Assinaturas com Provas de Conhecimento Zero (ZKP - RFC §3.4, §3.5 & CFP nº 006/2019) + Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção DPO (Threat Intelligence k-Anonymity NIST SP 800-63B / LGPD Art. 46, 48) | 409/409 Testes Passando
 
 
 
@@ -929,6 +929,38 @@ terapiainfoco/
   - Tabela forense de provas ativas com carregamento imediato de tokens e cópia facilitada.
   - Conformidade estrita com **Light Mode** e **Dark Mode**.
 
+### 36. Módulo de Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção de Incidentes (Threat Intelligence / HaveIBeenPwned Monitor com k-Anonymity NIST SP 800-63B) (RFC-001 §4.4, LGPD Art. 46, 48 e Resolução CD/ANPD nº 15/2024)
+- [x] **Core Criptográfico (`packages/crypto/src/breachMonitor.ts`):**
+  - **Motor k-Anonymity SHA-1 (`calculateKAnonymitySplit`):** Implementação estrita do modelo NIST SP 800-63B / HaveIBeenPwned dividindo o hash SHA-1 da senha em prefixo de 5 caracteres hexadecimais maiúsculos (`prefix5`) e sufixo de 35 caracteres (`suffix35`), garantindo consulta com 0 vazamento da credencial completa.
+  - **Correspondência Determinística em Sufixos (`matchKAnonymitySuffix`):** Comparação em tempo constante contra listas de sufixos comprometidos com extração precisa de contagem de exposições (`pwnedCount`).
+  - **Matriz de Severidade de Vazamento (`evaluateBreachSeverity`):** Classificação dinâmica baseada em vetor de ataque (`STEALER_LOG`, `DARK_WEB_FORUM`, `PUBLIC_PASTE`, `CREDENTIAL_STUFFING_DUMP`), privilégios do usuário (`ADMIN`, `PSICOLOGO_TITULAR`) e volume de ocorrências.
+  - **Avaliação de Notificação Tempestiva à ANPD (`requiresAnpdNotification`):** Avaliação de risco relevante e dano aos titulares (LGPD Art. 48) para credenciais administrativas, operadores e profissionais de saúde com mais de 3 exposições.
+  - **Cálculo de Prazo Legal Tempestivo ANPD (`calculateAnpdDeadline`):** Prazo estrito de 3 dias úteis conforme regulamentação da Resolução CD/ANPD nº 15/2024, computando finais de semana.
+  - **Digest Canônico e Selagem WORM (`calculateIncidentWormDigest`):** Geração de hash SHA-256 canônico imutável vinculando identificador mascarado, vetor, severidade, data e protocolo do incidente.
+  - Suíte de 9 testes unitários dedicados passando (`packages/crypto/test/breachMonitor.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `AuditAction.CREDENTIAL_BREACH_DETECTED`, `AuditAction.SESSION_FORCE_REVOKED`, `AuditAction.DPO_BREACH_ALERT_DISPATCHED`, `AuditAction.INCIDENT_CONTAINED`, `AuditAction.INCIDENT_RESOLVED` e `AuditResourceType.THREAT_INTELLIGENCE`.
+  - Enums de domínio `ThreatSourceType` (`DARK_WEB_FORUM`, `STEALER_LOG`, `PUBLIC_PASTE`, `CREDENTIAL_STUFFING_DUMP`), `BreachSeverity` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) e `IncidentContainmentStatus` (`ACTIVE_THREAT`, `CONTAINED_SESSIONS_REVOKED`, `RESOLVED_PASSWORD_RESET`, `FALSE_POSITIVE`).
+  - Interfaces `CredentialBreachRecord`, `DpoIncidentAlert`, `ThreatIntelligenceMetrics` e `KAnonymityLookupResult`.
+  - DTOs `CheckCredentialBreachDTO`, `TriggerDarkWebScanDTO`, `ContainIncidentDTO`, `ResolveIncidentDTO`, `CredentialBreachCheckResponse`, `ThreatScanResponse`, `ContainIncidentResponse`, `ResolveIncidentResponse` e `ThreatIntelligenceOverviewResponse`.
+- [x] **Backend Service & Rotas REST Hono (`apps/backend`):**
+  - `ThreatIntelligenceService`: Singleton gerenciando o banco de hashes k-Anonymity em memória, orquestração de varreduras simuladas de dumps/stealers, revogação compulsória de sessões ativas (`revokeUserSessions`), despacho de alertas DPO tempestivos, resolução de incidentes e agregação de métricas com trilha WORM.
+  - Endpoints REST em `/api/security/threat-intelligence/*`:
+    - `POST /check`: Verificação instantânea de credencial via k-Anonymity (sem armazenar texto plano).
+    - `POST /scan`: Execução sob demanda de varredura proativa em feeds de Threat Intelligence da Dark Web.
+    - `POST /contain`: Contenção imediata em 1 clique com revogação compulsória de sessões do usuário e mitigação de acesso não autorizado.
+    - `POST /resolve`: Resolução formal pelo DPO com averbação de protocolo da ANPD, justificativa ética e auditoria WORM.
+    - `GET /overview`: Panorama consolidado de Threat Intelligence, incidentes recentes e alertas pendentes do DPO.
+  - Suíte de 6 testes de integração passando (`apps/backend/test/threatIntelligence.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 18 (*Threat Intelligence & Monitor de Vazamento de Credenciais na Dark Web*) integrado no `SecurityModule.tsx` com 4 KPIs em tempo real (Credenciais Monitoradas, Incidentes Ativos na Dark Web, Sessões Revogadas Compulsoriamente e Alertas DPO/ANPD).
+  - Verificador k-Anonymity em tempo real para auditoria de senhas sem transmissão em texto plano.
+  - Disparador de Varredura Proativa com detecção de logs de infostealers e dumps de credenciais.
+  - Central de Alertas Críticos para o DPO com badge de prazo tempestivo (3 dias úteis - CD/ANPD nº 15/2024).
+  - Tabela forense de incidentes com botão de **Contenção Imediata (Revogar Sessões)** e ação de **Resolução DPO com Protocolo ANPD**.
+  - Modal de Resolução Formal DPO com validação de número de protocolo e motivo ético.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -978,13 +1010,14 @@ terapiainfoco/
 | `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | Merged |
 | `feat/media-recording-sharding-crypto-shredding` | Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (Crypto-Shredding) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018) | [PR #47](https://github.com/linuxsoares/terapiainfoco/pull/47) | Merged |
 | `feat/session-disconnection-detector-auto-reconnect` | Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (Tokens HMAC-SHA256, Snapshot Cifrado AES-256-GCM, Tolerância Ética de 10 min e Registro WORM - RFC-001 §3.2 & CFP 011/2018) | [PR #48](https://github.com/linuxsoares/terapiainfoco/pull/48) | Merged |
-| `feat/zkp-zero-knowledge-signature-verification` | Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - Schnorr NIZK / Fiat-Shamir) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5 & CFP nº 006/2019) | [PR #49](https://github.com/linuxsoares/terapiainfoco/pull/49) | **Em Aberto** |
+| `feat/zkp-zero-knowledge-signature-verification` | Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - Schnorr NIZK / Fiat-Shamir) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5 & CFP nº 006/2019) | [PR #49](https://github.com/linuxsoares/terapiainfoco/pull/49) | Merged |
+| `feat/dark-web-credential-leak-monitor-containment` | Módulo de Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção de Incidentes (Threat Intelligence / k-Anonymity NIST SP 800-63B, LGPD Art. 46/48) | PR #50 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5 & CFP nº 006/2019)**, o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **394 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção de Incidentes (Threat Intelligence / k-Anonymity NIST SP 800-63B, LGPD Art. 46/48 e Resolução CD/ANPD nº 15/2024)**, o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5 & CFP nº 006/2019)**, o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **409 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -997,8 +1030,9 @@ Com o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de C
 - [x] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
 - [x] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC §3.2).**
 - [x] **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5 & CFP nº 006/2019).**
-- [ ] **Módulo de Detecção Proativa de Vazamento de Credenciais e PII (Dark Web / HaveIBeenPwned Monitor) com Revogação Instantânea de Sessões e Alerta DPO (RFC-001 §4.4, LGPD Art. 46/48).**
+- [x] **Módulo de Detecção Proativa de Vazamento de Credenciais e PII (Dark Web / HaveIBeenPwned Monitor) com Revogação Instantânea de Sessões e Alerta DPO (RFC-001 §4.4, LGPD Art. 46/48 e Resolução CD/ANPD nº 15/2024).**
 - [ ] **Controle Granular de Consentimento do Paciente com Smart Revocation & Logs de Trilha Consent-Led (LGPD Art. 7/8/9, CFP nº 006/2019).**
+- [ ] **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica & Prevenção de Exfiltração de Prontuários (LGPD Art. 46 & CFP nº 001/2009).**
 
 ---
 
@@ -1008,7 +1042,7 @@ Com o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de C
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (394 testes)
+# 2. Executar suíte completa de testes (409 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

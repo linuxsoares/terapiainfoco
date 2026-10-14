@@ -131,7 +131,13 @@ export enum AuditAction {
   CLINICAL_SESSION_TIMEOUT_TERMINATED = 'CLINICAL_SESSION_TIMEOUT_TERMINATED',
   // Ações de Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5, §4.1 & CFP nº 006/2019)
   ZKP_PROOF_GENERATED = 'ZKP_PROOF_GENERATED',
-  ZKP_PROOF_VERIFIED = 'ZKP_PROOF_VERIFIED'
+  ZKP_PROOF_VERIFIED = 'ZKP_PROOF_VERIFIED',
+  // Ações de Monitoramento de Vazamento de Credenciais na Dark Web & Contenção DPO (RFC-001 §4.4 & LGPD Art. 46/48)
+  CREDENTIAL_BREACH_DETECTED = 'CREDENTIAL_BREACH_DETECTED',
+  SESSION_FORCE_REVOKED = 'SESSION_FORCE_REVOKED',
+  DPO_BREACH_ALERT_DISPATCHED = 'DPO_BREACH_ALERT_DISPATCHED',
+  INCIDENT_CONTAINED = 'INCIDENT_CONTAINED',
+  INCIDENT_RESOLVED = 'INCIDENT_RESOLVED'
 }
 
 export enum AuditResourceType {
@@ -155,7 +161,8 @@ export enum AuditResourceType {
   NETWORK_RESILIENCE = 'NETWORK_RESILIENCE',
   MEDIA_RECORDING = 'MEDIA_RECORDING',
   CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY',
-  ZKP_PROOF = 'ZKP_PROOF'
+  ZKP_PROOF = 'ZKP_PROOF',
+  THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE'
 }
 
 /**
@@ -418,6 +425,38 @@ export enum ZkpVerificationStatus {
   TAMPERED_CHALLENGE = 'TAMPERED_CHALLENGE', // Desafio de Fiat-Shamir não corresponde ao compromisso
   EXPIRED_CREDENTIAL = 'EXPIRED_CREDENTIAL'  // Credencial e-Psi ou prazo de validade probatória expirado
 }
+
+/**
+ * Origem / Vetor do Vazamento de Credenciais na Dark Web (RFC-001 §4.4)
+ */
+export enum ThreatSourceType {
+  DARK_WEB_BREACH_DUMP = 'DARK_WEB_BREACH_DUMP', // Dumps massivos de fóruns de cibercrime / marketplaces clandestinos
+  STEALER_LOGS = 'STEALER_LOGS',                 // Logs de infecções por malware infostealer (RedLine, Racoon, Vidar)
+  PUBLIC_PASTE = 'PUBLIC_PASTE',                 // Pastas públicas em texto aberto (Pastebin, Ghostbin)
+  HIBP_K_ANONYMITY = 'HIBP_K_ANONYMITY'          // Base k-Anonymity do HaveIBeenPwned / NIST SP 800-63B
+}
+
+/**
+ * Nível de Severidade do Incidente de Vazamento (LGPD Art. 48 & Resolução CD/ANPD nº 15/2024)
+ */
+export enum BreachSeverity {
+  LOW = 'LOW',         // Menos de 5 vazamentos históricos legados, senha alterada previamente
+  MEDIUM = 'MEDIUM',   // Credencial de paciente sem acesso a prontuários de outros titulares
+  HIGH = 'HIGH',       // Credencial ativa de Psicólogo Titular com risco a prontuários SOAP sigilosos
+  CRITICAL = 'CRITICAL' // Credencial de Administrador com acesso a chaves KMS ou exposição em logs de stealer recentes
+}
+
+/**
+ * Status de Contenção e Resposta ao Incidente pelo DPO (LGPD Art. 46/48)
+ */
+export enum IncidentContainmentStatus {
+  DETECTED_UNCONTAINED = 'DETECTED_UNCONTAINED',     // Incidente recém-detectado, pendente de contenção imediata
+  CONTAINED_REVOKED = 'CONTAINED_REVOKED',           // Sessões ativas e tokens revogados compulsoriamente
+  PENDING_PASSWORD_RESET = 'PENDING_PASSWORD_RESET', // Usuário notificado, bloqueado até redefinir senha/Passkey
+  RESOLVED = 'RESOLVED',                             // Incidente sanado, analisado e documentado na trilha WORM pelo DPO
+  FALSE_POSITIVE = 'FALSE_POSITIVE'                  // Marcado como falso positivo após perícia técnica
+}
+
 
 
 

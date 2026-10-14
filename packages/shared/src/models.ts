@@ -1180,6 +1180,65 @@ export interface ZkpSystemMetrics {
   lastVerificationAt?: string;
 }
 
+/**
+ * 22. MONITOR DE VAZAMENTO NA DARK WEB & RESPOSTA A INCIDENTES DPO (RFC-001 §4.4, LGPD Art. 46/48)
+ */
+export interface CredentialBreachRecord {
+  id: string;
+  userId?: string;
+  userEmailMasked: string; // Ex: g***r@terapiainfoco.com.br
+  userRole: import('./enums').UserRole | string;
+  source: import('./enums').ThreatSourceType;
+  breachTitle: string;     // Ex: "RedLine Stealer Botnet Dump 2026", "Collection #1 v2"
+  breachDate: string;      // Data aproximada do vazamento original
+  detectedAt: string;      // Momento da detecção pelo monitor proativo
+  kAnonymityPrefix: string; // Primeiros 5 caracteres hexadecimais SHA-1 (ex: "21BD1")
+  breachCount: number;     // Frequência de ocorrência nos dumps
+  severity: import('./enums').BreachSeverity;
+  containmentStatus: import('./enums').IncidentContainmentStatus;
+  sessionsRevokedCount: number;
+  compromisedFields: string[]; // ['EMAIL', 'PASSWORD_HASH', 'SESSION_COOKIE']
+  probatoryWormDigest: string; // Hash SHA-256 do incidente selado na trilha WORM
+  dpoAlertId?: string;
+}
+
+export interface DpoIncidentAlert {
+  alertId: string;
+  breachRecordId: string;
+  severity: import('./enums').BreachSeverity;
+  anpdNotificationRequired: boolean; // Flag de exigência de comunicação formal à ANPD (Resolução CD/ANPD 15/2024)
+  anpdDeadlineAt: string;            // Prazo regulatório (3 dias úteis conforme regulamento ANPD)
+  status: 'DISPATCHED' | 'ACKNOWLEDGED' | 'REPORTED_TO_ANPD' | 'RESOLVED_INTERNAL';
+  title: string;
+  summary: string;
+  recommendedActions: string[];
+  createdAt: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+  probatoryWormDigest: string;
+}
+
+export interface ThreatIntelligenceMetrics {
+  monitoredAccountsCount: number;
+  totalBreachesDetected: number;
+  activeThreatsCount: number;
+  compulsoryRevocationsExecuted: number;
+  dpoAlertsCount: number;
+  lastScanAt: string;
+  averageContainmentTimeSec: number;
+  darkWebFeedsActive: number;
+}
+
+export interface KAnonymityLookupResult {
+  prefix: string;
+  matched: boolean;
+  breachCount: number;
+  breachesFound: string[];
+  checkedAt: string;
+  zeroKnowledgePreserved: boolean;
+}
+
+
 
 
 
