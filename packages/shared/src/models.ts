@@ -24,7 +24,11 @@ import {
   DlpRiskLevel,
   SteganographyInspectionStatus,
   NotaryStatus,
-  NotaryVerificationStatus
+  NotaryVerificationStatus,
+  PurgeReason,
+  PurgeMethod,
+  PurgeStatus,
+  PurgeProofVerificationStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1432,5 +1436,71 @@ export interface NotaryCertificate {
   verifierUrl: string;
 }
 
+/**
+ * 25. MECANISMO DE DESCARTE E EXPURGAMENTO SEGURO DE DADOS HISTÓRICOS (LGPD Art. 16 & CFP nº 001/2009)
+ */
 
+export interface DataPurgeCertificate {
+  certificateId: string;
+  issuedAt: string;
+  patientBlindIndex: string;
+  patientIdMasked: string;
+  therapistId: string;
+  dpoApproverId: string;
+  recordsPurgedCount: number;
+  recordIdsPurged: string[];
+  sessionsPurgedCount: number;
+  audioShardsPurgedCount: number;
+  purgeReason: PurgeReason;
+  purgeMethod: PurgeMethod;
+  status: PurgeStatus;
+  purgedAt: string;
+  inactivityPeriodMonths: number;
+  canonicalProofHash: string;
+  cryptographicPurgeSeal: string; // Token purge_v1_<base64url>
+  retentionPolicyCompliance: string;
+  wormAuditLogId?: string;
+  verifierUrl: string;
+}
 
+export interface PurgeCandidateRecord {
+  patientId: string;
+  patientNameMasked: string;
+  lastSessionDate: string;
+  inactivityMonths: number;
+  isEligibleForPurge: boolean; // true se inatividade >= 60 meses (5 anos CFP 001/2009)
+  clinicalRecordsCount: number;
+  audioRecordingsCount: number;
+  blockingReason?: string;
+}
+
+export interface PurgeExecutionResult {
+  success: boolean;
+  certificate: DataPurgeCertificate;
+  destroyedKeysCount: number;
+  sanitizedBytesEstimate: number;
+  message: string;
+}
+
+export interface PurgeLedgerOverview {
+  totalPurgedPatients: number;
+  totalRecordsDestroyed: number;
+  totalCertificatesIssued: number;
+  eligibleCandidatesCount: number;
+  blockedBy5YearRuleCount: number;
+  recentCertificates: DataPurgeCertificate[];
+}
+
+export interface PurgeProofVerificationResult {
+  valid: boolean;
+  status: PurgeProofVerificationStatus;
+  certificateId?: string;
+  patientBlindIndex?: string;
+  purgedAt?: string;
+  purgeReason?: PurgeReason;
+  purgeMethod?: PurgeMethod;
+  recordsDestroyedCount?: number;
+  canonicalProofHash?: string;
+  message: string;
+  verifiedAt: string;
+}

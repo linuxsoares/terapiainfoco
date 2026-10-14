@@ -1693,4 +1693,48 @@ export interface NotaryCertificateResponse {
   certificate: import('./models').NotaryCertificate;
 }
 
+/**
+ * 25. MECANISMO DE DESCARTE E EXPURGAMENTO SEGURO DE DADOS HISTÓRICOS (LGPD Art. 16 & CFP nº 001/2009)
+ */
+
+export interface ExecuteDataPurgeDTO {
+  patientId: string;
+  purgeReason: import('./enums').PurgeReason;
+  purgeMethod?: import('./enums').PurgeMethod;
+  dpoConfirmationPassword?: string;
+  override5YearRuleWithLegalOrder?: boolean;
+  legalOrderNumber?: string;
+}
+
+export interface VerifyPurgeProofDTO {
+  purgeSealOrCertificateId: string;
+}
+
+export interface PurgeCandidatesResponse {
+  success: boolean;
+  candidates: import('./models').PurgeCandidateRecord[];
+  count: number;
+}
+
+export interface ExecutePurgeResponse {
+  success: boolean;
+  result: import('./models').PurgeExecutionResult;
+}
+
+export interface PurgeOverviewResponse {
+  success: boolean;
+  overview: import('./models').PurgeLedgerOverview;
+}
+
+export interface VerifyPurgeProofResponse {
+  success: boolean;
+  result: import('./models').PurgeProofVerificationResult;
+}
+
+export interface PurgeCertificateResponse {
+  success: boolean;
+  certificate: import('./models').DataPurgeCertificate;
+}
+
+
 

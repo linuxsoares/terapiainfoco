@@ -98,7 +98,11 @@ import type {
   DlpInspectionResult,
   NotaryChainVerificationResult,
   NotaryLedgerOverview,
-  NotaryCertificate
+  NotaryCertificate,
+  DataPurgeCertificate,
+  PurgeCandidateRecord,
+  PurgeLedgerOverview,
+  PurgeProofVerificationResult
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -125,7 +129,10 @@ import {
   DlpPolicyMode,
   DlpRiskLevel,
   SteganographyInspectionStatus,
-  NotaryVerificationStatus
+  NotaryVerificationStatus,
+  PurgeReason,
+  PurgeMethod,
+  PurgeProofVerificationStatus
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1192,6 +1199,114 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     setVerifySealResult(null);
   };
 
+  // Estados de Expurgamento Criptográfico e Descarte Seguro de Dados (LGPD Art. 16 & CFP nº 001/2009)
+  const [purgeOverview, setPurgeOverview] = useState<PurgeLedgerOverview | null>(null);
+  const [loadingPurge, setLoadingPurge] = useState<boolean>(false);
+  const [purgeCandidates, setPurgeCandidates] = useState<PurgeCandidateRecord[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState<boolean>(false);
+  const [selectedPurgeCertificate, setSelectedPurgeCertificate] = useState<DataPurgeCertificate | null>(null);
+  const [executingPurge, setExecutingPurge] = useState<boolean>(false);
+  const [verifyPurgeInput, setVerifyPurgeInput] = useState<string>('');
+  const [verifyingPurge, setVerifyingPurge] = useState<boolean>(false);
+  const [verifyPurgeResult, setVerifyPurgeResult] = useState<PurgeProofVerificationResult | null>(null);
+
+  // Estados do Modal de Confirmação de Expurgo
+  const [candidateToPurge, setCandidateToPurge] = useState<PurgeCandidateRecord | null>(null);
+  const [purgeReasonInput, setPurgeReasonInput] = useState<PurgeReason>(PurgeReason.RETENTION_PERIOD_EXPIRED_5_YEARS);
+  const [purgeMethodInput, setPurgeMethodInput] = useState<PurgeMethod>(PurgeMethod.CRYPTO_SHREDDING_NIST_800_88);
+  const [overrideLegalInput, setOverrideLegalInput] = useState<boolean>(false);
+  const [legalOrderNumberInput, setLegalOrderNumberInput] = useState<string>('');
+
+  const fetchPurgeData = async () => {
+    try {
+      setLoadingPurge(true);
+      const res = await api.getPurgeOverview();
+      if (res.success) {
+        setPurgeOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de expurgo:', err);
+    } finally {
+      setLoadingPurge(false);
+    }
+  };
+
+  const fetchPurgeCandidates = async () => {
+    try {
+      setLoadingCandidates(true);
+      const res = await api.getPurgeCandidates();
+      if (res.success) {
+        setPurgeCandidates(res.candidates);
+      }
+    } catch (err: any) {
+      console.error('Erro ao buscar candidatos a expurgo:', err);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleExecutePurge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!candidateToPurge) return;
+    try {
+      setExecutingPurge(true);
+      const res = await api.executeDataPurge({
+        patientId: candidateToPurge.patientId,
+        purgeReason: purgeReasonInput,
+        purgeMethod: purgeMethodInput,
+        override5YearRuleWithLegalOrder: overrideLegalInput,
+        legalOrderNumber: overrideLegalInput ? legalOrderNumberInput.trim() : undefined
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Prontuário expurgado com sucesso! Certidão nº ${res.result.certificate.certificateId} emitida.`
+        });
+        setSelectedPurgeCertificate(res.result.certificate);
+        setCandidateToPurge(null);
+        await Promise.all([fetchPurgeData(), fetchPurgeCandidates()]);
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao executar expurgamento de dados.'
+      });
+    } finally {
+      setExecutingPurge(false);
+    }
+  };
+
+  const handleVerifyPurgeProof = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!verifyPurgeInput.trim()) return;
+    try {
+      setVerifyingPurge(true);
+      setVerifyPurgeResult(null);
+      const res = await api.verifyPurgeProof({ purgeSealOrCertificateId: verifyPurgeInput.trim() });
+      if (res.success) {
+        setVerifyPurgeResult(res.result);
+        setFeedback({
+          type: res.result.valid ? 'success' : 'error',
+          message: res.result.valid
+            ? 'Prova Criptográfica de Destruição confirmada com sucesso (NIST SP 800-88 & LGPD Art. 16)!'
+            : `ALERTA DE INCONSISTÊNCIA: Prova de destruição inválida ou não confirmada.`
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao verificar prova de expurgo.'
+      });
+    } finally {
+      setVerifyingPurge(false);
+    }
+  };
+
+  const handleLoadPurgeDemoSample = (seal: string) => {
+    setVerifyPurgeInput(seal);
+    setVerifyPurgeResult(null);
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1204,6 +1319,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchConsentData();
       fetchDlpData();
       fetchNotaryData();
+      fetchPurgeData();
+      fetchPurgeCandidates();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -7610,6 +7727,384 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* CARD 22: Mecanismo de Expurgamento Criptográfico & Prova de Destruição (LGPD Art. 16 & CFP nº 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="p-2 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Mecanismo de Expurgamento Criptográfico & Prova de Destruição
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  CFP nº 001/2009 (Art. 2º §2º)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                  LGPD Art. 16
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  NIST SP 800-88 CE
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                  Crypto-Shredding WORM
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Eliminação definitiva e irrecuperável de dados clínicos após o término legal do ciclo de guarda (regra de 5 anos do CFP) com destruição de chaves DEK, sanitização de mídia e emissão de Certidão Probatória de Expurgamento (<code className="font-mono text-rose-600 dark:text-rose-400">purge_v1_*</code>).
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  fetchPurgeData();
+                  fetchPurgeCandidates();
+                }}
+                disabled={loadingPurge || loadingCandidates}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Atualizar Livro de Expurgo"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingPurge || loadingCandidates ? 'animate-spin text-rose-500' : ''}`} />
+                Atualizar Livro
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Pacientes Expurgados</span>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {purgeOverview?.totalPurgedPatients ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Descartes irreversíveis</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+              <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">Registros Destruídos</span>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                {purgeOverview?.totalRecordsDestroyed ?? 0}
+              </div>
+              <span className="text-[10px] text-rose-600/80 mt-1 block">Evoluções SOAP e áudios</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40">
+              <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-300">Certidões Probatórias</span>
+              <div className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
+                {purgeOverview?.totalCertificatesIssued ?? 0}
+              </div>
+              <span className="text-[10px] text-purple-600/80 mt-1 block">Selos WORM emitidos</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Elegíveis para Descarte</span>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1.5">
+                <BadgeCheck className="w-6 h-6 text-emerald-500" />
+                {purgeOverview?.eligibleCandidatesCount ?? 0}
+              </div>
+              <span className="text-[10px] text-emerald-600/80 mt-1 block">Inativos há &ge; 5 anos (CFP)</span>
+            </div>
+          </div>
+
+          {/* Validador Zero-Knowledge da Prova de Destruição */}
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-rose-500" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Validador Notarial da Prova Criptográfica de Destruição (LGPD Art. 16)
+                </h3>
+              </div>
+              {purgeOverview?.recentCertificates && purgeOverview.recentCertificates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleLoadPurgeDemoSample(purgeOverview.recentCertificates[0].cryptographicPurgeSeal)}
+                  className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                >
+                  Carregar Selo de Descarte Mais Recente
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleVerifyPurgeProof} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Selo de Prova de Expurgamento (<code className="font-mono text-rose-600 dark:text-rose-400">purge_v1_...</code> ou ID da Certidão):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={verifyPurgeInput}
+                    onChange={(e) => setVerifyPurgeInput(e.target.value)}
+                    placeholder="Cole aqui o token de expurgo purge_v1_... ou ID PURGE-2026-CERT-..."
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={verifyingPurge || !verifyPurgeInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {verifyingPurge ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Auditar Prova
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Resultado da Verificação da Prova de Destruição */}
+            {verifyPurgeResult && (
+              <div className={`p-4 rounded-xl border transition-all ${
+                !verifyPurgeResult.valid
+                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+                  : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+              }`}>
+                <div className="flex items-start gap-3">
+                  {!verifyPurgeResult.valid ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <BadgeCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`text-xs font-bold ${
+                        !verifyPurgeResult.valid
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-emerald-700 dark:text-emerald-300'
+                      }`}>
+                        {!verifyPurgeResult.valid
+                          ? 'ALERTA: PROVA DE DESTRUIÇÃO INCONSISTENTE OU NÃO LOCALIZADA'
+                          : 'PROVA CRIPTOGRÁFICA DE DESTRUIÇÃO CONFIRMADA COM SUCESSO'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        verifyPurgeResult.status === PurgeProofVerificationStatus.PROOF_VALID_AUTHENTIC
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                      }`}>
+                        Status: {verifyPurgeResult.status}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {verifyPurgeResult.message}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] font-mono">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Certidão ID:</span>
+                        <span className="text-slate-900 dark:text-slate-200 break-all">{verifyPurgeResult.certificateId || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Blind Index do Titular:</span>
+                        <span className="text-slate-900 dark:text-slate-200 break-all">{verifyPurgeResult.patientBlindIndex || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Registros Eliminados:</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-semibold">{verifyPurgeResult.recordsDestroyedCount ?? 0} itens</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Data do Expurgo:</span>
+                        <span className="text-slate-900 dark:text-slate-200">
+                          {verifyPurgeResult.purgedAt ? new Date(verifyPurgeResult.purgedAt).toLocaleString('pt-BR') : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Candidatos a Expurgamento Seguro (Regra CFP 001/2009 - 5 Anos) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-rose-500" />
+                Candidatos a Expurgamento (Regra CFP 5 Anos & LGPD Art. 16)
+              </h3>
+              <span className="text-[11px] text-slate-500">
+                Prazo mínimo obrigatório de guarda: <strong>60 meses</strong>
+              </span>
+            </div>
+
+            {(!purgeCandidates || purgeCandidates.length === 0) ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/30 text-center text-xs text-slate-500">
+                Nenhum prontuário registrado para avaliação de expurgo.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Paciente / Prontuário</th>
+                      <th className="py-2.5 px-3.5">Última Sessão / Registro</th>
+                      <th className="py-2.5 px-3.5">Inatividade</th>
+                      <th className="py-2.5 px-3.5">Status de Guarda Legal</th>
+                      <th className="py-2.5 px-3.5 text-right">Ação DPO</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {purgeCandidates.map((candidate) => (
+                      <tr key={candidate.patientId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3.5">
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white">{candidate.patientNameMasked}</span>
+                            <span className="block font-mono text-[10px] text-slate-400">{candidate.patientId}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          {new Date(candidate.lastSessionDate).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className="font-semibold text-slate-900 dark:text-slate-200">{candidate.inactivityMonths} meses</span>
+                          <span className="text-[10px] text-slate-400 block">({(candidate.inactivityMonths / 12).toFixed(1)} anos)</span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          {candidate.isEligibleForPurge ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                              <BadgeCheck className="w-3 h-3" />
+                              Elegível (&gt; 5 anos CFP)
+                            </span>
+                          ) : (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                <Lock className="w-3 h-3" />
+                                Guarda Obrigatória CFP
+                              </span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">{candidate.blockingReason}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCandidateToPurge(candidate);
+                              setOverrideLegalInput(!candidate.isEligibleForPurge);
+                              setPurgeReasonInput(
+                                candidate.isEligibleForPurge
+                                  ? PurgeReason.RETENTION_PERIOD_EXPIRED_5_YEARS
+                                  : PurgeReason.LEGAL_DETERMINATION
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer ${
+                              candidate.isEligibleForPurge
+                                ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {candidate.isEligibleForPurge ? 'Expurgar Prontuário' : 'Expurgo Judicial'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Livro Notarial de Certidões de Expurgamento (Ledger WORM) */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-rose-500" />
+              Livro Notarial de Certidões de Expurgamento & Descarte (Ledger WORM)
+            </h3>
+
+            {(!purgeOverview?.recentCertificates || purgeOverview.recentCertificates.length === 0) ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/30 text-center text-xs text-slate-500">
+                Nenhuma certidão de expurgo emitida ainda.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Certidão ID</th>
+                      <th className="py-2.5 px-3.5">Blind Index Titular</th>
+                      <th className="py-2.5 px-3.5">Data / Hora</th>
+                      <th className="py-2.5 px-3.5">Motivo Legal</th>
+                      <th className="py-2.5 px-3.5">Selo Probatório (<code className="font-mono">purge_v1_*</code>)</th>
+                      <th className="py-2.5 px-3.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {purgeOverview.recentCertificates.map((cert) => (
+                      <tr key={cert.certificateId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold font-mono text-slate-900 dark:text-white">
+                          {cert.certificateId}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          <span title={cert.patientBlindIndex}>
+                            {cert.patientBlindIndex.slice(0, 16)}...
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          {new Date(cert.purgedAt).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            {cert.purgeReason}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] text-rose-600 dark:text-rose-400 max-w-[120px] truncate" title={cert.cryptographicPurgeSeal}>
+                              {cert.cryptographicPurgeSeal.slice(0, 18)}...
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(cert.cryptographicPurgeSeal);
+                                setFeedback({ type: 'success', message: 'Selo de expurgo copiado para a área de transferência!' });
+                              }}
+                              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                              title="Copiar Selo de Expurgo"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLoadPurgeDemoSample(cert.cryptographicPurgeSeal)}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 hover:bg-rose-200 transition-colors cursor-pointer"
+                              title="Testar no Validador"
+                            >
+                              Testar
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPurgeCertificate(cert)}
+                            className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold shadow-sm flex items-center gap-1 ml-auto transition-colors cursor-pointer"
+                          >
+                            <Award className="w-3 h-3 text-rose-500" />
+                            Ver Certidão
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -8663,6 +9158,302 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                   type="button"
                   onClick={() => setSelectedNotaryCertificate(null)}
                   className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-sm cursor-pointer transition-colors"
+                >
+                  Fechar Certidão
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Expurgamento Criptográfico (LGPD Art. 16 & CFP nº 001/2009) */}
+      {candidateToPurge && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Confirmação de Expurgamento Criptográfico
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Paciente ID: {candidateToPurge.patientId.slice(0, 16)}...
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setCandidateToPurge(null);
+                  setOverrideLegalInput(false);
+                  setLegalOrderNumberInput('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Paciente (Pseudonimizado):</span>
+                <span className="font-semibold text-slate-900 dark:text-white font-mono">
+                  {candidateToPurge.patientNameMasked}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Inatividade Clínica:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {candidateToPurge.inactivityMonths} meses desde a última consulta
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Status CFP nº 001/2009:</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  candidateToPurge.isEligibleForPurge
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                }`}>
+                  {candidateToPurge.isEligibleForPurge
+                    ? 'Elegível (> 60 meses decorridos)'
+                    : `Retenção Obrigatória (Faltam ${Math.max(0, 60 - candidateToPurge.inactivityMonths)} meses)`}
+                </span>
+              </div>
+            </div>
+
+            {!candidateToPurge.isEligibleForPurge && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 space-y-2.5 text-xs">
+                <div className="flex items-start gap-2 text-rose-800 dark:text-rose-300">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed font-medium">
+                    A Resolução CFP nº 001/2009 (Art. 2º §2º) determina a guarda obrigatória do prontuário por no mínimo 5 anos. O expurgo antes desse prazo só é lícito mediante ordem judicial explícita.
+                  </p>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-rose-200/60 dark:border-rose-900/40">
+                  <input
+                    type="checkbox"
+                    checked={overrideLegalInput}
+                    onChange={(e) => setOverrideLegalInput(e.target.checked)}
+                    className="rounded text-rose-600 focus:ring-rose-500 dark:bg-slate-900 dark:border-slate-700"
+                  />
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold text-[11px]">
+                    Possuo mandado ou ordem judicial autorizando a eliminação
+                  </span>
+                </label>
+
+                {overrideLegalInput && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Número do Processo / Mandado Judicial:
+                    </label>
+                    <input
+                      type="text"
+                      value={legalOrderNumberInput}
+                      onChange={(e) => setLegalOrderNumberInput(e.target.value)}
+                      placeholder="Ex: 5001234-89.2026.8.26.0100"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleExecutePurge} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Motivação Legal do Descarte:
+                </label>
+                <select
+                  value={purgeReasonInput}
+                  onChange={(e) => setPurgeReasonInput(e.target.value as PurgeReason)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <option value={PurgeReason.RETENTION_PERIOD_EXPIRED_5_YEARS}>
+                    Fim do Ciclo de Guarda Legal de 5 Anos (CFP nº 001/2009)
+                  </option>
+                  <option value={PurgeReason.PATIENT_REQUEST_ART_18}>
+                    Exercício do Direito pelo Titular (LGPD Art. 18, VI)
+                  </option>
+                  <option value={PurgeReason.LEGAL_DETERMINATION}>
+                    Mandado Judicial ou Decisão Transitada em Julgado
+                  </option>
+                  <option value={PurgeReason.TREATMENT_TERMINATION}>
+                    Encerramento Formal do Ciclo de Atendimento Clínico
+                  </option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Método Criptográfico de Sanitização:
+                </label>
+                <select
+                  value={purgeMethodInput}
+                  onChange={(e) => setPurgeMethodInput(e.target.value as PurgeMethod)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <option value={PurgeMethod.CRYPTO_SHREDDING_NIST_800_88}>
+                    Crypto-Shredding NIST SP 800-88 CE (Destruição Irreversível de DEK/KEK)
+                  </option>
+                  <option value={PurgeMethod.DEK_REVOCATION_AND_OVERWRITE}>
+                    Revogação Criptográfica de DEK e Sobregravação
+                  </option>
+                  <option value={PurgeMethod.HYBRID_SHREDDING_WORM}>
+                    Expurgo Híbrido com Selagem Probatória WORM
+                  </option>
+                </select>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <span>
+                  <strong>Aviso de Irreversibilidade:</strong> O material de chave simétrica será destruído permanentemente e o prontuário será anonimizado de forma irreversível. Uma Certidão Probatória WORM com Blind Index será emitida para resguardo jurídico.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCandidateToPurge(null);
+                    setOverrideLegalInput(false);
+                    setLegalOrderNumberInput('');
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    executingPurge || 
+                    (!candidateToPurge.isEligibleForPurge && (!overrideLegalInput || !legalOrderNumberInput.trim()))
+                  }
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                >
+                  <Flame className={`w-3.5 h-3.5 ${executingPurge ? 'animate-spin' : ''}`} />
+                  <span>
+                    {executingPurge ? 'Destruindo e Selando...' : 'Executar Expurgamento Criptográfico'}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Timbrado de Certidão Probatória de Expurgamento (LGPD Art. 16 & CFP nº 001/2009) */}
+      {selectedPurgeCertificate && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Certidão Probatória de Expurgamento Criptográfico
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {selectedPurgeCertificate.certificateId} • NIST SP 800-88 CE
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPurgeCertificate(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Data e Hora do Expurgo:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(selectedPurgeCertificate.purgedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Paciente (Blind Index):</span>
+                <span className="font-semibold text-slate-900 dark:text-white font-mono text-[11px]">
+                  {selectedPurgeCertificate.patientBlindIndex.slice(0, 24)}...
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Terapeuta Responsável:</span>
+                <span className="font-semibold text-slate-900 dark:text-white font-mono">
+                  {selectedPurgeCertificate.therapistId}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Motivação Regulatória:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedPurgeCertificate.purgeReason}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Método de Sanitização:</span>
+                <span className="font-mono text-[11px] text-slate-900 dark:text-slate-200">
+                  {selectedPurgeCertificate.purgeMethod}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Registros Destruídos:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedPurgeCertificate.recordsPurgedCount} registros clínicos
+                </span>
+              </div>
+              {selectedPurgeCertificate.wormAuditLogId && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Trilha WORM Log ID:</span>
+                  <span className="font-mono text-slate-900 dark:text-white text-[11px]">
+                    {selectedPurgeCertificate.wormAuditLogId}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Hash Canônico da Prova:</span>
+                <span className="font-mono text-[11px] text-slate-900 dark:text-slate-200">
+                  {selectedPurgeCertificate.canonicalProofHash.slice(0, 20)}...
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                Declaração Pericial de Fé Pública e Não-Adulteração:
+              </div>
+              <p className="leading-relaxed">
+                {selectedPurgeCertificate.retentionPolicyCompliance}
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="font-mono text-[10px] text-slate-400 truncate max-w-[260px]" title={selectedPurgeCertificate.cryptographicPurgeSeal}>
+                Selo: {selectedPurgeCertificate.cryptographicPurgeSeal.slice(0, 24)}...
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedPurgeCertificate.cryptographicPurgeSeal);
+                    setFeedback({ type: 'success', message: 'Selo Probatório copiado para verificação pericial!' });
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors"
+                >
+                  Copiar Selo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPurgeCertificate(null)}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
                 >
                   Fechar Certidão
                 </button>

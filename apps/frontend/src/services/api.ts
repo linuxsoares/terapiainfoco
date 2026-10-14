@@ -188,7 +188,14 @@ import type {
   SealClinicalRecordResponse,
   VerifyNotaryResponse,
   NotaryOverviewResponse,
-  NotaryCertificateResponse
+  NotaryCertificateResponse,
+  ExecuteDataPurgeDTO,
+  VerifyPurgeProofDTO,
+  PurgeCandidatesResponse,
+  ExecutePurgeResponse,
+  PurgeOverviewResponse,
+  VerifyPurgeProofResponse,
+  PurgeCertificateResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1559,6 +1566,32 @@ export const api = {
 
   async getNotaryOverview(): Promise<NotaryOverviewResponse> {
     return await request<NotaryOverviewResponse>('/notary/overview');
+  },
+
+  async getPurgeCandidates(): Promise<PurgeCandidatesResponse> {
+    return await request<PurgeCandidatesResponse>('/purge/candidates');
+  },
+
+  async executeDataPurge(dto: ExecuteDataPurgeDTO): Promise<ExecutePurgeResponse> {
+    return await request<ExecutePurgeResponse>('/purge/execute', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPurgeProof(dto: VerifyPurgeProofDTO): Promise<VerifyPurgeProofResponse> {
+    return await request<VerifyPurgeProofResponse>('/purge/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPurgeOverview(): Promise<PurgeOverviewResponse> {
+    return await request<PurgeOverviewResponse>('/purge/overview');
+  },
+
+  async getPurgeCertificate(certificateId: string): Promise<PurgeCertificateResponse> {
+    return await request<PurgeCertificateResponse>(`/purge/certificate/${certificateId}`);
   }
 };
 

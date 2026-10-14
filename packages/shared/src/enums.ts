@@ -153,7 +153,13 @@ export enum AuditAction {
   NOTARY_SEAL_GENERATED = 'NOTARY_SEAL_GENERATED',
   NOTARY_CHAIN_VERIFIED = 'NOTARY_CHAIN_VERIFIED',
   NOTARY_TAMPERING_DETECTED = 'NOTARY_TAMPERING_DETECTED',
-  NOTARY_CERTIFICATE_ISSUED = 'NOTARY_CERTIFICATE_ISSUED'
+  NOTARY_CERTIFICATE_ISSUED = 'NOTARY_CERTIFICATE_ISSUED',
+  // Ações de Expurgamento Criptográfico e Descarte Seguro de Dados (LGPD Art. 16 & CFP nº 001/2009)
+  DATA_PURGE_REQUESTED = 'DATA_PURGE_REQUESTED',
+  DATA_PURGE_EXECUTED = 'DATA_PURGE_EXECUTED',
+  DATA_PURGE_CERTIFICATE_ISSUED = 'DATA_PURGE_CERTIFICATE_ISSUED',
+  DATA_PURGE_PROOF_VERIFIED = 'DATA_PURGE_PROOF_VERIFIED',
+  DATA_PURGE_RETENTION_BLOCKED = 'DATA_PURGE_RETENTION_BLOCKED'
 }
 
 export enum AuditResourceType {
@@ -181,7 +187,8 @@ export enum AuditResourceType {
   THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE',
   CONSENT_RECORD = 'CONSENT_RECORD',
   CLIPBOARD_DLP = 'CLIPBOARD_DLP',
-  NOTARY_LEDGER = 'NOTARY_LEDGER'
+  NOTARY_LEDGER = 'NOTARY_LEDGER',
+  PURGE_LEDGER = 'PURGE_LEDGER'
 }
 
 /**
@@ -557,5 +564,43 @@ export enum NotaryVerificationStatus {
   CONTENT_TAMPERED = 'CONTENT_TAMPERED', // O conteúdo da nota clínica não confere com o hash canônico notarial
   NOT_FOUND = 'NOT_FOUND'                // Selo ou blind index não localizado no cartório digital
 }
+
+/**
+ * Motivações Legais e Regulatórias para Expurgamento e Descarte de Dados (LGPD Art. 16 & CFP nº 001/2009)
+ */
+export enum PurgeReason {
+  RETENTION_PERIOD_EXPIRED_5_YEARS = 'RETENTION_PERIOD_EXPIRED_5_YEARS', // Prazo mínimo legal de 5 anos (Resolução CFP nº 001/2009 Art. 2º §2º) cumprido
+  PATIENT_REQUEST_ART_18 = 'PATIENT_REQUEST_ART_18',                     // Exercício legítimo do titular (LGPD Art. 18, VI) sem óbice regulatório
+  LEGAL_DETERMINATION = 'LEGAL_DETERMINATION',                           // Mandado judicial ou decisão transitada em julgado
+  TREATMENT_TERMINATION = 'TREATMENT_TERMINATION'                        // Encerramento formal do ciclo de atendimento com autorização do DPO
+}
+
+/**
+ * Método Técnico de Expurgamento Criptográfico e Sanitização de Mídia (NIST SP 800-88 Rev. 1 & DoD 5220.22-M)
+ */
+export enum PurgeMethod {
+  CRYPTO_SHREDDING_NIST_800_88 = 'CRYPTO_SHREDDING_NIST_800_88',   // Destruição irreversível de DEK no KMS + sobreescrita do registro
+  DEK_REVOCATION_AND_OVERWRITE = 'DEK_REVOCATION_AND_OVERWRITE',   // Revogação criptográfica e truncamento permanente
+  HYBRID_SHREDDING_WORM = 'HYBRID_SHREDDING_WORM'                  // Destruição da chave criptográfica com guarda do certificado probatório WORM
+}
+
+/**
+ * Status do Processo de Expurgamento
+ */
+export enum PurgeStatus {
+  PURGED_CONFIRMED = 'PURGED_CONFIRMED',                         // Expurgado irreversivelmente com certificado probatório emitido
+  RETAINED_PENDING_LEGAL_TERM = 'RETAINED_PENDING_LEGAL_TERM',   // Bloqueado para descarte: dentro do prazo legal de 5 anos (CFP)
+  LOCKED_AUDIT_DISPUTE = 'LOCKED_AUDIT_DISPUTE'                  // Bloqueado administrativamente por processo ético/judicial em aberto
+}
+
+/**
+ * Status da Verificação Pública de Prova Criptográfica de Destruição
+ */
+export enum PurgeProofVerificationStatus {
+  PROOF_VALID_AUTHENTIC = 'PROOF_VALID_AUTHENTIC', // Prova matemática autêntica e confirmada na cadeia WORM
+  PROOF_TAMPERED = 'PROOF_TAMPERED',               // Certificado corrompido ou assinatura forjada
+  PROOF_NOT_FOUND = 'PROOF_NOT_FOUND'              // Certificado ou token não localizado no livro de expurgo
+}
+
 
 

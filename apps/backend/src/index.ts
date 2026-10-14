@@ -26,6 +26,7 @@ import { threatIntelligenceRoute } from './routes/threatIntelligence';
 import { consentRoutes } from './routes/consent';
 import { dlpRoutes } from './routes/dlp';
 import { clinicalNotaryRoutes } from './routes/clinicalNotary';
+import { securePurgeRoutes } from './routes/securePurge';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -148,6 +149,7 @@ app.route('/api/security/threat-intelligence', threatIntelligenceRoute);
 app.route('/api/consent', consentRoutes);
 app.route('/api/dlp', dlpRoutes);
 app.route('/api/notary', clinicalNotaryRoutes);
+app.route('/api/purge', securePurgeRoutes);
 
 
 
