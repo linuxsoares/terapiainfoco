@@ -150,7 +150,13 @@ import type {
   SessionReconnectResponse,
   SessionRecoveryListResponse,
   SessionRecoveryMetrics,
-  ClinicalSessionRecoverySession
+  ClinicalSessionRecoverySession,
+  GenerateZkpProofDTO,
+  VerifyZkpProofDTO,
+  ZkpProofResponse,
+  ZkpVerificationResponse,
+  ZkpProofListResponse,
+  ZkpSystemMetrics
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1378,6 +1384,28 @@ export const api = {
 
   async getSessionRecoveryMetrics(): Promise<{ success: boolean; metrics: SessionRecoveryMetrics }> {
     return await request<{ success: boolean; metrics: SessionRecoveryMetrics }>('/teleconsultation/session-recovery/metrics');
+  },
+
+  async generateZkpProof(dto: GenerateZkpProofDTO): Promise<ZkpProofResponse> {
+    return await request<ZkpProofResponse>('/security/zkp/generate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyZkpProof(dto: VerifyZkpProofDTO): Promise<ZkpVerificationResponse> {
+    return await request<ZkpVerificationResponse>('/security/zkp/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getZkpProofs(): Promise<ZkpProofListResponse> {
+    return await request<ZkpProofListResponse>('/security/zkp/proofs');
+  },
+
+  async getZkpMetrics(): Promise<{ success: boolean; metrics: ZkpSystemMetrics }> {
+    return await request<{ success: boolean; metrics: ZkpSystemMetrics }>('/security/zkp/metrics');
   }
 };
 
