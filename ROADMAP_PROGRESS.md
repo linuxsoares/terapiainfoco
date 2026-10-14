@@ -1111,7 +1111,7 @@ terapiainfoco/
 | `feat/clipboard-dlp-steganographic-watermark` | Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica & Prevenção de Exfiltração de Prontuários (LGPD Art. 46 & CFP nº 001/2009) | [PR #52](https://github.com/linuxsoares/terapiainfoco/pull/52) | Merged |
 | `feat/clinical-record-notary-blind-audit` | Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18) | [PR #53](https://github.com/linuxsoares/terapiainfoco/pull/53) | Merged |
 | `fix/google-oauth-redirect-uri-detection` | Auto-resolução dinâmica de redirect_uri OAuth 2.0 (Railway/Proxy) e exibição com cópia no painel | [PR #54](https://github.com/linuxsoares/terapiainfoco/pull/54) | Merged |
-| `fix/google-oauth-redirect-uri-fallback-railway` | Remoção do default localhost estático no config e resolução unificada de proxy reverso em status/authorize/callback | Pendente | **Em Aberto** |
+| `fix/google-oauth-redirect-uri-fallback-railway` | Remoção do default localhost estático no config e resolução unificada de proxy reverso em status/authorize/callback | [PR #55](https://github.com/linuxsoares/terapiainfoco/pull/55) | Merged |
 
 ---
 
