@@ -127,7 +127,12 @@ import type {
   InspectPayloadDTO,
   InspectPayloadResponse,
   UpdateWafModeDTO,
-  UpdateWafModeResponse
+  UpdateWafModeResponse,
+  NetworkSimulationPresetsResponse,
+  RunNetworkSimulationDTO,
+  NetworkSimulationResponse,
+  NetworkResilienceHistoryResponse,
+  NetworkResilienceMetrics
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1245,6 +1250,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 23. Simulação de Resiliência de Redes & Inteligibilidade da Fala Clínica (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
+  async getNetworkResiliencePresets(): Promise<NetworkSimulationPresetsResponse> {
+    return await request<NetworkSimulationPresetsResponse>('/teleconsultation/network-resilience/presets');
+  },
+
+  async runNetworkSimulation(dto: RunNetworkSimulationDTO): Promise<NetworkSimulationResponse> {
+    return await request<NetworkSimulationResponse>('/teleconsultation/network-resilience/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getNetworkResilienceHistory(limit = 20): Promise<NetworkResilienceHistoryResponse> {
+    return await request<NetworkResilienceHistoryResponse>(`/teleconsultation/network-resilience/history?limit=${limit}`);
+  },
+
+  async getNetworkResilienceMetrics(): Promise<{ success: boolean; metrics: NetworkResilienceMetrics }> {
+    return await request<{ success: boolean; metrics: NetworkResilienceMetrics }>('/teleconsultation/network-resilience/metrics');
   }
 };
 

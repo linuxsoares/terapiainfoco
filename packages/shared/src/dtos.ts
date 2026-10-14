@@ -1323,5 +1323,32 @@ export interface UpdateWafModeResponse {
   message: string;
 }
 
+/**
+ * 25. SIMULAÇÃO DE RESILIÊNCIA DE REDE & INTELIGIBILIDADE CLÍNICA (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
+ */
+export interface RunNetworkSimulationDTO {
+  profile?: import('./enums').NetworkProfileType;
+  params?: Partial<import('./models').NetworkSimulationParams>;
+  patientId?: string;
+  notes?: string;
+}
+
+export interface NetworkSimulationResponse {
+  success: boolean;
+  report: import('./models').NetworkSimulationReport;
+  message: string;
+}
+
+export interface NetworkResilienceHistoryResponse {
+  success: boolean;
+  reports: import('./models').NetworkSimulationReport[];
+  metrics: import('./models').NetworkResilienceMetrics;
+}
+
+export interface NetworkSimulationPresetsResponse {
+  success: boolean;
+  presets: import('./models').NetworkProfilePreset[];
+}
+
 
 

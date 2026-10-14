@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 20 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS/LFI/RCE & Registro WORM | 329/329 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 21 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) | 347/347 Testes Passando
 
 
 
@@ -802,6 +802,38 @@ terapiainfoco/
   - Tabela forense de incidentes bloqueados com histórico preservado no WORM.
   - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
 
+### 32. Simulador de Resiliência de Redes Instáveis para Teleconsulta & Inteligibilidade da Fala Clínica (ITU-T G.107 / E-Model & Resolução CFP nº 011/2018)
+- [x] **Motor Criptográfico e Heurístico (`packages/crypto/src/networkResilience.ts`):**
+  - Modelagem acústica e estatística baseada no ITU-T G.107 (E-Model) calibrada para codecs de voz modernos (WebRTC Opus Fullband / VoIP com NetEQ PLC e FEC):
+    - Cálculo de atraso efetivo ponta-a-ponta (`effectiveDelayMs`) combinando latência RTT/2 com dimensionamento dinâmico de jitter buffer.
+    - Fator de transmissão $R$-Factor (escala 0 a 100) ponderando atraso perceptual ($I_d$) e degradação por perda de pacotes ($I_e$).
+    - Escala de Opinião Média (MOS - Mean Opinion Score) ITU-T na faixa 1.00 a 4.50+.
+    - Estimativa quantitativa de perda de fonemas (*speech clipping %*).
+    - Avaliação da integridade do fluxo de vídeo (`HD_OPTIMAL`, `SD_ACCEPTABLE`, `FROZEN_DEGRADED`, `DISABLED_AUDIO_ONLY`).
+    - Classificação em 4 graus clínicos de inteligibilidade: `EXCELLENT`, `GOOD`, `DEGRADED`, `CRITICAL_UNACCEPTABLE`.
+    - Emissão de parecer deontológico fundamentado na Resolução CFP nº 011/2018 (contingência e migração de canal quando o ato psicológico for prejudicado).
+    - Digest probatório SHA-256 canônico (`probatoryDigest`) para selagem da simulação forense.
+  - Suíte de 12 testes unitários dedicados passando (`packages/crypto/test/networkResilience.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `AuditAction.NETWORK_RESILIENCE_SIMULATED`, `AuditAction.CLINICAL_CONTINGENCY_TRIGGERED` e `AuditResourceType.NETWORK_RESILIENCE`.
+  - Enums `NetworkProfileType` (`FIBRA_ESTAVEL`, `WIFI_OSCILANTE`, `MOBILE_4G_CONGESTED`, `DEGRADED_CRITICAL`, `TEMPORARY_BLACKOUT`, `CUSTOM`), `ClinicalIntelligibilityGrade` e `AudioCodecType`.
+  - Interfaces `NetworkSimulationParams`, `ClinicalSpeechAssessment`, `NetworkSimulationReport`, `NetworkResilienceMetrics` e `NetworkProfilePreset`.
+  - DTOs `RunNetworkSimulationDTO`, `NetworkSimulationResponse`, `NetworkResilienceHistoryResponse` e `NetworkSimulationPresetsResponse`.
+- [x] **Backend Service & Rotas REST Hono (`apps/backend`):**
+  - `NetworkResilienceService`: Serviço singleton com catálogo de presets, agregação de métricas em tempo real, ring-buffer dos últimos 100 relatórios e selagem compulsória no ledger WORM com dupla auditoria quando recomendada contingência clínica.
+  - Endpoints REST protegidos por autenticação estrita e RBAC em `/api/teleconsultation/network-resilience/*`:
+    - `GET /presets`: Catálogo de perfis padronizados de conectividade.
+    - `POST /simulate`: Executa injeção controlada de jitter/packet loss, gera laudo pericial e sela no WORM.
+    - `GET /history`: Trilha forense dos relatórios emitidos.
+    - `GET /metrics`: Agregados estatísticos para o painel de segurança.
+  - Suíte de 6 testes de integração passando (`apps/backend/test/networkResilience.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 14 (*Resiliência de Redes Instáveis & Inteligibilidade Clínica*) integrado no `SecurityModule.tsx` exibindo 4 KPIs em tempo real (Score MOS Médio, Simulações Registradas 100% WORM, Contingências Éticas CFP e Incidentes Degradados/Críticos).
+  - Seletor rápido dos 6 presets de rede com parametrização automática de perda e jitter.
+  - Painel de Injeção de Anomalias com sliders de Loss (0 a 50%), Jitter (0 a 350ms), RTT (10 a 800ms), seletor de codecs e modo áudio puro.
+  - Laudo pericial com score MOS colorido, submétricas acústicas (R-Factor, fonemas perdidos, atraso total, vídeo), diretriz ética CFP 011/2018 e digest probatório SHA-256.
+  - Tabela forense de simulações recentes com suporte a Light Mode e Dark Mode.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -847,13 +879,14 @@ terapiainfoco/
 | `feat/google-meet-api-integration` | Integração Google Meet REST API v2 (spaces.create), Knocking TRUSTED, Fluxo OAuth 2.0 Web (Google Cloud Client ID/Secret, Code Exchange & Auto-Refresh) e Diagnósticos no Painel (RFC §3.2 & CFP 011/2018) | [PR #41](https://github.com/linuxsoares/terapiainfoco/pull/41) | Merged |
 | `fix/google-meet-rbac-routes` | Correção de RBAC em rotas Google Meet (/api/system/google-meet/*) para perfil PSICOLOGO_TITULAR e ajuste de mensagens | [PR #42](https://github.com/linuxsoares/terapiainfoco/pull/42) | Merged |
 | `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | Merged |
-| `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | **Em Aberto** |
+| `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | Merged |
+| `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | **Pendente de Abertura / Em Revisão** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **329 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **347 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -862,7 +895,9 @@ Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / S
 - [x] **Integração Oficial Google Meet REST API v2 (spaces.create & endActiveConference):** Emissão de links Meet via API v2 com política de knocking TRUSTED (sala de espera CFP) e diagnósticos.
 - [x] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia com DTLS-SRTP, Safety Numbers (SAS) e selo WORM.
 - [x] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
-- [ ] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica.
+- [x] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica (MOS ITU-T G.107) e diretriz ética CFP 011/2018.
+- [ ] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
+- [ ] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica.**
 
 ---
 
@@ -872,7 +907,7 @@ Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / S
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (329 testes)
+# 2. Executar suíte completa de testes (347 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

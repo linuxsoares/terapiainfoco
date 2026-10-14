@@ -17,6 +17,7 @@ export * from './governance';
 export * from './securityHeaders';
 export * from './webrtcSecurity';
 export * from './waf';
+export * from './networkResilience';
 
 
 

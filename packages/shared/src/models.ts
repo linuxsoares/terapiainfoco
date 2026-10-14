@@ -959,6 +959,59 @@ export interface WafMetrics {
   blockThreshold: number;
 }
 
+/**
+ * 25. SIMULAÇÃO DE RESILIÊNCIA DE REDE & INTELIGIBILIDADE CLÍNICA (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
+ */
+export interface NetworkSimulationParams {
+  jitterMs: number;
+  packetLossPercent: number; // 0.00 a 100.00%
+  rttMs: number;
+  bandwidthKbps: number;
+  durationSeconds: number;
+  codec: import('./enums').AudioCodecType;
+  simulateAudioOnly?: boolean;
+}
+
+export interface ClinicalSpeechAssessment {
+  mosScore: number; // Mean Opinion Score ITU-T G.107 (1.00 a 5.00)
+  rFactor: number; // Transmission Rating Factor R (0 a 100)
+  speechClippingPercent: number; // Estimativa percentual de perda de fonemas/palavras
+  effectiveDelayMs: number; // Atraso ponta-a-ponta percebido
+  intelligibilityGrade: import('./enums').ClinicalIntelligibilityGrade;
+  clinicalRecommendation: string; // Orientação fundamentada no CFP 011/2018
+  requiresContingency: boolean; // Indica se o ato psicológico foi comprometido
+  videoQualityStatus: 'HD_OPTIMAL' | 'SD_ACCEPTABLE' | 'FROZEN_DEGRADED' | 'DISABLED_AUDIO_ONLY';
+}
+
+export interface NetworkSimulationReport {
+  id: string;
+  timestamp: string;
+  patientId?: string;
+  therapistId: string;
+  profile: import('./enums').NetworkProfileType;
+  params: NetworkSimulationParams;
+  assessment: ClinicalSpeechAssessment;
+  probatoryDigest: string; // SHA-256 canônico
+  wormAuditId?: string;
+}
+
+export interface NetworkResilienceMetrics {
+  totalSimulations: number;
+  avgMosScore: number;
+  degradedSimulationsCount: number;
+  criticalSimulationsCount: number;
+  contingencyRecommendedCount: number;
+  lastSimulationAt?: string;
+}
+
+export interface NetworkProfilePreset {
+  profile: import('./enums').NetworkProfileType;
+  name: string;
+  description: string;
+  defaultParams: NetworkSimulationParams;
+  expectedMosRange: string;
+}
+
 
 
 
