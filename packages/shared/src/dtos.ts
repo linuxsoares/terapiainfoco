@@ -1607,3 +1607,41 @@ export interface ConsentLedgerOverviewResponse {
   recentReceipts: import('./models').ConsentReceipt[];
   patientLedger?: import('./models').PatientConsentLedger;
 }
+
+/**
+ * 23. DATA LOSS PREVENTION (DLP) NO CLIPBOARD & MARCA D'ÁGUA ESTEGANOGRÁFICA (LGPD Art. 46 & CFP nº 001/2009)
+ */
+export interface EvaluateClipboardDlpDTO {
+  text: string;
+  patientId: string;
+  patientName?: string;
+  operatorId?: string;
+  operatorName?: string;
+  sourceContext?: 'SOAP_NOTES' | 'ANAMNESE' | 'PATIENT_PROFILE' | 'DOCUMENT' | 'PRESCRIPTION' | 'GENERAL' | string;
+  policyMode?: import('./enums').DlpPolicyMode;
+}
+
+export interface InspectClipboardDlpDTO {
+  suspiciousText: string;
+  investigatorId?: string;
+}
+
+export interface UpdateDlpPolicyDTO {
+  policyMode: import('./enums').DlpPolicyMode;
+}
+
+export interface EvaluateClipboardDlpResponse {
+  success: boolean;
+  result: import('./models').DlpEvaluationResult;
+}
+
+export interface InspectClipboardDlpResponse {
+  success: boolean;
+  result: import('./models').DlpInspectionResult;
+}
+
+export interface DlpOverviewResponse {
+  success: boolean;
+  overview: import('./models').DlpAuditOverview;
+}
+

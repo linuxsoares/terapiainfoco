@@ -24,6 +24,7 @@ import { sessionRecoveryRoute } from './routes/sessionRecovery';
 import { zkpRoute } from './routes/zkp';
 import { threatIntelligenceRoute } from './routes/threatIntelligence';
 import { consentRoutes } from './routes/consent';
+import { dlpRoutes } from './routes/dlp';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -144,6 +145,7 @@ app.route('/api/teleconsultation/session-recovery', sessionRecoveryRoute);
 app.route('/api/security/zkp', zkpRoute);
 app.route('/api/security/threat-intelligence', threatIntelligenceRoute);
 app.route('/api/consent', consentRoutes);
+app.route('/api/dlp', dlpRoutes);
 
 
 

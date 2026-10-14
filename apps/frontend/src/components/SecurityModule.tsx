@@ -43,7 +43,9 @@ import {
   Layers,
   HardDrive,
   EyeOff,
-  Award
+  Award,
+  FileSearch,
+  Search
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -89,7 +91,9 @@ import type {
   KAnonymityLookupResult,
   ConsentLedgerOverview,
   ConsentReceipt,
-  ConsentReceiptResponse
+  ConsentReceiptResponse,
+  DlpAuditOverview,
+  DlpInspectionResult
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -112,7 +116,10 @@ import {
   ZkpVerificationStatus,
   BreachSeverity,
   IncidentContainmentStatus,
-  ConsentScope
+  ConsentScope,
+  DlpPolicyMode,
+  DlpRiskLevel,
+  SteganographyInspectionStatus
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1015,6 +1022,92 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Data Loss Prevention (DLP) no Clipboard & Marca d'Água Esteganográfica (LGPD Art. 46 & CFP nº 001/2009)
+  const [dlpOverview, setDlpOverview] = useState<DlpAuditOverview | null>(null);
+  const [loadingDlp, setLoadingDlp] = useState<boolean>(false);
+  const [inspectInputText, setInspectInputText] = useState<string>('');
+  const [inspectingDlp, setInspectingDlp] = useState<boolean>(false);
+  const [inspectResult, setInspectResult] = useState<DlpInspectionResult | null>(null);
+  const [updatingDlpPolicy, setUpdatingDlpPolicy] = useState<boolean>(false);
+
+  const fetchDlpData = async () => {
+    try {
+      setLoadingDlp(true);
+      const res = await api.getDlpOverview();
+      if (res.success) {
+        setDlpOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de DLP:', err);
+    } finally {
+      setLoadingDlp(false);
+    }
+  };
+
+  const handleInspectDlp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!inspectInputText.trim()) return;
+    try {
+      setInspectingDlp(true);
+      setInspectResult(null);
+      const res = await api.inspectClipboardDlp({ suspiciousText: inspectInputText });
+      if (res.success) {
+        setInspectResult(res.result);
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao periciar texto com marca d\'água esteganográfica.'
+      });
+    } finally {
+      setInspectingDlp(false);
+    }
+  };
+
+  const handleUpdateDlpPolicy = async (newPolicy: DlpPolicyMode) => {
+    try {
+      setUpdatingDlpPolicy(true);
+      const res = await api.updateDlpPolicy(newPolicy);
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Política de DLP atualizada para ${newPolicy} com sucesso!`
+        });
+        await fetchDlpData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao atualizar política global de DLP.'
+      });
+    } finally {
+      setUpdatingDlpPolicy(false);
+    }
+  };
+
+  const handleLoadDlpDemoSample = async () => {
+    try {
+      const res = await api.evaluateClipboardDlp({
+        text: 'S: Paciente relata ideação persecutória leve e ansiedade ao falar em público. A: Manutenção do plano terapêutico cognitivo-comportamental (F41.1). P: Prescrição de treino assertivo.',
+        patientId: 'patient-demo-1',
+        sourceContext: 'SOAP_NOTES',
+        policyMode: dlpOverview?.activePolicy || DlpPolicyMode.WATERMARK_ONLY
+      });
+      if (res.success) {
+        setInspectInputText(res.result.transformedText);
+        setFeedback({
+          type: 'success',
+          message: 'Amostra clínica com marca d\'água esteganográfica injetada no inspetor!'
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao gerar amostra com marca d\'água.'
+      });
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1025,6 +1118,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchZkpData();
       fetchThreatIntelligenceData();
       fetchConsentData();
+      fetchDlpData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -6816,6 +6910,316 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                           >
                             Copiar Token
                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card 20: Data Loss Prevention (DLP) no Clipboard & Marca d'Água Esteganográfica (LGPD Art. 46 & CFP nº 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                  Card 20: Prevenção de Exfiltração & Esteganografia
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  LGPD Art. 46 / CFP nº 001/2009
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-1.5">
+                <FileSearch className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                Data Loss Prevention (DLP) no Clipboard & Rastreabilidade Forense Esteganográfica
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl">
+                Intercepção de cópias de prontuários com injeção imperceptível de marca d'água esteganográfica em caracteres de largura zero (ZWSP/ZWNJ). Permite identificar a autoria, timestamp e procedência de notas clínicas vazadas externamente sem alterar a leitura humana do texto.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={fetchDlpData}
+                disabled={loadingDlp}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingDlp ? 'animate-spin' : ''}`} />
+                Atualizar DLP
+              </button>
+            </div>
+          </div>
+
+          {/* Configuração de Política Ativa */}
+          {currentUser.role === UserRole.ADMIN && (
+            <div className="p-4 rounded-2xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/80 dark:border-violet-800/50 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-violet-950 dark:text-violet-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    Política Ativa de Proteção de Área de Transferência (Clipboard Policy Mode)
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                    Selecione como o sistema trata a cópia de prontuários, notas SOAP e anamneses na interface clínica.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { mode: DlpPolicyMode.WATERMARK_ONLY, label: 'Marca d\'Água Invisível' },
+                    { mode: DlpPolicyMode.WATERMARK_AND_NOTICE, label: 'Marca d\'Água + Aviso CFP' },
+                    { mode: DlpPolicyMode.MASK_SENSITIVE, label: 'Mascarar PII / CPF' },
+                    { mode: DlpPolicyMode.BLOCK_EXFILTRATION, label: 'Bloquear Exfiltração em Massa' }
+                  ].map((p) => (
+                    <button
+                      key={p.mode}
+                      type="button"
+                      disabled={updatingDlpPolicy}
+                      onClick={() => handleUpdateDlpPolicy(p.mode)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        dlpOverview?.activePolicy === p.mode
+                          ? 'bg-violet-600 text-white shadow-sm ring-2 ring-violet-500/30'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Cópias Monitoradas</span>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {dlpOverview?.totalCopiesMonitored ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Auditadas na trilha WORM</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Marcas Injetadas</span>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {dlpOverview?.watermarksEmbedded ?? 0}
+              </div>
+              <span className="text-[10px] text-emerald-600/80 mt-1 block">Esteganografia zero-width ativa</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+              <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">Exfiltrações Bloqueadas</span>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                {dlpOverview?.bulkExfiltrationsBlocked ?? 0}
+              </div>
+              <span className="text-[10px] text-rose-600/80 mt-1 block">Cópia em massa de prontuário</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+              <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">Perícias Forenses</span>
+              <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                {dlpOverview?.forensicInspectionsPerformed ?? 0}
+              </div>
+              <span className="text-[10px] text-indigo-600/80 mt-1 block">Textos com ZW decoder</span>
+            </div>
+          </div>
+
+          {/* Ferramenta de Perícia Forense Esteganográfica */}
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Fingerprint className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                  Perícia Forense de Esteganografia (Zero-Width Decoder)
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  Cole qualquer texto suspeito de vazamento (chats, WhatsApp, notas externas) para extrair os caracteres invisíveis e identificar o autor da cópia e o paciente afetado.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadDlpDemoSample}
+                className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer self-start sm:self-auto"
+              >
+                Carregar Amostra Protegida de Teste
+              </button>
+            </div>
+
+            <form onSubmit={handleInspectDlp} className="space-y-3">
+              <textarea
+                rows={3}
+                required
+                value={inspectInputText}
+                onChange={(e) => setInspectInputText(e.target.value)}
+                placeholder="Cole o texto suspeito de exfiltração aqui..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white resize-none font-mono"
+              />
+
+              <div className="flex justify-end gap-2">
+                {inspectInputText && (
+                  <button
+                    type="button"
+                    onClick={() => { setInspectInputText(''); setInspectResult(null); }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-750 cursor-pointer"
+                  >
+                    Limpar
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={inspectingDlp || !inspectInputText.trim()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Search className={`w-3.5 h-3.5 ${inspectingDlp ? 'animate-spin' : ''}`} />
+                  {inspectingDlp ? 'Decodificando...' : 'Realizar Perícia Forense'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado da Perícia Forense */}
+            {inspectResult && (
+              <div className={`p-4 rounded-xl border text-xs space-y-3 ${
+                inspectResult.status === SteganographyInspectionStatus.GENUINE_WATERMARK
+                  ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                  : inspectResult.status === SteganographyInspectionStatus.NO_WATERMARK
+                  ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700'
+                  : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                      inspectResult.status === SteganographyInspectionStatus.GENUINE_WATERMARK
+                        ? 'bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200'
+                        : inspectResult.status === SteganographyInspectionStatus.NO_WATERMARK
+                        ? 'bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                        : 'bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-200'
+                    }`}>
+                      {inspectResult.status}
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {inspectResult.message}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Perícia realizada em: {new Date(inspectResult.verifiedAt).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Caracteres Zero-Width:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">{inspectResult.zeroWidthCharCount} caracteres</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Nível de Risco:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">{inspectResult.riskLevel}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Integridade Textual:</span>
+                    <strong className={inspectResult.extractedIntegrity ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+                      {inspectResult.extractedIntegrity ? '100% Íntegro' : 'Parcial / Recortado'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">ID Marca d'Água:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">{inspectResult.payload?.watermarkId || 'N/A'}</strong>
+                  </div>
+                </div>
+
+                {inspectResult.payload && (
+                  <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                      Evidências Periciais Decodificadas da Marca d'Água:
+                    </div>
+                    <div>• <strong>Operador Autor da Cópia:</strong> {inspectResult.payload.operatorId} {inspectResult.payload.operatorName ? `(${inspectResult.payload.operatorName})` : ''}</div>
+                    <div>• <strong>Paciente Vinculado:</strong> {inspectResult.payload.patientId} {inspectResult.payload.patientName ? `(${inspectResult.payload.patientName})` : ''}</div>
+                    <div>• <strong>Timestamp de Emissão:</strong> {new Date(inspectResult.payload.timestamp).toLocaleString('pt-BR')}</div>
+                    <div className="truncate text-[10px] font-mono text-slate-500">
+                      • <strong>Digest Canônico SHA-256:</strong> {inspectResult.payload.contentDigest}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Trilha WORM de Eventos de Clipboard DLP */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              Trilha de Auditoria WORM de Eventos de Clipboard (LGPD Art. 46)
+            </h3>
+
+            {(!dlpOverview?.recentEvents || dlpOverview.recentEvents.length === 0) ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/30 text-center text-xs text-slate-500">
+                Nenhum evento recente de cópia de prontuário registrado.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Data / Hora</th>
+                      <th className="py-2.5 px-3.5">Operador</th>
+                      <th className="py-2.5 px-3.5">Paciente</th>
+                      <th className="py-2.5 px-3.5">Contexto</th>
+                      <th className="py-2.5 px-3.5">Ação & Risco</th>
+                      <th className="py-2.5 px-3.5">Status</th>
+                      <th className="py-2.5 px-3.5 text-right">Tamanho</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {dlpOverview.recentEvents.map((evt) => (
+                      <tr key={evt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          {new Date(evt.timestamp).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-white">
+                          {evt.operatorName || evt.operatorId}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                          {evt.patientId}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
+                            {evt.sourceContext}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
+                              {evt.action}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              evt.riskLevel === DlpRiskLevel.CRITICAL
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                : evt.riskLevel === DlpRiskLevel.HIGH
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}>
+                              {evt.riskLevel}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            evt.status === 'EMBEDDED_SUCCESS'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {evt.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-mono text-[11px] text-slate-500">
+                          {evt.charactersCopied} chars
                         </td>
                       </tr>
                     ))}

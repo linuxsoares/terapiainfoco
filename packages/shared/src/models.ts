@@ -19,7 +19,10 @@ import {
   MeetAccessType,
   ConsentScope,
   ConsentStatus,
-  ConsentLegalBasis
+  ConsentLegalBasis,
+  DlpPolicyMode,
+  DlpRiskLevel,
+  SteganographyInspectionStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1301,4 +1304,70 @@ export interface ConsentLedgerOverview {
   lastRevocationAt?: string;
   termVersionActive: string;
 }
+
+/**
+ * 28. DATA LOSS PREVENTION (DLP) NO CLIPBOARD & MARCA D'ÁGUA ESTEGANOGRÁFICA
+ * (LGPD Art. 46, CFP nº 001/2009 & Resolução CFP nº 006/2019)
+ */
+
+export interface DlpForensicPayload {
+  watermarkId: string;
+  operatorId: string;
+  operatorName?: string;
+  patientId: string;
+  patientName?: string;
+  timestamp: number;
+  sessionOrRecordId?: string;
+  contentDigest: string; // SHA-256 (prefixo 16-32 chars) do texto original
+  hmacSignature: string; // HMAC-SHA256 para prevenir falsificação da marca d'água
+}
+
+export interface DlpInspectionResult {
+  status: SteganographyInspectionStatus;
+  hasZeroWidthChars: boolean;
+  zeroWidthCharCount: number;
+  payload: DlpForensicPayload | null;
+  sourceNotice?: string;
+  verifiedAt: string;
+  riskLevel: DlpRiskLevel;
+  extractedIntegrity: boolean;
+  message: string;
+}
+
+export interface DlpEvaluationResult {
+  allowed: boolean;
+  action: DlpPolicyMode;
+  riskLevel: DlpRiskLevel;
+  transformedText: string;
+  watermarkId: string;
+  invisibleCharsCount: number;
+  disclaimerText?: string;
+  requiresJustification: boolean;
+  rejectionReason?: string;
+}
+
+export interface DlpEventLog {
+  id: string;
+  timestamp: string;
+  operatorId: string;
+  operatorName?: string;
+  patientId: string;
+  action: DlpPolicyMode;
+  riskLevel: DlpRiskLevel;
+  status: string;
+  charactersCopied: number;
+  invisibleCharsCount: number;
+  watermarkId: string;
+  sourceContext: string;
+}
+
+export interface DlpAuditOverview {
+  totalCopiesMonitored: number;
+  watermarksEmbedded: number;
+  bulkExfiltrationsBlocked: number;
+  forensicInspectionsPerformed: number;
+  activePolicy: DlpPolicyMode;
+  recentEvents: DlpEventLog[];
+}
+
 
