@@ -18,6 +18,7 @@ import { kmsRoute } from './routes/kms';
 import { securityHardeningRoute } from './routes/securityHardening';
 import { webrtcSecurityRoute } from './routes/webrtcSecurity';
 import { wafRoute } from './routes/waf';
+import { networkResilienceRoute } from './routes/networkResilience';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -132,6 +133,7 @@ app.route('/api/kms', kmsRoute);
 app.route('/api/security/hardening', securityHardeningRoute);
 app.route('/api/teleconsultation/webrtc', webrtcSecurityRoute);
 app.route('/api/security/waf', wafRoute);
+app.route('/api/teleconsultation/network-resilience', networkResilienceRoute);
 
 
 

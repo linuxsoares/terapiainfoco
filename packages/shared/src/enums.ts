@@ -116,7 +116,10 @@ export enum AuditAction {
   WEBRTC_SESSION_TERMINATED = 'WEBRTC_SESSION_TERMINATED',
   // Ações do Web Application Firewall - WAF em Camada de Aplicação (RFC-001 §4.4, §5.2)
   WAF_ATTACK_BLOCKED = 'WAF_ATTACK_BLOCKED',
-  WAF_RULE_UPDATED = 'WAF_RULE_UPDATED'
+  WAF_RULE_UPDATED = 'WAF_RULE_UPDATED',
+  // Ações de Simulação de Resiliência de Rede & Contingência Clínica (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
+  NETWORK_RESILIENCE_SIMULATED = 'NETWORK_RESILIENCE_SIMULATED',
+  CLINICAL_CONTINGENCY_TRIGGERED = 'CLINICAL_CONTINGENCY_TRIGGERED'
 }
 
 export enum AuditResourceType {
@@ -136,7 +139,8 @@ export enum AuditResourceType {
   HONEYPOT = 'HONEYPOT',
   MEET = 'MEET',
   WEBRTC_SESSION = 'WEBRTC_SESSION',
-  WAF = 'WAF'
+  WAF = 'WAF',
+  NETWORK_RESILIENCE = 'NETWORK_RESILIENCE'
 }
 
 /**
@@ -287,5 +291,37 @@ export enum WafMode {
   ACTIVE_BLOCK = 'ACTIVE_BLOCK', // Bloqueia com HTTP 403 e grava na trilha WORM
   MONITOR_ONLY = 'MONITOR_ONLY', // Apenas audita e gera alertas sem interromper a chamada
   DISABLED = 'DISABLED'          // Desativado
+}
+
+/**
+ * Perfis Padronizados de Simulação de Rede para Teleconsulta (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)
+ */
+export enum NetworkProfileType {
+  FIBRA_ESTAVEL = 'FIBRA_ESTAVEL',           // Fibra Óptica Estável: Jitter 2-5ms, Packet Loss 0.1%, RTT 20ms
+  WIFI_OSCILANTE = 'WIFI_OSCILANTE',         // Wi-Fi Doméstico com Interferência: Jitter 25ms, Packet Loss 2.0%, RTT 60ms
+  MOBILE_4G_CONGESTED = 'MOBILE_4G_CONGESTED', // Rede Móvel 4G/LTE Congestionada: Jitter 80ms, Packet Loss 6.0%, RTT 180ms
+  DEGRADED_CRITICAL = 'DEGRADED_CRITICAL',   // Conexão Degradada Crítica: Jitter 200ms, Packet Loss 15.0%, RTT 450ms
+  TEMPORARY_BLACKOUT = 'TEMPORARY_BLACKOUT', // Blackout / Queda Temporária de Conexão: Packet Loss 100% por 10s
+  CUSTOM = 'CUSTOM'                          // Parâmetros Personalizados pelo Usuário
+}
+
+/**
+ * Graus de Inteligibilidade Clínica da Fala Conforme Escala MOS ITU-T P.800 / E-Model
+ */
+export enum ClinicalIntelligibilityGrade {
+  EXCELLENT = 'EXCELLENT',                   // MOS 4.0 - 5.0: Comunicação fluida, sem cortes perceptíveis, escuta plena
+  GOOD = 'GOOD',                             // MOS 3.5 - 3.9: Comunicação clara, leve atraso imperceptível na fala
+  DEGRADED = 'DEGRADED',                     // MOS 2.8 - 3.4: Micro-cortes frequentes, distorção leve, atenção necessária
+  CRITICAL_UNACCEPTABLE = 'CRITICAL_UNACCEPTABLE' // MOS < 2.8: Quebra de frases, ininteligível, veto ético CFP 011/2018
+}
+
+/**
+ * Codecs de Áudio Suportados na Avaliação de Resiliência WebRTC
+ */
+export enum AudioCodecType {
+  OPUS_FULLBAND = 'OPUS_FULLBAND',           // Opus 48kHz (Padrão Ouro WebRTC)
+  OPUS_VOIP = 'OPUS_VOIP',                   // Opus 16kHz (Modo Otimizado para Baixa Largura de Banda)
+  G722 = 'G722',                             // G.722 Wideband
+  G711_ALAW = 'G711_ALAW'                    // G.711 A-law (Legado Telefônico)
 }
 
