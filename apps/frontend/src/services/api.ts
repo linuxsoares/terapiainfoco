@@ -173,7 +173,13 @@ import type {
   ConsentReceiptResponse,
   EnforceConsentResponse,
   ConsentLedgerOverviewResponse,
-  PatientConsentLedger
+  PatientConsentLedger,
+  EvaluateClipboardDlpDTO,
+  InspectClipboardDlpDTO,
+  EvaluateClipboardDlpResponse,
+  InspectClipboardDlpResponse,
+  DlpOverviewResponse,
+  DlpPolicyMode
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1490,6 +1496,31 @@ export const api = {
   async getConsentOverview(patientId?: string): Promise<ConsentLedgerOverviewResponse> {
     const url = patientId ? `/consent/overview?patientId=${encodeURIComponent(patientId)}` : '/consent/overview';
     return await request<ConsentLedgerOverviewResponse>(url);
+  },
+
+  async evaluateClipboardDlp(dto: EvaluateClipboardDlpDTO): Promise<EvaluateClipboardDlpResponse> {
+    return await request<EvaluateClipboardDlpResponse>('/dlp/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async inspectClipboardDlp(dto: InspectClipboardDlpDTO): Promise<InspectClipboardDlpResponse> {
+    return await request<InspectClipboardDlpResponse>('/dlp/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getDlpOverview(): Promise<DlpOverviewResponse> {
+    return await request<DlpOverviewResponse>('/dlp/overview');
+  },
+
+  async updateDlpPolicy(policyMode: DlpPolicyMode): Promise<{ success: boolean; activePolicy: DlpPolicyMode; message: string }> {
+    return await request<{ success: boolean; activePolicy: DlpPolicyMode; message: string }>('/dlp/policy', {
+      method: 'PUT',
+      body: JSON.stringify({ policyMode })
+    });
   }
 };
 

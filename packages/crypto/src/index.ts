@@ -23,6 +23,7 @@ export * from './sessionRecovery';
 export * from './zkpProof';
 export * from './breachMonitor';
 export * from './consentLedger';
+export * from './clipboardDlp';
 
 
 

@@ -142,7 +142,13 @@ export enum AuditAction {
   CONSENT_GRANTED = 'CONSENT_GRANTED',
   CONSENT_REVOKED = 'CONSENT_REVOKED',
   CONSENT_RECEIPT_VERIFIED = 'CONSENT_RECEIPT_VERIFIED',
-  CONSENT_ENFORCEMENT_BLOCKED = 'CONSENT_ENFORCEMENT_BLOCKED'
+  CONSENT_ENFORCEMENT_BLOCKED = 'CONSENT_ENFORCEMENT_BLOCKED',
+  // Ações de Data Loss Prevention (DLP) no Clipboard & Marca d'Água Esteganográfica (LGPD Art. 46 & CFP nº 001/2009)
+  CLIPBOARD_COPY_AUDITED = 'CLIPBOARD_COPY_AUDITED',
+  CLIPBOARD_WATERMARK_EMBEDDED = 'CLIPBOARD_WATERMARK_EMBEDDED',
+  CLIPBOARD_EXFILTRATION_BLOCKED = 'CLIPBOARD_EXFILTRATION_BLOCKED',
+  CLIPBOARD_WATERMARK_INSPECTED = 'CLIPBOARD_WATERMARK_INSPECTED',
+  CLIPBOARD_POLICY_VIOLATION = 'CLIPBOARD_POLICY_VIOLATION'
 }
 
 export enum AuditResourceType {
@@ -168,7 +174,8 @@ export enum AuditResourceType {
   CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY',
   ZKP_PROOF = 'ZKP_PROOF',
   THREAT_INTELLIGENCE = 'THREAT_INTELLIGENCE',
-  CONSENT_RECORD = 'CONSENT_RECORD'
+  CONSENT_RECORD = 'CONSENT_RECORD',
+  CLIPBOARD_DLP = 'CLIPBOARD_DLP'
 }
 
 /**
@@ -494,3 +501,34 @@ export enum ConsentLegalBasis {
   CFP_011_2018_TELEPSY = 'CFP_011_2018_TELEPSY',                   // Prestação de serviços psicológicos realizados por meios de tecnologias da informação
   CFP_006_2019_INTERPROFESSIONAL = 'CFP_006_2019_INTERPROFESSIONAL' // Emissão e compartilhamento ético de documentos psicológicos
 }
+
+/**
+ * Modos de Política de Data Loss Prevention (DLP) no Clipboard Clínico (LGPD Art. 46 & CFP nº 001/2009)
+ */
+export enum DlpPolicyMode {
+  WATERMARK_ONLY = 'WATERMARK_ONLY',             // Injeta esteganografia zero-width invisível mantendo o texto visual 100% idêntico
+  WATERMARK_AND_NOTICE = 'WATERMARK_AND_NOTICE', // Injeta esteganografia invisível + disclaimer legal formal de confidencialidade
+  MASK_SENSITIVE = 'MASK_SENSITIVE',             // Mascara PIIs e CPFs automaticamente antes da transferência
+  BLOCK_EXFILTRATION = 'BLOCK_EXFILTRATION'      // Bloqueia tentativas de cópia em massa ou volumosa de prontuários
+}
+
+/**
+ * Níveis de Risco de Vazamento / Exfiltração de Prontuário Clínico (LGPD Art. 46 / CFP nº 001/2009)
+ */
+export enum DlpRiskLevel {
+  LOW = 'LOW',         // Trecho curto de texto sem PII ou sem termos clínicos restritos
+  MEDIUM = 'MEDIUM',   // Dados clínicos parciais ou identificador de paciente com texto descritivo
+  HIGH = 'HIGH',       // Prontuário estruturado, notas SOAP completas, hipóteses diagnósticas ou anamnese
+  CRITICAL = 'CRITICAL' // Tentativa de cópia em massa ou volume excessivo suscetível a exfiltração não autorizada
+}
+
+/**
+ * Status da Inspeção Forense de Esteganografia no Texto do Clipboard
+ */
+export enum SteganographyInspectionStatus {
+  GENUINE_WATERMARK = 'GENUINE_WATERMARK',   // Marca d'água autêntica decodificada com sucesso e HMAC validado
+  TAMPERED_WATERMARK = 'TAMPERED_WATERMARK', // Padrão zero-width detectado, porém com HMAC inválido ou payload corrompido
+  NO_WATERMARK = 'NO_WATERMARK',             // Nenhum padrão esteganográfico zero-width detectado no texto
+  INVALID_PAYLOAD = 'INVALID_PAYLOAD'        // Caracteres zero-width presentes, mas não correspondem à estrutura de pacote válida
+}
+
