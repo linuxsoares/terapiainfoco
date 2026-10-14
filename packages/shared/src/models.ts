@@ -912,6 +912,54 @@ export interface WebRtcSessionMetrics {
   cipherSuite: string;
 }
 
+/**
+ * 24. WAF EM CAMADA DE APLICAÇÃO & INSPEÇÃO HEURÍSTICA DE PAYLOADS (RFC-001 §4.4, §5.2)
+ */
+export interface WafMatchedRule {
+  category: import('./enums').WafAttackType;
+  ruleId: string;
+  description: string;
+  severityScore: number;
+  detectedPattern: string;
+  fieldPath?: string;
+}
+
+export interface WafInspectionResult {
+  passed: boolean;
+  threatScore: number; // 0 a 100
+  matchedRules: WafMatchedRule[];
+  inspectedAt: string;
+  actionTaken: 'PASSED' | 'LOGGED' | 'BLOCKED';
+}
+
+export interface WafIncidentRecord {
+  id: string;
+  ipAddress: string;
+  userAgent: string;
+  method: string;
+  path: string;
+  threatScore: number;
+  attackType: import('./enums').WafAttackType;
+  matchedRulesCount: number;
+  primaryRuleId: string;
+  payloadSnippet: string;
+  blockedAt: string;
+  status: 'BLOCKED' | 'FLAGGED';
+}
+
+export interface WafMetrics {
+  totalAttacksBlocked: number;
+  totalInspections: number;
+  totalSqliAttempts: number;
+  totalXssAttempts: number;
+  totalTraversalAttempts: number;
+  totalCommandInjectionAttempts: number;
+  lastAttackAt?: string;
+  mode: import('./enums').WafMode;
+  blockThreshold: number;
+}
+
+
 
 
 

@@ -17,8 +17,10 @@ import { siemRoute } from './routes/siem';
 import { kmsRoute } from './routes/kms';
 import { securityHardeningRoute } from './routes/securityHardening';
 import { webrtcSecurityRoute } from './routes/webrtcSecurity';
+import { wafRoute } from './routes/waf';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
+import { wafMiddleware } from './middlewares/wafMiddleware';
 import { getDb } from './db';
 
 export const app = new Hono();
@@ -47,6 +49,7 @@ app.use('*', cors({
 }));
 app.use('*', securityHeadersMiddleware());
 app.use('*', honeypotMiddleware());
+app.use('*', wafMiddleware());
 
 
 // Prometheus Metrics Exporter (RFC-001 §5.2 / OpenMetrics Standard)
@@ -128,6 +131,7 @@ app.route('/api/siem', siemRoute);
 app.route('/api/kms', kmsRoute);
 app.route('/api/security/hardening', securityHardeningRoute);
 app.route('/api/teleconsultation/webrtc', webrtcSecurityRoute);
+app.route('/api/security/waf', wafRoute);
 
 
 

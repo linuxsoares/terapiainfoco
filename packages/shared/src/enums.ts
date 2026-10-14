@@ -113,7 +113,10 @@ export enum AuditAction {
   WEBRTC_SESSION_INITIATED = 'WEBRTC_SESSION_INITIATED',
   WEBRTC_FINGERPRINT_VERIFIED = 'WEBRTC_FINGERPRINT_VERIFIED',
   WEBRTC_QUALITY_AUDITED = 'WEBRTC_QUALITY_AUDITED',
-  WEBRTC_SESSION_TERMINATED = 'WEBRTC_SESSION_TERMINATED'
+  WEBRTC_SESSION_TERMINATED = 'WEBRTC_SESSION_TERMINATED',
+  // Ações do Web Application Firewall - WAF em Camada de Aplicação (RFC-001 §4.4, §5.2)
+  WAF_ATTACK_BLOCKED = 'WAF_ATTACK_BLOCKED',
+  WAF_RULE_UPDATED = 'WAF_RULE_UPDATED'
 }
 
 export enum AuditResourceType {
@@ -132,7 +135,8 @@ export enum AuditResourceType {
   TELEMETRY = 'TELEMETRY',
   HONEYPOT = 'HONEYPOT',
   MEET = 'MEET',
-  WEBRTC_SESSION = 'WEBRTC_SESSION'
+  WEBRTC_SESSION = 'WEBRTC_SESSION',
+  WAF = 'WAF'
 }
 
 /**
@@ -264,3 +268,24 @@ export enum WebRtcSecurityGrade {
   LEGACY = 'LEGACY',         // AES-128-CM HMAC
   INSECURE = 'INSECURE'      // Não verificado ou falha de integridade
 }
+
+/**
+ * Vetores de Ataque Inspecionados pelo WAF em Camada de Aplicação (OWASP Top 10)
+ */
+export enum WafAttackType {
+  SQL_INJECTION = 'SQL_INJECTION',
+  CROSS_SITE_SCRIPTING = 'CROSS_SITE_SCRIPTING',
+  PATH_TRAVERSAL = 'PATH_TRAVERSAL',
+  COMMAND_INJECTION = 'COMMAND_INJECTION',
+  SUSPICIOUS_PAYLOAD = 'SUSPICIOUS_PAYLOAD'
+}
+
+/**
+ * Modos de Operação do Web Application Firewall
+ */
+export enum WafMode {
+  ACTIVE_BLOCK = 'ACTIVE_BLOCK', // Bloqueia com HTTP 403 e grava na trilha WORM
+  MONITOR_ONLY = 'MONITOR_ONLY', // Apenas audita e gera alertas sem interromper a chamada
+  DISABLED = 'DISABLED'          // Desativado
+}
+

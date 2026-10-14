@@ -122,7 +122,12 @@ import type {
   TerminateWebRtcSessionDTO,
   TerminateWebRtcSessionResponse,
   WebRtcSessionListResponse,
-  WebRtcSessionAuditRecord
+  WebRtcSessionAuditRecord,
+  WafOverviewResponse,
+  InspectPayloadDTO,
+  InspectPayloadResponse,
+  UpdateWafModeDTO,
+  UpdateWafModeResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1221,6 +1226,25 @@ export const api = {
 
   async getWebRtcSession(sessionId: string): Promise<{ success: boolean; session: WebRtcSessionAuditRecord }> {
     return await request<{ success: boolean; session: WebRtcSessionAuditRecord }>(`/teleconsultation/webrtc/session/${sessionId}`);
+  },
+
+  // 22. WAF em Camada de Aplicação (SQLi, XSS, Path Traversal & Heurística Clínica - RFC-001 §4.4, §5.2)
+  async getWafOverview(): Promise<WafOverviewResponse> {
+    return await request<WafOverviewResponse>('/security/waf/overview');
+  },
+
+  async inspectWafPayload(dto: InspectPayloadDTO): Promise<InspectPayloadResponse> {
+    return await request<InspectPayloadResponse>('/security/waf/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateWafMode(dto: UpdateWafModeDTO): Promise<UpdateWafModeResponse> {
+    return await request<UpdateWafModeResponse>('/security/waf/mode', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
 

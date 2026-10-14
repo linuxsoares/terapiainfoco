@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 19 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers | 309/309 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 20 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS/LFI/RCE & Registro WORM | 329/329 Testes Passando
 
 
 
@@ -776,6 +776,32 @@ terapiainfoco/
   - Tabela forense de sessões de telepsicologia com visualização dos Safety Numbers (numéricos e fonéticos), status de verificação P2P, selo probatório WORM e botão de encerramento auditado.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 31. WAF em Camada de Aplicação com Detecção Heurística de Injeção SQL, XSS, Path Traversal & Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10)
+- [x] **Motor Criptográfico e Heurístico (`packages/crypto/src/waf.ts`):**
+  - Catálogo formal com 15 regras de alta precisão cobrindo os principais vetores de ataque em conformidade com o OWASP Top 10:
+    - **SQL Injection (`WAF-SQLI-001..006`):** Tautologias clássicas (`' OR '1'='1'`), injeção UNION, comentários maliciosos inline (`--`, `/*...*/`, `#`), funções analíticas (`sleep()`, `pg_sleep()`, `benchmark()`) e stacked queries (`DROP`, `ALTER`, `TRUNCATE`).
+    - **Cross-Site Scripting (`WAF-XSS-001..005`):** Tags `<script>`, event handlers inline (`onload=`, `onerror=`, `onclick=`), pseudo-protocolos `javascript:`, data URIs e injeções de elementos perigosos (`<iframe>`, `<object>`, `<embed>`).
+    - **Path Traversal & LFI (`WAF-LFI-001..002`):** Padrões de escape de diretório (`../`, `..\`) e acesso a arquivos confidenciais (`/etc/passwd`, `/etc/shadow`, `boot.ini`).
+    - **Command Injection & RCE (`WAF-CMD-001..002`):** Encadeamento de comandos shell (`|`, `;`, `&`, backticks, `$()`) e ferramentas de rede ofensivas (`nc `, `netcat`, `curl `, `wget `).
+  - Mecanismo anti-evasão multi-nível (`normalizeForInspection`) com decodificação recursiva de double URL encoding (`%2527`) e normalização de entidades HTML (`&quot;`, `&#x27;`, etc.).
+  - Varredura recursiva de objetos e arrays aninhados (`inspectPayload`) computando o `threatScore` agregado (0 a 100).
+  - Suíte de 13 testes unitários dedicados passando (`packages/crypto/test/waf.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `WAF_ATTACK_BLOCKED`, `WAF_RULE_UPDATED` e recurso `WAF`.
+  - Enums `WafAttackType` (`SQLI`, `XSS`, `PATH_TRAVERSAL`, `COMMAND_INJECTION`, `UNKNOWN`) e `WafMode` (`ACTIVE_BLOCK`, `MONITOR_ONLY`).
+  - Interfaces `WafMatchedRule`, `WafInspectionResult`, `WafIncidentRecord`, `WafMetrics` e DTOs `WafOverviewResponse`, `InspectPayloadDTO`, `InspectPayloadResponse`, `UpdateWafModeDTO`, `UpdateWafModeResponse`.
+- [x] **Backend Middleware, Service & Rotas REST (`apps/backend`):**
+  - `WafService`: Serviço singleton com agregação de métricas por vetor em tempo real, ring-buffer dos últimos 100 incidentes forenses e selagem compulsória de bloqueios no ledger imutável WORM (`AuditAction.WAF_ATTACK_BLOCKED`).
+  - `wafMiddleware`: Middleware Hono interceptando Query String e Body JSON antes do desembrulho criptográfico, retornando HTTP 403 Forbidden (`WAF_ATTACK_DETECTED`) quando `threatScore >= 50`, com isenção segura de auto-inspeção para o laboratório de testes e clonagem segura de stream via `c.req.raw.clone().text()`.
+  - Rotas REST protegidas por RBAC em `/api/security/waf/*` (`/overview`, `/inspect`, `/mode`).
+  - Suíte de 7 testes de integração passando (`apps/backend/test/waf.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 13 (*Web Application Firewall (WAF) & Inspeção Heurística*) integrado no `SecurityModule.tsx` exibindo 4 KPIs em tempo real (Requisições Inspecionadas, Ataques Bloqueados, Vetores Detectados e Limiar de Risco).
+  - Seletor de Modo Operacional do WAF (*Bloqueio Ativo 403* vs. *Monitorar Apenas*) exclusivo para Administrador.
+  - Laboratório Interativo de Testes & Homologação de Payloads com templates rápidos (SQLi UNION, XSS Script, Path Traversal, Command Inj, Nota Clínica Válida) e laudo pericial com Threat Score, regras disparadas e fragmentos detectados.
+  - Tabela forense de incidentes bloqueados com histórico preservado no WORM.
+  - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -820,13 +846,14 @@ terapiainfoco/
 | `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | [PR #40](https://github.com/linuxsoares/terapiainfoco/pull/40) | Merged |
 | `feat/google-meet-api-integration` | Integração Google Meet REST API v2 (spaces.create), Knocking TRUSTED, Fluxo OAuth 2.0 Web (Google Cloud Client ID/Secret, Code Exchange & Auto-Refresh) e Diagnósticos no Painel (RFC §3.2 & CFP 011/2018) | [PR #41](https://github.com/linuxsoares/terapiainfoco/pull/41) | Merged |
 | `fix/google-meet-rbac-routes` | Correção de RBAC em rotas Google Meet (/api/system/google-meet/*) para perfil PSICOLOGO_TITULAR e ajuste de mensagens | [PR #42](https://github.com/linuxsoares/terapiainfoco/pull/42) | Merged |
-| `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | **Em Aberto** |
+| `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | Merged |
+| `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **309 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **329 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -834,7 +861,7 @@ Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / S
 - [x] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados com quarentena em memória e trilha WORM.
 - [x] **Integração Oficial Google Meet REST API v2 (spaces.create & endActiveConference):** Emissão de links Meet via API v2 com política de knocking TRUSTED (sala de espera CFP) e diagnósticos.
 - [x] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia com DTLS-SRTP, Safety Numbers (SAS) e selo WORM.
-- [ ] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
+- [x] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
 - [ ] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica.
 
 ---
@@ -845,7 +872,7 @@ Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / S
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (309 testes)
+# 2. Executar suíte completa de testes (329 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
