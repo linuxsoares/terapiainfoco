@@ -1289,4 +1289,39 @@ export interface WebRtcSessionListResponse {
   sessions: import('./models').WebRtcSessionAuditRecord[];
 }
 
+/**
+ * 24. WAF EM CAMADA DE APLICAÇÃO & INSPEÇÃO HEURÍSTICA DE PAYLOADS (RFC-001 §4.4, §5.2)
+ */
+export interface WafOverviewResponse {
+  success: boolean;
+  metrics: import('./models').WafMetrics;
+  recentIncidents: import('./models').WafIncidentRecord[];
+}
+
+export interface InspectPayloadDTO {
+  payload: string | Record<string, any>;
+  context?: string;
+}
+
+export interface InspectPayloadResponse {
+  success: boolean;
+  inspection: import('./models').WafInspectionResult;
+  threatScore: number;
+  blocked: boolean;
+  message: string;
+}
+
+export interface UpdateWafModeDTO {
+  mode: import('./enums').WafMode;
+  blockThreshold?: number;
+}
+
+export interface UpdateWafModeResponse {
+  success: boolean;
+  mode: import('./enums').WafMode;
+  blockThreshold: number;
+  message: string;
+}
+
+
 

