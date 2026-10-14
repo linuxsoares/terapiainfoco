@@ -35,7 +35,12 @@ import {
   UebaRiskLevel,
   UebaAnomalyType,
   UebaContainmentAction,
-  UebaContainmentStatus
+  UebaContainmentStatus,
+  DpMechanism,
+  DpQueryType,
+  DpBudgetStatus,
+  DpCohortMetric,
+  DpResearchStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1724,3 +1729,111 @@ export interface UebaSystemOverview {
   };
   recentIncidents: UebaAnomalyIncident[];
 }
+
+/**
+ * 32. PROTOCOLO CRIPTOGRÁFICO DE PRIVACIDADE DIFERENCIAL (ε-DP) & BENCHMARKS EPIDEMIOLÓGICOS (LGPD Art. 13 & CFP nº 001/2009)
+ */
+
+/**
+ * Projeto de Pesquisa Científica / Epidemiológica com Cota de Privacidade
+ */
+export interface DpResearchProject {
+  projectId: string;
+  title: string;
+  researcherName: string;
+  institution: string;
+  cepProtocol: string; // Registro no Comitê de Ética em Pesquisa (ex: CEP-CONEP/2026-9481)
+  purpose: string;
+  totalEpsilonBudget: number; // Ex: 2.0 ε
+  spentEpsilonBudget: number;
+  remainingEpsilonBudget: number;
+  deltaBudget: number; // Ex: 1e-5
+  status: DpResearchStatus;
+  approvedByDpo: string;
+  createdAt: string;
+  lastQueryAt?: string;
+}
+
+/**
+ * Parâmetros de Execução de Consulta Estatística Diferencial
+ */
+export interface DpQueryParameter {
+  metric: DpCohortMetric;
+  queryType: DpQueryType;
+  epsilon: number; // Orçamento gasto nesta consulta específica
+  mechanism: DpMechanism;
+  clampingLowerBound?: number; // Limite inferior para truncamento de sensibilidade
+  clampingUpperBound?: number; // Limite superior para truncamento de sensibilidade
+}
+
+/**
+ * Resultado Criptograficamente Protegido com Garantia Matemática de Privacidade
+ */
+export interface DpQueryResult {
+  queryId: string;
+  projectId: string;
+  metric: DpCohortMetric;
+  queryType: DpQueryType;
+  mechanism: DpMechanism;
+  epsilonUsed: number;
+  deltaUsed?: number;
+  clampingBounds: { lower: number; upper: number };
+  sensitivity: number;
+  noiseScale: number; // Parâmetro de escala de ruído (ex: b = Δf / ε)
+  rawExactValue: number | Record<string, number>; // Disponível apenas no enclave interno
+  noisyProtectedValue: number | Record<string, number>; // Valor público entregue ao pesquisador
+  exactValueSha256: string; // Hash determinístico canônico do valor real sem revelar o segredo
+  privacyGuarantee: string; // Ex: "e^ε = 1.649x bounded likelihood ratio"
+  sampleCohortSize: number;
+  executedAt: string;
+  proofSeal: string; // dp_v1_<base64url>
+}
+
+/**
+ * Resultado da Verificação Pericial da Prova Notarial de Privacidade Diferencial
+ */
+export interface DpProofVerification {
+  isValid: boolean;
+  proofSeal: string;
+  queryId: string;
+  projectId: string;
+  mechanism: DpMechanism;
+  epsilon: number;
+  theoreticalMaxDistortion: number;
+  verifiedAt: string;
+  details: string;
+}
+
+/**
+ * Benchmark Epidemiológico Consolidado de Saúde Mental
+ */
+export interface DpEpidemiologicalBenchmark {
+  benchmarkId: string;
+  title: string;
+  cohortTotal: number;
+  metrics: Array<{
+    key: string;
+    label: string;
+    noisyValue: number;
+    unit: string;
+    epsilonAllocated: number;
+    mechanism: DpMechanism;
+  }>;
+  generatedAt: string;
+  proofSeal: string;
+}
+
+/**
+ * Visão Geral Executiva de Governança de Privacidade Diferencial
+ */
+export interface DpSystemOverview {
+  totalResearchProjects: number;
+  totalQueriesExecuted: number;
+  aggregateEpsilonBudget: number;
+  aggregateEpsilonConsumed: number;
+  averageEpsilonPerQuery: number;
+  privacyBudgetHealth: DpBudgetStatus;
+  recentQueries: DpQueryResult[];
+  activeProjects: DpResearchProject[];
+}
+

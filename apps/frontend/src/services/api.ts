@@ -213,7 +213,17 @@ import type {
   ApplyUebaContainmentResponse,
   UebaOverviewResponse,
   UebaIncidentsResponse,
-  GetUserUebaProfileResponse
+  GetUserUebaProfileResponse,
+  ExecuteDpQueryDTO,
+  ExecuteDpQueryResponse,
+  AllocateDpBudgetDTO,
+  AllocateDpBudgetResponse,
+  VerifyDpProofDTO,
+  VerifyDpProofResponse,
+  GenerateDpBenchmarkDTO,
+  GenerateDpBenchmarkResponse,
+  DpOverviewResponse,
+  DpProjectsResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1677,5 +1687,43 @@ export const api = {
 
   async getUserUebaProfile(userId: string): Promise<GetUserUebaProfileResponse> {
     return await request<GetUserUebaProfileResponse>(`/ueba/profile/${encodeURIComponent(userId)}`);
+  },
+
+  // 32. Protocolo de Privacidade Diferencial (ε-DP) & Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009)
+  async getDpOverview(): Promise<DpOverviewResponse> {
+    return await request<DpOverviewResponse>('/differential-privacy/overview');
+  },
+
+  async getDpProjects(): Promise<DpProjectsResponse> {
+    return await request<DpProjectsResponse>('/differential-privacy/projects');
+  },
+
+  async executeDpQuery(dto: ExecuteDpQueryDTO): Promise<ExecuteDpQueryResponse> {
+    return await request<ExecuteDpQueryResponse>('/differential-privacy/query', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async generateDpBenchmark(dto: GenerateDpBenchmarkDTO): Promise<GenerateDpBenchmarkResponse> {
+    return await request<GenerateDpBenchmarkResponse>('/differential-privacy/benchmark', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyDpProof(dto: VerifyDpProofDTO): Promise<VerifyDpProofResponse> {
+    return await request<VerifyDpProofResponse>('/differential-privacy/verify-proof', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async allocateDpBudget(dto: AllocateDpBudgetDTO): Promise<AllocateDpBudgetResponse> {
+    return await request<AllocateDpBudgetResponse>('/differential-privacy/allocate-budget', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+

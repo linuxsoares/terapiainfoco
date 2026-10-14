@@ -1883,3 +1883,78 @@ export interface GetUserUebaProfileResponse {
   contained: boolean;
   activeContainmentAction?: import('./enums').UebaContainmentAction;
 }
+
+/**
+ * DTOs para Privacidade Diferencial e Estatísticas Clínicas Anonimizadas (LGPD Art. 13 & CFP nº 001/2009)
+ */
+export interface ExecuteDpQueryDTO {
+  projectId: string;
+  metric: import('./enums').DpCohortMetric;
+  queryType: import('./enums').DpQueryType;
+  epsilon: number;
+  mechanism?: import('./enums').DpMechanism;
+  clampingLowerBound?: number;
+  clampingUpperBound?: number;
+}
+
+export interface ExecuteDpQueryResponse {
+  success: boolean;
+  result: import('./models').DpQueryResult;
+  remainingBudget: number;
+  budgetStatus: import('./enums').DpBudgetStatus;
+  message: string;
+}
+
+export interface AllocateDpBudgetDTO {
+  projectId: string;
+  title?: string;
+  researcherName?: string;
+  institution?: string;
+  cepProtocol?: string;
+  purpose?: string;
+  epsilonBudget: number;
+  deltaBudget?: number;
+  dpoApprover: string;
+}
+
+export interface AllocateDpBudgetResponse {
+  success: boolean;
+  project: import('./models').DpResearchProject;
+  message: string;
+}
+
+export interface VerifyDpProofDTO {
+  proofSeal: string;
+}
+
+export interface VerifyDpProofResponse {
+  success: boolean;
+  verification: import('./models').DpProofVerification;
+  message: string;
+}
+
+export interface GenerateDpBenchmarkDTO {
+  projectId: string;
+  benchmarkType: 'CLINICAL_OUTCOMES' | 'EPIDEMIOLOGICAL_PREVALENCE' | 'SESSION_DURATION_ANALYTICS';
+  epsilonPerMetric: number;
+  mechanism?: import('./enums').DpMechanism;
+}
+
+export interface GenerateDpBenchmarkResponse {
+  success: boolean;
+  benchmark: import('./models').DpEpidemiologicalBenchmark;
+  remainingBudget: number;
+  message: string;
+}
+
+export interface DpOverviewResponse {
+  success: boolean;
+  overview: import('./models').DpSystemOverview;
+}
+
+export interface DpProjectsResponse {
+  success: boolean;
+  projects: import('./models').DpResearchProject[];
+  total: number;
+}
+
