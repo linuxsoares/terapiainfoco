@@ -1552,9 +1552,58 @@ export interface ResolveIncidentResponse {
   message: string;
 }
 
+/**
+ * 22. GESTÃO GRANULAR DE CONSENTIMENTO DO PACIENTE & SMART REVOCATION (LGPD Art. 7/8/9/11/18 & CFP 006/2019)
+ */
+export interface GrantGranularConsentDTO {
+  patientId: string;
+  scopes: Array<{
+    scope: import('./enums').ConsentScope;
+    granted: boolean;
+    revocationReason?: string;
+  }>;
+  termVersion?: string;
+  notes?: string;
+}
 
+export interface RevokeGranularConsentDTO {
+  patientId: string;
+  scope: import('./enums').ConsentScope;
+  reason: string;
+}
 
+export interface VerifyConsentTokenDTO {
+  token: string;
+}
 
+export interface EnforceConsentDTO {
+  patientId: string;
+  requestedScope: import('./enums').ConsentScope;
+}
 
+export interface GranularConsentResponse {
+  success: boolean;
+  ledger: import('./models').PatientConsentLedger;
+  newReceipts: import('./models').ConsentReceipt[];
+  message: string;
+}
 
+export interface ConsentReceiptResponse {
+  success: boolean;
+  valid: boolean;
+  receipt?: import('./models').ConsentReceipt;
+  patientNameMasked?: string;
+  message: string;
+}
 
+export interface EnforceConsentResponse {
+  success: boolean;
+  result: import('./models').ConsentValidationResult;
+}
+
+export interface ConsentLedgerOverviewResponse {
+  success: boolean;
+  overview: import('./models').ConsentLedgerOverview;
+  recentReceipts: import('./models').ConsentReceipt[];
+  patientLedger?: import('./models').PatientConsentLedger;
+}

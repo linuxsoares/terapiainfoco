@@ -27,9 +27,10 @@ import type {
   CreatePatientDTO, 
   ExportPatientDataResponse,
   DecryptedAnamnesisRecord,
-  SaveAnamnesisDTO
+  SaveAnamnesisDTO,
+  PatientConsentLedger
 } from '@terapiainfoco/shared';
-import { AuditResourceType } from '@terapiainfoco/shared';
+import { AuditResourceType, ConsentScope, ConsentStatus } from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
 
@@ -65,6 +66,17 @@ export function PatientsModule() {
   const [revokeReason, setRevokeReason] = useState('Solicitação de cancelamento da transcrição e atendimento assistido por IA');
   const [revokeQuarantine, setRevokeQuarantine] = useState(false);
   const [revokeLoading, setRevokeLoading] = useState(false);
+
+  // Modal de Consentimento Granular & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019)
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(false);
+  const [consentLedger, setConsentLedger] = useState<PatientConsentLedger | null>(null);
+  const [consentTab, setConsentTab] = useState<'scopes' | 'receipts'>('scopes');
+  const [smartRevokeTarget, setSmartRevokeTarget] = useState<ConsentScope | null>(null);
+  const [smartRevokeReason, setSmartRevokeReason] = useState('');
+  const [consentActionLoading, setConsentActionLoading] = useState(false);
+  const [copiedReceiptToken, setCopiedReceiptToken] = useState<string | null>(null);
+  const [consentFeedback, setConsentFeedback] = useState<string | null>(null);
 
   // Modal de Anamnese Biopsicossocial (CFP nº 001/2009 & RFC §3.4)
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
@@ -308,6 +320,78 @@ export function PatientsModule() {
     }
   };
 
+  const handleOpenConsentModal = async (patientId: string) => {
+    setShowConsentModal(true);
+    setConsentLoading(true);
+    setConsentFeedback(null);
+    setSmartRevokeTarget(null);
+    setConsentTab('scopes');
+    try {
+      const res = await api.getPatientConsentLedger(patientId);
+      if (res.success) {
+        setConsentLedger(res.ledger);
+      }
+    } catch (err: any) {
+      setConsentFeedback(`Erro ao carregar prontuário de consentimento: ${err.message}`);
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  const handleToggleConsentScope = async (scope: ConsentScope, currentGranted: boolean) => {
+    if (!consentLedger) return;
+    if (currentGranted) {
+      setSmartRevokeTarget(scope);
+      setSmartRevokeReason('');
+      return;
+    }
+
+    setConsentActionLoading(true);
+    setConsentFeedback(null);
+    try {
+      const res = await api.grantGranularConsent({
+        patientId: consentLedger.patientId,
+        scopes: [{ scope, granted: true }]
+      });
+      if (res.success) {
+        setConsentLedger(res.ledger);
+        setConsentFeedback('Consentimento concedido e recibo WORM emitido com sucesso.');
+        if (searchResult && searchResult.id === consentLedger.patientId) {
+          setSearchResult({ ...searchResult, consentTranscriptionSigned: true });
+        }
+      }
+    } catch (err: any) {
+      setConsentFeedback(`Erro ao conceder consentimento: ${err.message}`);
+    } finally {
+      setConsentActionLoading(false);
+    }
+  };
+
+  const handleConfirmSmartRevocation = async () => {
+    if (!consentLedger || !smartRevokeTarget) return;
+    setConsentActionLoading(true);
+    setConsentFeedback(null);
+    try {
+      const res = await api.revokeGranularConsent({
+        patientId: consentLedger.patientId,
+        scope: smartRevokeTarget,
+        reason: smartRevokeReason.trim() || 'Revogação formal manifestada pelo titular (LGPD Art. 8º §5º)'
+      });
+      if (res.success) {
+        setConsentLedger(res.ledger);
+        setSmartRevokeTarget(null);
+        setConsentFeedback('Smart Revocation executada com sucesso. Tratamento bloqueado.');
+        if (smartRevokeTarget === ConsentScope.TELECONSULTATION_AUDIO_RECORDING && searchResult && searchResult.id === consentLedger.patientId) {
+          setSearchResult({ ...searchResult, consentTranscriptionSigned: false });
+        }
+      }
+    } catch (err: any) {
+      setConsentFeedback(`Erro na revogação: ${err.message}`);
+    } finally {
+      setConsentActionLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -481,6 +565,14 @@ export function PatientsModule() {
 
             {/* Painel de Ações: Anamnese, Portabilidade, Revogação & Quarentena */}
             <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+              <button
+                onClick={() => handleOpenConsentModal(searchResult.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <FileCheck2 className="w-3.5 h-3.5" />
+                Consentimento Granular (LGPD)
+              </button>
+
               <button
                 onClick={() => handleOpenAnamnesis(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -1322,6 +1414,276 @@ export function PatientsModule() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      {/* Modal de Gestão Granular de Consentimento & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019) */}
+      {showConsentModal && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <FileCheck2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Gestão Granular de Consentimento (LGPD)
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-mono font-bold">
+                      TCLE v2.1 WORM
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {consentLedger?.patientName || searchResult?.name || 'Paciente'} — Direitos do Titular (LGPD Art. 7/8/9/11/18 e CFP 006/2019)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConsentModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Feedback alert */}
+            {consentFeedback && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>{consentFeedback}</span>
+              </div>
+            )}
+
+            {/* Diálogo de Smart Revocation (Overlay interno de confirmação) */}
+            {smartRevokeTarget && (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 space-y-3 animate-fade-in">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Confirmação de Revogação Imediata (Smart Revocation - LGPD Art. 8º §5º)</span>
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  Ao revogar o escopo <strong className="font-mono">{smartRevokeTarget}</strong>, o sistema bloqueará imediatamente qualquer novo processamento ou gravação. 
+                  Conforme o Art. 4º da Resolução CFP nº 001/2009 e Art. 16, I da LGPD, registros clínicos já selados permanecem preservados em custódia legal obrigatória de 5 anos.
+                </p>
+                <div>
+                  <label className="block text-[11px] font-medium text-amber-900 dark:text-amber-200 mb-1">
+                    Motivo Formal da Revogação pelo Titular:
+                  </label>
+                  <input
+                    type="text"
+                    value={smartRevokeReason}
+                    onChange={(e) => setSmartRevokeReason(e.target.value)}
+                    placeholder="Ex: Titular solicitou interrupção de gravações em vídeo..."
+                    className="w-full bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setSmartRevokeTarget(null)}
+                    className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmSmartRevocation}
+                    disabled={consentActionLoading}
+                    className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {consentActionLoading ? 'Revogando...' : 'Confirmar Revogação (WORM)'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Alternador de Abas */}
+            <div className="flex border-b border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConsentTab('scopes')}
+                className={`px-4 py-2 text-xs font-semibold border-b-2 cursor-pointer transition-colors ${
+                  consentTab === 'scopes'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                Escopos Determinados de Tratamento
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsentTab('receipts')}
+                className={`px-4 py-2 text-xs font-semibold border-b-2 cursor-pointer transition-colors ${
+                  consentTab === 'receipts'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                Recibos Probatórios WORM ({consentLedger?.receiptsHistory?.length || 0})
+              </button>
+            </div>
+
+            {/* Conteúdo das Abas */}
+            {consentLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-slate-500">Consultando livro razão de consentimento...</span>
+              </div>
+            ) : consentTab === 'scopes' ? (
+              <div className="space-y-3">
+                {consentLedger && Object.values(ConsentScope).map((scopeKey) => {
+                  const pref = consentLedger.preferences[scopeKey];
+                  const isGranted = pref?.status === ConsentStatus.GRANTED;
+                  const isRevoked = pref?.status === ConsentStatus.REVOKED;
+
+                  const scopeMeta = {
+                    [ConsentScope.TELECONSULTATION_AUDIO_RECORDING]: {
+                      title: 'Gravação e Transmissão de Áudio (Teleconsulta)',
+                      desc: 'Captura audiovisual segura de sessões remotas conforme diretrizes éticas da Resolução CFP nº 011/2018.',
+                      basis: 'CFP 011/2018 & LGPD Art. 11, I'
+                    },
+                    [ConsentScope.AI_CLINICAL_SYNTHESIS]: {
+                      title: 'Síntese Clínica & Rascunho SOAP por IA',
+                      desc: 'Processamento automatizado de rascunhos SOAP assistidos por IA sob dados pré-sanitizados (LGPD Art. 11).',
+                      basis: 'LGPD Art. 11, I (Dados Sensíveis de Saúde)'
+                    },
+                    [ConsentScope.ANONYMIZED_RESEARCH]: {
+                      title: 'Pesquisa Científica com Dados Anonimizados',
+                      desc: 'Uso de dados irreversivelmente agregados e desidentificados para fins estatísticos e acadêmicos.',
+                      basis: 'LGPD Art. 7º, IV (Órgãos de Pesquisa)'
+                    },
+                    [ConsentScope.INTERPROFESSIONAL_SHARING]: {
+                      title: 'Compartilhamento com Equipe Multiprofissional',
+                      desc: 'Troca confidencial de relatórios clínicos com médicos psiquiatras ou neurologistas assistentes.',
+                      basis: 'Resolução CFP nº 006/2019'
+                    },
+                    [ConsentScope.COMMUNICATION_REMINDERS]: {
+                      title: 'Lembretes de Consultas & Comunicações Operacionais',
+                      desc: 'Notificações de agendamento e confirmação via WhatsApp, SMS e e-mail transacional criptografado.',
+                      basis: 'LGPD Art. 7º, I (Consentimento Geral)'
+                    }
+                  }[scopeKey];
+
+                  return (
+                    <div
+                      key={scopeKey}
+                      className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 max-w-md">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                            {scopeMeta?.title || scopeKey}
+                          </h4>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isGranted
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                : isRevoked
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}
+                          >
+                            {pref?.status || 'NÃO CONFIGURADO'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          {scopeMeta?.desc}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+                          <span>Base Legal: <strong className="font-medium text-slate-600 dark:text-slate-300">{scopeMeta?.basis}</strong></span>
+                          {pref?.grantedAt && (
+                            <span>Concedido: {new Date(pref.grantedAt).toLocaleDateString('pt-BR')}</span>
+                          )}
+                          {pref?.revokedAt && (
+                            <span className="text-rose-500 font-medium">Revogado: {new Date(pref.revokedAt).toLocaleDateString('pt-BR')}</span>
+                          )}
+                        </div>
+                        {pref?.revocationReason && (
+                          <p className="text-[10px] text-rose-600 dark:text-rose-400 italic">
+                            Motivo: &quot;{pref.revocationReason}&quot;
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleConsentScope(scopeKey, isGranted)}
+                          disabled={consentActionLoading}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            isGranted
+                              ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                          }`}
+                        >
+                          {isGranted ? 'Revogar Escopo' : 'Conceder Consentimento'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                {consentLedger?.receiptsHistory?.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-8">Nenhum recibo de consentimento emitido ainda.</p>
+                ) : (
+                  consentLedger?.receiptsHistory?.map((rcpt) => (
+                    <div
+                      key={rcpt.receiptId}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {rcpt.scope}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            rcpt.action === 'GRANT'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                          }`}
+                        >
+                          {rcpt.action} — {rcpt.status}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <span className="truncate max-w-xs">Hash: {rcpt.receiptHash}</span>
+                        <span>{new Date(rcpt.timestamp).toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[10px]">
+                        <span className="text-slate-400 font-mono truncate max-w-sm">
+                          Token: {rcpt.verificationToken}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(rcpt.verificationToken);
+                            setCopiedReceiptToken(rcpt.verificationToken);
+                            setTimeout(() => setCopiedReceiptToken(null), 2000);
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-300 cursor-pointer"
+                        >
+                          {copiedReceiptToken === rcpt.verificationToken ? 'Copiado!' : 'Copiar Token'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Rodapé do modal */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowConsentModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Concluir & Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

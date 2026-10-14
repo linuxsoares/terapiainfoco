@@ -22,6 +22,7 @@ export * from './mediaSharding';
 export * from './sessionRecovery';
 export * from './zkpProof';
 export * from './breachMonitor';
+export * from './consentLedger';
 
 
 

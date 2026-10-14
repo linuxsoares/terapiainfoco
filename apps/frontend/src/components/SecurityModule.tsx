@@ -12,6 +12,7 @@ import {
   RefreshCw, 
   Users, 
   FileLock2, 
+  FileCheck2,
   ShieldAlert,
   Fingerprint,
   Cpu,
@@ -85,7 +86,10 @@ import type {
   CredentialBreachRecord,
   DpoIncidentAlert,
   ThreatIntelligenceMetrics,
-  KAnonymityLookupResult
+  KAnonymityLookupResult,
+  ConsentLedgerOverview,
+  ConsentReceipt,
+  ConsentReceiptResponse
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -107,7 +111,8 @@ import {
   ZkpProofType,
   ZkpVerificationStatus,
   BreachSeverity,
-  IncidentContainmentStatus
+  IncidentContainmentStatus,
+  ConsentScope
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -968,6 +973,48 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados da Central de Governança de Consentimento do Paciente & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019)
+  const [consentOverview, setConsentOverview] = useState<ConsentLedgerOverview | null>(null);
+  const [consentReceipts, setConsentReceipts] = useState<ConsentReceipt[]>([]);
+  const [loadingConsentData, setLoadingConsentData] = useState<boolean>(false);
+  const [verifyTokenInput, setVerifyTokenInput] = useState<string>('');
+  const [verifyingToken, setVerifyingToken] = useState<boolean>(false);
+  const [verifyTokenResult, setVerifyTokenResult] = useState<ConsentReceiptResponse | null>(null);
+
+  const fetchConsentData = async () => {
+    try {
+      setLoadingConsentData(true);
+      const res = await api.getConsentOverview();
+      if (res.success) {
+        setConsentOverview(res.overview);
+        setConsentReceipts(res.recentReceipts || []);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de governança de consentimento:', err);
+    } finally {
+      setLoadingConsentData(false);
+    }
+  };
+
+  const handleVerifyConsentToken = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyTokenInput.trim()) return;
+    try {
+      setVerifyingToken(true);
+      setVerifyTokenResult(null);
+      const res = await api.verifyConsentToken(verifyTokenInput.trim());
+      setVerifyTokenResult(res);
+    } catch (err: any) {
+      setVerifyTokenResult({
+        success: false,
+        valid: false,
+        message: err.message || 'Falha ao verificar token de consentimento.'
+      });
+    } finally {
+      setVerifyingToken(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -977,6 +1024,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSessionRecoveryData();
       fetchZkpData();
       fetchThreatIntelligenceData();
+      fetchConsentData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -6478,6 +6526,296 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                               </button>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card 19: Central de Governança de Consentimento do Paciente & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    Card 19: Governança Granular de Consentimento & Smart Revocation
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                    LGPD Art. 7/8/9/11/18
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Termo de Consentimento Livre e Esclarecido (TCLE) com segregação de 5 finalidades, Recibos Canônicos SHA-256 e Bloqueio Ativo (Res. CFP nº 006/2019)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchConsentData}
+                disabled={loadingConsentData}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingConsentData ? 'animate-spin' : ''}`} />
+                <span>Atualizar Métricas</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs em Tempo Real */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">
+                Pacientes com TCLE Ativo
+              </span>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {consentOverview?.totalPatientsWithConsent || 0}
+              </div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">
+                Versão {consentOverview?.termVersionActive || 'v2.1'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">
+                Smart Revocations Registradas
+              </span>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                {consentOverview?.revocationsCount || 0}
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Revogações pelo Art. 8º §5º
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">
+                Bloqueios Ativos de Tratamento
+              </span>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                {consentOverview?.blockedProcessingsCount || 0}
+              </div>
+              <span className="text-[10px] text-rose-500 mt-1 block">
+                Consent-Led Enforcements
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">
+                Taxa de Conformidade LGPD
+              </span>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {consentOverview?.complianceRatePercent || 100}%
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Consentimento Informado Ativo
+              </span>
+            </div>
+          </div>
+
+          {/* Validador de Recibos TCLE & Escopos Ativos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+            {/* Validador Público de Recibo WORM */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Validador de Recibo TCLE (Zero-Knowledge)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Token tcle_v1_*</span>
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Insira o token público de consentimento do titular para conferir matematicamente a autenticidade e integridade temporal na hash-chain WORM sem divulgar prontuários clínicos.
+              </p>
+
+              <form onSubmit={handleVerifyConsentToken} className="space-y-2.5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={verifyTokenInput}
+                    onChange={(e) => setVerifyTokenInput(e.target.value)}
+                    placeholder="Cole o token do recibo (ex: tcle_v1_eyJ...)"
+                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={verifyingToken || !verifyTokenInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {verifyingToken ? 'Verificando...' : 'Validar Recibo'}
+                  </button>
+                </div>
+              </form>
+
+              {verifyTokenResult && (
+                <div
+                  className={`p-3.5 rounded-xl border text-xs space-y-1.5 animate-fade-in ${
+                    verifyTokenResult.valid
+                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {verifyTokenResult.valid ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      )}
+                      {verifyTokenResult.valid ? 'Recibo Autêntico & Válido' : 'Recibo Inválido ou Adulterado'}
+                    </span>
+                    {verifyTokenResult.receipt && (
+                      <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white/70 dark:bg-slate-900/60">
+                        {verifyTokenResult.receipt.action} — {verifyTokenResult.receipt.status}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] leading-relaxed">{verifyTokenResult.message}</p>
+                  {verifyTokenResult.receipt && (
+                    <div className="pt-1.5 border-t border-emerald-200/60 dark:border-emerald-800/60 font-mono text-[10px] space-y-0.5 text-slate-600 dark:text-slate-300">
+                      <div>Titular Mascarado: <strong>{verifyTokenResult.patientNameMasked}</strong></div>
+                      <div>Escopo: <strong>{verifyTokenResult.receipt.scope}</strong></div>
+                      <div>Base Legal: <strong>{verifyTokenResult.receipt.legalBasis}</strong></div>
+                      <div className="truncate">Hash SHA-256: {verifyTokenResult.receipt.receiptHash}</div>
+                      <div>Carimbo Temporal: {new Date(verifyTokenResult.receipt.timestamp).toLocaleString('pt-BR')}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Painel de Escopos Determinados da Plataforma */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                Volume de Consentimentos Ativos por Finalidade
+              </span>
+
+              <div className="space-y-2 text-xs">
+                {[
+                  {
+                    scope: ConsentScope.TELECONSULTATION_AUDIO_RECORDING,
+                    label: 'Gravação Audiovisual para Teleconsulta',
+                    basis: 'Res. CFP nº 011/2018'
+                  },
+                  {
+                    scope: ConsentScope.AI_CLINICAL_SYNTHESIS,
+                    label: 'Síntese Clínica & Rascunho SOAP por IA',
+                    basis: 'LGPD Art. 11, I'
+                  },
+                  {
+                    scope: ConsentScope.ANONYMIZED_RESEARCH,
+                    label: 'Pesquisa Científica & Dados Anonimizados',
+                    basis: 'LGPD Art. 7º, IV'
+                  },
+                  {
+                    scope: ConsentScope.INTERPROFESSIONAL_SHARING,
+                    label: 'Compartilhamento Interprofissional',
+                    basis: 'Res. CFP nº 006/2019'
+                  },
+                  {
+                    scope: ConsentScope.COMMUNICATION_REMINDERS,
+                    label: 'Lembretes de Consultas & Comunicações',
+                    basis: 'LGPD Art. 7º, I'
+                  }
+                ].map((item) => {
+                  const count = consentOverview?.activeConsentsByScope?.[item.scope] || 0;
+                  return (
+                    <div
+                      key={item.scope}
+                      className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                          {item.label}
+                        </div>
+                        <div className="text-[10px] text-slate-400">{item.basis}</div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 text-xs font-mono font-bold">
+                        {count} ativo(s)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabela de Recibos Recentes WORM */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                Trilha de Recibos de Consentimento (Hash-Chain WORM)
+              </h3>
+              <span className="text-xs text-slate-400">
+                {consentReceipts.length} recibo(s) recente(s)
+              </span>
+            </div>
+
+            {consentReceipts.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                Nenhum recibo de consentimento gerado recentemente. Conceda ou revogue consentimentos no módulo de pacientes.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-700 text-slate-500 font-semibold">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Carimbo Temporal</th>
+                      <th className="py-2.5 px-3.5">Escopo</th>
+                      <th className="py-2.5 px-3.5">Ação / Status</th>
+                      <th className="py-2.5 px-3.5">Hash SHA-256 (WORM)</th>
+                      <th className="py-2.5 px-3.5 text-right">Token TCLE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {consentReceipts.map((rcpt) => (
+                      <tr
+                        key={rcpt.receiptId}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          {new Date(rcpt.timestamp).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-semibold text-slate-800 dark:text-slate-200">
+                          {rcpt.scope}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                              rcpt.action === 'GRANT'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                            }`}
+                          >
+                            {rcpt.action} — {rcpt.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-xs">
+                          {rcpt.receiptHash}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-mono text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(rcpt.verificationToken);
+                              alert('Token de consentimento copiado com sucesso!');
+                            }}
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors"
+                          >
+                            Copiar Token
+                          </button>
                         </td>
                       </tr>
                     ))}
