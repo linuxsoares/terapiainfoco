@@ -277,21 +277,28 @@ authRoute.delete('/passkeys/:id', authMiddleware({ strict: true }), async (c) =>
 });
 
 /**
+ * Resolve a URI de redirecionamento OAuth 2.0 considerando:
+ * 1. Query param explícito (?redirect_uri=...)
+ * 2. GOOGLE_REDIRECT_URI configurada nas variáveis de ambiente
+ * 3. Detecção dinâmica via cabeçalhos de proxy reverso (X-Forwarded-Proto + X-Forwarded-Host / Host)
+ */
+function resolveOAuthRedirectUri(c: any, queryUri?: string): string {
+  if (queryUri && queryUri.trim()) return queryUri.trim();
+  if (config.google.redirectUri && config.google.redirectUri.trim()) return config.google.redirectUri.trim();
+
+  const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3000';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const proto = c.req.header('x-forwarded-proto') || (isLocal ? 'http' : 'https');
+  return `${proto}://${host}/api/auth/google/callback`;
+}
+
+/**
  * GET /api/auth/google/authorize
  * Redireciona o psicólogo para a tela de consentimento do Google OAuth 2.0 (ou retorna URL em JSON)
  */
 authRoute.get('/google/authorize', async (c) => {
   try {
-    let redirectUri = c.req.query('redirect_uri');
-    if (!redirectUri) {
-      if (config.google.redirectUri) {
-        redirectUri = config.google.redirectUri;
-      } else {
-        const proto = c.req.header('x-forwarded-proto') || 'https';
-        const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3000';
-        redirectUri = `${proto}://${host}/api/auth/google/callback`;
-      }
-    }
+    const redirectUri = resolveOAuthRedirectUri(c, c.req.query('redirect_uri'));
     const state = c.req.query('state');
     const format = c.req.query('format');
 
@@ -347,13 +354,7 @@ authRoute.get('/google/callback', async (c) => {
   }
 
   try {
-    let callbackRedirectUri = config.google.redirectUri;
-    if (!callbackRedirectUri) {
-      const proto = c.req.header('x-forwarded-proto') || 'https';
-      const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3000';
-      callbackRedirectUri = `${proto}://${host}/api/auth/google/callback`;
-    }
-
+    const callbackRedirectUri = resolveOAuthRedirectUri(c);
     const tokens = await GoogleMeetService.exchangeCodeForTokens(code, callbackRedirectUri);
 
     return c.html(`
@@ -420,11 +421,15 @@ authRoute.get('/google/callback', async (c) => {
  */
 authRoute.get('/google/status', (c) => {
   const diag = GoogleMeetService.getDiagnostics();
+  const effectiveRedirectUri = resolveOAuthRedirectUri(c);
   return c.json({
     success: true,
     connected: diag.configured,
     activeProvider: diag.activeProvider,
-    oauth: diag.oauth
+    oauth: {
+      ...diag.oauth,
+      redirectUri: effectiveRedirectUri
+    }
   });
 });
 
