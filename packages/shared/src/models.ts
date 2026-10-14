@@ -1131,6 +1131,56 @@ export interface SessionRecoveryMetrics {
   lastEventAt?: string;
 }
 
+/**
+ * 28. PROVAS DE CONHECIMENTO ZERO (ZKP) PARA ASSINATURAS FORENSES (RFC-001 §3.4, §3.5, §4.1 & CFP 006/2019)
+ */
+export interface ZkpSchnorrProof {
+  commitHex: string;              // R = g^r mod p
+  challengeHex: string;           // c = H(g || Y || R || metadata) (Fiat-Shamir Heuristic)
+  responseHex: string;            // s = r + c*x mod q
+  generatorHex: string;           // Parâmetro público g
+  publicKeyCommitmentHex: string; // Y = g^x mod p (Compromisso cego da chave de assinatura)
+}
+
+export interface ZkpClinicalDocumentProof {
+  proofId: string;
+  documentId: string;
+  proofType: import('./enums').ZkpProofType;
+  therapistId: string;
+  therapistCrpCommitment: string;   // Hash do CRP do psicólogo garantindo autoria profissional
+  documentTypeClaim: string;        // Tipo CFP: Laudo, Atestado, Relatório ou Declaração
+  documentIssuedAt: string;         // Data formal de emissão do documento
+  schnorrProof: ZkpSchnorrProof;
+  publicVerificationToken: string;  // Token Zero-Knowledge para validação externa por peritos/juizados
+  probatoryWormDigest: string;      // Digest canônico SHA-256 selado na trilha WORM
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface ZkpVerificationResult {
+  valid: boolean;
+  status: import('./enums').ZkpVerificationStatus;
+  proofType: import('./enums').ZkpProofType;
+  documentTypeClaim: string;
+  therapistCrpCommitment: string;
+  documentIssuedAt: string;
+  verifiedAt: string;
+  verificationLatencyMs: number;
+  probatoryWormDigest: string;
+  message: string;
+}
+
+export interface ZkpSystemMetrics {
+  totalProofsGenerated: number;
+  totalVerificationsExecuted: number;
+  validVerificationsCount: number;
+  invalidAttemptsCount: number;
+  avgVerificationLatencyMs: number;
+  lastProofGeneratedAt?: string;
+  lastVerificationAt?: string;
+}
+
+
 
 
 

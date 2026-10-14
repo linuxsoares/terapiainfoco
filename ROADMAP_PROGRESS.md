@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 23 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC §3.2 & CFP nº 011/2018) | 381/381 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 24 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC §3.2 & CFP nº 011/2018) + Protocolo Forense de Assinaturas com Provas de Conhecimento Zero (ZKP - RFC §3.4, §3.5 & CFP nº 006/2019) | 394/394 Testes Passando
 
 
 
@@ -901,6 +901,34 @@ terapiainfoco/
   - Reassunção com 1 clique através de Reconnection Token HMAC com restauração instantânea do snapshot clínico em tela.
   - Tabela forense de sessões monitoradas com suporte completo a **Light Mode** e **Dark Mode**.
 
+### 35. Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5, §4.1 & Resolução CFP nº 006/2019)
+- [x] **Core Criptográfico (`packages/crypto/src/zkpProof.ts`):**
+  - **Prova Não-Interativa de Schnorr com Heurística de Fiat-Shamir (NIZK):** Grupo modular seguro de 256 bits com exponenciação modular BigInt (`modExp`) e geração de números aleatórios criptograficamente seguros de alta entropia.
+  - **Identidade Criptográfica Exata ($g^s \equiv R \cdot Y^c \pmod p$):** Verificação matemática rigorosa de autoria profissional sem transmissão nem exposição da chave privada do terapeuta.
+  - **Compromisso Cego de Autoria Profissional (`createTherapistCrpCommitment`):** Hash SHA-256 irreversível do número de inscrição profissional no Conselho Regional de Psicologia (CRP) com salt secreto da clínica.
+  - **Digest Canônico e Selagem WORM (`calculateZkpDigest`):** Digest de integridade temporal e de conteúdo vinculando o hash do documento clínico sem divulgar uma única palavra do texto confidencial do laudo ou prontuário.
+  - **Serialização de Token Público (`encodeZkpToken` & `decodeZkpToken`):** Empacotamento transparente com prefixo `zkp_v1_<base64url>` contendo o compromisso efêmero $R$, a resposta modular $s$, o desafio de Fiat-Shamir $c$, os compromissos públicos e metadados probatórios.
+  - Suíte de 8 testes unitários dedicados passando (`packages/crypto/test/zkpProof.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `AuditAction.ZKP_PROOF_GENERATED`, `AuditAction.ZKP_PROOF_VERIFIED`, `AuditResourceType.ZKP_PROOF`.
+  - Enums de domínio `ZkpProofType` (`AUTHORSHIP_PROOF`, `INTEGRITY_NONCE_PROOF`, `ATTRIBUTES_PREDICATE_PROOF`, `FULL_FORENSIC_ZKP`) e `ZkpVerificationStatus` (`VERIFIED_VALID`, `INVALID_PROOF`, `TAMPERED_CHALLENGE`, `EXPIRED_CREDENTIAL`).
+  - Interfaces `ZkpSchnorrProof`, `ZkpClinicalDocumentProof`, `ZkpVerificationResult` e `ZkpSystemMetrics`.
+  - DTOs `GenerateZkpProofDTO`, `VerifyZkpProofDTO`, `ZkpProofResponse`, `ZkpVerificationResponse` e `ZkpProofListResponse`.
+- [x] **Backend Service & Rotas REST Hono (`apps/backend`):**
+  - `ZkpService`: Singleton gerenciando a emissão de provas Schnorr NIZK, verificação forense anônima com proteção anti-tampering de desafio, selagem na hash-chain WORM e agregação de métricas com latência de resposta.
+  - Endpoints REST em `/api/security/zkp/*`:
+    - `POST /generate`: Emissão autenticada de prova ZKP (RBAC `PSICOLOGO_TITULAR` e `ADMIN`) para laudos, pareceres, atestados e prontuários.
+    - `POST /verify`: Endpoint público e anônimo permitindo que juizados, planos de saúde e peritos validem a autenticidade e integridade documental com 0 bytes de dados clínicos vazados.
+    - `GET /proofs`: Trilha forense de provas registradas.
+    - `GET /metrics`: Agregados estatísticos de geração e conferência ZKP em tempo real.
+  - Suíte de 5 testes de integração passando (`apps/backend/test/zkp.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 17 (*Assinaturas Forenses com Provas de Conhecimento Zero - ZKP*) integrado no `SecurityModule.tsx` com 4 KPIs em tempo real (Provas Geradas, Validações Forenses, Taxa de Sucesso ZKP e Vazamento de Texto: 0 Bytes).
+  - Laboratório de Emissão de Prova Schnorr NIZK para psicólogos titulares com redução determinística local do texto clínico.
+  - Verificador Forense Público & Anônimo com feedback visual Zero-Leakage e validação instantânea da identidade $g^s \equiv R \cdot Y^c \pmod p$.
+  - Tabela forense de provas ativas com carregamento imediato de tokens e cópia facilitada.
+  - Conformidade estrita com **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -949,13 +977,14 @@ terapiainfoco/
 | `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | Merged |
 | `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | Merged |
 | `feat/media-recording-sharding-crypto-shredding` | Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (Crypto-Shredding) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018) | [PR #47](https://github.com/linuxsoares/terapiainfoco/pull/47) | Merged |
-| `feat/session-disconnection-detector-auto-reconnect` | Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (Tokens HMAC-SHA256, Snapshot Cifrado AES-256-GCM, Tolerância Ética de 10 min e Registro WORM - RFC-001 §3.2 & CFP 011/2018) | [PR #48](https://github.com/linuxsoares/terapiainfoco/pull/48) | **Em Aberto** |
+| `feat/session-disconnection-detector-auto-reconnect` | Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (Tokens HMAC-SHA256, Snapshot Cifrado AES-256-GCM, Tolerância Ética de 10 min e Registro WORM - RFC-001 §3.2 & CFP 011/2018) | [PR #48](https://github.com/linuxsoares/terapiainfoco/pull/48) | Merged |
+| `feat/zkp-zero-knowledge-signature-verification` | Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - Schnorr NIZK / Fiat-Shamir) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5 & CFP nº 006/2019) | [PR #49](https://github.com/linuxsoares/terapiainfoco/pull/49) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **381 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5 & CFP nº 006/2019)**, o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **394 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -967,7 +996,9 @@ Com o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Ret
 - [x] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica (MOS ITU-T G.107) e diretriz ética CFP 011/2018.
 - [x] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
 - [x] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC §3.2).**
-- [ ] **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos.**
+- [x] **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos (RFC-001 §3.4, §3.5 & CFP nº 006/2019).**
+- [ ] **Módulo de Detecção Proativa de Vazamento de Credenciais e PII (Dark Web / HaveIBeenPwned Monitor) com Revogação Instantânea de Sessões e Alerta DPO (RFC-001 §4.4, LGPD Art. 46/48).**
+- [ ] **Controle Granular de Consentimento do Paciente com Smart Revocation & Logs de Trilha Consent-Led (LGPD Art. 7/8/9, CFP nº 006/2019).**
 
 ---
 
@@ -977,7 +1008,7 @@ Com o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Ret
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (381 testes)
+# 2. Executar suíte completa de testes (394 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

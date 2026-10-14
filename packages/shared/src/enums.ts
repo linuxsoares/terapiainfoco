@@ -128,7 +128,10 @@ export enum AuditAction {
   CLINICAL_SESSION_MONITORED = 'CLINICAL_SESSION_MONITORED',
   CLINICAL_SESSION_DISCONNECTED = 'CLINICAL_SESSION_DISCONNECTED',
   CLINICAL_SESSION_RECONNECTED = 'CLINICAL_SESSION_RECONNECTED',
-  CLINICAL_SESSION_TIMEOUT_TERMINATED = 'CLINICAL_SESSION_TIMEOUT_TERMINATED'
+  CLINICAL_SESSION_TIMEOUT_TERMINATED = 'CLINICAL_SESSION_TIMEOUT_TERMINATED',
+  // Ações de Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5, §4.1 & CFP nº 006/2019)
+  ZKP_PROOF_GENERATED = 'ZKP_PROOF_GENERATED',
+  ZKP_PROOF_VERIFIED = 'ZKP_PROOF_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -151,7 +154,8 @@ export enum AuditResourceType {
   WAF = 'WAF',
   NETWORK_RESILIENCE = 'NETWORK_RESILIENCE',
   MEDIA_RECORDING = 'MEDIA_RECORDING',
-  CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY'
+  CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY',
+  ZKP_PROOF = 'ZKP_PROOF'
 }
 
 /**
@@ -394,5 +398,26 @@ export enum SessionRecoveryGrade {
   RECOVERED = 'RECOVERED',                   // Recuperado dentro da janela de tolerância ética (15s a 10 min)
   EXPIRED_CONTINGENCY = 'EXPIRED_CONTINGENCY' // Janela esgotada, exigido acionamento de canal de contingência CFP 011/2018
 }
+
+/**
+ * Tipos de Provas de Conhecimento Zero (Zero-Knowledge Proofs - RFC-001 §3.4, §3.5 & CFP 006/2019)
+ */
+export enum ZkpProofType {
+  AUTHORSHIP_PROOF = 'AUTHORSHIP_PROOF',                     // Prova Schnorr de posse da chave privada do psicólogo sem revelar a chave
+  INTEGRITY_NONCE_PROOF = 'INTEGRITY_NONCE_PROOF',           // Prova de integridade do documento sem revelar o texto clínico
+  ATTRIBUTES_PREDICATE_PROOF = 'ATTRIBUTES_PREDICATE_PROOF', // Prova de validade de atributos (ex: data de emissão, tipo de documento CFP)
+  FULL_FORENSIC_ZKP = 'FULL_FORENSIC_ZKP'                    // Prova combinada de autoria, integridade temporal e registro WORM
+}
+
+/**
+ * Status da Verificação ZKP de Assinatura Digital
+ */
+export enum ZkpVerificationStatus {
+  VERIFIED_VALID = 'VERIFIED_VALID',         // Prova matematicamente válida (100% de certeza com 0% de dados vazados)
+  INVALID_PROOF = 'INVALID_PROOF',           // Equação de verificação de Schnorr falhou
+  TAMPERED_CHALLENGE = 'TAMPERED_CHALLENGE', // Desafio de Fiat-Shamir não corresponde ao compromisso
+  EXPIRED_CREDENTIAL = 'EXPIRED_CREDENTIAL'  // Credencial e-Psi ou prazo de validade probatória expirado
+}
+
 
 

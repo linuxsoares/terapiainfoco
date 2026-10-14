@@ -1455,6 +1455,40 @@ export interface SessionRecoveryListResponse {
   metrics: import('./models').SessionRecoveryMetrics;
 }
 
+/**
+ * DTOs de Provas de Conhecimento Zero (Zero-Knowledge Proofs - RFC-001 §3.4, §3.5 & CFP 006/2019)
+ */
+export interface GenerateZkpProofDTO {
+  documentId: string;
+  proofType?: import('./enums').ZkpProofType;
+  documentTypeClaim: string; // "Laudo Psicológico", "Relatório Psicológico", "Atestado Psicológico", "Declaração"
+  documentIssuedAt?: string;
+  ttlSeconds?: number;
+}
+
+export interface VerifyZkpProofDTO {
+  publicVerificationToken: string;
+}
+
+export interface ZkpProofResponse {
+  success: boolean;
+  proof: import('./models').ZkpClinicalDocumentProof;
+  message: string;
+}
+
+export interface ZkpVerificationResponse {
+  success: boolean;
+  result: import('./models').ZkpVerificationResult;
+  message: string;
+}
+
+export interface ZkpProofListResponse {
+  success: boolean;
+  proofs: import('./models').ZkpClinicalDocumentProof[];
+  metrics: import('./models').ZkpSystemMetrics;
+}
+
+
 
 
 

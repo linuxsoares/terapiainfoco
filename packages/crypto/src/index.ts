@@ -20,6 +20,7 @@ export * from './waf';
 export * from './networkResilience';
 export * from './mediaSharding';
 export * from './sessionRecovery';
+export * from './zkpProof';
 
 
 

@@ -21,6 +21,7 @@ import { wafRoute } from './routes/waf';
 import { networkResilienceRoute } from './routes/networkResilience';
 import { mediaShardingRoute } from './routes/mediaSharding';
 import { sessionRecoveryRoute } from './routes/sessionRecovery';
+import { zkpRoute } from './routes/zkp';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -138,6 +139,7 @@ app.route('/api/security/waf', wafRoute);
 app.route('/api/teleconsultation/network-resilience', networkResilienceRoute);
 app.route('/api/teleconsultation/media', mediaShardingRoute);
 app.route('/api/teleconsultation/session-recovery', sessionRecoveryRoute);
+app.route('/api/security/zkp', zkpRoute);
 
 
 
