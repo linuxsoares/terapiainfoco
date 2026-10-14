@@ -123,7 +123,12 @@ export enum AuditAction {
   // Ações de Sharding de Mídia & Destruição Programada / Crypto-Shredding (RFC-001 §3.2, §3.3, §4.2 e CFP 011/2018)
   MEDIA_RECORDING_SHARDED = 'MEDIA_RECORDING_SHARDED',
   MEDIA_DECRYPTED_FOR_TRANSCRIPTION = 'MEDIA_DECRYPTED_FOR_TRANSCRIPTION',
-  MEDIA_CRYPTO_SHREDDED = 'MEDIA_CRYPTO_SHREDDED'
+  MEDIA_CRYPTO_SHREDDED = 'MEDIA_CRYPTO_SHREDDED',
+  // Ações de Detecção de Queda de Conexão & Reconexão Segura (RFC-001 §3.2 & CFP 011/2018)
+  CLINICAL_SESSION_MONITORED = 'CLINICAL_SESSION_MONITORED',
+  CLINICAL_SESSION_DISCONNECTED = 'CLINICAL_SESSION_DISCONNECTED',
+  CLINICAL_SESSION_RECONNECTED = 'CLINICAL_SESSION_RECONNECTED',
+  CLINICAL_SESSION_TIMEOUT_TERMINATED = 'CLINICAL_SESSION_TIMEOUT_TERMINATED'
 }
 
 export enum AuditResourceType {
@@ -145,7 +150,8 @@ export enum AuditResourceType {
   WEBRTC_SESSION = 'WEBRTC_SESSION',
   WAF = 'WAF',
   NETWORK_RESILIENCE = 'NETWORK_RESILIENCE',
-  MEDIA_RECORDING = 'MEDIA_RECORDING'
+  MEDIA_RECORDING = 'MEDIA_RECORDING',
+  CLINICAL_SESSION_RECOVERY = 'CLINICAL_SESSION_RECOVERY'
 }
 
 /**
@@ -356,6 +362,37 @@ export enum MediaRecordingStatus {
 export enum CryptoShreddingMethod {
   ZERO_FILL_AND_KEY_DESTROY = 'ZERO_FILL_AND_KEY_DESTROY', // Sobrescrita de payload com zeros e purga irreversível da DEK
   CRYPTOGRAPHIC_ERASURE = 'CRYPTOGRAPHIC_ERASURE'           // Destruição instantânea da DEK tornando o ciphertext irrecuperável
+}
+
+/**
+ * Estados do Ciclo de Resiliência e Reconexão da Sessão Clínica (RFC-001 §3.2 & CFP 011/2018)
+ */
+export enum ClinicalSessionState {
+  ACTIVE_CONNECTED = 'ACTIVE_CONNECTED',                             // Sessão online com heartbeats regulares
+  DISCONNECTED_PENDING_RECONNECT = 'DISCONNECTED_PENDING_RECONNECT', // Conexão perdida, aguardando reconexão na janela de tolerância
+  RECONNECTING = 'RECONNECTING',                                     // Handshake de reconexão com token criptográfico em validação
+  RECONNECTED = 'RECONNECTED',                                       // Sessão reassumida com sucesso e snapshot de dados restaurado
+  TERMINATED_TIMEOUT = 'TERMINATED_TIMEOUT',                         // Janela de contingência esgotada, sessão encerrada e selada
+  COMPLETED_NORMALLY = 'COMPLETED_NORMALLY'                          // Consulta concluída normalmente pelo psicólogo
+}
+
+/**
+ * Causa Identificada da Desconexão Abrupta
+ */
+export enum DisconnectionCause {
+  HEARTBEAT_TIMEOUT = 'HEARTBEAT_TIMEOUT', // Perda consecutiva de pacotes de heartbeat (silent drop)
+  SOCKET_DROP = 'SOCKET_DROP',             // Queda de socket TCP/WebSocket ou falha de transporte ICE
+  CLIENT_OFFLINE = 'CLIENT_OFFLINE',       // Evento de offline do navegador / perda de interface de rede
+  MANUAL_SIMULATION = 'MANUAL_SIMULATION'  // Teste de resiliência e injeção de falha executado na interface
+}
+
+/**
+ * Classificação do Tempo de Resposta e Qualidade da Recuperação
+ */
+export enum SessionRecoveryGrade {
+  SEAMLESS = 'SEAMLESS',                     // Recuperado em menos de 15 segundos (sem percepção de quebra clínica)
+  RECOVERED = 'RECOVERED',                   // Recuperado dentro da janela de tolerância ética (15s a 10 min)
+  EXPIRED_CONTINGENCY = 'EXPIRED_CONTINGENCY' // Janela esgotada, exigido acionamento de canal de contingência CFP 011/2018
 }
 
 

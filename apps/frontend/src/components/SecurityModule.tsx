@@ -73,7 +73,10 @@ import type {
   NetworkResilienceMetrics,
   MediaRecordingManifest,
   CryptoShreddingCertificate,
-  MediaStorageMetrics
+  MediaStorageMetrics,
+  ClinicalSessionRecoverySession,
+  SessionRecoveryMetrics,
+  SessionStateSnapshot
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -89,7 +92,9 @@ import {
   AudioCodecType,
   MediaShardStatus,
   MediaRecordingStatus,
-  CryptoShreddingMethod
+  CryptoShreddingMethod,
+  ClinicalSessionState,
+  DisconnectionCause
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -582,12 +587,177 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC-001 §3.2 & CFP 011/2018)
+  const [recoverySessions, setRecoverySessions] = useState<ClinicalSessionRecoverySession[]>([]);
+  const [recoveryMetrics, setRecoveryMetrics] = useState<SessionRecoveryMetrics | null>(null);
+  const [loadingRecovery, setLoadingRecovery] = useState<boolean>(false);
+  const [activeRecoverySession, setActiveRecoverySession] = useState<ClinicalSessionRecoverySession | null>(null);
+  const [clientReconnectionToken, setClientReconnectionToken] = useState<string>('');
+  const [recoveryNotesInput, setRecoveryNotesInput] = useState<string>('Paciente expõe melhora dos sintomas de ansiedade e pactua técnica de respiração diafragmática.');
+  const [recoverySessionIdInput, setRecoverySessionIdInput] = useState<string>('sess-telepsico-demo');
+  const [restoredSnapshotData, setRestoredSnapshotData] = useState<SessionStateSnapshot | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<boolean>(false);
+
+  const fetchSessionRecoveryData = async () => {
+    try {
+      setLoadingRecovery(true);
+      const res = await api.getClinicalSessionsRecoveryList();
+      setRecoverySessions(res.sessions || []);
+      setRecoveryMetrics(res.metrics || null);
+    } catch (err: any) {
+      console.error('Erro ao carregar sessões e métricas de reconexão:', err);
+    } finally {
+      setLoadingRecovery(false);
+    }
+  };
+
+  const handleStartRecoverySession = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      setActionInProgress(true);
+      const sid = recoverySessionIdInput.trim() || `sess-${Date.now().toString(36)}`;
+      const res = await api.startClinicalSessionMonitoring({
+        sessionId: sid,
+        appointmentId: `apt-${Date.now().toString(36)}`,
+        gracePeriodSeconds: 600,
+        initialSnapshot: {
+          elapsedSeconds: 0,
+          clinicalNotesDraft: recoveryNotesInput,
+          soapSubjectiveDraft: 'Paciente relata sensação de estabilidade emocional.'
+        }
+      });
+      setActiveRecoverySession(res.session);
+      setClientReconnectionToken(res.reconnectionToken || '');
+      setRestoredSnapshotData(null);
+      setFeedback({
+        type: 'success',
+        message: `Sessão ${sid} iniciada com monitoramento contínuo e token HMAC ativo!`
+      });
+      await fetchSessionRecoveryData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao iniciar sessão clínica.'
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleSendRecoveryHeartbeat = async () => {
+    if (!activeRecoverySession) return;
+    try {
+      setActionInProgress(true);
+      const res = await api.sendSessionHeartbeat({
+        sessionId: activeRecoverySession.sessionId,
+        snapshot: {
+          elapsedSeconds: (activeRecoverySession.heartbeatCount * 30),
+          clinicalNotesDraft: recoveryNotesInput
+        }
+      });
+      setActiveRecoverySession(res.session);
+      setFeedback({
+        type: 'success',
+        message: `Heartbeat #${res.session.heartbeatCount} enviado. Snapshot incremental cifrado com AES-256-GCM!`
+      });
+      await fetchSessionRecoveryData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao enviar heartbeat.'
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleTriggerDisconnection = async (cause = DisconnectionCause.SOCKET_DROP) => {
+    if (!activeRecoverySession) return;
+    try {
+      setActionInProgress(true);
+      const res = await api.triggerSessionDisconnection({
+        sessionId: activeRecoverySession.sessionId,
+        cause,
+        detail: 'Simulação de oscilação severa de rede / interrupção de socket'
+      });
+      setActiveRecoverySession(res.session);
+      if (res.reconnectionToken) {
+        setClientReconnectionToken(res.reconnectionToken);
+      }
+      setFeedback({
+        type: 'success',
+        message: 'Desconexão abrupta simulada! Janela ética de tolerância (10 min) acionada conforme CFP nº 011/2018.'
+      });
+      await fetchSessionRecoveryData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao simular desconexão.'
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleAttemptSessionReconnect = async () => {
+    if (!activeRecoverySession || !clientReconnectionToken) return;
+    try {
+      setActionInProgress(true);
+      const res = await api.attemptSessionReconnect({
+        sessionId: activeRecoverySession.sessionId,
+        reconnectionToken: clientReconnectionToken
+      });
+      setActiveRecoverySession(res.session);
+      if (res.restoredSnapshot) {
+        setRestoredSnapshotData(res.restoredSnapshot);
+        setRecoveryNotesInput(res.restoredSnapshot.clinicalNotesDraft);
+      }
+      setFeedback({
+        type: 'success',
+        message: res.message
+      });
+      await fetchSessionRecoveryData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha na reconexão da sessão clínica.'
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleCompleteSession = async () => {
+    if (!activeRecoverySession) return;
+    try {
+      setActionInProgress(true);
+      const res = await api.completeClinicalSession({
+        sessionId: activeRecoverySession.sessionId,
+        finalNotes: recoveryNotesInput
+      });
+      setActiveRecoverySession(res.session);
+      setFeedback({
+        type: 'success',
+        message: res.message
+      });
+      await fetchSessionRecoveryData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao concluir sessão.'
+      });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
       fetchWafOverview();
       fetchNetworkResilienceData();
       fetchMediaStorageData();
+      fetchSessionRecoveryData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -4990,6 +5160,372 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                               Expurgar
                             </button>
                           )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card 16: Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC-001 §3.2 & CFP nº 011/2018) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border border-cyan-200/60 dark:border-cyan-800/60 shadow-xs">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Detector de Desconexão Abrupta & Protocolo de Reconexão Segura
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                    RFC-001 §3.2
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                    CFP nº 011/2018
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Mitigação de quedas de rede e contingência ética: snapshot volátil incremental cifrado com AES-256-GCM, tokens de reconexão HMAC-SHA256 e janela de tolerância de 10 min.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchSessionRecoveryData}
+              disabled={loadingRecovery}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingRecovery ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+          </div>
+
+          {/* 4 KPIs em Tempo Real */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Sessões Monitoradas
+              </span>
+              <div className="mt-1 text-2xl font-black text-slate-900 dark:text-white flex items-baseline gap-1.5">
+                {recoveryMetrics?.totalMonitoredSessions ?? recoverySessions.length}
+                <span className="text-xs font-normal text-slate-400">total</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/60">
+              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider block">
+                Sessões Online (Ativas)
+              </span>
+              <div className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-400 flex items-baseline gap-1.5">
+                {recoveryMetrics?.activeConnectedCount ?? 0}
+                <span className="text-xs font-normal text-emerald-700/70 dark:text-emerald-500">heartbeat ativo</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/60">
+              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider block">
+                Em Tolerância (Queda)
+              </span>
+              <div className="mt-1 text-2xl font-black text-amber-600 dark:text-amber-400 flex items-baseline gap-1.5">
+                {recoveryMetrics?.pendingReconnectCount ?? 0}
+                <span className="text-xs font-normal text-amber-700/70 dark:text-amber-500">janela 10 min</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/60">
+              <span className="text-[11px] font-bold text-cyan-800 dark:text-cyan-400 uppercase tracking-wider block">
+                Taxa de Recuperação
+              </span>
+              <div className="mt-1 text-2xl font-black text-cyan-600 dark:text-cyan-400 flex items-baseline gap-1.5">
+                {recoveryMetrics?.recoverySuccessRate ?? 100}%
+                <span className="text-xs font-normal text-cyan-700/70 dark:text-cyan-500">
+                  {recoveryMetrics?.avgReconnectionTimeSeconds ? `~${recoveryMetrics.avgReconnectionTimeSeconds}s` : 'sem perdas'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Painel Interativo de Simulação de Teleatendimento */}
+          <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Simulador de Teleconsulta & Teste de Queda de Rede
+                </h4>
+              </div>
+              <span className="text-[11px] text-slate-400 font-mono">
+                Preservação de Dados Clínicos com Zero Loss
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                  ID da Sessão Clínica:
+                </label>
+                <input
+                  type="text"
+                  value={recoverySessionIdInput}
+                  onChange={(e) => setRecoverySessionIdInput(e.target.value)}
+                  placeholder="Ex: sess-telepsico-demo"
+                  disabled={activeRecoverySession !== null && activeRecoverySession.state === ClinicalSessionState.ACTIVE_CONNECTED}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                  Anotações Clínicas em Tempo Real (Snapshot Volátil):
+                </label>
+                <input
+                  type="text"
+                  value={recoveryNotesInput}
+                  onChange={(e) => setRecoveryNotesInput(e.target.value)}
+                  placeholder="Digite observações clínicas durante a sessão..."
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+            </div>
+
+            {/* Ações da Sessão */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+              {!activeRecoverySession || activeRecoverySession.state === ClinicalSessionState.COMPLETED_NORMALLY || activeRecoverySession.state === ClinicalSessionState.TERMINATED_TIMEOUT ? (
+                <button
+                  type="button"
+                  onClick={handleStartRecoverySession}
+                  disabled={actionInProgress}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Iniciar Sessão Clínica Monitorada
+                </button>
+              ) : (
+                <>
+                  {activeRecoverySession.state === ClinicalSessionState.ACTIVE_CONNECTED && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleSendRecoveryHeartbeat}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Activity className="w-3.5 h-3.5 text-rose-500" />
+                        Enviar Heartbeat (#{activeRecoverySession.heartbeatCount})
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerDisconnection(DisconnectionCause.SOCKET_DROP)}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <WifiOff className="w-3.5 h-3.5" />
+                        Simular Queda Abrupta (Drop Conexão)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCompleteSession}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 ml-auto"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluir Consulta
+                      </button>
+                    </>
+                  )}
+
+                  {activeRecoverySession.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleAttemptSessionReconnect}
+                        disabled={actionInProgress}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 animate-pulse"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Reconectar Automaticamente com Token HMAC
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCompleteSession}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer ml-auto"
+                      >
+                        Encerrar por Contingência
+                      </button>
+                    </>
+                  )}
+
+                  {activeRecoverySession.state === ClinicalSessionState.RECONNECTED && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleSendRecoveryHeartbeat}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        Continuar Consulta Online
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCompleteSession}
+                        disabled={actionInProgress}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 ml-auto"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluir Consulta
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Painel de Status da Sessão Ativa */}
+            {activeRecoverySession && (
+              <div className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${
+                activeRecoverySession.state === ClinicalSessionState.ACTIVE_CONNECTED
+                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60'
+                  : activeRecoverySession.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT
+                  ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60'
+                  : 'bg-cyan-50/50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-900/60'
+              }`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${
+                      activeRecoverySession.state === ClinicalSessionState.ACTIVE_CONNECTED
+                        ? 'bg-emerald-500 animate-ping'
+                        : activeRecoverySession.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT
+                        ? 'bg-rose-500 animate-bounce'
+                        : 'bg-cyan-500'
+                    }`} />
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                      {activeRecoverySession.sessionId}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                      activeRecoverySession.state === ClinicalSessionState.ACTIVE_CONNECTED
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : activeRecoverySession.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                        : 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'
+                    }`}>
+                      {activeRecoverySession.state}
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    Heartbeats: <strong>{activeRecoverySession.heartbeatCount}</strong> | Tentativas: <strong>{activeRecoverySession.reconnectionAttempts}</strong>
+                  </div>
+                </div>
+
+                {activeRecoverySession.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT && (
+                  <div className="bg-rose-100/60 dark:bg-rose-900/40 p-3 rounded-xl border border-rose-200 dark:border-rose-800 text-[11px] text-rose-900 dark:text-rose-200 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      Queda de Conexão Detectada ({activeRecoverySession.disconnectionCause || 'DROP'})
+                    </div>
+                    <div>
+                      Janela ética de tolerância em contagem regressiva (10 minutos). Expira em:{' '}
+                      <strong>{activeRecoverySession.gracePeriodExpiresAt ? new Date(activeRecoverySession.gracePeriodExpiresAt).toLocaleTimeString('pt-BR') : '10 min'}</strong>.
+                    </div>
+                    <div className="text-[10px] text-rose-800/80 dark:text-rose-300">
+                      Conforme Resolução CFP nº 011/2018, se a reconexão não for restabelecida, o profissional deve migrar para canal de contingência seguro cadastrado no prontuário.
+                    </div>
+                  </div>
+                )}
+
+                {restoredSnapshotData && (
+                  <div className="bg-emerald-100/60 dark:bg-emerald-900/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-900 dark:text-emerald-200 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Snapshot Volátil Restaurado sem Perda (AES-256-GCM Decifrado em RAM)
+                    </div>
+                    <div className="font-mono bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg text-slate-700 dark:text-slate-300">
+                      "{restoredSnapshotData.clinicalNotesDraft}"
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-200/40 dark:border-slate-800">
+                  <span className="truncate" title={activeRecoverySession.probatoryDigest}>
+                    Selo WORM SHA-256: {activeRecoverySession.probatoryDigest ? `${activeRecoverySession.probatoryDigest.slice(0, 16)}...` : 'Gerado no encerramento'}
+                  </span>
+                  <span>Token HMAC: Ativo e Válido</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabela de Sessões Monitoradas */}
+          <div className="space-y-3">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+              Trilha Forense de Sessões & Eventos de Conectividade ({recoverySessions.length})
+            </span>
+
+            {recoverySessions.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                Nenhuma sessão monitorada registrada até o momento. Inicie uma simulação acima.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Início</th>
+                      <th className="py-2.5 px-3.5">ID Sessão</th>
+                      <th className="py-2.5 px-3.5">Estado</th>
+                      <th className="py-2.5 px-3.5">Causa Queda</th>
+                      <th className="py-2.5 px-3.5">Grau Recuperação</th>
+                      <th className="py-2.5 px-3.5 text-right">Selo WORM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {recoverySessions.map((s) => (
+                      <tr
+                        key={s.sessionId}
+                        onClick={() => setActiveRecoverySession(s)}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      >
+                        <td className="py-2 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          {new Date(s.startedAt).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
+                          {s.sessionId}
+                        </td>
+                        <td className="py-2 px-3.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                            s.state === ClinicalSessionState.ACTIVE_CONNECTED
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                              : s.state === ClinicalSessionState.DISCONNECTED_PENDING_RECONNECT
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                              : s.state === ClinicalSessionState.RECONNECTED
+                              ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/80 dark:text-cyan-300'
+                              : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
+                          }`}>
+                            {s.state}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3.5 font-mono text-[11px] text-slate-500">
+                          {s.disconnectionCause || 'Nenhuma queda'}
+                        </td>
+                        <td className="py-2 px-3.5 font-bold text-emerald-600 dark:text-emerald-400">
+                          {s.recoveryGrade || '—'}
+                        </td>
+                        <td className="py-2 px-3.5 text-right font-mono text-[10px] text-slate-400">
+                          {s.probatoryDigest ? `${s.probatoryDigest.slice(0, 10)}...` : 'Pendente'}
                         </td>
                       </tr>
                     ))}

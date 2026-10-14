@@ -1401,6 +1401,61 @@ export interface SimulateMediaPipelineResponse {
   message: string;
 }
 
+/**
+ * DTOs de Recuperação de Sessão Clínica e Resiliência de Rede (RFC-001 §3.2)
+ */
+export interface StartSessionMonitoringDTO {
+  sessionId: string;
+  appointmentId: string;
+  patientId?: string;
+  gracePeriodSeconds?: number;
+  initialSnapshot?: Partial<import('./models').SessionStateSnapshot>;
+}
+
+export interface SessionHeartbeatDTO {
+  sessionId: string;
+  snapshot?: Partial<import('./models').SessionStateSnapshot>;
+}
+
+export interface TriggerSessionDisconnectionDTO {
+  sessionId: string;
+  cause: import('./enums').DisconnectionCause;
+  detail?: string;
+}
+
+export interface AttemptSessionReconnectDTO {
+  sessionId: string;
+  reconnectionToken: string;
+  clientTimestamp?: string;
+}
+
+export interface CompleteClinicalSessionDTO {
+  sessionId: string;
+  finalNotes?: string;
+}
+
+export interface SessionMonitoringResponse {
+  success: boolean;
+  session: import('./models').ClinicalSessionRecoverySession;
+  reconnectionToken?: string; // Token HMAC emitido para reassunção em caso de queda
+  message: string;
+}
+
+export interface SessionReconnectResponse {
+  success: boolean;
+  session: import('./models').ClinicalSessionRecoverySession;
+  restoredSnapshot?: import('./models').SessionStateSnapshot;
+  recoveryGrade?: import('./enums').SessionRecoveryGrade;
+  message: string;
+}
+
+export interface SessionRecoveryListResponse {
+  success: boolean;
+  sessions: import('./models').ClinicalSessionRecoverySession[];
+  metrics: import('./models').SessionRecoveryMetrics;
+}
+
+
 
 
 
