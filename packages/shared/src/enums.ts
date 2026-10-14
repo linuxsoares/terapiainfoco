@@ -165,7 +165,13 @@ export enum AuditAction {
   DID_DOCUMENT_RESOLVED = 'DID_DOCUMENT_RESOLVED',
   VERIFIABLE_CREDENTIAL_ISSUED = 'VERIFIABLE_CREDENTIAL_ISSUED',
   VERIFIABLE_CREDENTIAL_VERIFIED = 'VERIFIABLE_CREDENTIAL_VERIFIED',
-  VERIFIABLE_CREDENTIAL_REVOKED = 'VERIFIABLE_CREDENTIAL_REVOKED'
+  VERIFIABLE_CREDENTIAL_REVOKED = 'VERIFIABLE_CREDENTIAL_REVOKED',
+  // Ações de Análise Comportamental Preditiva e Detecção de Acesso Anômalo (UEBA - RFC-001 §4.4 & LGPD Art. 46)
+  UEBA_ANOMALY_DETECTED = 'UEBA_ANOMALY_DETECTED',
+  UEBA_CONTAINMENT_TRIGGERED = 'UEBA_CONTAINMENT_TRIGGERED',
+  UEBA_CONTAINMENT_RELEASED = 'UEBA_CONTAINMENT_RELEASED',
+  UEBA_PROFILE_LEARNED = 'UEBA_PROFILE_LEARNED',
+  UEBA_RISK_THRESHOLD_MODIFIED = 'UEBA_RISK_THRESHOLD_MODIFIED'
 }
 
 export enum AuditResourceType {
@@ -195,7 +201,8 @@ export enum AuditResourceType {
   CLIPBOARD_DLP = 'CLIPBOARD_DLP',
   NOTARY_LEDGER = 'NOTARY_LEDGER',
   PURGE_LEDGER = 'PURGE_LEDGER',
-  CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID'
+  CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID',
+  UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE'
 }
 
 /**
@@ -649,6 +656,46 @@ export enum DidVerificationStatus {
   UNRESOLVED_DID = 'UNRESOLVED_DID'            // Não foi possível resolver o DID Document do emissor
 }
 
+/**
+ * Níveis de Risco Comportamental Preditivo (UEBA - RFC-001 §4.4)
+ */
+export enum UebaRiskLevel {
+  NORMAL = 'NORMAL',                         // Score 0 - 29: Comportamento dentro do padrão baseline
+  SUSPICIOUS = 'SUSPICIOUS',                 // Score 30 - 59: Atipicidade leve ou moderada
+  ANOMALOUS = 'ANOMALOUS',                   // Score 60 - 74: Desvio evidente do padrão habitual (Alerta DPO)
+  HIGH_RISK = 'HIGH_RISK',                   // Score 75 - 89: Risco elevado de exfiltração (Desafio 2FA compulsório)
+  CRITICAL_EXFILTRATION = 'CRITICAL_EXFILTRATION' // Score 90 - 100: Ataque em curso ou exfiltração em massa (Suspensão preventiva)
+}
 
+/**
+ * Categorias Heurísticas de Anomalia de Acesso a Prontuários (LGPD Art. 46 & CFP nº 001/2009)
+ */
+export enum UebaAnomalyType {
+  OFF_HOURS_ACCESS = 'OFF_HOURS_ACCESS',                     // Acesso fora do horário habitual de atendimento (ex: madrugada/finais de semana)
+  BULK_RECORD_SCRAPING = 'BULK_RECORD_SCRAPING',             // Consulta massiva e sequencial de múltiplos prontuários em janela curta
+  SOAP_MASS_READ = 'SOAP_MASS_READ',                         // Varredura de notas clínicas SOAP sem agendamento associado
+  UNUSUAL_GEO_IP_JUMP = 'UNUSUAL_GEO_IP_JUMP',               // Salto geográfico ou conexão a partir de ASN/país não habitual
+  BLIND_INDEX_ENUMERATION = 'BLIND_INDEX_ENUMERATION',       // Múltiplas buscas cegas de CPF/e-mail (tentativa de dicionário/enumeração)
+  UNLINKED_PATIENT_ACCESS = 'UNLINKED_PATIENT_ACCESS',       // Tentativa de acesso a prontuário sem vínculo clínico terapêutico
+  RAPID_CONCURRENT_SESSIONS = 'RAPID_CONCURRENT_SESSIONS'    // Sessões concorrentes simultâneas em múltiplos dispositivos distintos
+}
 
+/**
+ * Ações de Contenção Automática e Mitigação Preventiva do UEBA
+ */
+export enum UebaContainmentAction {
+  NONE = 'NONE',                                     // Nenhuma ação punitiva; telemetria rotineira
+  FLAG_WORM_AUDIT = 'FLAG_WORM_AUDIT',               // Registro de incidente com flag na trilha WORM inviolável
+  STEP_UP_2FA_CHALLENGE = 'STEP_UP_2FA_CHALLENGE',   // Exigência de reautenticação imediata com segundo fator (TOTP/Passkey)
+  SUSPEND_SESSION = 'SUSPEND_SESSION',               // Revogação imediata do token JWT e encerramento da sessão clínica
+  QUARANTINE_IP_AND_ACCOUNT = 'QUARANTINE_IP_AND_ACCOUNT' // Bloqueio temporário da conta e isolamento do IP de origem
+}
 
+/**
+ * Status do Incidente de Contenção UEBA
+ */
+export enum UebaContainmentStatus {
+  ACTIVE_CONTAINMENT = 'ACTIVE_CONTAINMENT', // Contenção ativa e restrição vigente
+  RELEASED = 'RELEASED',                     // Contenção liberada formalmente pelo DPO ou administrador
+  ACKNOWLEDGED = 'ACKNOWLEDGED'              // Incidente revisado e arquivado para conformidade
+}

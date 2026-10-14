@@ -106,7 +106,10 @@ import type {
   PurgeProofVerificationResult,
   W3CVerifiableCredential,
   DidFederationOverview,
-  VerifiableCredentialVerificationResult
+  VerifiableCredentialVerificationResult,
+  UebaSystemOverview,
+  UebaAnomalyIncident,
+  SimulateAccessPatternResponse
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -138,7 +141,10 @@ import {
   PurgeMethod,
   PurgeProofVerificationStatus,
   VerifiableCredentialType,
-  CredentialRevocationStatus
+  CredentialRevocationStatus,
+  UebaRiskLevel,
+  UebaContainmentAction,
+  UebaContainmentStatus
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1452,6 +1458,109 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Inteligência Comportamental Preditiva e Detecção de Acesso Anômalo (UEBA - RFC-001 §4.4)
+  const [uebaOverview, setUebaOverview] = useState<UebaSystemOverview | null>(null);
+  const [loadingUeba, setLoadingUeba] = useState<boolean>(false);
+  const [simulatingUeba, setSimulatingUeba] = useState<boolean>(false);
+  const [lastSimulationResult, setLastSimulationResult] = useState<SimulateAccessPatternResponse | null>(null);
+  const [selectedUebaIncident, setSelectedUebaIncident] = useState<UebaAnomalyIncident | null>(null);
+  const [incidentToContain, setIncidentToContain] = useState<UebaAnomalyIncident | null>(null);
+  const [containmentActionChoice, setContainmentActionChoice] = useState<UebaContainmentAction>(UebaContainmentAction.STEP_UP_2FA_CHALLENGE);
+  const [containmentReasonInput, setContainmentReasonInput] = useState<string>('Desafio preventivo por suspeita de exfiltração interna');
+  const [containingAction, setContainingAction] = useState<boolean>(false);
+
+  const fetchUebaData = async () => {
+    try {
+      setLoadingUeba(true);
+      const res = await api.getUebaOverview();
+      if (res.success) {
+        setUebaOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados UEBA:', err);
+    } finally {
+      setLoadingUeba(false);
+    }
+  };
+
+  const handleSimulateUebaPattern = async (scenario: string) => {
+    try {
+      setSimulatingUeba(true);
+      const res = await api.simulateUebaPattern({
+        scenario: scenario as any,
+        userId: currentUser.id,
+        therapistCrp: '06/123456'
+      });
+      if (res.success) {
+        setLastSimulationResult(res);
+        setFeedback({
+          type: res.assessment.riskScore >= 75 ? 'error' : 'success',
+          message: `Simulação concluída: Score ${res.assessment.riskScore} (${res.assessment.riskLevel}). ${res.assessment.detectedAnomalies.length} anomalia(s) detectada(s).`
+        });
+        await fetchUebaData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao executar simulação UEBA.'
+      });
+    } finally {
+      setSimulatingUeba(false);
+    }
+  };
+
+  const handleApplyContainmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!incidentToContain) return;
+    try {
+      setContainingAction(true);
+      const res = await api.applyUebaContainment({
+        incidentId: incidentToContain.incidentId,
+        userId: incidentToContain.userId,
+        action: containmentActionChoice,
+        reason: containmentReasonInput.trim() || 'Contenção preventiva solicitada pelo operador DPO'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        setIncidentToContain(null);
+        await fetchUebaData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao aplicar contenção.'
+      });
+    } finally {
+      setContainingAction(false);
+    }
+  };
+
+  const handleReleaseContainment = async (incident: UebaAnomalyIncident) => {
+    try {
+      const res = await api.applyUebaContainment({
+        incidentId: incident.incidentId,
+        userId: incident.userId,
+        action: UebaContainmentAction.NONE,
+        reason: 'Contenção liberada formalmente após validação de falso positivo operacional'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: 'Contenção liberada com sucesso e selada na trilha WORM.'
+        });
+        await fetchUebaData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao liberar contenção.'
+      });
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1467,6 +1576,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchPurgeData();
       fetchPurgeCandidates();
       fetchDidData();
+      fetchUebaData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -8625,6 +8735,378 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Card 24: Inteligência Comportamental Preditiva e Detecção de Acesso Anômalo (UEBA - RFC-001 §4.4 & LGPD Art. 46) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60">
+                  RFC-001 §4.4 & LGPD Art. 46
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  Machine Learning & Heurística de Risco (0 - 100)
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                <Gauge className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                Inteligência Comportamental & Detecção de Acesso Anômalo (UEBA)
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Monitoramento preditivo de anomalias em acessos a prontuários, notas confidenciais SOAP e enumeração de blind index para prevenção de exfiltração interna.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchUebaData}
+                disabled={loadingUeba}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Recarregar Métricas UEBA"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingUeba ? 'animate-spin' : ''}`} />
+                <span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* KPIs de Governança UEBA */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+                Score Médio de Risco
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-2xl font-black ${
+                  (uebaOverview?.avgRiskScore ?? 0) >= 75
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : (uebaOverview?.avgRiskScore ?? 0) >= 50
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}>
+                  {uebaOverview?.avgRiskScore ?? 0}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">/ 100</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+                Anomalias em 24h
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {uebaOverview?.totalAnomaliesDetected ?? 0}
+                </span>
+                <span className="text-xs text-slate-400">detectadas</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+                Exfiltrações Bloqueadas
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-rose-600 dark:text-rose-400">
+                  {uebaOverview?.criticalIncidentsBlocked ?? 0}
+                </span>
+                <span className="text-xs text-slate-400">incidentes</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+                Sessões em Contenção
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                  {uebaOverview?.activeContainedSessionsCount ?? 0}
+                </span>
+                <span className="text-xs text-slate-400">ativas</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Simulador Interativo de Padrões de Acesso Clínico */}
+          <div className="p-5 rounded-2xl bg-amber-50/30 dark:bg-amber-950/10 border border-amber-200/70 dark:border-amber-800/40 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  Simulador de Padrões de Acesso & Teste de Detecção Heurística
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Dispare cenários controlados para testar o comportamento dos classificadores algorítmicos em tempo real.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <button
+                type="button"
+                disabled={simulatingUeba}
+                onClick={() => handleSimulateUebaPattern('NORMAL_ROUTINE')}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all text-left space-y-1 cursor-pointer disabled:opacity-50"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Rotina Normal
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  14:30h, 1 prontuário, IP/rede brasileira habitual
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingUeba}
+                onClick={() => handleSimulateUebaPattern('BULK_SCRAPING')}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-rose-500 dark:hover:border-rose-500 transition-all text-left space-y-1 cursor-pointer disabled:opacity-50"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  Raspagem Massiva
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  28 prontuários lidos em lote consecutivamente
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingUeba}
+                onClick={() => handleSimulateUebaPattern('OFF_HOURS_MIDNIGHT')}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-500 dark:hover:border-amber-500 transition-all text-left space-y-1 cursor-pointer disabled:opacity-50"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Madrugada Atípica
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Acesso às 03:35 AM com leitura de nota SOAP
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingUeba}
+                onClick={() => handleSimulateUebaPattern('IMPOSSIBLE_GEO_JUMP')}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-purple-500 dark:hover:border-purple-500 transition-all text-left space-y-1 cursor-pointer disabled:opacity-50"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400">
+                  <Flame className="w-3.5 h-3.5" />
+                  Salto de IP
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Conexão originada de ASN/país divergente (RU)
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingUeba}
+                onClick={() => handleSimulateUebaPattern('BLIND_INDEX_DICTIONARY')}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-cyan-500 dark:hover:border-cyan-500 transition-all text-left space-y-1 cursor-pointer disabled:opacity-50"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                  <Search className="w-3.5 h-3.5" />
+                  Busca em Massa
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Enumeração cega sequencial de CPFs na base
+                </p>
+              </button>
+            </div>
+
+            {/* Resultado da Última Avaliação ou Simulação */}
+            {lastSimulationResult && (
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Resultado da Análise Preditiva:
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      lastSimulationResult.assessment.riskLevel === UebaRiskLevel.CRITICAL_EXFILTRATION
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-900'
+                        : lastSimulationResult.assessment.riskLevel === UebaRiskLevel.HIGH_RISK
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-900'
+                        : lastSimulationResult.assessment.riskLevel === UebaRiskLevel.ANOMALOUS
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-900'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-900'
+                    }`}>
+                      {lastSimulationResult.assessment.riskLevel} (Score: {lastSimulationResult.assessment.riskScore}/100)
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Ação Recomendada: <strong className="text-slate-900 dark:text-white font-mono">{lastSimulationResult.assessment.recommendedAction}</strong>
+                  </div>
+                </div>
+
+                {/* Barra de Progresso / Risco */}
+                <div className="space-y-1">
+                  <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        lastSimulationResult.assessment.riskScore >= 75
+                          ? 'bg-rose-500'
+                          : lastSimulationResult.assessment.riskScore >= 50
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.max(4, lastSimulationResult.assessment.riskScore)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Anomalias Detectadas */}
+                {lastSimulationResult.assessment.detectedAnomalies.length > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block">
+                      Evidências e Fatores de Anomalia Detectados:
+                    </span>
+                    <div className="space-y-1">
+                      {lastSimulationResult.assessment.detectedAnomalies.map((a, idx) => (
+                        <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[11px]">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400">
+                            +{a.severityScore} pts
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono text-[10px]">
+                            {a.type}:
+                          </span>
+                          <span className="text-slate-600 dark:text-slate-300">
+                            {a.description}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✓ Nenhum desvio anômalo identificado. Comportamento em estrita conformidade com o perfil histórico do terapeuta.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tabela de Incidentes Recentes e Livro WORM de Contenção */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <ScrollText className="w-3.5 h-3.5 text-amber-500" />
+                Livro Notarial de Incidentes Comportamentais UEBA (Trilha WORM Inviolável)
+              </h3>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {uebaOverview?.recentIncidents.length ?? 0} registros
+              </span>
+            </div>
+
+            {(!uebaOverview?.recentIncidents || uebaOverview.recentIncidents.length === 0) ? (
+              <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
+                Nenhum incidente comportamental anômalo registrado.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-850 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Data/Hora</th>
+                      <th className="py-2.5 px-3.5">ID Incidente</th>
+                      <th className="py-2.5 px-3.5">Nível / Score</th>
+                      <th className="py-2.5 px-3.5">Anomalias</th>
+                      <th className="py-2.5 px-3.5">Ação Mitigadora</th>
+                      <th className="py-2.5 px-3.5">Status</th>
+                      <th className="py-2.5 px-3.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                    {uebaOverview.recentIncidents.map((inc) => {
+                      const isContained = inc.containmentStatus === UebaContainmentStatus.ACTIVE_CONTAINMENT;
+                      return (
+                        <tr key={inc.incidentId} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition-colors">
+                          <td className="py-2.5 px-3.5 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                            {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                            {inc.incidentId}
+                          </td>
+                          <td className="py-2.5 px-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              inc.riskLevel === UebaRiskLevel.CRITICAL_EXFILTRATION
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                : inc.riskLevel === UebaRiskLevel.HIGH_RISK
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300'
+                            }`}>
+                              {inc.riskLevel} ({inc.riskScore})
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-[10px] text-slate-600 dark:text-slate-400">
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                              {inc.anomalies.map((anom, i) => (
+                                <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">
+                                  {anom}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                            {inc.containmentAction}
+                          </td>
+                          <td className="py-2.5 px-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isContained
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}>
+                              {inc.containmentStatus}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedUebaIncident(inc)}
+                                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold shadow-sm transition-colors cursor-pointer"
+                                title="Ver Detalhes Forenses e Selo"
+                              >
+                                Detalhes
+                              </button>
+                              {isContained ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReleaseContainment(inc)}
+                                  className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                                  title="Liberar Contenção"
+                                >
+                                  Liberar
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setIncidentToContain(inc)}
+                                  className="px-2.5 py-1 rounded-xl bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-700 dark:text-amber-300 text-[11px] font-bold transition-colors cursor-pointer"
+                                  title="Aplicar Contenção Preventiva"
+                                >
+                                  Conter
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -10274,6 +10756,274 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                   Fechar Credencial
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Aplicação de Contenção Preventiva UEBA (RFC-001 §4.4 & LGPD Art. 46) */}
+      {incidentToContain && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Contenção de Incidente Comportamental
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {incidentToContain.incidentId}
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIncidentToContain(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Mitigação Ativa de Exfiltração de Prontuários:
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                A aplicação de contenção isola imediatamente a conta do usuário ou impõe desafio biométrico/2FA adicional, interrompendo o fluxo suspeito com registro compulsório na trilha WORM.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Usuário Alvo:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {incidentToContain.userId} {incidentToContain.therapistCrp ? `(CRP ${incidentToContain.therapistCrp})` : ''}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Score de Risco:</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">
+                  {incidentToContain.riskScore} / 100 ({incidentToContain.riskLevel})
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Anomalias Detectadas:</span>
+                <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-[260px]">
+                  {incidentToContain.anomalies.join(', ')}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleApplyContainmentSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Ação de Contenção Requerida:
+                </label>
+                <select
+                  value={containmentActionChoice}
+                  onChange={(e) => setContainmentActionChoice(e.target.value as UebaContainmentAction)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value={UebaContainmentAction.STEP_UP_2FA_CHALLENGE}>
+                    Exigir Reautenticação Imediata (Step-up 2FA / Passkey)
+                  </option>
+                  <option value={UebaContainmentAction.SUSPEND_SESSION}>
+                    Suspender Sessão Clínica & Revogar Token JWT
+                  </option>
+                  <option value={UebaContainmentAction.QUARANTINE_IP_AND_ACCOUNT}>
+                    Quarentena Total de Conta & Bloqueio do IP de Origem
+                  </option>
+                  <option value={UebaContainmentAction.FLAG_WORM_AUDIT}>
+                    Apenas Sinalizar com Flag na Trilha WORM
+                  </option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Justificativa Formal do Operador/DPO (Trilha WORM) *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={containmentReasonInput}
+                  onChange={(e) => setContainmentReasonInput(e.target.value)}
+                  placeholder="Ex: Padrão anômalo de leitura em lote fora de horário comercial; contenção preventiva aplicada..."
+                  className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIncidentToContain(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={containingAction || !containmentReasonInput.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {containingAction ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Registrando na Trilha WORM...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Confirmar Contenção
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Timbrado de Incidente Forense UEBA (RFC-001 §4.4) */}
+      {selectedUebaIncident && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Laudo Pericial de Incidente Comportamental UEBA
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      selectedUebaIncident.riskLevel === UebaRiskLevel.CRITICAL_EXFILTRATION
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                        : selectedUebaIncident.riskLevel === UebaRiskLevel.HIGH_RISK
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300'
+                    }`}>
+                      {selectedUebaIncident.riskLevel} (Score: {selectedUebaIncident.riskScore})
+                    </span>
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {selectedUebaIncident.incidentId}
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedUebaIncident(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Painel do Evento Disparador */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Metadados do Evento Disparador
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Data/Hora:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {new Date(selectedUebaIncident.timestamp).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Usuário:</span>
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                    {selectedUebaIncident.userId} {selectedUebaIncident.therapistCrp ? `(${selectedUebaIncident.therapistCrp})` : ''}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">IP de Origem:</span>
+                  <span className="font-mono text-slate-900 dark:text-white">
+                    {selectedUebaIncident.triggerEvent.ipAddress} ({selectedUebaIncident.triggerEvent.locationCountry || 'N/A'})
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Recurso Acessado:</span>
+                  <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                    {selectedUebaIncident.triggerEvent.resourceType} ({selectedUebaIncident.triggerEvent.actionType})
+                  </span>
+                </div>
+              </div>
+              <div className="pt-1 text-[10px] text-slate-400 truncate">
+                User Agent: {selectedUebaIncident.triggerEvent.userAgent}
+              </div>
+            </div>
+
+            {/* Fatores de Anomalia Detectados */}
+            <div className="space-y-2 text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Fatores e Classificadores de Anomalia
+              </span>
+              <div className="space-y-1.5">
+                {selectedUebaIncident.anomalyDetails.map((a, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">
+                        {a.type}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        Severidade: +{a.severityScore} pts
+                      </span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {a.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Selo Probatório WORM */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Selo Probatório WORM (NIST SP 800-88 / RFC-001 §4.4):</span>
+                <span className="font-mono text-[10px] text-slate-500">
+                  {selectedUebaIncident.containmentAction}
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-400 truncate" title={selectedUebaIncident.proofSeal}>
+                Token: {selectedUebaIncident.proofSeal}
+              </div>
+              {selectedUebaIncident.wormAuditLogId && (
+                <div className="font-mono text-[10px] text-slate-500">
+                  Trilha WORM Log ID: {selectedUebaIncident.wormAuditLogId}
+                </div>
+              )}
+            </div>
+
+            {/* Ações e Cópia do Selo */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedUebaIncident.proofSeal);
+                  setFeedback({ type: 'success', message: 'Selo probatório copiado para verificação pericial!' });
+                }}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Selo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedUebaIncident(null)}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
             </div>
           </div>
         </div>

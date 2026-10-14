@@ -204,7 +204,16 @@ import type {
   RevokeVerifiableCredentialDTO,
   RevokeVerifiableCredentialResponse,
   DidFederationOverviewResponse,
-  PatientVerifiableCredentialsResponse
+  PatientVerifiableCredentialsResponse,
+  EvaluateAccessRiskDTO,
+  EvaluateAccessRiskResponse,
+  SimulateAccessPatternDTO,
+  SimulateAccessPatternResponse,
+  ApplyUebaContainmentDTO,
+  ApplyUebaContainmentResponse,
+  UebaOverviewResponse,
+  UebaIncidentsResponse,
+  GetUserUebaProfileResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1635,11 +1644,38 @@ export const api = {
 
   async getPatientVerifiableCredentials(patientId: string): Promise<PatientVerifiableCredentialsResponse> {
     return await request<PatientVerifiableCredentialsResponse>(`/did/credentials/patient/${encodeURIComponent(patientId)}`);
+  },
+
+  async getUebaOverview(): Promise<UebaOverviewResponse> {
+    return await request<UebaOverviewResponse>('/ueba/overview');
+  },
+
+  async evaluateUebaAccess(dto: EvaluateAccessRiskDTO): Promise<EvaluateAccessRiskResponse> {
+    return await request<EvaluateAccessRiskResponse>('/ueba/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateUebaPattern(dto: SimulateAccessPatternDTO): Promise<SimulateAccessPatternResponse> {
+    return await request<SimulateAccessPatternResponse>('/ueba/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async applyUebaContainment(dto: ApplyUebaContainmentDTO): Promise<ApplyUebaContainmentResponse> {
+    return await request<ApplyUebaContainmentResponse>('/ueba/contain', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getUebaIncidents(): Promise<UebaIncidentsResponse> {
+    return await request<UebaIncidentsResponse>('/ueba/incidents');
+  },
+
+  async getUserUebaProfile(userId: string): Promise<GetUserUebaProfileResponse> {
+    return await request<GetUserUebaProfileResponse>(`/ueba/profile/${encodeURIComponent(userId)}`);
   }
 };
-
-
-
-
-
-
