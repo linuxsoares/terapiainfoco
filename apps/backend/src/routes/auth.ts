@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { config } from '../config';
 import { authService } from '../services/authService';
 import { WebAuthnService } from '../services/webauthnService';
 import { GoogleMeetService } from '../services/googleMeetService';
@@ -281,14 +282,23 @@ authRoute.delete('/passkeys/:id', authMiddleware({ strict: true }), async (c) =>
  */
 authRoute.get('/google/authorize', async (c) => {
   try {
-    const redirectUri = c.req.query('redirect_uri');
+    let redirectUri = c.req.query('redirect_uri');
+    if (!redirectUri) {
+      if (config.google.redirectUri) {
+        redirectUri = config.google.redirectUri;
+      } else {
+        const proto = c.req.header('x-forwarded-proto') || 'https';
+        const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3000';
+        redirectUri = `${proto}://${host}/api/auth/google/callback`;
+      }
+    }
     const state = c.req.query('state');
     const format = c.req.query('format');
 
     const authUrl = GoogleMeetService.getAuthorizationUrl(redirectUri, state);
 
     if (format === 'json') {
-      return c.json({ success: true, url: authUrl });
+      return c.json({ success: true, url: authUrl, redirectUri });
     }
 
     return c.redirect(authUrl);
@@ -337,7 +347,14 @@ authRoute.get('/google/callback', async (c) => {
   }
 
   try {
-    const tokens = await GoogleMeetService.exchangeCodeForTokens(code);
+    let callbackRedirectUri = config.google.redirectUri;
+    if (!callbackRedirectUri) {
+      const proto = c.req.header('x-forwarded-proto') || 'https';
+      const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3000';
+      callbackRedirectUri = `${proto}://${host}/api/auth/google/callback`;
+    }
+
+    const tokens = await GoogleMeetService.exchangeCodeForTokens(code, callbackRedirectUri);
 
     return c.html(`
       <!DOCTYPE html>

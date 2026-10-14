@@ -676,6 +676,35 @@ export function AgendaModule() {
                     ) : null}
                   </div>
                 </div>
+
+                {/* Dica de Redirect URI para Google Cloud Console */}
+                {meetStatus?.oauth?.hasClientId && !meetStatus?.configured && (
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-slate-700 dark:text-slate-300 space-y-1.5">
+                    <div className="flex items-center justify-between font-semibold text-[11px] text-amber-900 dark:text-amber-200">
+                      <span>URI de Redirecionamento (Google Cloud Console):</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const uriToCopy = meetStatus?.oauth?.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin.replace(':5174', ':3000')}/api/auth/google/callback` : '');
+                          if (uriToCopy) {
+                            navigator.clipboard.writeText(uriToCopy);
+                            setSuccessMsg('URI de redirecionamento copiada com sucesso!');
+                            setTimeout(() => setSuccessMsg(null), 3000);
+                          }
+                        }}
+                        className="text-sky-600 dark:text-sky-400 hover:underline text-[10px] font-semibold cursor-pointer"
+                      >
+                        Copiar URI
+                      </button>
+                    </div>
+                    <p className="font-mono text-[11px] text-slate-900 dark:text-white bg-white dark:bg-slate-900 p-2 rounded-xl border border-amber-300 dark:border-amber-500/30 break-all select-all font-medium">
+                      {meetStatus?.oauth?.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin.replace(':5174', ':3000')}/api/auth/google/callback` : '')}
+                    </p>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400">
+                      ⚠️ Se aparecer o erro <code>redirect_uri_mismatch</code> no Google, certifique-se de adicionar a URL acima exatamente em <strong>URIs de redirecionamento autorizados</strong> nas Credenciais do seu Google Cloud.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
