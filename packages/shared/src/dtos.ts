@@ -1736,5 +1736,76 @@ export interface PurgeCertificateResponse {
   certificate: import('./models').DataPurgeCertificate;
 }
 
+/**
+ * 26. FEDERAÇÃO DE IDENTIDADES DESCENTRALIZADAS (DID) & CREDENCIAIS VERIFICÁVEIS (RFC-001 §3.5)
+ */
+
+export interface ResolveDidDTO {
+  did: string;
+}
+
+export interface ResolveDidResponse {
+  success: boolean;
+  didDocument?: import('./models').W3CDidDocument;
+  message?: string;
+}
+
+export interface IssueVerifiableCredentialDTO {
+  credentialType: import('./enums').VerifiableCredentialType;
+  subjectId?: string; // DID ou URN do paciente
+  patientId: string;
+  therapistId: string;
+  therapistCrp: string;
+  therapistName: string;
+  expirationMonths?: number;
+  clinicalSpecialty?: string;
+  referralReason?: string;
+  targetSpecialistType?: string; // PSIQUIATRA, NEUROLOGISTA, etc.
+  cidOrCid11Category?: string;
+  additionalClaims?: Record<string, any>;
+}
+
+export interface IssueVerifiableCredentialResponse {
+  success: boolean;
+  credential: import('./models').W3CVerifiableCredential;
+  jwtToken: string;
+  message: string;
+}
+
+export interface VerifyVerifiableCredentialDTO {
+  credentialOrPresentationPayload: string; // JSON serializado ou JWT ou ID
+  expectedNonce?: string;
+}
+
+export interface VerifyVerifiableCredentialResponse {
+  success: boolean;
+  result: import('./models').VerifiableCredentialVerificationResult;
+}
+
+export interface RevokeVerifiableCredentialDTO {
+  credentialId: string;
+  revocationReason: string;
+}
+
+export interface RevokeVerifiableCredentialResponse {
+  success: boolean;
+  credentialId: string;
+  revokedAt: string;
+  message: string;
+}
+
+export interface DidFederationOverviewResponse {
+  success: boolean;
+  overview: import('./models').DidFederationOverview;
+}
+
+export interface PatientVerifiableCredentialsResponse {
+  success: boolean;
+  patientId: string;
+  credentials: import('./models').W3CVerifiableCredential[];
+  count: number;
+}
+
+
 
 

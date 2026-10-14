@@ -159,7 +159,13 @@ export enum AuditAction {
   DATA_PURGE_EXECUTED = 'DATA_PURGE_EXECUTED',
   DATA_PURGE_CERTIFICATE_ISSUED = 'DATA_PURGE_CERTIFICATE_ISSUED',
   DATA_PURGE_PROOF_VERIFIED = 'DATA_PURGE_PROOF_VERIFIED',
-  DATA_PURGE_RETENTION_BLOCKED = 'DATA_PURGE_RETENTION_BLOCKED'
+  DATA_PURGE_RETENTION_BLOCKED = 'DATA_PURGE_RETENTION_BLOCKED',
+  // Ações de Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis (RFC-001 §3.5)
+  DID_IDENTITY_CREATED = 'DID_IDENTITY_CREATED',
+  DID_DOCUMENT_RESOLVED = 'DID_DOCUMENT_RESOLVED',
+  VERIFIABLE_CREDENTIAL_ISSUED = 'VERIFIABLE_CREDENTIAL_ISSUED',
+  VERIFIABLE_CREDENTIAL_VERIFIED = 'VERIFIABLE_CREDENTIAL_VERIFIED',
+  VERIFIABLE_CREDENTIAL_REVOKED = 'VERIFIABLE_CREDENTIAL_REVOKED'
 }
 
 export enum AuditResourceType {
@@ -188,7 +194,8 @@ export enum AuditResourceType {
   CONSENT_RECORD = 'CONSENT_RECORD',
   CLIPBOARD_DLP = 'CLIPBOARD_DLP',
   NOTARY_LEDGER = 'NOTARY_LEDGER',
-  PURGE_LEDGER = 'PURGE_LEDGER'
+  PURGE_LEDGER = 'PURGE_LEDGER',
+  CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID'
 }
 
 /**
@@ -601,6 +608,47 @@ export enum PurgeProofVerificationStatus {
   PROOF_TAMPERED = 'PROOF_TAMPERED',               // Certificado corrompido ou assinatura forjada
   PROOF_NOT_FOUND = 'PROOF_NOT_FOUND'              // Certificado ou token não localizado no livro de expurgo
 }
+
+/**
+ * Métodos DID Suportados na Federação Clínica (W3C DID v1.0 & RFC-001 §3.5)
+ */
+export enum ClinicalDidMethod {
+  DID_KEY = 'did:key',                     // Identificador descentralizado autocontido baseado em chave pública multibase
+  DID_TERAPIAINFOCO = 'did:terapiainfoco', // Método federado do ecossistema TerapiaInFoco vinculado ao registro e-Psi/CRP
+  DID_ION = 'did:ion'                      // Rede pública descentralizada Sidetree (Bitcoin/IPFS)
+}
+
+/**
+ * Tipos de Credenciais Clínicas Verificáveis Emitidas (W3C VC v2.0 & CFP nº 006/2019)
+ */
+export enum VerifiableCredentialType {
+  PSYCHOLOGIST_LICENSE_CREDENTIAL = 'PsychologistLicenseCredential',     // Habilitação e regularidade profissional no Conselho Regional de Psicologia
+  CLINICAL_REFERRAL_CREDENTIAL = 'ClinicalReferralCredential',           // Guia de encaminhamento interprofissional clínico com autorização do paciente
+  MENTAL_HEALTH_ATTESTATION_CREDENTIAL = 'MentalHealthAttestationCredential', // Atestado psicológico com fé pública digital e validação externa
+  PSYCHOLOGICAL_REPORT_CREDENTIAL = 'PsychologicalReportCredential'       // Relatório / laudo psicológico emitido conforme CFP nº 006/2019
+}
+
+/**
+ * Status de Revogação de Credencial Verificável (W3C StatusList2021)
+ */
+export enum CredentialRevocationStatus {
+  ACTIVE = 'ACTIVE',       // Credencial válida e em pleno vigor
+  REVOKED = 'REVOKED',     // Revogada formalmente pelo emissor ou DPO na trilha WORM
+  SUSPENDED = 'SUSPENDED', // Suspensa temporariamente para averiguação ética
+  EXPIRED = 'EXPIRED'      // Prazo de vigência clínica expirado
+}
+
+/**
+ * Status de Verificação Descentralizada de Credencial / Apresentação
+ */
+export enum DidVerificationStatus {
+  VALID_VERIFIED = 'VALID_VERIFIED',           // Assinatura matemática íntegra, emissor ativo e sem revogação
+  SIGNATURE_INVALID = 'SIGNATURE_INVALID',     // Assinatura digital forjada ou conteúdo adulterado (anti-tampering)
+  CREDENTIAL_REVOKED = 'CREDENTIAL_REVOKED',   // Credencial consta na lista de revogação WORM
+  CREDENTIAL_EXPIRED = 'CREDENTIAL_EXPIRED',   // Data de validade clínica ultrapassada
+  UNRESOLVED_DID = 'UNRESOLVED_DID'            // Não foi possível resolver o DID Document do emissor
+}
+
 
 
 

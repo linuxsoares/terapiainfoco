@@ -47,7 +47,8 @@ import {
   FileSearch,
   Search,
   ScrollText,
-  BadgeCheck
+  BadgeCheck,
+  Share2
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -102,7 +103,10 @@ import type {
   DataPurgeCertificate,
   PurgeCandidateRecord,
   PurgeLedgerOverview,
-  PurgeProofVerificationResult
+  PurgeProofVerificationResult,
+  W3CVerifiableCredential,
+  DidFederationOverview,
+  VerifiableCredentialVerificationResult
 } from '@terapiainfoco/shared';
 import { 
   UserRole, 
@@ -132,7 +136,9 @@ import {
   NotaryVerificationStatus,
   PurgeReason,
   PurgeMethod,
-  PurgeProofVerificationStatus
+  PurgeProofVerificationStatus,
+  VerifiableCredentialType,
+  CredentialRevocationStatus
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1307,6 +1313,145 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     setVerifyPurgeResult(null);
   };
 
+  // Estados de Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis (RFC-001 §3.5)
+  const [didOverview, setDidOverview] = useState<DidFederationOverview | null>(null);
+  const [loadingDid, setLoadingDid] = useState<boolean>(false);
+  const [verifyDidInput, setVerifyDidInput] = useState<string>('');
+  const [verifyingDid, setVerifyingDid] = useState<boolean>(false);
+  const [verifyDidResult, setVerifyDidResult] = useState<VerifiableCredentialVerificationResult | null>(null);
+  const [selectedCredential, setSelectedCredential] = useState<W3CVerifiableCredential | null>(null);
+  const [credentialQrDataUrl, setCredentialQrDataUrl] = useState<string | null>(null);
+  const [issuingCredential, setIssuingCredential] = useState<boolean>(false);
+  
+  // Formulário de Emissão de Credencial
+  const [issueCredType, setIssueCredType] = useState<VerifiableCredentialType>(VerifiableCredentialType.CLINICAL_REFERRAL_CREDENTIAL);
+  const [issuePatientId, setIssuePatientId] = useState<string>('patient-demo-uuid-1');
+  const [issueSpecialistType, setIssueSpecialistType] = useState<string>('PSIQUIATRA');
+  const [issueReferralReason, setIssueReferralReason] = useState<string>('Encaminhamento interprofissional para suporte psicofarmacológico integrado');
+  const [issueExpirationMonths, setIssueExpirationMonths] = useState<number>(6);
+
+  // Modal de Revogação
+  const [credentialToRevoke, setCredentialToRevoke] = useState<W3CVerifiableCredential | null>(null);
+  const [revokeReasonInput, setRevokeReasonInput] = useState<string>('');
+  const [revokingCredential, setRevokingCredential] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (selectedCredential) {
+      QRCode.toDataURL(selectedCredential.jwtRepresentation || selectedCredential.id, { width: 160, margin: 1 })
+        .then(url => setCredentialQrDataUrl(url))
+        .catch(() => setCredentialQrDataUrl(null));
+    } else {
+      setCredentialQrDataUrl(null);
+    }
+  }, [selectedCredential]);
+
+  const fetchDidData = async () => {
+    try {
+      setLoadingDid(true);
+      const res = await api.getDidFederationOverview();
+      if (res.success) {
+        setDidOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de DID:', err);
+    } finally {
+      setLoadingDid(false);
+    }
+  };
+
+  const handleVerifyCredential = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!verifyDidInput.trim()) return;
+    try {
+      setVerifyingDid(true);
+      setVerifyDidResult(null);
+      const res = await api.verifyVerifiableCredential({
+        credentialOrPresentationPayload: verifyDidInput.trim()
+      });
+      if (res.success) {
+        setVerifyDidResult(res.result);
+        setFeedback({
+          type: res.result.valid ? 'success' : 'error',
+          message: res.result.valid
+            ? 'Credencial Verificável autêntica e íntegra (W3C VC v2.0 & CFP nº 006/2019)!'
+            : `ALERTA: Credencial inválida ou revogada: ${res.result.message}`
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao verificar credencial verificável.'
+      });
+    } finally {
+      setVerifyingDid(false);
+    }
+  };
+
+  const handleLoadDidDemoSample = (tokenOrId: string) => {
+    setVerifyDidInput(tokenOrId);
+    setVerifyDidResult(null);
+  };
+
+  const handleIssueCredentialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIssuingCredential(true);
+      const res = await api.issueVerifiableCredential({
+        credentialType: issueCredType,
+        patientId: issuePatientId.trim() || 'patient-demo-uuid-1',
+        therapistId: currentUser.id,
+        therapistCrp: '06/123456',
+        therapistName: currentUser.name || 'Dra. Helena Martins',
+        targetSpecialistType: issueSpecialistType,
+        referralReason: issueReferralReason,
+        expirationMonths: issueExpirationMonths
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Credencial ${res.credential.id} emitida com sucesso e selada na trilha WORM!`
+        });
+        setSelectedCredential(res.credential);
+        await fetchDidData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao emitir credencial verificável.'
+      });
+    } finally {
+      setIssuingCredential(false);
+    }
+  };
+
+  const handleRevokeCredentialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credentialToRevoke) return;
+    try {
+      setRevokingCredential(true);
+      const res = await api.revokeVerifiableCredential({
+        credentialId: credentialToRevoke.id,
+        revocationReason: revokeReasonInput.trim() || 'Revogação formal solicitada pelo terapeuta responsável'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Credencial revogada formalmente com registro na trilha WORM.`
+        });
+        setCredentialToRevoke(null);
+        setRevokeReasonInput('');
+        await fetchDidData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao revogar credencial.'
+      });
+    } finally {
+      setRevokingCredential(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1321,6 +1466,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchNotaryData();
       fetchPurgeData();
       fetchPurgeCandidates();
+      fetchDidData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -8105,6 +8251,380 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Card 23: Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis (W3C DID v1.0 & RFC-001 §3.5) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
+                  W3C DID & VC v2.0
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                  RFC-001 §3.5
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Interoperabilidade clínica interprofissional em saúde mental com identidades soberanas (<code className="font-mono text-cyan-600 dark:text-cyan-400">did:terapiainfoco</code> / <code className="font-mono text-cyan-600 dark:text-cyan-400">did:key</code>), emissão de encaminhamentos e laudos verificáveis criptograficamente (CFP nº 006/2019) e validação pericial Zero-Knowledge.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => fetchDidData()}
+                disabled={loadingDid}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Atualizar Dados da Federação"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingDid ? 'animate-spin text-cyan-500' : ''}`} />
+                Atualizar Federação
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Terapeutas Federados</span>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {didOverview?.totalFederatedTherapists ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">Identidades DID ativas</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/40">
+              <span className="text-[11px] font-semibold text-cyan-700 dark:text-cyan-300">Credenciais Emitidas</span>
+              <div className="text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-1">
+                {didOverview?.totalIssuedCredentials ?? 0}
+              </div>
+              <span className="text-[10px] text-cyan-600/80 mt-1 block">W3C Verifiable Credentials</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+              <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">Verificações Auditadas</span>
+              <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                {didOverview?.totalVerifiedCredentials ?? 0}
+              </div>
+              <span className="text-[10px] text-indigo-600/80 mt-1 block">Perícias descentralizadas</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Credenciais Ativas</span>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {didOverview?.activeCredentialsCount ?? 0}
+              </div>
+              <span className="text-[10px] text-emerald-600/80 mt-1 block">Em pleno vigor regulatório</span>
+            </div>
+          </div>
+
+          {/* Validador Público de Verifiable Credentials / Presentations */}
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <BadgeCheck className="w-4 h-4 text-cyan-500" />
+                  Validador Descentralizado de Credenciais & Apresentações W3C (Zero-Knowledge)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Insira o token JWT (<code className="font-mono text-cyan-600 dark:text-cyan-400">eyJ...</code>), ID da credencial ou JSON de apresentação para conferir autenticidade e validade.
+                </p>
+              </div>
+
+              {didOverview?.recentCredentials && didOverview.recentCredentials.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleLoadDidDemoSample(didOverview.recentCredentials[0].jwtRepresentation || didOverview.recentCredentials[0].id)}
+                  className="px-2.5 py-1 rounded-xl bg-cyan-100 hover:bg-cyan-200 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs font-semibold self-start sm:self-auto cursor-pointer transition-colors"
+                >
+                  Carregar Amostra Demo
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleVerifyCredential} className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={verifyDidInput}
+                  onChange={(e) => setVerifyDidInput(e.target.value)}
+                  placeholder="Cole o token JWT (eyJ...), ID (urn:uuid:...) ou JSON da credencial"
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <button
+                  type="submit"
+                  disabled={verifyingDid || !verifyDidInput.trim()}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Search className={`w-3.5 h-3.5 ${verifyingDid ? 'animate-spin' : ''}`} />
+                  <span>{verifyingDid ? 'Auditando...' : 'Auditar Credencial'}</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado da Validação */}
+            {verifyDidResult && (
+              <div className={`p-4 rounded-xl border text-xs space-y-2.5 ${
+                verifyDidResult.valid
+                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                  : 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+              }`}>
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1.5 text-sm">
+                    {verifyDidResult.valid ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-rose-500" />}
+                    {verifyDidResult.valid ? 'Credencial Válida & Autêntica' : 'Violação Criptográfica Detectada'}
+                  </span>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/60 dark:bg-slate-900/60 border border-current">
+                    Status: {verifyDidResult.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono pt-1 border-t border-current/20">
+                  {verifyDidResult.credentialId && (
+                    <div>ID: <span className="font-semibold">{verifyDidResult.credentialId}</span></div>
+                  )}
+                  {verifyDidResult.issuerDid && (
+                    <div>Emissor: <span className="font-semibold">{verifyDidResult.issuerDid}</span></div>
+                  )}
+                  {verifyDidResult.issuedAt && (
+                    <div>Emitido em: <span className="font-semibold">{new Date(verifyDidResult.issuedAt).toLocaleString('pt-BR')}</span></div>
+                  )}
+                  {verifyDidResult.expiresAt && (
+                    <div>Vigência até: <span className="font-semibold">{new Date(verifyDidResult.expiresAt).toLocaleString('pt-BR')}</span></div>
+                  )}
+                </div>
+
+                <div className="text-[11px] leading-relaxed pt-1 border-t border-current/20">
+                  {verifyDidResult.message}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Formulário de Emissão de Credencial Verificável */}
+          <div className="p-5 rounded-2xl bg-cyan-50/30 dark:bg-cyan-950/10 border border-cyan-200 dark:border-cyan-800/40 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  Emissão de Credencial Clínica Descentralizada (W3C VC v2.0)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Emita credenciais verificáveis assinadas pelo terapeuta com blind index do paciente para interoperabilidade com médicos e outros profissionais.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleIssueCredentialSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Tipo de Credencial:
+                  </label>
+                  <select
+                    value={issueCredType}
+                    onChange={(e) => setIssueCredType(e.target.value as VerifiableCredentialType)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value={VerifiableCredentialType.CLINICAL_REFERRAL_CREDENTIAL}>
+                      Guia de Encaminhamento Clínico
+                    </option>
+                    <option value={VerifiableCredentialType.MENTAL_HEALTH_ATTESTATION_CREDENTIAL}>
+                      Atestado Psicológico (CFP 006/2019)
+                    </option>
+                    <option value={VerifiableCredentialType.PSYCHOLOGICAL_REPORT_CREDENTIAL}>
+                      Relatório / Laudo Psicológico
+                    </option>
+                    <option value={VerifiableCredentialType.PSYCHOLOGIST_LICENSE_CREDENTIAL}>
+                      Habilitação Profissional e-Psi
+                    </option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Especialidade Destinatária:
+                  </label>
+                  <select
+                    value={issueSpecialistType}
+                    onChange={(e) => setIssueSpecialistType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="PSIQUIATRA">Psiquiatria Clínica</option>
+                    <option value="NEUROLOGISTA">Neurologia</option>
+                    <option value="ASSISTENTE_SOCIAL">Serviço Social</option>
+                    <option value="NUTRICIONISTA">Nutrição / Saúde Integrada</option>
+                    <option value="OUTRO">Outra Especialidade Multiprofissional</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Validade Clínica:
+                  </label>
+                  <select
+                    value={issueExpirationMonths}
+                    onChange={(e) => setIssueExpirationMonths(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value={3}>3 meses (Encaminhamento Agudo)</option>
+                    <option value={6}>6 meses (Padrão Recomendado)</option>
+                    <option value={12}>12 meses (Acompanhamento Longo)</option>
+                    <option value={24}>24 meses (Habilitação Contínua)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    ID / Pseudônimo do Paciente:
+                  </label>
+                  <input
+                    type="text"
+                    value={issuePatientId}
+                    onChange={(e) => setIssuePatientId(e.target.value)}
+                    placeholder="patient-demo-uuid-1"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Motivação e Parecer Clínico (W3C Claims):
+                  </label>
+                  <input
+                    type="text"
+                    value={issueReferralReason}
+                    onChange={(e) => setIssueReferralReason(e.target.value)}
+                    placeholder="Ex: Encaminhamento interprofissional para avaliação psicofarmacológica conjunta"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={issuingCredential || !issueReferralReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                >
+                  <Award className={`w-3.5 h-3.5 ${issuingCredential ? 'animate-spin' : ''}`} />
+                  <span>{issuingCredential ? 'Emitindo & Selando...' : 'Emitir Credencial Verificável W3C'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Tabela de Credenciais Verificáveis Emitidas */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <ScrollText className="w-4 h-4 text-slate-500" />
+              Livro de Credenciais Verificáveis Recentes (WORM Ledger)
+            </h3>
+
+            {(!didOverview?.recentCredentials || didOverview.recentCredentials.length === 0) ? (
+              <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                Nenhuma credencial verificável emitida até o momento.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Tipo</th>
+                      <th className="py-2.5 px-3.5">ID / URN</th>
+                      <th className="py-2.5 px-3.5">Emissor (DID)</th>
+                      <th className="py-2.5 px-3.5">Emissão / Validade</th>
+                      <th className="py-2.5 px-3.5">Status</th>
+                      <th className="py-2.5 px-3.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {didOverview.recentCredentials.map((cred) => {
+                      const isRevoked = cred.credentialStatus?.status === CredentialRevocationStatus.REVOKED;
+                      const credTypeLabel = cred.type.find(t => t !== 'VerifiableCredential') || 'Credencial';
+
+                      return (
+                        <tr key={cred.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                              {credTypeLabel}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                            <span title={cred.id}>{cred.id.slice(0, 22)}...</span>
+                          </td>
+                          <td className="py-2.5 px-3.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                            <span title={cred.issuer}>{cred.issuer}</span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            <div>{new Date(cred.issuanceDate).toLocaleDateString('pt-BR')}</div>
+                            {cred.expirationDate && (
+                              <div className="text-[10px] text-slate-400">Até {new Date(cred.expirationDate).toLocaleDateString('pt-BR')}</div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              isRevoked
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            }`}>
+                              {isRevoked ? 'REVOGADA' : 'ATIVA'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCredential(cred)}
+                                className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold shadow-sm flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Ver Detalhes e Certidão"
+                              >
+                                <Award className="w-3 h-3 text-cyan-500" />
+                                Ver
+                              </button>
+                              {cred.jwtRepresentation && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(cred.jwtRepresentation!);
+                                    setFeedback({ type: 'success', message: 'Token JWT da credencial copiado!' });
+                                  }}
+                                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                  title="Copiar Token JWT"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              )}
+                              {!isRevoked && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCredentialToRevoke(cred)}
+                                  className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                                  title="Revogar Credencial"
+                                >
+                                  <Ban className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -9456,6 +9976,302 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
                 >
                   Fechar Certidão
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Revogação Solene de Credencial Verificável W3C (RFC-001 §3.5) */}
+      {credentialToRevoke && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Revogação Solene de Credencial
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    W3C StatusList2021 & Trilha WORM Inviolável
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setCredentialToRevoke(null);
+                  setRevokeReasonInput('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 text-xs text-red-700 dark:text-red-300 space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Aviso Ético-Regulatório Compulsório:
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                A revogação de uma credencial é permanente na rede de interoperabilidade descentralizada. 
+                Ao ser confirmada, o status será alterado para <strong className="font-mono">REVOKED</strong> e a 
+                operação será selada com carimbo cronológico na trilha de auditoria WORM (CFP nº 006/2019 e LGPD Art. 18).
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">ID da Credencial:</span>
+                <span className="font-mono font-medium text-slate-900 dark:text-white text-[11px] truncate max-w-[260px]">
+                  {credentialToRevoke.id}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Tipo de Credencial:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {credentialToRevoke.type.find((t: string) => t !== 'VerifiableCredential') || credentialToRevoke.type.join(', ')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Emissor Autorizado:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px] truncate max-w-[260px]">
+                  {credentialToRevoke.issuer}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleRevokeCredentialSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Motivo da Revogação (Registro Oficial WORM) *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={revokeReasonInput}
+                  onChange={(e) => setRevokeReasonInput(e.target.value)}
+                  placeholder="Ex: Conclusão do ciclo psicoterápico de suporte interprofissional / Alta clínica formal..."
+                  className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCredentialToRevoke(null);
+                    setRevokeReasonInput('');
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={revokingCredential || !revokeReasonInput.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {revokingCredential ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Registrando na Trilha WORM...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Confirmar Revogação Solene
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Timbrado de Credencial Verificável W3C (RFC-001 §3.5 & CFP nº 006/2019) */}
+      {selectedCredential && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Credencial Clínica Descentralizada W3C
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      selectedCredential.credentialStatus?.status === 'REVOKED'
+                        ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900'
+                        : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900'
+                    }`}>
+                      {selectedCredential.credentialStatus?.status || 'ACTIVE'}
+                    </span>
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {selectedCredential.id}
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedCredential(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Painel com QR Code e Metadados do Emissor */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+                {credentialQrDataUrl ? (
+                  <img 
+                    src={credentialQrDataUrl} 
+                    alt="QR Code da Credencial W3C" 
+                    className="w-32 h-32 rounded-lg border border-slate-100 dark:border-slate-800"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
+                    QR Code Indisponível
+                  </div>
+                )}
+                <span className="text-[9px] text-slate-400 font-mono mt-2">
+                  Leitura Pública Federada
+                </span>
+              </div>
+
+              <div className="md:col-span-2 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Tipo da Credencial:</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-right">
+                    {selectedCredential.type.find((t: string) => t !== 'VerifiableCredential') || selectedCredential.type.join(', ')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Data de Emissão:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedCredential.issuanceDate).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                {selectedCredential.expirationDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Data de Expiração:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {new Date(selectedCredential.expirationDate).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">Emissor (DID W3C):</span>
+                  <span className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 break-all">
+                    {selectedCredential.issuer}
+                  </span>
+                </div>
+                <div className="pt-1">
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">Sujeito da Credencial (Blind Index):</span>
+                  <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all">
+                    {selectedCredential.credentialSubject?.id || 'did:terapia:patient:blind-...'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Conteúdo Clínico Estruturado (Credential Subject) */}
+            <div className="p-4 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40 space-y-2.5 text-xs">
+              <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-indigo-500" />
+                Dados Clínicos & Afirmação Interprofissional:
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block">Profissional Responsável:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {selectedCredential.credentialSubject?.therapistName || 'Não especificado'} (CRP: {selectedCredential.credentialSubject?.therapistCrp || 'N/A'})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block">Especialidade Destino:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {selectedCredential.credentialSubject?.targetSpecialistType || 'Equipe Multidisciplinar'}
+                  </span>
+                </div>
+              </div>
+              {selectedCredential.credentialSubject?.referralReason && (
+                <div className="pt-1.5 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px]">
+                  <span className="text-slate-500 dark:text-slate-400 block">Motivo / Parecer Resumido:</span>
+                  <p className="text-slate-800 dark:text-slate-200 leading-relaxed italic">
+                    "{selectedCredential.credentialSubject.referralReason}"
+                  </p>
+                </div>
+              )}
+              {selectedCredential.credentialSubject?.cfpComplianceAssertion && (
+                <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-tight">
+                  ⚖️ {selectedCredential.credentialSubject.cfpComplianceAssertion}
+                </p>
+              )}
+            </div>
+
+            {/* Prova Criptográfica W3C Data Integrity */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Prova Criptográfica (W3C Data Integrity Proof):</span>
+                <span className="font-mono text-[10px] text-slate-500">
+                  {selectedCredential.proof?.type || 'JsonWebSignature2020'}
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                Chave de Verificação: {selectedCredential.proof?.verificationMethod || 'N/A'}
+              </div>
+              {selectedCredential.proof?.proofValue && (
+                <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate" title={selectedCredential.proof.proofValue}>
+                  Assinatura: {selectedCredential.proof.proofValue}
+                </div>
+              )}
+            </div>
+
+            {/* Ações e Cópia de JWT/JSON */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                {selectedCredential.jwtRepresentation && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedCredential.jwtRepresentation!);
+                      setFeedback({ type: 'success', message: 'Token VC-JWT copiado para validação externa!' });
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copiar VC-JWT
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(selectedCredential, null, 2));
+                    setFeedback({ type: 'success', message: 'Payload JSON da Credencial W3C copiado com sucesso!' });
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors"
+                >
+                  Copiar JSON
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCredential(null)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+                >
+                  Fechar Credencial
                 </button>
               </div>
             </div>

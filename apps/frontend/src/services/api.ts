@@ -195,7 +195,16 @@ import type {
   ExecutePurgeResponse,
   PurgeOverviewResponse,
   VerifyPurgeProofResponse,
-  PurgeCertificateResponse
+  PurgeCertificateResponse,
+  ResolveDidResponse,
+  IssueVerifiableCredentialDTO,
+  IssueVerifiableCredentialResponse,
+  VerifyVerifiableCredentialDTO,
+  VerifyVerifiableCredentialResponse,
+  RevokeVerifiableCredentialDTO,
+  RevokeVerifiableCredentialResponse,
+  DidFederationOverviewResponse,
+  PatientVerifiableCredentialsResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1592,6 +1601,40 @@ export const api = {
 
   async getPurgeCertificate(certificateId: string): Promise<PurgeCertificateResponse> {
     return await request<PurgeCertificateResponse>(`/purge/certificate/${certificateId}`);
+  },
+
+  // 26. Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis (RFC-001 §3.5)
+  async resolveDid(did: string): Promise<ResolveDidResponse> {
+    return await request<ResolveDidResponse>(`/did/resolve/${encodeURIComponent(did)}`);
+  },
+
+  async issueVerifiableCredential(dto: IssueVerifiableCredentialDTO): Promise<IssueVerifiableCredentialResponse> {
+    return await request<IssueVerifiableCredentialResponse>('/did/credentials/issue', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyVerifiableCredential(dto: VerifyVerifiableCredentialDTO): Promise<VerifyVerifiableCredentialResponse> {
+    return await request<VerifyVerifiableCredentialResponse>('/did/credentials/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async revokeVerifiableCredential(dto: RevokeVerifiableCredentialDTO): Promise<RevokeVerifiableCredentialResponse> {
+    return await request<RevokeVerifiableCredentialResponse>('/did/credentials/revoke', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getDidFederationOverview(): Promise<DidFederationOverviewResponse> {
+    return await request<DidFederationOverviewResponse>('/did/overview');
+  },
+
+  async getPatientVerifiableCredentials(patientId: string): Promise<PatientVerifiableCredentialsResponse> {
+    return await request<PatientVerifiableCredentialsResponse>(`/did/credentials/patient/${encodeURIComponent(patientId)}`);
   }
 };
 

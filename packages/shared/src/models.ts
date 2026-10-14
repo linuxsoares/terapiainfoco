@@ -28,7 +28,10 @@ import {
   PurgeReason,
   PurgeMethod,
   PurgeStatus,
-  PurgeProofVerificationStatus
+  PurgeProofVerificationStatus,
+  ClinicalDidMethod,
+  CredentialRevocationStatus,
+  DidVerificationStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1504,3 +1507,114 @@ export interface PurgeProofVerificationResult {
   message: string;
   verifiedAt: string;
 }
+
+/**
+ * 26. FEDERAÇÃO DE IDENTIDADES DESCENTRALIZADAS (DID) & CREDENCIAIS VERIFICÁVEIS (RFC-001 §3.5)
+ */
+
+export interface W3CVerificationMethod {
+  id: string; // Ex: did:terapiainfoco:crp-06-123456#key-1
+  type: string; // Ex: Ed25519VerificationKey2020 ou JsonWebKey2020
+  controller: string; // Ex: did:terapiainfoco:crp-06-123456
+  publicKeyMultibase?: string;
+  publicKeyJwk?: {
+    kty: string;
+    crv?: string;
+    x?: string;
+    y?: string;
+    alg?: string;
+    use?: string;
+  };
+}
+
+export interface W3CDidDocument {
+  '@context': string[];
+  id: string; // Ex: did:terapiainfoco:crp-06-123456 ou did:key:z...
+  verificationMethod: W3CVerificationMethod[];
+  authentication: string[];
+  assertionMethod: string[];
+  service?: Array<{
+    id: string;
+    type: string;
+    serviceEndpoint: string;
+  }>;
+  created: string;
+  updated?: string;
+  active: boolean;
+}
+
+export interface ClinicalCredentialSubject {
+  id: string; // DID do sujeito ou URN de Blind Index do paciente (urn:terapiainfoco:blind:...)
+  therapistCrp: string;
+  therapistName: string;
+  patientBlindIndex?: string;
+  patientNameMasked?: string;
+  clinicalSpecialty?: string;
+  referralReason?: string;
+  targetSpecialistType?: string; // PSIQUIATRA, NEUROLOGISTA, ASSISTENTE_SOCIAL, NUTRICIONISTA
+  cidOrCid11Category?: string; // Opcional / consentido
+  cfpResolutionCompliance: string; // Ex: "Resolução CFP nº 006/2019"
+  cfpComplianceAssertion?: string; // Alias para exibição em modais
+  additionalClaims?: Record<string, any>;
+}
+
+export interface W3CDataIntegrityProof {
+  type: string; // Ed25519Signature2020 ou DataIntegrityProof
+  created: string;
+  verificationMethod: string; // Ex: did:terapiainfoco:crp-06-123456#key-1
+  proofPurpose: string; // assertionMethod
+  proofValue: string; // Assinatura Base64URL
+  canonicalHash: string; // SHA-256 canônico JCS (RFC 8785)
+}
+
+export interface W3CVerifiableCredential {
+  '@context': string[];
+  id: string; // URN ou URI única: urn:uuid:...
+  type: string[]; // ['VerifiableCredential', 'ClinicalReferralCredential', ...]
+  issuer: string; // DID do emissor (did:terapiainfoco:crp-...)
+  issuanceDate: string;
+  expirationDate?: string;
+  credentialSubject: ClinicalCredentialSubject;
+  credentialStatus?: {
+    id: string;
+    type: string;
+    status: CredentialRevocationStatus;
+  };
+  proof: W3CDataIntegrityProof;
+  jwtRepresentation?: string;
+}
+
+export interface W3CVerifiablePresentation {
+  '@context': string[];
+  id: string;
+  type: string[];
+  verifiableCredential: W3CVerifiableCredential[];
+  holder: string; // DID do apresentador
+  proof: W3CDataIntegrityProof;
+}
+
+export interface DidFederationOverview {
+  totalFederatedTherapists: number;
+  totalIssuedCredentials: number;
+  totalVerifiedCredentials: number;
+  activeCredentialsCount: number;
+  revokedCredentialsCount: number;
+  supportedDidMethods: ClinicalDidMethod[];
+  recentCredentials: W3CVerifiableCredential[];
+}
+
+export interface VerifiableCredentialVerificationResult {
+  valid: boolean;
+  status: DidVerificationStatus;
+  credentialId?: string;
+  issuerDid?: string;
+  subjectDid?: string;
+  credentialType?: string[];
+  issuedAt?: string;
+  expiresAt?: string;
+  tamperingDetected: boolean;
+  revocationStatus: CredentialRevocationStatus;
+  message: string;
+  verifiedAt: string;
+}
+
