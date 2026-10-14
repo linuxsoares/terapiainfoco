@@ -1109,7 +1109,7 @@ terapiainfoco/
 | `feat/dark-web-credential-leak-monitor-containment` | Módulo de Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção de Incidentes (Threat Intelligence / k-Anonymity NIST SP 800-63B, LGPD Art. 46/48) | [PR #50](https://github.com/linuxsoares/terapiainfoco/pull/50) | Merged |
 | `feat/patient-granular-consent-smart-revocation` | Controle Granular de Consentimento do Paciente com Smart Revocation & Trilha Consent-Led (LGPD Art. 7/8/9/11/18 & CFP nº 006/2019) | [PR #51](https://github.com/linuxsoares/terapiainfoco/pull/51) | Merged |
 | `feat/clipboard-dlp-steganographic-watermark` | Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica & Prevenção de Exfiltração de Prontuários (LGPD Art. 46 & CFP nº 001/2009) | [PR #52](https://github.com/linuxsoares/terapiainfoco/pull/52) | Merged |
-| `feat/clinical-record-notary-blind-audit` | Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18) | PR #53 | **Em Aberto** |
+| `feat/clinical-record-notary-blind-audit` | Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18) | [PR #53](https://github.com/linuxsoares/terapiainfoco/pull/53) | **Em Aberto** |
 
 ---
 
