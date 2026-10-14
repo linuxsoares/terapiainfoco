@@ -19,6 +19,7 @@ export * from './webrtcSecurity';
 export * from './waf';
 export * from './networkResilience';
 export * from './mediaSharding';
+export * from './sessionRecovery';
 
 
 

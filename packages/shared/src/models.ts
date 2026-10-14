@@ -1075,6 +1075,63 @@ export interface MediaStorageMetrics {
   lastShreddedAt?: string;
 }
 
+/**
+ * 27. DETECTOR DE DESCONEXÃO ABRUPTA E RECUPERAÇÃO DE SESSÃO CLÍNICA (RFC-001 §3.2 & CFP 011/2018)
+ */
+export interface SessionStateSnapshot {
+  elapsedSeconds: number;
+  clinicalNotesDraft: string;   // Anotações imediatas da consulta em andamento
+  soapSubjectiveDraft?: string; // Rascunho de fala clínica ou quadrante S
+  micMuted: boolean;
+  camMuted: boolean;
+  activeParticipants: string[];
+  lastHeartbeatAt: string;
+  sequenceNumber: number;
+}
+
+export interface EncryptedSessionSnapshot {
+  ciphertextBase64: string;
+  ivHex: string;
+  authTagHex: string;
+  encryptedAt: string;
+  snapshotDigest: string; // Hash SHA-256 do snapshot original para verificação de integridade pós-decriptação
+}
+
+export interface ClinicalSessionRecoverySession {
+  sessionId: string;
+  appointmentId: string;
+  therapistId: string;
+  patientId?: string;
+  state: import('./enums').ClinicalSessionState;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  heartbeatCount: number;
+  disconnectionCause?: import('./enums').DisconnectionCause;
+  disconnectedAt?: string;
+  gracePeriodSeconds: number;    // Janela de tolerância ética (default: 600 segundos = 10 minutos)
+  gracePeriodExpiresAt?: string;
+  reconnectedAt?: string;
+  terminatedAt?: string;
+  reconnectionAttempts: number;
+  reconnectionTokenHash?: string; // Hash do token HMAC emitido
+  encryptedSnapshot?: EncryptedSessionSnapshot;
+  recoveryGrade?: import('./enums').SessionRecoveryGrade;
+  probatoryDigest?: string;       // Selo SHA-256 canônico WORM de queda/recuperação
+  auditWormId?: string;
+}
+
+export interface SessionRecoveryMetrics {
+  totalMonitoredSessions: number;
+  activeConnectedCount: number;
+  pendingReconnectCount: number;
+  successfullyReconnectedCount: number;
+  terminatedTimeoutCount: number;
+  avgReconnectionTimeSeconds: number;
+  recoverySuccessRate: number;    // Porcentagem (0 a 100)
+  lastEventAt?: string;
+}
+
+
 
 
 

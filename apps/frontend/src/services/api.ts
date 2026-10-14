@@ -140,7 +140,17 @@ import type {
   MediaSessionListResponse,
   CryptoShreddingResponse,
   SimulateMediaPipelineResponse,
-  MediaStorageMetrics
+  MediaStorageMetrics,
+  StartSessionMonitoringDTO,
+  SessionHeartbeatDTO,
+  TriggerSessionDisconnectionDTO,
+  AttemptSessionReconnectDTO,
+  CompleteClinicalSessionDTO,
+  SessionMonitoringResponse,
+  SessionReconnectResponse,
+  SessionRecoveryListResponse,
+  SessionRecoveryMetrics,
+  ClinicalSessionRecoverySession
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1325,6 +1335,49 @@ export const api = {
 
   async getMediaStorageMetrics(): Promise<{ success: boolean; metrics: MediaStorageMetrics }> {
     return await request<{ success: boolean; metrics: MediaStorageMetrics }>('/teleconsultation/media/metrics');
+  },
+
+  async startClinicalSessionMonitoring(dto: StartSessionMonitoringDTO): Promise<SessionMonitoringResponse> {
+    return await request<SessionMonitoringResponse>('/teleconsultation/session-recovery/start', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async sendSessionHeartbeat(dto: SessionHeartbeatDTO): Promise<{ success: boolean; session: ClinicalSessionRecoverySession }> {
+    return await request<{ success: boolean; session: ClinicalSessionRecoverySession }>('/teleconsultation/session-recovery/heartbeat', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async triggerSessionDisconnection(dto: TriggerSessionDisconnectionDTO): Promise<SessionMonitoringResponse> {
+    return await request<SessionMonitoringResponse>('/teleconsultation/session-recovery/disconnect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async attemptSessionReconnect(dto: AttemptSessionReconnectDTO): Promise<SessionReconnectResponse> {
+    return await request<SessionReconnectResponse>('/teleconsultation/session-recovery/reconnect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async completeClinicalSession(dto: CompleteClinicalSessionDTO): Promise<{ success: boolean; session: ClinicalSessionRecoverySession; message: string }> {
+    return await request<{ success: boolean; session: ClinicalSessionRecoverySession; message: string }>('/teleconsultation/session-recovery/complete', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getClinicalSessionsRecoveryList(): Promise<SessionRecoveryListResponse> {
+    return await request<SessionRecoveryListResponse>('/teleconsultation/session-recovery/sessions');
+  },
+
+  async getSessionRecoveryMetrics(): Promise<{ success: boolean; metrics: SessionRecoveryMetrics }> {
+    return await request<{ success: boolean; metrics: SessionRecoveryMetrics }>('/teleconsultation/session-recovery/metrics');
   }
 };
 

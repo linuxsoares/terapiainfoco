@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 22 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) | 366/366 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 23 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC §3.2 & CFP nº 011/2018) | 381/381 Testes Passando
 
 
 
@@ -871,6 +871,36 @@ terapiainfoco/
   - Modal pericial do Certificado Forense de Crypto-Shredding com carimbo cronológico, motivo legal fundamentado no CFP e LGPD, contagem de bytes/shards destruídos e selo probatório SHA-256.
   - Suporte completo e consistente a **Light Mode** e **Dark Mode**.
 
+### 34. Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC-001 §3.2 & Resolução CFP nº 011/2018)
+- [x] **Core Criptográfico (`packages/crypto/src/sessionRecovery.ts`):**
+  - **Reconnection Tokens com HMAC-SHA256 (`generateReconnectionToken`):** Emissão de tokens efêmeros assinados vinculados ao `sessionId`, `therapistId`, nonce aleatório e timestamp de expiração estrita.
+  - **Verificação com Proteção Anti-Timing (`verifyReconnectionToken`):** Validação segura de assinatura com `timingSafeEqual`, barreira contra Session Hijacking e enforcement da janela temporal de contingência.
+  - **Cifragem de Snapshot de Sessão (`encryptSessionSnapshot` & `decryptSessionSnapshot`):** Cifragem simétrica com `AES-256-GCM` do estado volátil da consulta (anotações imediatas, rascunhos SOAP, status de microfone/câmera e contador incremental de batimentos) e atestação com hash SHA-256 canônico (`snapshotDigest`).
+  - **Digest Probatório WORM (`calculateSessionEventDigest`):** Selagem matemática de eventos de queda e recuperação no ledger imutável.
+  - **Classificação Temporal de Recuperação (`evaluateRecoveryGrade`):** Classificação ética em `SEAMLESS` (<= 15s), `RECOVERED` (<= janela de tolerância) ou `EXPIRED_CONTINGENCY`.
+  - Suíte de 9 testes unitários dedicados passando (`packages/crypto/test/sessionRecovery.test.ts`).
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `AuditAction.CLINICAL_SESSION_MONITORED`, `AuditAction.CLINICAL_SESSION_DISCONNECTED`, `AuditAction.CLINICAL_SESSION_RECONNECTED`, `AuditAction.CLINICAL_SESSION_TIMEOUT_TERMINATED` e `AuditResourceType.CLINICAL_SESSION_RECOVERY`.
+  - Enums `ClinicalSessionState`, `DisconnectionCause` e `SessionRecoveryGrade`.
+  - Interfaces `SessionStateSnapshot`, `EncryptedSessionSnapshot`, `ClinicalSessionRecoverySession` e `SessionRecoveryMetrics`.
+  - DTOs `StartSessionMonitoringDTO`, `SessionHeartbeatDTO`, `TriggerSessionDisconnectionDTO`, `AttemptSessionReconnectDTO`, `CompleteClinicalSessionDTO`, `SessionMonitoringResponse`, `SessionReconnectResponse` e `SessionRecoveryListResponse`.
+- [x] **Backend Service & Rotas REST Hono (`apps/backend`):**
+  - `SessionRecoveryService`: Singleton gerenciando estado de sessões, persistência de snapshots cifrados, batimentos periódicos, emissão de tokens HMAC e dupla trilha de auditoria WORM em transições de estado.
+  - Endpoints REST protegidos por autenticação estrita e RBAC (`ADMIN` e `PSICOLOGO_TITULAR`) em `/api/teleconsultation/session-recovery/*`:
+    - `POST /start`: Inicia monitoramento contínuo de sessão com snapshot inicial e emissão do token HMAC.
+    - `POST /heartbeat`: Registra batimento e atualiza snapshot incremental em memória volátil.
+    - `POST /disconnect`: Simula ou detecta desconexão abrupta, acionando a janela ética de 10 min.
+    - `POST /reconnect`: Valida token HMAC, restaura snapshot cifrado e sela o grau de recuperação no WORM.
+    - `POST /complete`: Encerra a consulta normalmente.
+    - `GET /sessions` & `GET /sessions/:id`: Trilha forense de sessões monitoradas.
+    - `GET /metrics`: Agregados estatísticos em tempo real para observabilidade clínica.
+  - Suíte de 6 testes de integração passando (`apps/backend/test/sessionRecovery.test.ts`).
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 16 (*Detector de Desconexão Abrupta & Protocolo de Reconexão Segura*) integrado no `SecurityModule.tsx` com 4 KPIs em tempo real (Sessões Monitoradas, Sessões Ativas Online, Quedas em Janela de Tolerância e Taxa de Recuperação com Sucesso).
+  - Simulador interativo de teleconsulta com injeção de oscilação/drop de conexão em tempo real, indicador visual animado de pulso e contagem regressiva da janela de tolerância ética (10 minutos) conforme CFP nº 011/2018.
+  - Reassunção com 1 clique através de Reconnection Token HMAC com restauração instantânea do snapshot clínico em tela.
+  - Tabela forense de sessões monitoradas com suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -918,13 +948,14 @@ terapiainfoco/
 | `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | Merged |
 | `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | Merged |
 | `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | Merged |
-| `feat/media-recording-sharding-crypto-shredding` | Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (Crypto-Shredding) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018) | [PR #47](https://github.com/linuxsoares/terapiainfoco/pull/47) | **Em Aberto** |
+| `feat/media-recording-sharding-crypto-shredding` | Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (Crypto-Shredding) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018) | [PR #47](https://github.com/linuxsoares/terapiainfoco/pull/47) | Merged |
+| `feat/session-disconnection-detector-auto-reconnect` | Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (Tokens HMAC-SHA256, Snapshot Cifrado AES-256-GCM, Tolerância Ética de 10 min e Registro WORM - RFC-001 §3.2 & CFP 011/2018) | [PR #48](https://github.com/linuxsoares/terapiainfoco/pull/48) | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **366 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **381 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -935,7 +966,7 @@ Com o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de M
 - [x] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
 - [x] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica (MOS ITU-T G.107) e diretriz ética CFP 011/2018.
 - [x] **Módulo de Gravação em Repouso com Cifragem Assíncrona & Sharding de Mídia (RFC §3.2, §4.2):** Armazenamento em chunks encriptados com DEK transitória e destruição programada pós-transcrição.
-- [ ] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC §3.2).**
+- [x] **Detector de Desconexão Abrupta e Protocolo Automático de Reconexão Segura com Retenção de Estado da Sessão Clínica (RFC §3.2).**
 - [ ] **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (Zero-Knowledge Proofs - ZKP) sem Exposição de Metadados Clínicos.**
 
 ---
@@ -946,7 +977,7 @@ Com o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de M
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (366 testes)
+# 2. Executar suíte completa de testes (381 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
@@ -955,6 +986,7 @@ make dev
 # 4. Compilar pacotes para produção
 make build
 ```
+
 
 
 
