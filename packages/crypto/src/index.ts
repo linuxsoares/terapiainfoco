@@ -27,6 +27,7 @@ export * from './clipboardDlp';
 export * from './clinicalNotary';
 export * from './securePurge';
 export * from './clinicalDid';
+export * from './uebaEngine';
 
 
 

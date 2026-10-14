@@ -31,7 +31,11 @@ import {
   PurgeProofVerificationStatus,
   ClinicalDidMethod,
   CredentialRevocationStatus,
-  DidVerificationStatus
+  DidVerificationStatus,
+  UebaRiskLevel,
+  UebaAnomalyType,
+  UebaContainmentAction,
+  UebaContainmentStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1618,3 +1622,105 @@ export interface VerifiableCredentialVerificationResult {
   verifiedAt: string;
 }
 
+/**
+ * Evento individual de acesso clínico para análise comportamental UEBA (RFC-001 §4.4)
+ */
+export interface UebaAccessEvent {
+  eventId: string;
+  userId: string;
+  therapistCrp?: string;
+  userRole: string;
+  patientId?: string;
+  patientBlindIndex?: string;
+  resourceType: 'CLINICAL_RECORD' | 'SOAP_NOTE' | 'PATIENT_PROFILE' | 'TRANSCRIPT' | 'DOCUMENT' | 'BLIND_INDEX_SEARCH';
+  actionType: 'READ' | 'EXPORT' | 'BULK_READ' | 'SEARCH' | 'PRINT';
+  ipAddress: string;
+  userAgent: string;
+  locationCountry?: string;
+  timestamp: string; // ISO 8601
+  hourOfDay: number; // 0 a 23
+  dayOfWeek: number; // 0 (Domingo) a 6 (Sábado)
+  recordsAccessedCount: number;
+}
+
+/**
+ * Baseline comportamental aprendido para um usuário/terapeuta
+ */
+export interface UebaUserProfileBaseline {
+  userId: string;
+  therapistCrp?: string;
+  usualHoursStart: number; // Ex: 8 (08:00)
+  usualHoursEnd: number;   // Ex: 20 (20:00)
+  usualDaysOfWeek: number[]; // Ex: [1, 2, 3, 4, 5] (Segunda a Sexta)
+  avgEventsPerHour: number;
+  stdDevEventsPerHour: number;
+  maxEventsPerMinuteLimit: number;
+  usualIpPrefixes: string[]; // Ex: ["189.40.", "177.18."]
+  usualCountries: string[];  // Ex: ["BR"]
+  totalLearnedEvents: number;
+  lastUpdatedAt: string;
+  modelConfidenceScore: number; // 0 a 100%
+}
+
+/**
+ * Avaliação preditiva de risco gerada pelo motor UEBA
+ */
+export interface UebaRiskAssessment {
+  riskScore: number; // 0 a 100
+  riskLevel: UebaRiskLevel;
+  detectedAnomalies: Array<{
+    type: UebaAnomalyType;
+    description: string;
+    severityScore: number;
+    evidence: Record<string, any>;
+  }>;
+  recommendedAction: UebaContainmentAction;
+  evaluatedAt: string;
+  canonicalHash: string; // SHA-256 canônico JCS da avaliação
+}
+
+/**
+ * Incidente registrado na trilha de auditoria comportamental WORM
+ */
+export interface UebaAnomalyIncident {
+  incidentId: string;
+  userId: string;
+  therapistCrp?: string;
+  timestamp: string;
+  riskScore: number;
+  riskLevel: UebaRiskLevel;
+  anomalies: UebaAnomalyType[];
+  anomalyDetails: Array<{
+    type: UebaAnomalyType;
+    description: string;
+    severityScore: number;
+  }>;
+  triggerEvent: UebaAccessEvent;
+  containmentAction: UebaContainmentAction;
+  containmentStatus: UebaContainmentStatus;
+  proofSeal: string; // ueba_v1_<base64url>
+  wormAuditLogId?: string;
+  notes?: string;
+  releasedAt?: string;
+  releasedBy?: string;
+}
+
+/**
+ * Visão Geral Executiva de Governança Comportamental UEBA
+ */
+export interface UebaSystemOverview {
+  avgRiskScore: number;
+  totalEvaluatedEvents: number;
+  totalAnomaliesDetected: number;
+  criticalIncidentsBlocked: number;
+  activeContainedSessionsCount: number;
+  activeBaselinesCount: number;
+  riskDistribution: {
+    normal: number;
+    suspicious: number;
+    anomalous: number;
+    highRisk: number;
+    critical: number;
+  };
+  recentIncidents: UebaAnomalyIncident[];
+}

@@ -1806,6 +1806,80 @@ export interface PatientVerifiableCredentialsResponse {
   count: number;
 }
 
+/**
+ * DTOs para Análise Comportamental Preditiva (UEBA - RFC-001 §4.4 & LGPD Art. 46)
+ */
+export interface EvaluateAccessRiskDTO {
+  userId: string;
+  therapistCrp?: string;
+  userRole?: string;
+  patientId?: string;
+  patientBlindIndex?: string;
+  resourceType: 'CLINICAL_RECORD' | 'SOAP_NOTE' | 'PATIENT_PROFILE' | 'TRANSCRIPT' | 'DOCUMENT' | 'BLIND_INDEX_SEARCH';
+  actionType: 'READ' | 'EXPORT' | 'BULK_READ' | 'SEARCH' | 'PRINT';
+  ipAddress?: string;
+  userAgent?: string;
+  locationCountry?: string;
+  timestamp?: string;
+  recordsAccessedCount?: number;
+}
 
+export interface EvaluateAccessRiskResponse {
+  success: boolean;
+  assessment: import('./models').UebaRiskAssessment;
+  incidentCreated?: boolean;
+  incident?: import('./models').UebaAnomalyIncident;
+  containmentApplied?: boolean;
+  message: string;
+}
 
+export interface SimulateAccessPatternDTO {
+  scenario: 'NORMAL_ROUTINE' | 'BULK_SCRAPING' | 'OFF_HOURS_MIDNIGHT' | 'IMPOSSIBLE_GEO_JUMP' | 'BLIND_INDEX_DICTIONARY' | 'UNLINKED_PATIENT_ACCESS';
+  userId?: string;
+  therapistCrp?: string;
+  patientId?: string;
+}
 
+export interface SimulateAccessPatternResponse {
+  success: boolean;
+  scenario: string;
+  simulatedEvent: import('./models').UebaAccessEvent;
+  assessment: import('./models').UebaRiskAssessment;
+  incident?: import('./models').UebaAnomalyIncident;
+  message: string;
+}
+
+export interface ApplyUebaContainmentDTO {
+  incidentId?: string;
+  userId: string;
+  action: import('./enums').UebaContainmentAction;
+  reason: string;
+  adminNotes?: string;
+}
+
+export interface ApplyUebaContainmentResponse {
+  success: boolean;
+  userId: string;
+  action: import('./enums').UebaContainmentAction;
+  status: import('./enums').UebaContainmentStatus;
+  appliedAt: string;
+  message: string;
+}
+
+export interface UebaOverviewResponse {
+  success: boolean;
+  overview: import('./models').UebaSystemOverview;
+}
+
+export interface UebaIncidentsResponse {
+  success: boolean;
+  incidents: import('./models').UebaAnomalyIncident[];
+  total: number;
+}
+
+export interface GetUserUebaProfileResponse {
+  success: boolean;
+  baseline: import('./models').UebaUserProfileBaseline;
+  contained: boolean;
+  activeContainmentAction?: import('./enums').UebaContainmentAction;
+}
