@@ -540,7 +540,8 @@ export class GoogleMeetService {
         hasClientId: Boolean(config.google.clientId),
         hasClientSecret: Boolean(config.google.clientSecret),
         hasRefreshToken: Boolean(this.runtimeRefreshToken || config.google.refreshToken),
-        connectedEmail: this.connectedEmail || undefined
+        connectedEmail: this.connectedEmail || undefined,
+        redirectUri: config.google.redirectUri || undefined
       }
     };
   }

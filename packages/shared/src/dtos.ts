@@ -1199,6 +1199,7 @@ export interface GoogleMeetStatusResponse {
     hasClientSecret: boolean;
     hasRefreshToken: boolean;
     connectedEmail?: string;
+    redirectUri?: string;
   };
 }
 
