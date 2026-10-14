@@ -16,6 +16,7 @@ import { webhookRoute } from './routes/webhooks';
 import { siemRoute } from './routes/siem';
 import { kmsRoute } from './routes/kms';
 import { securityHardeningRoute } from './routes/securityHardening';
+import { webrtcSecurityRoute } from './routes/webrtcSecurity';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { getDb } from './db';
@@ -126,6 +127,7 @@ app.route('/api/webhooks', webhookRoute);
 app.route('/api/siem', siemRoute);
 app.route('/api/kms', kmsRoute);
 app.route('/api/security/hardening', securityHardeningRoute);
+app.route('/api/teleconsultation/webrtc', webrtcSecurityRoute);
 
 
 

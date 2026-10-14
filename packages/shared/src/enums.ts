@@ -108,7 +108,12 @@ export enum AuditAction {
   SECURITY_HEADERS_EVALUATED = 'SECURITY_HEADERS_EVALUATED',
   // Ações de Google Meet REST API v2 & Teleconferência
   MEET_SPACE_CREATED = 'MEET_SPACE_CREATED',
-  MEET_CONFERENCE_ENDED = 'MEET_CONFERENCE_ENDED'
+  MEET_CONFERENCE_ENDED = 'MEET_CONFERENCE_ENDED',
+  // Ações de Auditoria WebRTC & Fingerprint DTLS (RFC-001 §3.2, §4.4, §5.2 e CFP 011/2018)
+  WEBRTC_SESSION_INITIATED = 'WEBRTC_SESSION_INITIATED',
+  WEBRTC_FINGERPRINT_VERIFIED = 'WEBRTC_FINGERPRINT_VERIFIED',
+  WEBRTC_QUALITY_AUDITED = 'WEBRTC_QUALITY_AUDITED',
+  WEBRTC_SESSION_TERMINATED = 'WEBRTC_SESSION_TERMINATED'
 }
 
 export enum AuditResourceType {
@@ -126,7 +131,8 @@ export enum AuditResourceType {
   BENCHMARK = 'BENCHMARK',
   TELEMETRY = 'TELEMETRY',
   HONEYPOT = 'HONEYPOT',
-  MEET = 'MEET'
+  MEET = 'MEET',
+  WEBRTC_SESSION = 'WEBRTC_SESSION'
 }
 
 /**
@@ -226,4 +232,35 @@ export enum MeetAccessType {
   OPEN = 'OPEN',             // Qualquer participante com o link acessa diretamente
   TRUSTED = 'TRUSTED',       // Apenas organização ou convidados entram direto; outros batem na porta (sala de espera recomendada)
   RESTRICTED = 'RESTRICTED'  // Apenas pessoas explicitamente convidadas entram direto; outros batem na porta
+}
+
+/**
+ * Status de Verificação de Integridade DTLS Peer-to-Peer (RFC-001 §3.2 e CFP 011/2018)
+ */
+export enum WebRtcVerificationStatus {
+  UNVERIFIED = 'UNVERIFIED',             // Sessão iniciada, aguardando fingerprint do paciente
+  VERIFIED_MATCH = 'VERIFIED_MATCH',     // Fingerprints confirmados e Safety Numbers idênticos (Anti-MitM)
+  VERIFIED_MISMATCH = 'VERIFIED_MISMATCH', // Divergência de chaves detectada (possível interceptação)
+  FAILED = 'FAILED'                      // Falha de handshake ou expiração da sessão
+}
+
+/**
+ * Ciphersuites Criptográficas WebRTC / DTLS-SRTP
+ */
+export enum WebRtcCipherSuite {
+  AEAD_AES_256_GCM = 'AEAD_AES_256_GCM',
+  AEAD_AES_128_GCM = 'AEAD_AES_128_GCM',
+  SRTP_AEAD_AES_256_GCM = 'SRTP_AEAD_AES_256_GCM',
+  SRTP_AEAD_AES_128_GCM = 'SRTP_AEAD_AES_128_GCM',
+  SRTP_AES128_CM_HMAC_SHA1_80 = 'SRTP_AES128_CM_HMAC_SHA1_80'
+}
+
+/**
+ * Nível Criptográfico da Chamada de Telepsicologia
+ */
+export enum WebRtcSecurityGrade {
+  OPTIMAL = 'OPTIMAL',       // AES-256-GCM com PFS e Safety Numbers confirmados
+  ACCEPTABLE = 'ACCEPTABLE', // AES-128-GCM com PFS
+  LEGACY = 'LEGACY',         // AES-128-CM HMAC
+  INSECURE = 'INSECURE'      // Não verificado ou falha de integridade
 }

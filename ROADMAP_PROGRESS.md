@@ -1,8 +1,8 @@
 # 📋 TerapiaInFoco — Status de Implementação & Próximos Passos (RFC-001)
 
 > **Documento de Continuidade Operacional**  
-> **Data:** 13/10/2026  
-> **Status Geral:** 8 Módulos Principais + 18 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 Orquestrado (spaces.create) com Fluxo Completo OAuth 2.0 (Client ID/Secret) | 292/292 Testes Passando
+> **Data:** 14/10/2026  
+> **Status Geral:** 8 Módulos Principais + 19 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers | 309/309 Testes Passando
 
 
 
@@ -750,6 +750,32 @@ terapiainfoco/
 - [x] **Suíte de Testes Automatizados (`googleMeetService.test.ts`):**
   - 10 testes unitários e de integração cobrindo criação v2, knocking, fallbacks, encerramento de conferência e rotas REST (287 testes totais passando).
 
+### 30. Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)
+- [x] **Motor Criptográfico e Validador de Certificados DTLS (`packages/crypto/src/webrtcSecurity.ts`):**
+  - Normalização e validação estrita de fingerprints DTLS no formato RFC 8122 (`SHA-256 XX:XX:...`).
+  - Geração de Safety Numbers simétricos (Short Authentication String - SAS) de 4 blocos numéricos de 5 dígitos e SAS fonético legível no alfabeto internacional OTAN (ex: `Alfa-Delta-Whiskey-Echo`) para conferência verbal de integridade ponto-a-ponto, mitigando ataques Man-in-the-Middle (MitM) em teleconsultas.
+  - Avaliador de conformidade de ciphersuites WebRTC DTLS-SRTP (`evaluateCipherSuite`), assegurando suporte a `AEAD_AES_256_GCM` e `AEAD_AES_128_GCM` com Perfect Forward Secrecy (PFS).
+  - Gerador de Digest Probatório Canônico da Sessão (`calculateSessionProbataryDigest`) via SHA-256.
+  - Suíte de 11 testes unitários passando em `packages/crypto/test/webrtcSecurity.test.ts`.
+- [x] **Contratos Compartilhados (`packages/shared`):**
+  - Enums de auditoria WORM `WEBRTC_SESSION_INITIATED`, `WEBRTC_FINGERPRINT_VERIFIED`, `WEBRTC_QUALITY_AUDITED`, `WEBRTC_SESSION_TERMINATED` e recurso `WEBRTC_SESSION`.
+  - Enums `WebRtcVerificationStatus`, `WebRtcCipherSuite` e `WebRtcSecurityGrade`.
+  - Interfaces `WebRtcPeerFingerprint`, `WebRtcSessionAuditRecord`, `WebRtcSessionMetrics` e DTOs correspondentes.
+- [x] **Backend Service & API REST Hono (`apps/backend`):**
+  - `WebRtcSecurityService`: Gerenciamento do ciclo de vida da sessão WebRTC em memória, cálculo de Safety Numbers, médias móveis de telemetria e selagem final na trilha de auditoria WORM.
+  - Endpoints REST em `/api/teleconsultation/webrtc/*` protegidos por RBAC (`PSICOLOGO_TITULAR` e `ADMIN`):
+    - `POST /session/initiate`: Inicia auditoria da chamada e registra evento WORM.
+    - `POST /session/verify-fingerprint`: Valida fingerprint do paciente, gera Safety Numbers e sela o canal P2P.
+    - `POST /session/metrics`: Recebe telemetria contínua (jitter, packet loss, RTT e bytes cifrados).
+    - `POST /session/terminate`: Encerra a sessão, gera laudo probatório e sela na Hash-Chain WORM.
+    - `GET /sessions` e `GET /session/:sessionId`: Consulta de histórico e detalhes periciais.
+  - Suíte de 6 testes de integração passando em `apps/backend/test/webrtcSecurity.test.ts`.
+- [x] **Frontend Clínico & Gestão de Segurança (`apps/frontend`):**
+  - Card 12 (*Auditoria de Canais WebRTC & Sigilo Telepsicológico*) integrado no `SecurityModule.tsx` exibindo 4 KPIs em tempo real (Sessões Auditadas, Ciphersuite Padrão Ouro, Taxa de Verificação SAS e Sigilo CFP 011/2018).
+  - Simulador Interativo de Integridade P2P com formulário de teste de certificados DTLS, seleção de ciphersuite e selagem em tempo real.
+  - Tabela forense de sessões de telepsicologia com visualização dos Safety Numbers (numéricos e fonéticos), status de verificação P2P, selo probatório WORM e botão de encerramento auditado.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -794,20 +820,22 @@ terapiainfoco/
 | `feat/csp-hsts-honeypot-hardening` | Hardening de Segurança HTTP (CSP, HSTS & OWASP), Honeypot Anti-Probe/Reconnaissance com Quarentena e Registro WORM (RFC §4.4, §5.2) | [PR #40](https://github.com/linuxsoares/terapiainfoco/pull/40) | Merged |
 | `feat/google-meet-api-integration` | Integração Google Meet REST API v2 (spaces.create), Knocking TRUSTED, Fluxo OAuth 2.0 Web (Google Cloud Client ID/Secret, Code Exchange & Auto-Refresh) e Diagnósticos no Painel (RFC §3.2 & CFP 011/2018) | [PR #41](https://github.com/linuxsoares/terapiainfoco/pull/41) | Merged |
 | `fix/google-meet-rbac-routes` | Correção de RBAC em rotas Google Meet (/api/system/google-meet/*) para perfil PSICOLOGO_TITULAR e ajuste de mensagens | [PR #42](https://github.com/linuxsoares/terapiainfoco/pull/42) | Merged |
+| `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | PR #44 | **Em Aberto** |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **292 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **309 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
 - [x] **Dashboard Executivo de Auditoria & Conformidade Regulatória Consolidada (LGPD + CFP + ICP-Brasil + SOC2/ISO 27001):** Exportação consolidada de compliance package multi-normativo com fé pública e DPO Sign-Off.
 - [x] **Hardening de CSP (Content Security Policy) & Cabeçalhos HTTP HSTS/Honeypot na API REST Hono:** Blindagem adicional contra XSS, clickjacking e probes automatizados com quarentena em memória e trilha WORM.
 - [x] **Integração Oficial Google Meet REST API v2 (spaces.create & endActiveConference):** Emissão de links Meet via API v2 com política de knocking TRUSTED (sala de espera CFP) e diagnósticos.
-- [ ] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia.
+- [x] **Auditoria de Sessão WebRTC com Fingerprint de Segurança:** Verificação de integridade ponto-a-ponto dos canais de mídia para telepsicologia com DTLS-SRTP, Safety Numbers (SAS) e selo WORM.
 - [ ] **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação:** Inspeção heurística de payloads clínicos antes do desembrulho criptográfico.
+- [ ] **Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection):** Testes de degradação controlada de canais de voz e vídeo com avaliação de inteligibilidade clínica.
 
 ---
 
@@ -817,7 +845,7 @@ Com a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **H
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (287 testes)
+# 2. Executar suíte completa de testes (309 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

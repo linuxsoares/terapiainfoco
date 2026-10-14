@@ -15,6 +15,7 @@ export * from './benchmark';
 export * from './otlp';
 export * from './governance';
 export * from './securityHeaders';
+export * from './webrtcSecurity';
 
 
 

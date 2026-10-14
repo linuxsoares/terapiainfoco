@@ -1216,4 +1216,77 @@ export interface GoogleMeetTestResponse {
   message?: string;
 }
 
+/**
+ * 23. AUDITORIA DE SESSÃO WEBRTC & FINGERPRINT DE SEGURANÇA (RFC-001 §3.2, §4.4, §5.2 e CFP 011/2018)
+ */
+export interface InitiateWebRtcAuditSessionDTO {
+  appointmentId?: string;
+  patientId: string;
+  therapistFingerprint: string;
+  certificateAlgorithm?: string;
+  cipherSuite?: string;
+  dtlsVersion?: string;
+}
+
+export interface InitiateWebRtcAuditSessionResponse {
+  success: boolean;
+  session: import('./models').WebRtcSessionAuditRecord;
+  message: string;
+}
+
+export interface VerifyWebRtcFingerprintDTO {
+  sessionId: string;
+  patientFingerprint: string;
+  certificateAlgorithm?: string;
+  manuallyConfirmedByUser?: boolean;
+}
+
+export interface VerifyWebRtcFingerprintResponse {
+  success: boolean;
+  sessionId: string;
+  verificationStatus: import('./enums').WebRtcVerificationStatus;
+  safetyNumbers: string;
+  match: boolean;
+  securityGrade: import('./enums').WebRtcSecurityGrade;
+  probataryDigest: string;
+  message: string;
+}
+
+export interface RecordWebRtcMetricsDTO {
+  sessionId: string;
+  jitterMs: number;
+  packetLoss: number;
+  rttMs: number;
+  bytesSent: number;
+  bytesReceived: number;
+  cipherSuite?: string;
+}
+
+export interface RecordWebRtcMetricsResponse {
+  success: boolean;
+  sessionId: string;
+  averageJitterMs: number;
+  packetLossPercent: number;
+  totalBytesEncrypted: number;
+  message: string;
+}
+
+export interface TerminateWebRtcSessionDTO {
+  sessionId: string;
+  finalNotes?: string;
+}
+
+export interface TerminateWebRtcSessionResponse {
+  success: boolean;
+  session: import('./models').WebRtcSessionAuditRecord;
+  probataryDigest: string;
+  message: string;
+}
+
+export interface WebRtcSessionListResponse {
+  success: boolean;
+  count: number;
+  sessions: import('./models').WebRtcSessionAuditRecord[];
+}
+
 

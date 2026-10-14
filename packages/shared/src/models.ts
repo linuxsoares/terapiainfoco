@@ -865,6 +865,53 @@ export interface SecurityHardeningMetrics {
   banDurationMinutes: number;
 }
 
+/**
+ * 23. AUDITORIA DE SESSÃO WEBRTC & FINGERPRINT DE SEGURANÇA (RFC-001 §3.2, §4.4, §5.2 e CFP 011/2018)
+ */
+export interface WebRtcPeerFingerprint {
+  role: 'THERAPIST' | 'PATIENT';
+  fingerprint: string;            // SHA-256 XX:XX:XX... formato RFC 8122
+  certificateAlgorithm?: string;  // ex: ECDSA P-256, RSA 2048
+  sdpHash?: string;               // Hash SHA-256 do SDP Session Description
+  clientReportedAt?: string;
+}
+
+export interface WebRtcSessionAuditRecord {
+  sessionId: string;
+  appointmentId?: string;
+  therapistId: string;
+  patientId: string;
+  startedAt: string;
+  endedAt?: string;
+  therapistFingerprint: WebRtcPeerFingerprint;
+  patientFingerprint?: WebRtcPeerFingerprint;
+  safetyNumbers: string;          // Ex: "48291 30194 82015 67123" (SAS gerado do par ordenado)
+  phoneticSas?: string;           // Ex: "alpha-delta-whiskey-echo"
+  verificationStatus: import('./enums').WebRtcVerificationStatus;
+  securityGrade: import('./enums').WebRtcSecurityGrade;
+  cipherSuite: string;            // ex: SRTP_AEAD_AES_256_GCM
+  dtlsVersion: string;            // ex: DTLS 1.3 ou DTLS 1.2
+  verifiedAt?: string;
+  verifiedBy?: string;
+  averageJitterMs?: number;
+  packetLossPercent?: number;
+  roundTripTimeMs?: number;
+  bytesEncrypted?: number;
+  probataryDigest: string;        // SHA-256 canônico da sessão selada
+  tamperEvidentSeal: string;      // Hash WORM encadeado
+}
+
+export interface WebRtcSessionMetrics {
+  sessionId: string;
+  timestamp: string;
+  jitterMs: number;
+  packetLoss: number;
+  rttMs: number;
+  bytesSent: number;
+  bytesReceived: number;
+  cipherSuite: string;
+}
+
 
 
 
