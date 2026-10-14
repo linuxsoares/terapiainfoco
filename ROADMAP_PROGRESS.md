@@ -1143,7 +1143,7 @@ terapiainfoco/
 | `feat/clinical-record-notary-blind-audit` | Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18) | [PR #53](https://github.com/linuxsoares/terapiainfoco/pull/53) | Merged |
 | `fix/google-oauth-redirect-uri-detection` | Auto-resolução dinâmica de redirect_uri OAuth 2.0 (Railway/Proxy) e exibição com cópia no painel | [PR #54](https://github.com/linuxsoares/terapiainfoco/pull/54) | Merged |
 | `fix/google-oauth-redirect-uri-fallback-railway` | Remoção do default localhost estático no config e resolução unificada de proxy reverso em status/authorize/callback | [PR #55](https://github.com/linuxsoares/terapiainfoco/pull/55) | Merged |
-| `feat/secure-data-purge-crypto-proof` | Mecanismo de Descarte e Expurgamento Seguro de Dados Históricos por Fim de Ciclo de Tratamento com Prova Criptográfica de Destruição (LGPD Art. 16, CFP nº 001/2009) | PR #57 | Em Aberto |
+| `feat/secure-data-purge-crypto-proof` | Mecanismo de Descarte e Expurgamento Seguro de Dados Históricos por Fim de Ciclo de Tratamento com Prova Criptográfica de Destruição (LGPD Art. 16, CFP nº 001/2009) | [PR #57](https://github.com/linuxsoares/terapiainfoco/pull/57) | Em Aberto |
 
 ---
 
