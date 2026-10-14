@@ -880,7 +880,7 @@ terapiainfoco/
 | `fix/google-meet-rbac-routes` | Correção de RBAC em rotas Google Meet (/api/system/google-meet/*) para perfil PSICOLOGO_TITULAR e ajuste de mensagens | [PR #42](https://github.com/linuxsoares/terapiainfoco/pull/42) | Merged |
 | `feat/webrtc-session-fingerprint-audit` | Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP RFC 8122), Safety Numbers (SAS Anti-MitM) e Selagem WORM (RFC §3.2, CFP 011/2018) | [PR #44](https://github.com/linuxsoares/terapiainfoco/pull/44) | Merged |
 | `feat/application-waf-sqli-xss-detection` | WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação com Inspeção Heurística de Payloads Clínicos antes do Desembrulho Criptográfico, Bloqueio Ativo e Registro WORM (RFC-001 §4.4, §5.2 e OWASP Top 10) | [PR #45](https://github.com/linuxsoares/terapiainfoco/pull/45) | Merged |
-| `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | **Pendente de Abertura / Em Revisão** |
+| `feat/teleconsultation-network-resilience-simulation` | Simulador de Resiliência de Redes Instáveis para Teleconsulta (Jitter & Packet Loss Injection), Avaliação de Inteligibilidade Clínica (MOS ITU-T G.107 / E-Model), Recomendação Ética de Contingência (CFP 011/2018) e Registro WORM | [PR #46](https://github.com/linuxsoares/terapiainfoco/pull/46) | **Em Aberto** |
 
 ---
 
