@@ -255,7 +255,15 @@ export enum AuditAction {
   PQC_HYBRID_SIGNED = 'PQC_HYBRID_SIGNED',
   PQC_HYBRID_SIGNATURE_VERIFIED = 'PQC_HYBRID_SIGNATURE_VERIFIED',
   PQC_QUANTUM_ATTACK_SIMULATED = 'PQC_QUANTUM_ATTACK_SIMULATED',
-  PQC_SEAL_VERIFIED = 'PQC_SEAL_VERIFIED'
+  PQC_SEAL_VERIFIED = 'PQC_SEAL_VERIFIED',
+  // Ações de Assinatura Cega Chaumiana & Votação Ética Anônima (RFC 9474 & Resolução CFP nº 001/2009)
+  BLIND_SIGNATURE_KEYPAIR_GENERATED = 'BLIND_SIGNATURE_KEYPAIR_GENERATED',
+  BLIND_SIGNATURE_BLINDED = 'BLIND_SIGNATURE_BLINDED',
+  BLIND_SIGNATURE_BLIND_SIGNED = 'BLIND_SIGNATURE_BLIND_SIGNED',
+  BLIND_SIGNATURE_UNBLINDED = 'BLIND_SIGNATURE_UNBLINDED',
+  BLIND_SIGNATURE_TOKEN_REDEEMED = 'BLIND_SIGNATURE_TOKEN_REDEEMED',
+  BLIND_SIGNATURE_VERIFIED = 'BLIND_SIGNATURE_VERIFIED',
+  BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED = 'BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED'
 }
 
 export enum AuditResourceType {
@@ -299,7 +307,8 @@ export enum AuditResourceType {
   SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD',
   TLS_PINNING_GUARD = 'TLS_PINNING_GUARD',
   DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE',
-  PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE'
+  PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE',
+  BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE'
 }
 
 /**
@@ -1245,6 +1254,48 @@ export enum PqcDefenseOutcome {
   CRACKED_CLASSICAL_ONLY = 'CRACKED_CLASSICAL_ONLY',         // O modo clássico falhou isoladamente (demonstrando a vulnerabilidade)
   ATTACK_REPELLED = 'ATTACK_REPELLED'                        // Tentativa de assinatura forjada rejeitada pela verificação dual
 }
+
+/**
+ * Esquemas Criptográficos de Assinatura Cega (RFC 9474 & Chaum 1982)
+ */
+export enum BlindSignatureScheme {
+  RSA_BLIND_2048 = 'RSA_BLIND_2048',                         // RSA Chaumian com módulo N de 2048 bits e expoente público e=65537
+  RSA_BLIND_4096 = 'RSA_BLIND_4096',                         // RSA Chaumian com módulo N de 4096 bits (Alta Segurança Institucional)
+  CHAUMIAN_ECDSA = 'CHAUMIAN_ECDSA'                          // Assinatura cega em curva elíptica P-256
+}
+
+/**
+ * Finalidade Clínica e Ética do Token Cego
+ */
+export enum BlindSignaturePurpose {
+  ETHICAL_COMMITTEE_BALLOT = 'ETHICAL_COMMITTEE_BALLOT',     // Cédula anônima para deliberação disciplinar/ética de psicólogos
+  PSYCHIATRIC_REFERRAL_VOUCHER = 'PSYCHIATRIC_REFERRAL_VOUCHER', // Encaminhamento desvinculado para psiquiatria/CAPS sem expor prontuário
+  SENSITIVE_DIGITAL_PRESCRIPTION = 'SENSITIVE_DIGITAL_PRESCRIPTION', // Prescrição de apoio terapêutico e substâncias controladas
+  WHISTLEBLOWER_ETHICAL_REPORT = 'WHISTLEBLOWER_ETHICAL_REPORT' // Canal de denúncia de violação de sigilo profissional com fé pública
+}
+
+/**
+ * Status do Ciclo de Vida do Token / Cédula Cega
+ */
+export enum BlindSignatureStatus {
+  BLINDED = 'BLINDED',                                       // Mensagem mascarada com fator de cegamento r
+  SIGNED_BLIND = 'SIGNED_BLIND',                             // Assinada pela autoridade certificadora sem ver o conteúdo
+  UNBLINDED = 'UNBLINDED',                                   // Descegada pelo cliente obtendo assinatura válida da autoridade
+  REDEEMED_ANONYMOUSLY = 'REDEEMED_ANONYMOUSLY',             // Resgatada/Votada na urna sem expor a identidade do requisitante
+  REVOKED = 'REVOKED',                                       // Revogada por autoridade sanitária ou cancelamento
+  INVALID = 'INVALID'                                        // Assinatura forjada ou adulterada detectada
+}
+
+/**
+ * Opções de Voto do Colegiado Ético Clínico
+ */
+export enum BlindBallotDecision {
+  FAVORABLE_COMPLIANT = 'FAVORABLE_COMPLIANT',               // Conduta em conformidade com o Código de Ética Profissional (CFP)
+  UNFAVORABLE_SANCTION = 'UNFAVORABLE_SANCTION',             // Aplicação de advertência/censura formal por infração
+  ABSTENTION = 'ABSTENTION',                                 // Abstenção motivada por impedimento ou foro íntimo
+  REVISION_REQUESTED = 'REVISION_REQUESTED'                  // Solicitação de diligência adicional ou nova perícia psicológica
+}
+
 
 
 

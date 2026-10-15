@@ -2740,6 +2740,119 @@ export interface PqcOverviewResponse {
   overview: import('./models').PqcOverview;
 }
 
+// ============================================================================
+// DTOs e Responses: Assinatura Cega Chaumiana (RFC 9474 & Resolução CFP nº 001/2009)
+// ============================================================================
+
+export interface GenerateBlindAuthorityKeyDTO {
+  scheme?: import('./enums').BlindSignatureScheme;
+  authorityName?: string;
+  authorityRole?: string;
+}
+
+export interface GenerateBlindAuthorityKeyResponse {
+  success: boolean;
+  publicKey: import('./models').BlindSignaturePublicKey;
+  message: string;
+}
+
+export interface BlindMessageDTO {
+  originalMessage: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+  authorityKeyId?: string;
+}
+
+export interface BlindMessageResponse {
+  success: boolean;
+  blindedMessage: import('./models').BlindSignatureBlindedMessage;
+  message: string;
+}
+
+export interface SignBlindMessageDTO {
+  blindedMessageHex: string;
+  authorityKeyId: string;
+  therapistCrp?: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+}
+
+export interface SignBlindMessageResponse {
+  success: boolean;
+  signedResponse: import('./models').BlindSignatureSignedResponse;
+  message: string;
+}
+
+export interface UnblindSignatureDTO {
+  blindSignatureHex: string;
+  blindingFactorHex: string;
+  originalMessage: string;
+  authorityKeyId: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+}
+
+export interface UnblindSignatureResponse {
+  success: boolean;
+  unblindedToken: import('./models').BlindSignatureUnblindedToken;
+  message: string;
+}
+
+export interface RedeemOrCastBallotDTO {
+  unblindedToken: import('./models').BlindSignatureUnblindedToken;
+  ballotCaseNumber?: string;
+  ballotCaseTitle?: string;
+  decision?: import('./enums').BlindBallotDecision;
+  voucherSpecialty?: string;
+  voucherUrgency?: 'NORMAL' | 'URGENTE' | 'EMERGENCIAL_CAPS';
+  serviceCategory?: string;
+}
+
+export interface RedeemOrCastBallotResponse {
+  success: boolean;
+  redemption: import('./models').BlindSignatureRedemptionResult;
+  message: string;
+}
+
+export interface VerifyBlindTokenDTO {
+  unblindedSignatureHex: string;
+  originalMessage: string;
+  authorityKeyId: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+}
+
+export interface VerifyBlindTokenResponse {
+  success: boolean;
+  verification: import('./models').BlindSignatureVerificationResult;
+  message: string;
+}
+
+export interface SimulateDoubleSpendDTO {
+  unblindedToken: import('./models').BlindSignatureUnblindedToken;
+}
+
+export interface SimulateDoubleSpendResponse {
+  success: boolean;
+  blocked: boolean;
+  nullifierHash: string;
+  message: string;
+}
+
+export interface VerifyBlindSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyBlindSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').BlindSignatureProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface BlindSignaturesOverviewResponse {
+  success: boolean;
+  overview: import('./models').BlindSignatureOverview;
+}
+
+
 
 
 

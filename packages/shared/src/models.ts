@@ -2854,6 +2854,144 @@ export interface PqcOverview {
   systemHealth: 'QUANTUM_SAFE' | 'TRANSITIONING' | 'AT_RISK';
 }
 
+// ============================================================================
+// Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol)
+// LGPD Art. 13 & Resolução CFP nº 001/2009 & RFC 9474
+// ============================================================================
+
+export interface BlindSignaturePublicKey {
+  keyId: string;
+  scheme: import('./enums').BlindSignatureScheme;
+  modulusHex: string;               // N (Módulo RSA em hexadecimal)
+  publicExponentHex: string;         // e (Expoente público em hexadecimal, ex: 010001 = 65537)
+  authorityName: string;            // Ex: "Comitê de Ética e Fiscalização do CRP-06 / TerapiaInFoco"
+  authorityRole: string;            // Ex: "AUTORIDADE_EMISSORA_COLEGIADO"
+  fingerprint: string;              // SHA-256 da chave pública
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface BlindSignaturePrivateKey {
+  keyId: string;
+  privateExponentHex: string;        // d (Expoente privado em hexadecimal - retido no enclave)
+}
+
+export interface BlindSignatureKeyPair {
+  publicKey: BlindSignaturePublicKey;
+  privateKey?: BlindSignaturePrivateKey;
+}
+
+export interface BlindSignatureBlindedMessage {
+  blindedMessageHex: string;        // m' = (h * r^e) mod N
+  blindingFactorHex?: string;       // r (segredo retido no cliente para descegamento)
+  messageDigestHex: string;         // h = H(m)
+  originalMessage: string;          // m (conteúdo original: voto, voucher, prescrição)
+  purpose: import('./enums').BlindSignaturePurpose;
+  authorityKeyId: string;
+  scheme: import('./enums').BlindSignatureScheme;
+  createdAt: string;
+}
+
+export interface BlindSignatureSignedResponse {
+  blindSignatureHex: string;        // s' = (m')^d mod N
+  authorityKeyId: string;
+  scheme: import('./enums').BlindSignatureScheme;
+  signedAt: string;
+}
+
+export interface BlindSignatureUnblindedToken {
+  tokenId: string;
+  originalMessage: string;          // m
+  messageDigestHex: string;         // h
+  unblindedSignatureHex: string;    // s = (s' * r^-1) mod N
+  nullifierHash: string;            // H(token || s) - impede double-spending
+  purpose: import('./enums').BlindSignaturePurpose;
+  authorityKeyId: string;
+  scheme: import('./enums').BlindSignatureScheme;
+  status: import('./enums').BlindSignatureStatus;
+  issuedAt: string;
+}
+
+export interface BlindSignatureProofSeal {
+  sealToken: string;
+  canonicalDigest: string;          // Digest SHA-256 canônico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura HMAC-SHA256 WORM
+  issuedAt: string;
+  operationId: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+  scheme: import('./enums').BlindSignatureScheme;
+}
+
+export interface BlindSignatureVerificationResult {
+  valid: boolean;
+  mathematicalProofValid: boolean;  // s^e mod N == h mod N
+  authorityVerified: boolean;
+  doubleSpendDetected: boolean;
+  nullifier: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+  scheme: import('./enums').BlindSignatureScheme;
+  publicFaithAttestation: string;   // Atestado formal de fé pública
+  unlinkedClientGuaranteed: boolean; // 100% matematicamente desvinculado
+  proofSeal: BlindSignatureProofSeal;
+  verifiedAt: string;
+  message: string;
+}
+
+export interface BlindSignatureBallotItem {
+  id: string;
+  caseNumber: string;               // Ex: "PROCESSO-DISCIPLINAR-CFP-2026-441"
+  caseTitle: string;
+  decision: import('./enums').BlindBallotDecision;
+  unblindedSignatureHex: string;
+  nullifierHash: string;
+  verifiedPublicFaith: boolean;
+  castAt: string;
+}
+
+export interface BlindSignatureReferralVoucher {
+  id: string;
+  voucherCode: string;              // Código público seguro para farmácia / CAPS
+  medicalSpecialty: string;         // Ex: "Psiquiatria da Infância e Adolescência"
+  urgencyLevel: 'NORMAL' | 'URGENTE' | 'EMERGENCIAL_CAPS';
+  serviceCategory: string;          // Ex: "Prescrição Digital Controlada / Parecer Clínico"
+  unblindedSignatureHex: string;
+  nullifierHash: string;
+  redeemed: boolean;
+  issuedAt: string;
+  redeemedAt?: string;
+}
+
+export interface BlindSignatureRedemptionResult {
+  success: boolean;
+  tokenId: string;
+  nullifierHash: string;
+  purpose: import('./enums').BlindSignaturePurpose;
+  recordedItem: BlindSignatureBallotItem | BlindSignatureReferralVoucher;
+  proofSeal: BlindSignatureProofSeal;
+  message: string;
+}
+
+export interface BlindSignatureMetrics {
+  totalBlindedTokens: number;
+  totalSignedTokens: number;
+  totalUnblindedTokens: number;
+  totalRedeemedTokens: number;
+  totalDoubleSpendBlocked: number;
+  ethicalBallotsCount: number;
+  vouchersRedeemedCount: number;
+  averageOperationLatencyMs: number;
+}
+
+export interface BlindSignatureOverview {
+  metrics: BlindSignatureMetrics;
+  activeAuthorityKey: BlindSignaturePublicKey;
+  availableKeys: BlindSignaturePublicKey[];
+  recentBallots: BlindSignatureBallotItem[];
+  recentVouchers: BlindSignatureReferralVoucher[];
+  systemHealth: 'OPERATIONAL' | 'DEGRADED' | 'WARNING';
+}
+
+
 
 
 
