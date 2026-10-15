@@ -268,7 +268,16 @@ import type {
   VerifyHttpGuardSealDTO,
   VerifyHttpGuardSealResponse,
   HttpGuardOverviewResponse,
-  HttpGuardIncident
+  HttpGuardIncident,
+  CreateHomomorphicCohortDTO,
+  DecryptCohortAggregationDTO,
+  VerifyHomomorphicProofSealDTO,
+  HomomorphicOverviewResponse,
+  HomomorphicCohortResponse,
+  HomomorphicDecryptResponse,
+  HomomorphicVerifyProofResponse,
+  Cid11Item,
+  PaillierPublicKey
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1956,8 +1965,53 @@ export const api = {
 
   async getHttpGuardIncidents(): Promise<{ success: boolean; incidents: HttpGuardIncident[] }> {
     return await request<{ success: boolean; incidents: HttpGuardIncident[] }>('/http-guard/incidents');
+  },
+
+  // 38. Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) & Agregação CID-11 (LGPD Art. 13 & CFP 001/2009)
+  async getHomomorphicOverview(): Promise<HomomorphicOverviewResponse> {
+    return await request<HomomorphicOverviewResponse>('/homomorphic/overview');
+  },
+
+  async getHomomorphicCatalog(): Promise<{ success: boolean; catalog: Cid11Item[] }> {
+    return await request<{ success: boolean; catalog: Cid11Item[] }>('/homomorphic/catalog');
+  },
+
+  async getHomomorphicPublicKey(): Promise<{ success: boolean; publicKey: PaillierPublicKey }> {
+    return await request<{ success: boolean; publicKey: PaillierPublicKey }>('/homomorphic/public-key');
+  },
+
+  async createHomomorphicCohort(dto: CreateHomomorphicCohortDTO): Promise<HomomorphicCohortResponse> {
+    return await request<HomomorphicCohortResponse>('/homomorphic/cohorts', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async addPatientToHomomorphicCohort(
+    cohortId: string,
+    data: { diagnosesCidCodes?: string[]; encryptedVector?: any }
+  ): Promise<HomomorphicCohortResponse> {
+    return await request<HomomorphicCohortResponse>(`/homomorphic/cohorts/${encodeURIComponent(cohortId)}/patients`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async decryptHomomorphicCohort(dto: DecryptCohortAggregationDTO): Promise<HomomorphicDecryptResponse> {
+    return await request<HomomorphicDecryptResponse>('/homomorphic/cohorts/decrypt', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyHomomorphicSeal(dto: VerifyHomomorphicProofSealDTO): Promise<HomomorphicVerifyProofResponse> {
+    return await request<HomomorphicVerifyProofResponse>('/homomorphic/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 

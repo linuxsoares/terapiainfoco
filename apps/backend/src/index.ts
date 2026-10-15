@@ -35,6 +35,7 @@ import { bruteForcePowRoute } from './routes/bruteForcePow';
 import { antiAutomationTarpitRoute } from './routes/antiAutomationTarpit';
 import { clinicalSessionTsaRoutes } from './routes/clinicalSessionTsa';
 import { httpGuardRoutes } from './routes/httpGuard';
+import { homomorphicRoutes } from './routes/homomorphic';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -166,6 +167,8 @@ app.route('/api/brute-force-pow', bruteForcePowRoute);
 app.route('/api/anti-automation', antiAutomationTarpitRoute);
 app.route('/api/tsa-notary', clinicalSessionTsaRoutes);
 app.route('/api/http-guard', httpGuardRoutes);
+app.route('/api/homomorphic', homomorphicRoutes);
+
 
 
 

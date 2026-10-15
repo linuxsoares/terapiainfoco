@@ -48,7 +48,10 @@ import {
   TimestampVerificationStatus,
   HppAttackCategory,
   HppDefensePolicy,
-  HppSeverityLevel
+  HppSeverityLevel,
+  Cid11Category,
+  HomomorphicSecurityLevel,
+  HomomorphicCohortStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2213,6 +2216,117 @@ export interface HttpGuardOverview {
     description: string;
   }>;
 }
+
+/**
+ * 36. PROTOCOLO DE CIFRAGEM HOMOMÓRFICA PARCIAL (PHE - PAILLIER CRYPTOSYSTEM)
+ * (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)
+ */
+
+export interface PaillierPublicKey {
+  n: string;
+  g: string;
+  n2: string;
+  bitLength: number;
+  keyId: string;
+  createdAt: string;
+}
+
+export interface PaillierPrivateKey {
+  lambda: string;
+  mu: string;
+  p?: string;
+  q?: string;
+  n: string;
+  keyId: string;
+}
+
+export interface PaillierKeyPair {
+  publicKey: PaillierPublicKey;
+  privateKey: PaillierPrivateKey;
+}
+
+export interface PaillierCiphertext {
+  ciphertext: string;
+  randomizerHash?: string;
+  timestamp: string;
+}
+
+export interface Cid11Item {
+  code: string;
+  name: string;
+  category: Cid11Category;
+  description: string;
+  icd10Equivalent?: string;
+}
+
+export interface PatientEncryptedCidVector {
+  patientBlindIndex: string;
+  encryptedValues: Record<string, string>; // cidCode -> ciphertext hex/decimal
+  proofOfZeroOrOne: Record<string, string>; // Prova ZK simplificada de pertinência {0, 1}
+  encryptedAt: string;
+}
+
+export interface HomomorphicCohortAggregation {
+  cohortId: string;
+  cohortName: string;
+  totalPatients: number;
+  aggregatedCiphertexts: Record<string, string>; // cidCode -> aggregated ciphertext sum
+  status: HomomorphicCohortStatus;
+  publicKeyId: string;
+  createdAt: string;
+  aggregatedAt?: string;
+  decryptedAt?: string;
+  proofSealToken?: string;
+}
+
+export interface HomomorphicDecryptedResult {
+  cohortId: string;
+  totalPatients: number;
+  results: Array<{
+    code: string;
+    name: string;
+    category: Cid11Category;
+    count: number;
+    prevalencePercentage: number;
+  }>;
+  decryptedAt: string;
+  authorizedBy: string;
+  ethicsApprovalCode: string;
+}
+
+export interface HomomorphicProofSeal {
+  token: string;
+  cohortId: string;
+  canonicalDigest: string;
+  hmacSignature: string;
+  timestamp: string;
+  totalRecords: number;
+  publicKeyId: string;
+  algorithm: string;
+}
+
+export interface HomomorphicMetrics {
+  totalCohorts: number;
+  totalPatientsHomomorphicallyProtected: number;
+  totalCiphertextOperations: number;
+  zeroDecryptionsWithoutAuth: number;
+  activeSecurityLevel: HomomorphicSecurityLevel;
+  proofSealsVerified: number;
+}
+
+export interface HomomorphicOverview {
+  metrics: HomomorphicMetrics;
+  cohorts: HomomorphicCohortAggregation[];
+  activePublicKey: PaillierPublicKey;
+  availableCidCatalog: Cid11Item[];
+  recentAudits: Array<{
+    id: string;
+    action: string;
+    timestamp: string;
+    details: string;
+  }>;
+}
+
 
 
 
