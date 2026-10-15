@@ -46,6 +46,7 @@ import { blindSignaturesRouter } from './routes/blindSignatures';
 import { sideChannelRouter } from './routes/sideChannel';
 import { antiReplayRouter } from './routes/antiReplay';
 import { visualWatermarkRoutes } from './routes/visualWatermark';
+import { ephemeralTokenRouter } from './routes/ephemeralToken';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -188,6 +189,7 @@ app.route('/api/blind-signatures', blindSignaturesRouter);
 app.route('/api/side-channel', sideChannelRouter);
 app.route('/api/anti-replay', antiReplayRouter);
 app.route('/api/visual-watermark', visualWatermarkRoutes);
+app.route('/api/ephemeral-tokens', ephemeralTokenRouter);
 
 
 

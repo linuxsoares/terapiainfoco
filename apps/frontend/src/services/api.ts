@@ -395,7 +395,20 @@ import type {
   UpdateWatermarkStrengthResponse,
   VerifyVisualWatermarkSealDTO,
   VerifyVisualWatermarkSealResponse,
-  VisualWatermarkOverviewResponse
+  VisualWatermarkOverviewResponse,
+  IssueEphemeralTokenDTO,
+  IssueEphemeralTokenResponse,
+  ConsumeEphemeralTokenDTO,
+  ConsumeEphemeralTokenResponse,
+  RevokeEphemeralTokenDTO,
+  RevokeEphemeralTokenResponse,
+  SimulateTokenIntrusionDTO,
+  SimulateTokenIntrusionResponse,
+  UpdateEphemeralPolicyDTO,
+  UpdateEphemeralPolicyResponse,
+  VerifyEphemeralTokenSealDTO,
+  VerifyEphemeralTokenSealResponse,
+  EphemeralTokenOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2565,6 +2578,53 @@ export const api = {
 
   async verifyVisualWatermarkSeal(dto: VerifyVisualWatermarkSealDTO): Promise<VerifyVisualWatermarkSealResponse> {
     return await request<VerifyVisualWatermarkSealResponse>('/visual-watermark/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 43. Tokens Efêmeros de Teleconsulta e Auto-Revogação (RFC 7519, RFC 7009 & LGPD Art. 46)
+  async getEphemeralTokensOverview(): Promise<EphemeralTokenOverviewResponse> {
+    return await request<EphemeralTokenOverviewResponse>('/ephemeral-tokens/overview');
+  },
+
+  async issueEphemeralToken(dto: IssueEphemeralTokenDTO): Promise<IssueEphemeralTokenResponse> {
+    return await request<IssueEphemeralTokenResponse>('/ephemeral-tokens/issue', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async consumeEphemeralToken(dto: ConsumeEphemeralTokenDTO): Promise<ConsumeEphemeralTokenResponse> {
+    return await request<ConsumeEphemeralTokenResponse>('/ephemeral-tokens/consume', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async revokeEphemeralToken(dto: RevokeEphemeralTokenDTO): Promise<RevokeEphemeralTokenResponse> {
+    return await request<RevokeEphemeralTokenResponse>('/ephemeral-tokens/revoke', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateTokenIntrusion(dto: SimulateTokenIntrusionDTO): Promise<SimulateTokenIntrusionResponse> {
+    return await request<SimulateTokenIntrusionResponse>('/ephemeral-tokens/simulate-intrusion', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateEphemeralPolicy(dto: UpdateEphemeralPolicyDTO): Promise<UpdateEphemeralPolicyResponse> {
+    return await request<UpdateEphemeralPolicyResponse>('/ephemeral-tokens/update-policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyEphemeralTokenSeal(dto: VerifyEphemeralTokenSealDTO): Promise<VerifyEphemeralTokenSealResponse> {
+    return await request<VerifyEphemeralTokenSealResponse>('/ephemeral-tokens/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

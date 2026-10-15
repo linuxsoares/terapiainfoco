@@ -45,6 +45,7 @@ export * from './blindSignaturesCrypto';
 export * from './sideChannelShield';
 export * from './antiReplayShield';
 export * from './visualWatermarkShield';
+export * from './ephemeralTokenEngine';
 
 
 
