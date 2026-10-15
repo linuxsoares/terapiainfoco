@@ -3006,6 +3006,95 @@ export interface AntiReplayOverviewResponse {
   overview: import('./models').AntiReplayOverview;
 }
 
+// ============================================================================
+// DTOs: Marcação D'água Esteganográfica Visual e Traçabilidade Forense (LGPD Art. 46 & CFP 011/2018)
+// ============================================================================
+
+export interface CreateWatermarkSeedDTO {
+  therapistCrp: string;
+  patientId: string;
+  sessionId?: string;
+  target?: import('./enums').VisualWatermarkTarget;
+  patternType?: import('./enums').WatermarkPatternType;
+  strength?: import('./enums').WatermarkEmbeddingStrength;
+}
+
+export interface CreateWatermarkSeedResponse {
+  success: boolean;
+  seed: import('./models').VisualWatermarkSeed;
+  message: string;
+}
+
+export interface EmbedVisualWatermarkDTO {
+  seedId: string;
+  frameData?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface EmbedVisualWatermarkResponse {
+  success: boolean;
+  result: import('./models').WatermarkEmbeddingResult;
+  message: string;
+}
+
+export interface ExtractLeakSourceDTO {
+  suspectFrameData: string;
+  target?: import('./enums').VisualWatermarkTarget;
+  filterSessionId?: string;
+}
+
+export interface ExtractLeakSourceResponse {
+  success: boolean;
+  result: import('./models').LeakExtractionResult;
+  message: string;
+}
+
+export interface SimulateScreenLeakDTO {
+  seedId: string;
+  cropPercentage?: number;
+  compressionQuality?: number;
+  applyNoise?: boolean;
+}
+
+export interface SimulateScreenLeakResponse {
+  success: boolean;
+  simulation: {
+    simulatedCrop: number;
+    simulatedQuality: number;
+    extractionResult: import('./models').LeakExtractionResult;
+    survivedAnalysis: boolean;
+  };
+  message: string;
+}
+
+export interface UpdateWatermarkStrengthDTO {
+  strength: import('./enums').WatermarkEmbeddingStrength;
+}
+
+export interface UpdateWatermarkStrengthResponse {
+  success: boolean;
+  activeStrength: import('./enums').WatermarkEmbeddingStrength;
+  message: string;
+}
+
+export interface VerifyVisualWatermarkSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyVisualWatermarkSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').VisualWatermarkProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface VisualWatermarkOverviewResponse {
+  success: boolean;
+  overview: import('./models').VisualWatermarkOverview;
+}
+
 
 
 

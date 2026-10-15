@@ -3147,6 +3147,90 @@ export interface AntiReplayOverview {
   recentIncidents: ReplayIncidentRecord[];
 }
 
+// ============================================================================
+// Modelos: Marcação D'água Esteganográfica Visual e Traçabilidade Forense (LGPD Art. 46 & CFP 011/2018)
+// ============================================================================
+
+export interface VisualWatermarkSeed {
+  seedId: string;
+  therapistCrp: string;
+  patientBlindIndex: string;
+  patientIdMasked: string;
+  sessionId: string;
+  patternType: import('./enums').WatermarkPatternType;
+  strength: import('./enums').WatermarkEmbeddingStrength;
+  target: import('./enums').VisualWatermarkTarget;
+  issuedAt: string;
+  saltHex: string;
+}
+
+export interface VisualWatermarkProofSeal {
+  sealToken: string;
+  canonicalDigest: string;          // Digest SHA-256 canônico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura HMAC-SHA256 WORM
+  issuedAt: string;
+  verificationId: string;
+  target: import('./enums').VisualWatermarkTarget;
+  patternType: import('./enums').WatermarkPatternType;
+}
+
+export interface WatermarkEmbeddingResult {
+  embeddingId: string;
+  seedId: string;
+  psnrDb: number;                   // Peak Signal-to-Noise Ratio (dB)
+  ssimScore: number;                // Structural Similarity Index (0 a 1)
+  imperceptibilityGrade: 'PRISTINE' | 'EXCELLENT' | 'DEGRADED';
+  canvasWidth: number;
+  canvasHeight: number;
+  watermarkedFramePreview?: string; // Amostra de imagem / canvas data
+  proofSeal: VisualWatermarkProofSeal;
+  embeddedAt: string;
+}
+
+export interface LeakExtractionResult {
+  extractionId: string;
+  correlationScore: number;         // Normalized Cross-Correlation NCC (-1.0 a +1.0)
+  confidence: import('./enums').WatermarkExtractionConfidence;
+  pProbability: number;             // p-value de probabilidade estatística de falso positivo
+  identifiedSessionId?: string;
+  identifiedTherapistCrp?: string;
+  identifiedPatientMasked?: string;
+  identifiedIpAddress?: string;
+  leakTimestampEstimate?: string;
+  forensicAnalysis: string;
+  proofSeal: VisualWatermarkProofSeal;
+  extractedAt: string;
+}
+
+export interface VisualWatermarkIncident {
+  id: string;
+  sourceSuspect: string;
+  target: import('./enums').VisualWatermarkTarget;
+  correlationScore: number;
+  confidence: import('./enums').WatermarkExtractionConfidence;
+  identifiedTherapistCrp: string;
+  identifiedPatientMasked: string;
+  proofSeal: VisualWatermarkProofSeal;
+  timestamp: string;
+}
+
+export interface VisualWatermarkMetrics {
+  activeWatermarkedSessionsCount: number;
+  framesWatermarkedCount: number;
+  leakInvestigationsCount: number;
+  leaksPositivelyIdentifiedCount: number;
+  averagePsnrDb: number;
+  averageSsimScore: number;
+  systemHealth: 'IMMUNE' | 'WARNING' | 'COMPROMISED';
+}
+
+export interface VisualWatermarkOverview {
+  metrics: VisualWatermarkMetrics;
+  activeSeeds: VisualWatermarkSeed[];
+  recentIncidents: VisualWatermarkIncident[];
+  activeStrength: import('./enums').WatermarkEmbeddingStrength;
+}
+
 
 
 

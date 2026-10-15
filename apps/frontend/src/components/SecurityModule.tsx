@@ -67,7 +67,8 @@ import {
   AlertTriangle,
   Timer,
   Vote,
-  Ticket
+  Ticket,
+  FileText
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -261,7 +262,19 @@ import {
   type AntiReplayProofSeal,
   type ReplayIncidentRecord,
   type SimulateReplayAttackResponse,
-  type VerifyAntiReplaySealResponse
+  type VerifyAntiReplaySealResponse,
+  WatermarkPatternType,
+  WatermarkExtractionConfidence,
+  VisualWatermarkTarget,
+  WatermarkEmbeddingStrength,
+  type VisualWatermarkSeed,
+  type VisualWatermarkProofSeal,
+  type WatermarkEmbeddingResult,
+  type LeakExtractionResult,
+  type VisualWatermarkIncident,
+  type VisualWatermarkOverview,
+  type SimulateScreenLeakResponse,
+  type VerifyVisualWatermarkSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4013,6 +4026,188 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ==========================================
+  // ESTADOS DO MÓDULO 41: VISUAL WATERMARK SHIELD (LGPD Art. 46 / CFP 011/2018)
+  // ==========================================
+  const [visualWatermarkOverview, setVisualWatermarkOverview] = useState<VisualWatermarkOverview | null>(null);
+  const [loadingVisualWatermark, setLoadingVisualWatermark] = useState<boolean>(false);
+  const [visualWatermarkActiveTab, setVisualWatermarkActiveTab] = useState<'generator' | 'forensic_lab' | 'resilience'>('generator');
+
+  // Gerador de Marca d'Água
+  const [wmTargetSelect, setWmTargetSelect] = useState<VisualWatermarkTarget>(VisualWatermarkTarget.WEBRTC_VIDEO_STREAM);
+  const [wmPatternSelect, setWmPatternSelect] = useState<WatermarkPatternType>(WatermarkPatternType.QUASI_ORTHOGONAL_PN);
+  const [wmCrpInput, setWmCrpInput] = useState<string>('CRP-06/123456');
+  const [wmPatientIdInput, setWmPatientIdInput] = useState<string>('paciente_ana_souza_blind_99');
+  const [wmSessionIdInput, setWmSessionIdInput] = useState<string>('sessao_clinica_telepsi_2026');
+  const [creatingWmSeed, setCreatingWmSeed] = useState<boolean>(false);
+  const [lastCreatedWmSeed, setLastCreatedWmSeed] = useState<VisualWatermarkSeed | null>(null);
+  const [embeddingWm, setEmbeddingWm] = useState<boolean>(false);
+  const [lastEmbeddingResult, setLastEmbeddingResult] = useState<WatermarkEmbeddingResult | null>(null);
+
+  // Laboratório Forense
+  const [suspectTargetSelect, setSuspectTargetSelect] = useState<VisualWatermarkTarget>(VisualWatermarkTarget.WEBRTC_VIDEO_STREAM);
+  const [suspectFrameDataInput, setSuspectFrameDataInput] = useState<string>('');
+  const [extractingLeak, setExtractingLeak] = useState<boolean>(false);
+  const [lastExtractionResult, setLastExtractionResult] = useState<LeakExtractionResult | null>(null);
+
+  // Simulador de Resiliência
+  const [simCropPercentage, setSimCropPercentage] = useState<number>(25);
+  const [simCompressionQuality, setSimCompressionQuality] = useState<number>(75);
+  const [simApplyNoise, setSimApplyNoise] = useState<boolean>(true);
+  const [simulatingScreenLeak, setSimulatingScreenLeak] = useState<boolean>(false);
+  const [simScreenLeakResult, setSimScreenLeakResult] = useState<SimulateScreenLeakResponse | null>(null);
+  const [updatingWmStrength, setUpdatingWmStrength] = useState<boolean>(false);
+  const [selectedWmStrength, setSelectedWmStrength] = useState<WatermarkEmbeddingStrength>(WatermarkEmbeddingStrength.BALANCED_RESILIENT);
+
+  // Modal 41.A: Selo Probatório WORM
+  const [selectedVisualWatermarkSealForModal, setSelectedVisualWatermarkSealForModal] = useState<VisualWatermarkProofSeal | null>(null);
+  const [visualWatermarkModalIncidentItem, setVisualWatermarkModalIncidentItem] = useState<VisualWatermarkIncident | null>(null);
+  const [verifyingVisualWatermarkSeal, setVerifyingVisualWatermarkSeal] = useState<boolean>(false);
+  const [visualWatermarkSealVerifyResult, setVisualWatermarkSealVerifyResult] = useState<VerifyVisualWatermarkSealResponse | null>(null);
+
+  const fetchVisualWatermarkData = async () => {
+    try {
+      setLoadingVisualWatermark(true);
+      const res = await api.getVisualWatermarkOverview();
+      setVisualWatermarkOverview(res.overview);
+      if (res.overview?.activeStrength) {
+        setSelectedWmStrength(res.overview.activeStrength);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar telemetria de marcação d\'água visual:', err);
+    } finally {
+      setLoadingVisualWatermark(false);
+    }
+  };
+
+  const handleCreateWatermarkSeedSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setCreatingWmSeed(true);
+      const res = await api.createWatermarkSeed({
+        target: wmTargetSelect,
+        patternType: wmPatternSelect,
+        therapistCrp: wmCrpInput.trim(),
+        patientId: wmPatientIdInput.trim(),
+        sessionId: wmSessionIdInput.trim(),
+        strength: selectedWmStrength
+      });
+      setLastCreatedWmSeed(res.seed);
+      setFeedback({ type: 'success', message: `Semente criptográfica esteganográfica gerada com sucesso (${res.seed.seedId}).` });
+      await fetchVisualWatermarkData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao gerar semente de marca d\'água.' });
+    } finally {
+      setCreatingWmSeed(false);
+    }
+  };
+
+  const handleEmbedWatermarkSubmit = async (seedId: string) => {
+    try {
+      setEmbeddingWm(true);
+      const res = await api.embedVisualWatermark({
+        seedId,
+        width: 64,
+        height: 64
+      });
+      setLastEmbeddingResult(res.result);
+      if (res.result.watermarkedFramePreview) {
+        setSuspectFrameDataInput(res.result.watermarkedFramePreview);
+      }
+      setFeedback({
+        type: 'success',
+        message: `Marca d'água inserida com sucesso (PSNR: ${res.result.psnrDb.toFixed(1)} dB, SSIM: ${res.result.ssimScore.toFixed(4)}). Selo WORM gerado!`
+      });
+      await fetchVisualWatermarkData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao embutir marca d\'água visual.' });
+    } finally {
+      setEmbeddingWm(false);
+    }
+  };
+
+  const handleExtractLeakSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!suspectFrameDataInput.trim()) {
+      setFeedback({ type: 'error', message: 'Forneça os bytes do frame suspeito para perícia.' });
+      return;
+    }
+    try {
+      setExtractingLeak(true);
+      setLastExtractionResult(null);
+      const res = await api.extractLeakSource({
+        suspectFrameData: suspectFrameDataInput.trim(),
+        target: suspectTargetSelect
+      });
+      setLastExtractionResult(res.result);
+      setFeedback({
+        type: 'success',
+        message: `Perícia concluída: ${res.result.confidence} (NCC: ${res.result.correlationScore.toFixed(4)}, p-value: ${res.result.pProbability < 0.0001 ? '< 1e-4' : res.result.pProbability.toFixed(4)}).`
+      });
+      await fetchVisualWatermarkData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha na perícia forense de extração.' });
+    } finally {
+      setExtractingLeak(false);
+    }
+  };
+
+  const handleSimulateScreenLeakSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lastCreatedWmSeed) {
+      setFeedback({ type: 'error', message: 'Gere uma semente de marca d\'água primeiro antes de simular o ataque.' });
+      return;
+    }
+    try {
+      setSimulatingScreenLeak(true);
+      setSimScreenLeakResult(null);
+      const res = await api.simulateScreenLeak({
+        seedId: lastCreatedWmSeed.seedId,
+        cropPercentage: simCropPercentage,
+        compressionQuality: simCompressionQuality,
+        applyNoise: simApplyNoise
+      });
+      setSimScreenLeakResult(res);
+      setLastExtractionResult(res.simulation.extractionResult);
+      setFeedback({
+        type: res.simulation.survivedAnalysis ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchVisualWatermarkData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de exfiltração de tela.' });
+    } finally {
+      setSimulatingScreenLeak(false);
+    }
+  };
+
+  const handleUpdateWatermarkStrengthSubmit = async (newStrength: WatermarkEmbeddingStrength) => {
+    try {
+      setUpdatingWmStrength(true);
+      const res = await api.updateWatermarkStrength({ strength: newStrength });
+      setSelectedWmStrength(res.activeStrength);
+      setFeedback({ type: 'success', message: res.message });
+      await fetchVisualWatermarkData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar intensidade da marca d\'água.' });
+    } finally {
+      setUpdatingWmStrength(false);
+    }
+  };
+
+  const handleVerifyVisualWatermarkSealSubmit = async (token: string) => {
+    try {
+      setVerifyingVisualWatermarkSeal(true);
+      setVisualWatermarkSealVerifyResult(null);
+      const res = await api.verifyVisualWatermarkSeal({ sealToken: token });
+      setVisualWatermarkSealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório esteganográfico WORM.' });
+    } finally {
+      setVerifyingVisualWatermarkSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4045,6 +4240,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchBlindData();
       fetchSideChannelData();
       fetchAntiReplayData();
+      fetchVisualWatermarkData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -18892,6 +19088,775 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* MÓDULO 41: MARCAÇÃO D'ÁGUA ESTEGANOGRÁFICA VISUAL & RASTREAMENTO FORENSE ANTI-EXFILTRAÇÃO (LGPD Art. 46 / CFP 011/2018) */}
+      {/* ========================================================================= */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+          {/* Header do Módulo */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 flex items-center gap-1.5">
+                  <EyeOff className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  Módulo 41 • Esteganografia Visual & Traçabilidade Forense Anti-Exfiltração
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  LGPD Art. 46 / CFP 011/2018 & RFC-001 §3.2
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Marcação D'água Esteganográfica Visual & Rastreamento Anti-Exfiltração de Tela
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-4xl">
+                Injeção esteganográfica invisível de sequências quase-ortogonais de ruído de fase pseudo-aleatório em fluxos de vídeo WebRTC e prontuários médicos renderizados, vinculando irreversivelmente a identidade criptográfica do operador (CRP/ID Blindado) e da sessão clínica, garantindo atribuição forense irrefutável (NCC / Neyman-Pearson) com alta tolerância a recorte e recompressão.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchVisualWatermarkData}
+                disabled={loadingVisualWatermark}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingVisualWatermark ? 'animate-spin' : ''}`} />
+                Atualizar Telemetria
+              </button>
+            </div>
+          </div>
+
+          {/* Grid de 5 KPIs / Métricas Forenses */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Telas / Frames Marcados</span>
+                <Video className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+                {visualWatermarkOverview?.metrics.framesWatermarkedCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Sementes & frames com ruído espectral</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Perícias Forenses</span>
+                <FileSearch className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+                {visualWatermarkOverview?.metrics.leakInvestigationsCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Extrações cegas por cross-correlation</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Autoria Comprovada</span>
+                <BadgeCheck className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                {visualWatermarkOverview?.metrics.leaksPositivelyIdentifiedCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Grau definitivo de certeza forense</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Fidelidade Óptica</span>
+                <Activity className="w-4 h-4 text-teal-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
+                {visualWatermarkOverview?.metrics.averagePsnrDb ? visualWatermarkOverview.metrics.averagePsnrDb.toFixed(1) : '43.5'} <span className="text-xs font-normal">dB</span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">PSNR médio imperceptível (&gt;40 dB)</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Semelhança SSIM</span>
+                <ShieldCheck className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                {visualWatermarkOverview?.metrics.averageSsimScore ? (visualWatermarkOverview.metrics.averageSsimScore * 100).toFixed(1) : '99.8'}%
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Structural similarity index</span>
+            </div>
+          </div>
+
+          {/* Abas do Módulo */}
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+            <button
+              type="button"
+              onClick={() => setVisualWatermarkActiveTab('generator')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                visualWatermarkActiveTab === 'generator'
+                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Video className="w-3.5 h-3.5" />
+              Injetor Esteganográfico de Marca d'Água
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisualWatermarkActiveTab('forensic_lab')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                visualWatermarkActiveTab === 'forensic_lab'
+                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <FileSearch className="w-3.5 h-3.5" />
+              Laboratório Forense de Extração & NCC
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisualWatermarkActiveTab('resilience')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                visualWatermarkActiveTab === 'resilience'
+                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              Resiliência a Recorte & Ajuste de Intensidade
+            </button>
+          </div>
+
+          {/* ABA 1: GERADOR DE MARCA D'ÁGUA */}
+          {visualWatermarkActiveTab === 'generator' && (
+            <div className="space-y-4">
+              <form onSubmit={handleCreateWatermarkSeedSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Fingerprint className="w-4 h-4 text-rose-500" />
+                    Gerador de Semente Esteganográfica Criptograficamente Vinculada
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    HMAC-SHA256 CSPRNG Orthogonal Sequence
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Alvo de Renderização:
+                    </label>
+                    <select
+                      value={wmTargetSelect}
+                      onChange={(e) => setWmTargetSelect(e.target.value as VisualWatermarkTarget)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200"
+                    >
+                      <option value={VisualWatermarkTarget.WEBRTC_VIDEO_STREAM}>Fluxo de Vídeo WebRTC (Canvas)</option>
+                      <option value={VisualWatermarkTarget.CLINICAL_PRONTUARY_PRINT}>Prontuário Médico (Impressão/DOM)</option>
+                      <option value={VisualWatermarkTarget.PRESCRIPTION_PDF_CANVAS}>Receituário / Atestado (PDF)</option>
+                      <option value={VisualWatermarkTarget.ATTACHMENT_IMAGE}>Anexo / Laudo Psicológico</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Padrão Matemático:
+                    </label>
+                    <select
+                      value={wmPatternSelect}
+                      onChange={(e) => setWmPatternSelect(e.target.value as WatermarkPatternType)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200"
+                    >
+                      <option value={WatermarkPatternType.QUASI_ORTHOGONAL_PN}>Ruído Quase-Ortogonal PN (Bipolar)</option>
+                      <option value={WatermarkPatternType.DCT_MID_FREQUENCY}>DCT Coeficientes Médios</option>
+                      <option value={WatermarkPatternType.FOURIER_MELLIN_INVARIANT}>Invariante Fourier-Mellin</option>
+                      <option value={WatermarkPatternType.MICRO_DOT_GRID}>Grade de Micro-Pontos Estocásticos</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      CRP do Terapeuta:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={wmCrpInput}
+                      onChange={(e) => setWmCrpInput(e.target.value)}
+                      placeholder="CRP-06/123456"
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Blind Index do Paciente:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={wmPatientIdInput}
+                      onChange={(e) => setWmPatientIdInput(e.target.value)}
+                      placeholder="paciente_hash_blind"
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      ID da Sessão Clínica:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={wmSessionIdInput}
+                      onChange={(e) => setWmSessionIdInput(e.target.value)}
+                      placeholder="sessao_telepsi_123"
+                      className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <button
+                    type="submit"
+                    disabled={creatingWmSeed}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Fingerprint className="w-3.5 h-3.5" />
+                    {creatingWmSeed ? 'Derivando Sequência...' : 'Gerar Semente Criptográfica'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Exibição da Semente Derivada */}
+              {lastCreatedWmSeed && (
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                      Semente Ativa Vinculada ({lastCreatedWmSeed.seedId})
+                    </span>
+                    <button
+                      type="button"
+                      disabled={embeddingWm}
+                      onClick={() => handleEmbedWatermarkSubmit(lastCreatedWmSeed.seedId)}
+                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      {embeddingWm ? 'Modulando Espectro...' : 'Embutir em Frame Sintético (64x64)'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Paciente / Blind Index:</span>
+                      <span className="font-mono text-[11px] text-rose-600 dark:text-rose-400 truncate block">
+                        {lastCreatedWmSeed.patientIdMasked} ({lastCreatedWmSeed.patientBlindIndex})
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Padrão / Alvo:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {lastCreatedWmSeed.patternType} / {lastCreatedWmSeed.target}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Salt Criptográfico Hex:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300 truncate block">
+                        {lastCreatedWmSeed.saltHex}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Emitido em:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {new Date(lastCreatedWmSeed.issuedAt).toLocaleTimeString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Exibição do Resultado de Embutimento */}
+              {lastEmbeddingResult && (
+                <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                        Marcação Esteganográfica Concluída com Fidelidade Óptica Assegurada
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVisualWatermarkSealForModal(lastEmbeddingResult.proofSeal);
+                        setVisualWatermarkModalIncidentItem(null);
+                      }}
+                      className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] cursor-pointer"
+                    >
+                      Ver Selo Probatório WORM
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-800/40">
+                      <span className="text-[10px] text-slate-400 block">PSNR (Fidelidade Óptica):</span>
+                      <span className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {lastEmbeddingResult.psnrDb.toFixed(1)} dB
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">&gt;40 dB imperceptível ao olho</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-800/40">
+                      <span className="text-[10px] text-slate-400 block">SSIM (Semelhança Estrutural):</span>
+                      <span className="text-sm font-mono font-bold text-teal-600 dark:text-teal-400">
+                        {lastEmbeddingResult.ssimScore.toFixed(4)}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">1.0000 = idêntico</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-800/40">
+                      <span className="text-[10px] text-slate-400 block">Grau de Imperceptibilidade:</span>
+                      <span className="text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {lastEmbeddingResult.imperceptibilityGrade}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-800/40">
+                      <span className="text-[10px] text-slate-400 block">Dimensões do Frame:</span>
+                      <span className="text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {lastEmbeddingResult.canvasWidth}x{lastEmbeddingResult.canvasHeight} px
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 2: LABORATÓRIO FORENSE DE EXTRAÇÃO */}
+          {visualWatermarkActiveTab === 'forensic_lab' && (
+            <div className="space-y-4">
+              <form onSubmit={handleExtractLeakSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <FileSearch className="w-4 h-4 text-amber-500" />
+                    Laboratório Forense de Atribuição de Vazamento & Extração Cega (Blind Detection)
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Laplacian High-Pass Residual & NCC
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    <span>Frame Suspeito / Amostra Exfiltrada (Base64 ou Payload de Pixels):</span>
+                    <select
+                      value={suspectTargetSelect}
+                      onChange={(e) => setSuspectTargetSelect(e.target.value as VisualWatermarkTarget)}
+                      className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px]"
+                    >
+                      <option value={VisualWatermarkTarget.WEBRTC_VIDEO_STREAM}>Vídeo WebRTC</option>
+                      <option value={VisualWatermarkTarget.CLINICAL_PRONTUARY_PRINT}>Prontuário Médico</option>
+                      <option value={VisualWatermarkTarget.PRESCRIPTION_PDF_CANVAS}>Receituário PDF</option>
+                      <option value={VisualWatermarkTarget.ATTACHMENT_IMAGE}>Anexo Imagem</option>
+                    </select>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={suspectFrameDataInput}
+                    onChange={(e) => setSuspectFrameDataInput(e.target.value)}
+                    placeholder="Cole os bytes em base64 do frame ou print de tela capturado para auditoria forense..."
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    * O enclave aplicará convolução 2D Laplaciana para isolar a componente espectral e correlacionará com as sementes conhecidas.
+                  </span>
+                  <button
+                    type="submit"
+                    disabled={extractingLeak}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <FileSearch className="w-3.5 h-3.5" />
+                    {extractingLeak ? 'Processando Perícia Forense...' : 'Executar Perícia Forense (Cross-Correlation)'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Resultado da Perícia Forense */}
+              {lastExtractionResult && (
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        lastExtractionResult.confidence === WatermarkExtractionConfidence.DEFINITIVE_MATCH
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                          : lastExtractionResult.confidence === WatermarkExtractionConfidence.HIGH_PROBABILITY
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                          : lastExtractionResult.confidence === WatermarkExtractionConfidence.SUSPICIOUS_WEAK
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-300'
+                          : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
+                      }`}>
+                        {lastExtractionResult.confidence}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        Laudo de Identificação Forense de Origem
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVisualWatermarkSealForModal(lastExtractionResult.proofSeal);
+                          setVisualWatermarkModalIncidentItem(null);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Ver Certidão Notarial WORM
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {lastExtractionResult.forensicAnalysis}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Correlação Normalizada (NCC ρ):</span>
+                      <span className="text-base font-mono font-bold text-rose-600 dark:text-rose-400">
+                        {lastExtractionResult.correlationScore.toFixed(4)}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Limiar de certeza: &gt; 0.22</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Grau de Confiança:</span>
+                      <span className="text-base font-mono font-bold text-amber-600 dark:text-amber-400">
+                        {lastExtractionResult.confidence}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Classificação Neyman-Pearson</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">P-Value Criptográfico:</span>
+                      <span className="text-base font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {lastExtractionResult.pProbability < 0.0001 ? '< 1e-4' : lastExtractionResult.pProbability.toFixed(4)}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Probabilidade de falso-positivo</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">ID da Extração:</span>
+                      <span className="text-base font-mono font-bold text-slate-800 dark:text-slate-200 truncate block">
+                        {lastExtractionResult.extractionId}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Registro forense único</span>
+                    </div>
+                  </div>
+
+                  {lastExtractionResult.identifiedTherapistCrp && (
+                    <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider block">
+                          Atribuição Irrefutável de Autoria / Origem do Vazamento
+                        </span>
+                        <div className="font-mono text-xs font-bold text-rose-900 dark:text-rose-200 mt-0.5">
+                          Terapeuta CRP: {lastExtractionResult.identifiedTherapistCrp} • Paciente: {lastExtractionResult.identifiedPatientMasked || 'Blindado'} • Sessão: {lastExtractionResult.identifiedSessionId || 'N/A'}
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 bg-white/80 dark:bg-slate-900/80 px-3 py-1 rounded-lg border border-rose-200 dark:border-rose-800">
+                        Selo WORM Válido
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 3: RESILIÊNCIA & AJUSTE DE INTENSIDADE */}
+          {visualWatermarkActiveTab === 'resilience' && (
+            <div className="space-y-4">
+              {/* Seletor de Intensidade */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-500" />
+                    Política de Intensidade de Marcação Esteganográfica Global
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Current: {selectedWmStrength}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    disabled={updatingWmStrength}
+                    onClick={() => handleUpdateWatermarkStrengthSubmit(WatermarkEmbeddingStrength.SUBTLE_INVISIBLE)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      selectedWmStrength === WatermarkEmbeddingStrength.SUBTLE_INVISIBLE
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Subtle / Invisibilidade Estrita</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      PSNR &gt; 45 dB. Impacto visual nulo (Δ ±1.5). Ideal para vídeo conferência de alto framerate.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={updatingWmStrength}
+                    onClick={() => handleUpdateWatermarkStrengthSubmit(WatermarkEmbeddingStrength.BALANCED_RESILIENT)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      selectedWmStrength === WatermarkEmbeddingStrength.BALANCED_RESILIENT
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Balanced / Resiliência Padrão</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      PSNR ~ 43 dB. Equilíbrio ótimo entre imperceptibilidade e sobrevivência a transcodificação WebRTC.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={updatingWmStrength}
+                    onClick={() => handleUpdateWatermarkStrengthSubmit(WatermarkEmbeddingStrength.AGGRESSIVE_ROBUST)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      selectedWmStrength === WatermarkEmbeddingStrength.AGGRESSIVE_ROBUST
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Aggressive / Alta Robustez</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      PSNR ~ 38 dB. Resiliência máxima contra recorte de 50%, compressão pesada e foto de tela física.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Simulador de Ataque de Tela / Exfiltração */}
+              <form onSubmit={handleSimulateScreenLeakSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Scissors className="w-4 h-4 text-rose-500" />
+                    Simulador Adversarial de Exfiltração de Tela (Cropping & Lossy Compression)
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Adversarial Stress Test
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Recorte / Cropping ({simCropPercentage}% da área descartada):
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={50}
+                      step={5}
+                      value={simCropPercentage}
+                      onChange={(e) => setSimCropPercentage(Number(e.target.value))}
+                      className="w-full accent-rose-600"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>0% (Intacto)</span>
+                      <span>50% (Metade)</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Qualidade de Compressão ({simCompressionQuality}%):
+                    </label>
+                    <input
+                      type="range"
+                      min={40}
+                      max={95}
+                      step={5}
+                      value={simCompressionQuality}
+                      onChange={(e) => setSimCompressionQuality(Number(e.target.value))}
+                      className="w-full accent-amber-600"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>40% (Degradada)</span>
+                      <span>95% (Alta)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-4">
+                    <input
+                      type="checkbox"
+                      id="simApplyNoise"
+                      checked={simApplyNoise}
+                      onChange={(e) => setSimApplyNoise(e.target.checked)}
+                      className="rounded accent-rose-600"
+                    />
+                    <label htmlFor="simApplyNoise" className="text-xs text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                      Injetar Ruído de Sensor Óptico (Foto de Câmera de Celular)
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <button
+                    type="submit"
+                    disabled={simulatingScreenLeak}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    {simulatingScreenLeak ? 'Simulando Ataque e Extraindo...' : 'Simular Ataque e Testar Sobrevivência'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Resultado do Teste Adversarial */}
+              {simScreenLeakResult && (
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      {simScreenLeakResult.simulation.survivedAnalysis ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      )}
+                      Resultado do Teste de Sobrevivência Forense
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      simScreenLeakResult.simulation.survivedAnalysis
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    }`}>
+                      {simScreenLeakResult.simulation.survivedAnalysis ? 'SOBREVIVEU (CORRELAÇÃO PRESERVADA)' : 'ATENUADO'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {simScreenLeakResult.message}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">NCC Residual (ρ):</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {simScreenLeakResult.simulation.extractionResult.correlationScore.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Confiança Forense:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {simScreenLeakResult.simulation.extractionResult.confidence}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Recorte / Qualidade:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {simScreenLeakResult.simulation.simulatedCrop}% / {simScreenLeakResult.simulation.simulatedQuality}%
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 block">Terapeuta Identificado:</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {simScreenLeakResult.simulation.extractionResult.identifiedTherapistCrp || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tabela de Incidentes Recentes */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-slate-500" />
+                Trilha Forense Imutável de Extrações e Incidentes de Exfiltração
+              </h3>
+              <span className="text-[10px] text-slate-400 font-mono">
+                WORM Ledger Conforme LGPD Art. 46
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+                <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3">Data / Hora</th>
+                    <th className="p-3">Alvo</th>
+                    <th className="p-3">Confiança Forense</th>
+                    <th className="p-3">Terapeuta Atribuído</th>
+                    <th className="p-3">NCC (ρ)</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Laudo Pericial</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                  {(visualWatermarkOverview?.recentIncidents || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                        Nenhum incidente de exfiltração de tela registrado. Todas as telas e frames WebRTC encontram-se protegidos por marcas espectrais invisíveis.
+                      </td>
+                    </tr>
+                  ) : (
+                    (visualWatermarkOverview?.recentIncidents || []).map((inc) => (
+                      <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="p-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                          {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                          {inc.target}
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            inc.confidence === WatermarkExtractionConfidence.DEFINITIVE_MATCH
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                              : inc.confidence === WatermarkExtractionConfidence.HIGH_PROBABILITY
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
+                          }`}>
+                            {inc.confidence}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-800 dark:text-slate-200">
+                          {inc.identifiedTherapistCrp || 'Desconhecido'}
+                        </td>
+                        <td className="p-3 font-mono text-[11px]">
+                          {inc.correlationScore.toFixed(4)}
+                        </td>
+                        <td className="p-3 font-mono text-[11px]">
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">PERICIADO (WORM)</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVisualWatermarkModalIncidentItem(inc);
+                              setSelectedVisualWatermarkSealForModal(inc.proofSeal);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                          >
+                            Laudo WORM
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -23821,6 +24786,180 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedAntiReplaySealForModal(null);
                     setAntiReplayModalIncidentItem(null);
                     setAntiReplaySealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 41.A: CERTIDÃO NOTARIAL FORENSE DE INTEGRIDADE & RASTREAMENTO ESTEGANOGRÁFICO WORM (LGPD Art. 46 / CFP 011/2018) */}
+      {selectedVisualWatermarkSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header timbrado */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <BadgeCheck className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial Forense de Rastreabilidade Esteganográfica
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Selo Probatório WORM RFC 8785 JCS & HMAC-SHA256 • LGPD Art. 46 / CFP 011/2018
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedVisualWatermarkSealForModal(null);
+                  setVisualWatermarkModalIncidentItem(null);
+                  setVisualWatermarkSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+                  <span>Metadados Notariais da Marcação Espectral</span>
+                  <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
+                    STATUS: IMUTÁVEL (WORM)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block">ID da Verificação Probatória:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block">
+                      {selectedVisualWatermarkSealForModal.verificationId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Alvo de Exibição / Renderização:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedVisualWatermarkSealForModal.target}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Padrão Matemático:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300 truncate block">
+                      {selectedVisualWatermarkSealForModal.patternType}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Assinatura WORM:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300 truncate block">
+                      {selectedVisualWatermarkSealForModal.hmacSignature.slice(0, 24)}...
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-400 block">Token de Verificação Notarial:</span>
+                    <span className="font-mono text-[10px] text-rose-600 dark:text-rose-400 break-all block">
+                      {selectedVisualWatermarkSealForModal.sealToken}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Data de Emissão (UTC):</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      {new Date(selectedVisualWatermarkSealForModal.issuedAt).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+
+                {visualWatermarkModalIncidentItem && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Confiança Forense Pericial:</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">
+                        {visualWatermarkModalIncidentItem.confidence}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Terapeuta Atribuído:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {visualWatermarkModalIncidentItem.identifiedTherapistCrp || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Correlação Cruzada Normalizada (NCC):</span>
+                      <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                        {visualWatermarkModalIncidentItem.correlationScore.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Paciente Identificado:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {visualWatermarkModalIncidentItem.identifiedPatientMasked || 'Blindado'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hash Canônico JCS (RFC 8785) */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico Determinístico SHA-256 (RFC 8785 JSON Canonicalization Scheme)
+                </span>
+                <p className="font-mono text-[10px] text-teal-400 break-all select-all">
+                  {selectedVisualWatermarkSealForModal.canonicalDigest}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave Forense)
+                </span>
+                <p className="font-mono text-[10px] text-rose-300 break-all select-all">
+                  {selectedVisualWatermarkSealForModal.sealToken}
+                </p>
+              </div>
+
+              {/* Resultado da Validação em Tempo Real */}
+              {visualWatermarkSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  visualWatermarkSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {visualWatermarkSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {visualWatermarkSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedVisualWatermarkSealForModal.issuedAt).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingVisualWatermarkSeal}
+                  onClick={() => handleVerifyVisualWatermarkSealSubmit(selectedVisualWatermarkSealForModal.sealToken)}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingVisualWatermarkSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVisualWatermarkSealForModal(null);
+                    setVisualWatermarkModalIncidentItem(null);
+                    setVisualWatermarkSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

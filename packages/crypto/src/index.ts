@@ -44,6 +44,7 @@ export * from './pqcHybridCrypto';
 export * from './blindSignaturesCrypto';
 export * from './sideChannelShield';
 export * from './antiReplayShield';
+export * from './visualWatermarkShield';
 
 
 
