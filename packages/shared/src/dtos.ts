@@ -2025,4 +2025,65 @@ export interface ActiveSessionsListResponse {
   total: number;
 }
 
+/**
+ * DTOs de Prevenção de Força Bruta & Desafio PoW (RFC-001 §4.4 & OWASP OAT-007 / OAT-008)
+ */
+export interface RequestPowChallengeDTO {
+  clientIp?: string;
+}
+
+export interface RequestPowChallengeResponse {
+  success: boolean;
+  challenge: import('./models').PowChallenge;
+  requiresPoW: boolean;
+  difficulty: number;
+}
+
+export interface SubmitPowSolutionDTO {
+  challenge: import('./models').PowChallenge;
+  nonce: number;
+  clientDurationMs?: number;
+}
+
+export interface SubmitPowSolutionResponse {
+  success: boolean;
+  verification: import('./models').PowVerificationResult;
+  defenseSeal?: string;
+  message: string;
+}
+
+export interface SimulateBruteForceAttackDTO {
+  ipAddress?: string;
+  attemptsCount?: number;
+  threatCategory: import('./enums').BruteForceThreatCategory;
+}
+
+export interface SimulateBruteForceAttackResponse {
+  success: boolean;
+  attackSimulated: boolean;
+  attemptsBlocked: number;
+  finalDifficultyTier: import('./enums').PowDifficultyTier;
+  finalDifficulty: number;
+  defenseSeal: string;
+  ipReputation: import('./models').BruteForceIpReputation;
+  message: string;
+}
+
+export interface ResetIpReputationDTO {
+  ipAddress: string;
+  reason: string;
+}
+
+export interface ResetIpReputationResponse {
+  success: boolean;
+  ipAddress: string;
+  message: string;
+}
+
+export interface PowDefenseOverviewResponse {
+  success: boolean;
+  overview: import('./models').PowDefenseOverview;
+}
+
+
 

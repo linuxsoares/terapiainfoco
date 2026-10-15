@@ -161,7 +161,13 @@ import {
   SessionLifecycleStatus,
   ClinicalActiveSession,
   SessionManagementOverview,
-  SessionRevocationProof
+  SessionRevocationProof,
+  PowDifficultyTier,
+  BruteForceThreatCategory,
+  PowChallenge,
+  BruteForceIpReputation,
+  PowDefenseOverview,
+  PowDefenseProof
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1881,6 +1887,193 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Prevenção de Força Bruta & PoW Criptográfico (RFC-001 §4.4 & OWASP OAT-007 / OAT-008)
+  const [powOverview, setPowOverview] = useState<PowDefenseOverview | null>(null);
+  const [loadingPow, setLoadingPow] = useState<boolean>(false);
+  const [simulatingAttack, setSimulatingAttack] = useState<boolean>(false);
+  const [selectedThreatCategory, setSelectedThreatCategory] = useState<BruteForceThreatCategory>(BruteForceThreatCategory.CREDENTIAL_STUFFING);
+  const [solvingClientPow, setSolvingClientPow] = useState<boolean>(false);
+  const [clientPowProgress, setClientPowProgress] = useState<number>(0);
+  const [lastClientPowResult, setLastClientPowResult] = useState<{
+    difficulty: number;
+    nonce: number;
+    hash: string;
+    durationMs: number;
+    verified: boolean;
+    defenseSeal?: string;
+  } | null>(null);
+  const [unbanIpModal, setUnbanIpModal] = useState<BruteForceIpReputation | null>(null);
+  const [unbanIpReason, setUnbanIpReason] = useState<string>('');
+  const [resettingIp, setResettingIp] = useState<boolean>(false);
+  const [selectedPowSealModal, setSelectedPowSealModal] = useState<PowDefenseProof | null>(null);
+  const [verifyingPowSeal, setVerifyingPowSeal] = useState<boolean>(false);
+
+  const fetchPowData = async () => {
+    try {
+      setLoadingPow(true);
+      const res = await api.getPowOverview();
+      if (res.success) {
+        setPowOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de Defesa PoW:', err);
+    } finally {
+      setLoadingPow(false);
+    }
+  };
+
+  const clientSolvePow = async (challenge: PowChallenge, onProgress?: (attempts: number) => void): Promise<{ nonce: number; hash: string; durationMs: number }> => {
+    const startTime = performance.now();
+    const prefix = '0'.repeat(challenge.difficulty);
+    if (challenge.difficulty === 0) {
+      return { nonce: 0, hash: '0'.repeat(64), durationMs: 0 };
+    }
+    const encoder = new TextEncoder();
+    const base = `${challenge.salt}:${challenge.challengeId}:`;
+    let nonce = 0;
+    while (true) {
+      const data = encoder.encode(`${base}${nonce}`);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hashHex.startsWith(prefix)) {
+        return {
+          nonce,
+          hash: hashHex,
+          durationMs: Math.max(1, Math.round(performance.now() - startTime))
+        };
+      }
+      nonce++;
+      if (nonce % 2000 === 0) {
+        if (onProgress) onProgress(nonce);
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  };
+
+  const handleSimulateBruteForceAttack = async () => {
+    try {
+      setSimulatingAttack(true);
+      const res = await api.simulateBruteForceAttack({
+        ipAddress: '198.51.100.77',
+        attemptsCount: 20,
+        threatCategory: selectedThreatCategory
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        await fetchPowData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao simular ataque de força bruta.'
+      });
+    } finally {
+      setSimulatingAttack(false);
+    }
+  };
+
+  const handleRunClientPowBenchmark = async (requestedDifficulty = 4) => {
+    try {
+      setSolvingClientPow(true);
+      setClientPowProgress(0);
+      setLastClientPowResult(null);
+
+      // 1. Solicita desafio ao servidor
+      const chalRes = await api.requestPowChallenge({ clientIp: '177.18.230.88' });
+      if (!chalRes.success) throw new Error('Falha ao emitir desafio PoW');
+
+      const challengeToSolve: PowChallenge = {
+        ...chalRes.challenge,
+        difficulty: requestedDifficulty,
+        tier: requestedDifficulty >= 5 ? PowDifficultyTier.HIGH : requestedDifficulty === 4 ? PowDifficultyTier.MEDIUM : PowDifficultyTier.LOW
+      };
+
+      // 2. Resolve client-side usando crypto.subtle do navegador
+      const solution = await clientSolvePow(challengeToSolve, (attempts) => {
+        setClientPowProgress(attempts);
+      });
+
+      // 3. Submete ao backend para validação O(1)
+      const submitRes = await api.submitPowSolution({
+        challenge: challengeToSolve,
+        nonce: solution.nonce,
+        clientDurationMs: solution.durationMs
+      });
+
+      setLastClientPowResult({
+        difficulty: requestedDifficulty,
+        nonce: solution.nonce,
+        hash: solution.hash,
+        durationMs: solution.durationMs,
+        verified: submitRes.success,
+        defenseSeal: submitRes.defenseSeal
+      });
+
+      setFeedback({
+        type: 'success',
+        message: `PoW de ${requestedDifficulty} zeros resolvido em ${solution.durationMs}ms (${solution.nonce.toLocaleString()} iterações)!`
+      });
+
+      await fetchPowData();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha na execução do benchmark PoW.'
+      });
+    } finally {
+      setSolvingClientPow(false);
+    }
+  };
+
+  const handleResetIpReputation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unbanIpModal) return;
+    try {
+      setResettingIp(true);
+      const res = await api.resetIpReputation({
+        ipAddress: unbanIpModal.ipAddress,
+        reason: unbanIpReason.trim() || 'Desbloqueio manual auditado pelo DPO'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        setUnbanIpModal(null);
+        setUnbanIpReason('');
+        await fetchPowData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao desbloquear IP.'
+      });
+    } finally {
+      setResettingIp(false);
+    }
+  };
+
+  const handleInspectPowSeal = async (seal: string) => {
+    try {
+      setVerifyingPowSeal(true);
+      const res = await api.verifyPowSeal(seal);
+      if (res.success) {
+        setSelectedPowSealModal(res.verification);
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao verificar selo PoW.'
+      });
+    } finally {
+      setVerifyingPowSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1899,6 +2092,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchUebaData();
       fetchDpData();
       fetchSessionBindingData();
+      fetchPowData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -10288,6 +10482,415 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Card 27: Defesa Ativa contra Força Bruta & PoW Criptográfico (RFC-001 §4.4, OWASP OAT-007 / OAT-008 & NIST SP 800-63B) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Cabeçalho do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Defesa Ativa contra Força Bruta & PoW Criptográfico
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  RFC-001 §4.4
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                  OWASP OAT-007 (Stuffing)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  OWASP OAT-008 (Brute Force)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  NIST SP 800-63B
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Mitigação Automatizada de Credential Stuffing & Ataques de Dicionário com Prova de Trabalho Criptográfica Hashcash Adaptativa e Quarentena Dinâmica.
+              </p>
+            </div>
+
+            {/* Ações Rápidas no Cabeçalho */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchPowData}
+                disabled={loadingPow}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Recarregar Métricas de PoW"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingPow ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Executivos de Defesa PoW */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Ataques Mitigados */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Ataques Automatizados Mitigados
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  {powOverview?.automatedAttacksMitigated ?? 0}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
+                  WORM AUDITED
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Tentativas de login massivo bloqueadas e desaceleradas.
+              </p>
+            </div>
+
+            {/* KPI 2: Nível de Ameaça do Sistema */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Nível de Ameaça do Sistema
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className={`text-2xl font-black font-mono ${
+                  powOverview?.currentSystemThreatLevel === 'CRITICAL'
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : powOverview?.currentSystemThreatLevel === 'ELEVATED'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}>
+                  {powOverview?.currentSystemThreatLevel ?? 'LOW'}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                  PROTEGIDO
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Análise preditiva de rajadas de tentativas não autorizadas.
+              </p>
+            </div>
+
+            {/* KPI 3: Desafios Resolvidos */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Desafios PoW Resolvidos
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                  {powOverview?.totalChallengesSolved ?? 0}
+                  <span className="text-xs text-slate-400 font-sans ml-1">/ {powOverview?.totalChallengesIssued ?? 0}</span>
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400">
+                  O(1) VERIFIED
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Média de resolução cliente: ~{powOverview?.averageSolveTimeMs ?? 55}ms.
+              </p>
+            </div>
+
+            {/* KPI 4: IPs em Quarentena */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                IPs em Quarentena Ativa
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  {powOverview?.activeIpQuarantinesCount ?? 0}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  HASHCASH ADAPTATIVO
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                IPs contidos com exigência compulsória de PoW máximo.
+              </p>
+            </div>
+          </div>
+
+          {/* Tabela de Monitoramento de Reputação de IPs em Tempo Real */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <GlobeLock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Reputação de Conexões & Quarentena Dinâmica de Força Bruta
+              </h3>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {powOverview?.recentIpIncidents?.length ?? 0} endereço(s) monitorado(s)
+              </span>
+            </div>
+
+            {(!powOverview?.recentIpIncidents || powOverview.recentIpIncidents.length === 0) ? (
+              <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                Nenhum incidente ou IP suspeito registrado no momento.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 text-[11px] font-semibold">
+                      <th className="py-3 px-3.5">Endereço IP / Origem</th>
+                      <th className="py-3 px-3.5">Falhas Recentes</th>
+                      <th className="py-3 px-3.5">Tier de Dificuldade PoW</th>
+                      <th className="py-3 px-3.5">Classificação OWASP</th>
+                      <th className="py-3 px-3.5">Status de Quarentena</th>
+                      <th className="py-3 px-3.5">Última Tentativa</th>
+                      <th className="py-3 px-3.5 text-right">Ações de Resposta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {powOverview.recentIpIncidents.map((ip) => {
+                      return (
+                        <tr
+                          key={ip.ipAddress}
+                          className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${
+                            ip.isBlocked ? 'bg-rose-50/20 dark:bg-rose-950/10' : ''
+                          }`}
+                        >
+                          {/* IP */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-mono font-bold text-slate-900 dark:text-white">
+                              {ip.ipAddress}
+                            </div>
+                          </td>
+
+                          {/* Falhas */}
+                          <td className="py-3 px-3.5">
+                            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                              {ip.failedAttemptsCount} falha(s)
+                            </span>
+                          </td>
+
+                          {/* Tier de Dificuldade */}
+                          <td className="py-3 px-3.5">
+                            {ip.currentDifficultyTier === PowDifficultyTier.NONE ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                NONE (Dispensado)
+                              </span>
+                            ) : ip.currentDifficultyTier === PowDifficultyTier.LOW ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                                LOW (3 Zeros)
+                              </span>
+                            ) : ip.currentDifficultyTier === PowDifficultyTier.MEDIUM ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                                MEDIUM (4 Zeros)
+                              </span>
+                            ) : ip.currentDifficultyTier === PowDifficultyTier.HIGH ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                                HIGH (5 Zeros)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300">
+                                MAXIMUM (6 Zeros)
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Classificação OWASP */}
+                          <td className="py-3 px-3.5">
+                            {ip.threatCategory ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40">
+                                {ip.threatCategory}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">
+                                Tráfego Normal
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3.5">
+                            {ip.isBlocked ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                Quarentena Ativa
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                Acesso Liberado
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Última Tentativa */}
+                          <td className="py-3 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                            {new Date(ip.lastAttemptAt).toLocaleString('pt-BR')}
+                          </td>
+
+                          {/* Ações */}
+                          <td className="py-3 px-3.5 text-right space-x-2">
+                            {ip.isBlocked && (
+                              <button
+                                type="button"
+                                onClick={() => setUnbanIpModal(ip)}
+                                className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                Desbloquear
+                              </button>
+                            )}
+
+                            {ip.lastProofSeal && (
+                              <button
+                                type="button"
+                                onClick={() => handleInspectPowSeal(ip.lastProofSeal!)}
+                                disabled={verifyingPowSeal}
+                                className="px-2.5 py-1 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                Laudo WORM
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Painel Interativo de Simulação & Benchmark PoW */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Bloco 1: Simulador de Rajada de Ataques Automatizados */}
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Simulador de Rajadas de Força Bruta & Botnets (OAT-007 / OAT-008)
+                  </h4>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                    CONTENÇÃO ADAPTATIVA
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  Dispara uma simulação de 20 tentativas de autenticação automatizadas com credenciais inválidas para observar a elevação imediata da barreira de PoW e o bloqueio preventivo sem sobrecarga no backend.
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Vetor de Ataque a Simular:
+                  </label>
+                  <select
+                    value={selectedThreatCategory}
+                    onChange={(e) => setSelectedThreatCategory(e.target.value as BruteForceThreatCategory)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={BruteForceThreatCategory.CREDENTIAL_STUFFING}>
+                      Credential Stuffing (Listas Vazadas Dark Web - OAT-007)
+                    </option>
+                    <option value={BruteForceThreatCategory.DICTIONARY_ATTACK}>
+                      Dictionary Attack (Enumeração Dicionário - OAT-008)
+                    </option>
+                    <option value={BruteForceThreatCategory.DISTRIBUTED_SPRAYING}>
+                      Distributed Password Spraying (Multi-IP)
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSimulateBruteForceAttack}
+                disabled={simulatingAttack}
+                className="w-full mt-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Flame className="w-3.5 h-3.5" />
+                {simulatingAttack ? 'Simulando e Mitigando...' : 'Disparar Simulação de Ataque'}
+              </button>
+            </div>
+
+            {/* Bloco 2: Benchmark Client-Side PoW no Navegador */}
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    Benchmark Client-Side PoW (SHA-256 Nativo no Browser)
+                  </h4>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                    CRYPTO.SUBTLE
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  Executa o algoritmo Hashcash diretamente no seu navegador. O servidor valida a resposta em tempo constante $O(1)$ sem consumo de CPU backend.
+                </p>
+
+                {/* Exibição de Resultado do Teste */}
+                {lastClientPowResult ? (
+                  <div className="mt-2.5 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Dificuldade Testada:</span>
+                      <strong className="text-indigo-600 dark:text-indigo-400 font-mono">
+                        {lastClientPowResult.difficulty} zeros hexadecimais
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tempo de Cálculo no Browser:</span>
+                      <strong className="text-slate-900 dark:text-white font-mono">
+                        {lastClientPowResult.durationMs} ms
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Nonce Descoberto:</span>
+                      <strong className="text-slate-900 dark:text-white font-mono">
+                        {lastClientPowResult.nonce.toLocaleString()} iterações
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500">Validação Servidor O(1):</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        {lastClientPowResult.verified ? 'VÁLIDA & ÍNTEGRA' : 'REJEITADA'}
+                      </span>
+                    </div>
+                    {lastClientPowResult.defenseSeal && (
+                      <div className="pt-1.5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleInspectPowSeal(lastClientPowResult.defenseSeal!)}
+                          disabled={verifyingPowSeal}
+                          className="px-2.5 py-1 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          Ver Laudo Notarial WORM
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2.5 p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 italic text-center">
+                    Clique abaixo para executar o cálculo e validar no enclave.
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => handleRunClientPowBenchmark(3)}
+                  disabled={solvingClientPow}
+                  className="py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {solvingClientPow ? 'Calculando...' : 'Testar Dificuldade 3'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRunClientPowBenchmark(4)}
+                  disabled={solvingClientPow}
+                  className="py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {solvingClientPow ? `Iterando (${clientPowProgress})...` : 'Testar Dificuldade 4'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -12656,6 +13259,201 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedSealForModal(null)}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 27.A: Desbloqueio e Reset Notarial de Quarentena de IP */}
+      {unbanIpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Unlock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Desbloquear IP em Quarentena
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  {unbanIpModal.ipAddress}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Falhas Registradas:</span>
+                <strong className="text-rose-600 dark:text-rose-400 font-mono">
+                  {unbanIpModal.failedAttemptsCount} tentativas
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Vetor Classificado:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {unbanIpModal.threatCategory}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Dificuldade Atual:</span>
+                <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
+                  {unbanIpModal.currentDifficultyTier}
+                </span>
+              </div>
+              {unbanIpModal.blockedUntil && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bloqueado até:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    {new Date(unbanIpModal.blockedUntil).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleResetIpReputation} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Parecer Técnico / Justificativa DPO (Auditada WORM):
+                </label>
+                <textarea
+                  value={unbanIpReason}
+                  onChange={(e) => setUnbanIpReason(e.target.value)}
+                  placeholder="Ex: IP corporativo de filial médica liberado após redefinição de credenciais de VPN..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnbanIpModal(null);
+                    setUnbanIpReason('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingIp}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  {resettingIp ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Desbloqueando...
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" />
+                      Confirmar Desbloqueio
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 27.B: Laudo Notarial Pericial do Selo WORM PoW */}
+      {selectedPowSealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <BadgeCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Laudo Pericial de Defesa PoW & Hashcash
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Certificado Notarial WORM (OWASP OAT-007 / RFC §4.4)
+                  </p>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                selectedPowSealModal.isValid 
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+              }`}>
+                {selectedPowSealModal.isValid ? 'ÍNTEGRO & VÁLIDO' : 'SELO ADULTERADO'}
+              </span>
+            </div>
+
+            {/* Metadados Periciais */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>IP de Origem Auditado:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {selectedPowSealModal.clientIp}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Challenge ID:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white text-[11px]">
+                  {selectedPowSealModal.challengeId}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Dificuldade Criptográfica:</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                  Tier {selectedPowSealModal.difficulty} ({selectedPowSealModal.difficulty} zeros hex)
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Data/Hora da Verificação:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {new Date(selectedPowSealModal.verifiedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 text-slate-600 dark:text-slate-400">
+                <span>Parecer Forense:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedPowSealModal.details}
+                </span>
+              </div>
+            </div>
+
+            {/* Selo Criptográfico WORM Base64Url */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Token Pericial Notarial WORM:</span>
+                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                  POW_PROOF_V1
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-500 break-all p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 select-all">
+                {selectedPowSealModal.proofSeal}
+              </div>
+            </div>
+
+            {/* Ações do Modal */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedPowSealModal.proofSeal);
+                  setFeedback({ type: 'success', message: 'Selo WORM de Prova PoW copiado para a área de transferência!' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Selo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPowSealModal(null)}
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Fechar Laudo

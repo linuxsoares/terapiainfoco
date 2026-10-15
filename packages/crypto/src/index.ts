@@ -30,6 +30,8 @@ export * from './clinicalDid';
 export * from './uebaEngine';
 export * from './differentialPrivacy';
 export * from './tokenBinding';
+export * from './powChallenge';
+
 
 
 
