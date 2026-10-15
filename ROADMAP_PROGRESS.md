@@ -1272,6 +1272,47 @@ terapiainfoco/
 
 ---
 
+### 46. Módulo de Proteção Anti-Automação & Honeypot Dinâmico com Tarpit Criptográfico e Desaceleração de Scrapers (OWASP Automated Threats OAT-011 / OAT-020 & RFC-001 §4.4, §5.2)
+- [x] **Core Criptográfico & Motor de Tarpit Assíncrono (`packages/crypto/src/antiAutomationTarpit.ts`):**
+  - `generateHoneypotTrapToken`: Geração de tokens de armadilhas invisíveis com HMAC-SHA256 anti-tampering (`trapId:routePath:expiresAt:clientIp`) e formato assinado `hp_trap_<uuid>_<base64url>`.
+  - `verifyHoneypotTrapToken`: Verificação matemática contra adulterações e validação de TTL/expiração.
+  - `detectCrawlerHeuristics`: Inspeção de assinaturas de automação em cabeçalhos HTTP (Scrapy, Python Requests, HeadlessChrome, Puppeteer, ausência de Sec-CH-UA e User-Agent) com pontuação de risco (0 a 100).
+  - `calculateTarpitDelay`: Cálculo dinâmico do atraso no poço de piche (de 2.000ms a 30.000ms com multiplicadores específicos por categoria de ameaça OAT-011 / OAT-020).
+  - `generateTarpitDefenseSeal`: Geração de selo notarial WORM `tarpit_proof_v1_<base64url>` com digest canônico SHA-256 (RFC 8785 JCS).
+  - `verifyTarpitDefenseSeal`: Atestação pericial forense da fé pública do selo WORM de mitigação.
+  - Suíte com 11 testes unitários aprovados em `packages/crypto/test/antiAutomationTarpit.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `ScraperThreatCategory` (`DATA_SCRAPING_OAT011`, `ACCOUNT_ENUMERATION_OAT020`, `HEADLESS_BOT_PROBE`, `RESOURCE_EXHAUSTION_OAT015`) e `TarpitDefenseStatus` (`ACTIVE`, `ENGAGED`, `TARPITTING`, `ISOLATED`, `RELEASED`).
+  - Ações de auditoria WORM `HONEYPOT_TRAP_TRIGGERED`, `TARPIT_DEFENSE_ENGAGED`, `SCRAPER_BLOCKED`, `SCRAPER_IP_ISOLATED`, `TARPIT_QUARANTINE_RELEASED` e recurso `AuditResourceType.ANTI_AUTOMATION_TARPIT`.
+  - Interfaces `HoneypotTrapConfig`, `ScraperIncidentRecord`, `TarpitMetricsOverview`, `TarpitDefenseProof`.
+  - DTOs `CreateHoneypotTrapDTO`, `CreateHoneypotTrapResponse`, `TriggerHoneypotTrapResponse`, `SimulateScrapingAttackDTO`, `SimulateScrapingAttackResponse`, `ReleaseTarpitQuarantineDTO`, `ReleaseTarpitQuarantineResponse`, `VerifyTarpitSealDTO`, `VerifyTarpitSealResponse`, `TarpitMetricsOverviewResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `AntiAutomationTarpitService`:
+    - Rastreamento em memória de incidentes de scraping, bots e IPs isolados com cálculo de tráfego/I/O preservado.
+    - Mecanismo de Tarpit assíncrono cooperativo (`tarpitSleep`) retendo a conexão do crawler sem consumir CPU ou bloquear threads do enclave.
+    - Isolamento automático em quarentena de 24h para reincidentes (≥ 3 violações).
+    - Registro compulsório de cada armadilha e retenção na trilha de auditoria WORM (`AuditService.log`).
+  - Rotas REST sob `/api/anti-automation`:
+    - `GET /api/anti-automation/overview`: Métricas executivas de crawlers detidos, honeypots acionados e banda preservada.
+    - `POST /api/anti-automation/trap/create`: Emissão de nova armadilha com snippet HTML invisível para injeção.
+    - `GET /api/anti-automation/trap/:token`: Rota invisível de captura de crawlers que aplica a retenção Tarpit.
+    - `POST /api/anti-automation/simulate-scraping`: Simulação de rajadas de scraping (15+ requisições) com contenção imediata.
+    - `POST /api/anti-automation/release-ip`: Desbloqueio e revogação de quarentena com parecer técnico do DPO.
+    - `POST /api/anti-automation/verify-seal`: Validação pericial pública da integridade do selo de defesa.
+  - Suíte com 7 testes de integração aprovados em `apps/backend/test/antiAutomationTarpit.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** Métodos `getTarpitOverview`, `createHoneypotTrap`, `triggerHoneypotTrap`, `simulateScrapingAttack`, `releaseTarpitQuarantine`, `verifyTarpitSeal`.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 28** (*Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico*) com 4 KPIs regulatórios (Crawlers Presos em Tarpit, Armadilhas Honeypot Acionadas, Largura de Banda Preservada, IPs em Quarentena Tarpit).
+    - **Tabela de Scrapers & Crawlers Monitorados em Tempo Real:** IPs, User-Agents, heurísticas detectadas, atraso imposto e status de defesa.
+    - **Simulador Interativo de Raspagem:** Disparo de bot coletor OAT-011 / OAT-020 com acionamento de honeypot e retenção no poço de piche.
+    - **Testador de Armadilha ao Vivo:** Acionamento real de armadilha com medição do atraso no browser e emissão de laudo WORM.
+    - **Modal de Desbloqueio de Quarentena Tarpit:** Parecer técnico auditado do DPO gravado no WORM.
+    - **Modal Notarial Pericial do Selo WORM:** Documento timbrado com fé pública e botão de cópia do token `tarpit_proof_v1_*`.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1331,13 +1372,14 @@ terapiainfoco/
 | `feat/ueba-anomaly-detection-record-access` | Análise Comportamental Preditiva de Acesso Anômalo (UEBA) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46) | [PR #59](https://github.com/linuxsoares/terapiainfoco/pull/59) | Merged |
 | `feat/differential-privacy-clinical-research` | Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) | [PR #60](https://github.com/linuxsoares/terapiainfoco/pull/60) | Merged |
 | `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | [PR #61](https://github.com/linuxsoares/terapiainfoco/pull/61) | Merged |
-| `feat/brute-force-pow-defense-challenge` | Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B) | [PR #62](https://github.com/linuxsoares/terapiainfoco/pull/62) | Em Aberto |
+| `feat/brute-force-pow-defense-challenge` | Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B) | [PR #62](https://github.com/linuxsoares/terapiainfoco/pull/62) | Merged |
+| `feat/anti-automation-tarpit-honeypot` | Módulo de Proteção Anti-Automação & Honeypot Dinâmico com Tarpit Criptográfico e Desaceleração de Scrapers (OWASP Automated Threats OAT-011 / OAT-020 & RFC-001 §4.4, §5.2) | [PR #63](https://github.com/linuxsoares/terapiainfoco/pull/63) | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW Criptográfico e Desafio Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **557 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **575 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1360,8 +1402,9 @@ Com o **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential St
 - [x] **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009).**
 - [x] **Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B).**
 - [x] **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B).**
-- [ ] **Módulo de Proteção Anti-Automação & Honeypot Dinâmico com Tarpit Criptográfico e Desaceleração de Scrapers (OWASP Automated Threats OAT-011 / OAT-020).**
+- [x] **Módulo de Proteção Anti-Automação & Honeypot Dinâmico com Tarpit Criptográfico e Desaceleração de Scrapers (OWASP Automated Threats OAT-011 / OAT-020).**
 - [ ] **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (TSA).**
+- [ ] **Módulo de Blindagem contra Ataques de Poluição de Parâmetros HTTP (HPP - HTTP Parameter Pollution) e Injeção de Cabeçalhos em Endpoints Críticos (OWASP Top 10 API Security).**
 
 ---
 
@@ -1371,7 +1414,7 @@ Com o **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential St
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (557 testes)
+# 2. Executar suíte completa de testes (575 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

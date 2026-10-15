@@ -189,7 +189,13 @@ export enum AuditAction {
   POW_SOLUTION_VERIFIED = 'POW_SOLUTION_VERIFIED',
   POW_DEFENSE_TRIGGERED = 'POW_DEFENSE_TRIGGERED',
   BRUTE_FORCE_BLOCKED = 'BRUTE_FORCE_BLOCKED',
-  IP_QUARANTINE_RESET = 'IP_QUARANTINE_RESET'
+  IP_QUARANTINE_RESET = 'IP_QUARANTINE_RESET',
+  // Ações de Proteção Anti-Automação, Honeypot & Tarpit Criptográfico (OWASP OAT-011 / OAT-020 & RFC-001 §4.4)
+  HONEYPOT_TRAP_TRIGGERED = 'HONEYPOT_TRAP_TRIGGERED',
+  TARPIT_DEFENSE_ENGAGED = 'TARPIT_DEFENSE_ENGAGED',
+  SCRAPER_BLOCKED = 'SCRAPER_BLOCKED',
+  SCRAPER_IP_ISOLATED = 'SCRAPER_IP_ISOLATED',
+  TARPIT_QUARANTINE_RELEASED = 'TARPIT_QUARANTINE_RELEASED'
 }
 
 export enum AuditResourceType {
@@ -223,7 +229,8 @@ export enum AuditResourceType {
   UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE',
   DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE',
   SESSION_MANAGEMENT = 'SESSION_MANAGEMENT',
-  BRUTE_FORCE_DEFENSE = 'BRUTE_FORCE_DEFENSE'
+  BRUTE_FORCE_DEFENSE = 'BRUTE_FORCE_DEFENSE',
+  ANTI_AUTOMATION_TARPIT = 'ANTI_AUTOMATION_TARPIT'
 }
 
 /**
@@ -840,6 +847,27 @@ export enum PowChallengeStatus {
   INVALID_SOLUTION = 'INVALID_SOLUTION', // Solução incorreta fornecida
   REPLAY_ATTEMPT = 'REPLAY_ATTEMPT'      // Tentativa de reutilização de desafio já consumido
 }
+
+/**
+ * 33. PROTEÇÃO ANTI-AUTOMAÇÃO, HONEYPOT DINÂMICO & TARPIT CRIPTOGRÁFICO
+ * (OWASP Automated Threats OAT-011 / OAT-020 & RFC-001 §4.4, §5.2)
+ */
+
+export enum ScraperThreatCategory {
+  DATA_SCRAPING_OAT011 = 'DATA_SCRAPING_OAT011',               // Raspagem sistemática de dados de pacientes/terapeutas
+  ACCOUNT_ENUMERATION_OAT020 = 'ACCOUNT_ENUMERATION_OAT020',   // Enumeração ou agregação maliciosa de contas
+  HEADLESS_BOT_PROBE = 'HEADLESS_BOT_PROBE',                   // Sondagem por navegadores headless não autorizados
+  RESOURCE_EXHAUSTION_OAT015 = 'RESOURCE_EXHAUSTION_OAT015'    // Tentativa de exaustão de conexões HTTP (DoS na camada de aplicação)
+}
+
+export enum TarpitDefenseStatus {
+  ACTIVE = 'ACTIVE',         // Armadilhas honeypot ativas e monitoramento heurístico ligado
+  ENGAGED = 'ENGAGED',       // Tarpit acionado contra requisição suspeita
+  TARPITTING = 'TARPITTING', // Conexão presa no poço de piche sob atraso progressivo
+  ISOLATED = 'ISOLATED',     // IP colocado em quarentena de baixa prioridade por reincidência
+  RELEASED = 'RELEASED'      // Quarentena removida com parecer auditado pelo DPO
+}
+
 
 
 
