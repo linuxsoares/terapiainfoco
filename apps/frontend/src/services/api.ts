@@ -370,7 +370,19 @@ import type {
   SimulateTimingAttackResponse,
   VerifySideChannelSealDTO,
   VerifySideChannelSealResponse,
-  SideChannelOverviewResponse
+  SideChannelOverviewResponse,
+  VerifyNonceDTO,
+  VerifyNonceResponse,
+  GetSlidingWindowStatusDTO,
+  GetSlidingWindowStatusResponse,
+  RotateBloomFilterResponse,
+  UpdateReplayPolicyDTO,
+  UpdateReplayPolicyResponse,
+  SimulateReplayAttackDTO,
+  SimulateReplayAttackResponse,
+  VerifyAntiReplaySealDTO,
+  VerifyAntiReplaySealResponse,
+  AntiReplayOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2447,6 +2459,52 @@ export const api = {
 
   async verifySideChannelSeal(dto: VerifySideChannelSealDTO): Promise<VerifySideChannelSealResponse> {
     return await request<VerifySideChannelSealResponse>('/side-channel/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 41. Proteção contra Ataques de Replay & Reutilização de Nonce (RFC 8446, RFC 9147 DTLS 1.3 & OWASP API Security)
+  async getAntiReplayOverview(): Promise<AntiReplayOverviewResponse> {
+    return await request<AntiReplayOverviewResponse>('/anti-replay/overview');
+  },
+
+  async verifyNonce(dto: VerifyNonceDTO): Promise<VerifyNonceResponse> {
+    return await request<VerifyNonceResponse>('/anti-replay/verify-nonce', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getSlidingWindowStatus(dto: GetSlidingWindowStatusDTO): Promise<GetSlidingWindowStatusResponse> {
+    return await request<GetSlidingWindowStatusResponse>('/anti-replay/sliding-window-status', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async rotateBloomFilter(): Promise<RotateBloomFilterResponse> {
+    return await request<RotateBloomFilterResponse>('/anti-replay/rotate-bloom-filter', {
+      method: 'POST'
+    });
+  },
+
+  async updateReplayPolicy(dto: UpdateReplayPolicyDTO): Promise<UpdateReplayPolicyResponse> {
+    return await request<UpdateReplayPolicyResponse>('/anti-replay/update-policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateReplayAttack(dto: SimulateReplayAttackDTO): Promise<SimulateReplayAttackResponse> {
+    return await request<SimulateReplayAttackResponse>('/anti-replay/simulate-replay-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyAntiReplaySeal(dto: VerifyAntiReplaySealDTO): Promise<VerifyAntiReplaySealResponse> {
+    return await request<VerifyAntiReplaySealResponse>('/anti-replay/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

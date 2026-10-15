@@ -43,6 +43,7 @@ export * from './devicePostureGuard';
 export * from './pqcHybridCrypto';
 export * from './blindSignaturesCrypto';
 export * from './sideChannelShield';
+export * from './antiReplayShield';
 
 
 

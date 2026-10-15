@@ -3062,6 +3062,91 @@ export interface SideChannelOverview {
   availableOperations: import('./enums').SideChannelTargetOperation[];
 }
 
+// ============================================================================
+// Modelos: Proteção contra Ataques de Replay & Reutilização de Nonce (RFC 8446/9147)
+// ============================================================================
+
+export interface AntiReplayProofSeal {
+  sealToken: string;
+  canonicalDigest: string;          // Digest SHA-256 canônico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura HMAC-SHA256 WORM
+  issuedAt: string;
+  verificationId: string;
+  protocol: import('./enums').ReplayTargetProtocol;
+  mode: import('./enums').ReplayDefenseMode;
+}
+
+export interface ReplayVerificationResult {
+  id: string;
+  targetProtocol: import('./enums').ReplayTargetProtocol;
+  nonceOrSeq: string;
+  allowed: boolean;
+  severity: import('./enums').ReplayThreatSeverity;
+  reason: string;
+  slidingWindowPosition?: {
+    sequenceNumber: number;
+    highestSequence: number;
+    windowSize: number;
+    inWindow: boolean;
+    bitIndex: number;
+  };
+  bloomFilterMatch?: boolean;
+  proofSeal?: AntiReplayProofSeal;
+  evaluatedAt: string;
+}
+
+export interface SlidingWindowStatus {
+  channelId: string;
+  windowSize: number;
+  highestSequenceNumber: number;
+  lowestAcceptableSequenceNumber: number;
+  bitmapHex: string;
+  packetsAccepted: number;
+  packetsReplayed: number;
+  packetsOutOfWindow: number;
+  lastUpdated: string;
+}
+
+export interface BloomFilterMetrics {
+  capacity: number;
+  elementCount: number;
+  hashFunctionsCount: number;
+  falsePositiveProbability: number;
+  saturationPercentage: number;
+  activeGeneration: number;
+  lastRotatedAt: string;
+  totalNoncesEvaluated: number;
+  totalReplaysBlocked: number;
+}
+
+export interface ReplayIncidentRecord {
+  id: string;
+  protocol: import('./enums').ReplayTargetProtocol;
+  nonceOrSeq: string;
+  sourceIp: string;
+  severity: import('./enums').ReplayThreatSeverity;
+  actionTaken: string;
+  proofSeal: AntiReplayProofSeal;
+  timestamp: string;
+}
+
+export interface AntiReplayMetrics {
+  totalVerificationsCount: number;
+  replaysBlockedCount: number;
+  nonceReusesBlockedCount: number;
+  activeSlidingWindowsCount: number;
+  bloomFilterSaturation: number;
+  systemHealth: 'PROTECTED' | 'WARNING' | 'COMPROMISED';
+}
+
+export interface AntiReplayOverview {
+  metrics: AntiReplayMetrics;
+  activeMode: import('./enums').ReplayDefenseMode;
+  bloomMetrics: BloomFilterMetrics;
+  activeWindows: SlidingWindowStatus[];
+  recentIncidents: ReplayIncidentRecord[];
+}
+
 
 
 
