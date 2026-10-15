@@ -61,7 +61,10 @@ import {
   RateLimitDecision,
   MemorySanitizationAlgorithm,
   HeapSprayingThreatLevel,
-  SecureBufferState
+  SecureBufferState,
+  TlsPinningStrategy,
+  TlsPinValidationStatus,
+  TlsPinPolicyMode
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2562,6 +2565,83 @@ export interface SecureMemoryOverview {
   recentZeroizationSeals: MemoryZeroizationProofSeal[];
   systemStatus: 'SHIELDED' | 'WARNING' | 'ALERT';
 }
+
+/**
+ * 40. TLS CERTIFICATE PINNING & ROTAÇÃO DE CAS
+ * (RFC-001 §4.4, §5.2, RFC 7469 HPKP, RFC 6698 DANE & OWASP MASVS)
+ */
+export interface TlsSpkiPin {
+  pinId: string;
+  hostname: string;
+  spkiSha256: string; // Ex: pin-sha256="WoiWRyIOVNa9ihaBciRSC7XHjliYS9VwUGOIud4PB18="
+  strategy: TlsPinningStrategy;
+  type: 'PRIMARY' | 'BACKUP_ROTATION' | 'EMERGENCY_RECOVERY';
+  caIssuer: string;
+  subjectCommonName: string;
+  validFrom: string;
+  validTo: string;
+  createdAt: string;
+  lastVerifiedAt?: string;
+}
+
+export interface X509CertInspection {
+  fingerprintSha256: string;
+  spkiSha256: string;
+  subjectCN: string;
+  subjectAltNames: string[];
+  issuerCN: string;
+  validFrom: string;
+  validTo: string;
+  serialNumber: string;
+  signatureAlgorithm: string;
+  publicKeyBitLength: number;
+}
+
+export interface TlsPinProofSeal {
+  sealId: string;
+  token: string;
+  canonicalDigest: string;
+  hmacSignature: string;
+  issuedAt: string;
+  status: TlsPinValidationStatus;
+  hostname: string;
+  matchedPinId?: string;
+}
+
+export interface TlsPinValidationResult {
+  evaluationId: string;
+  hostname: string;
+  status: TlsPinValidationStatus;
+  policyMode: TlsPinPolicyMode;
+  matchedPin?: TlsSpkiPin;
+  presentedCertificate: X509CertInspection;
+  chainValid: boolean;
+  threatLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL_MITM';
+  mitmSignaturesDetected: string[];
+  recommendation: string;
+  timestamp: string;
+  proofSeal: TlsPinProofSeal;
+}
+
+export interface TlsPinningMetrics {
+  activePinsCount: number;
+  primaryPinsCount: number;
+  backupPinsCount: number;
+  verifications24h: number;
+  mitmBlockedCount: number;
+  caRotationsCount: number;
+  compromisedCAsQuarantined: number;
+  enforceModeEnabled: boolean;
+}
+
+export interface TlsPinningOverview {
+  metrics: TlsPinningMetrics;
+  pins: TlsSpkiPin[];
+  recentVerifications: TlsPinValidationResult[];
+  quarantinedCAs: string[];
+  systemStatus: 'PINNED_SECURE' | 'DEGRADED_ROTATING' | 'MITM_ATTACK_DETECTED';
+}
+
 
 
 

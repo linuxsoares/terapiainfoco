@@ -217,7 +217,12 @@ import {
   SecureBufferState,
   type SecureMemoryOverview,
   type MemoryZeroizationProofSeal,
-  type HeapSprayingInspectionResult
+  type HeapSprayingInspectionResult,
+  TlsPinValidationStatus,
+  type TlsPinningOverview,
+  type TlsSpkiPin,
+  type TlsPinValidationResult,
+  type TlsPinProofSeal
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2962,6 +2967,146 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 42. TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)
+  const [tlsPinningOverview, setTlsPinningOverview] = useState<TlsPinningOverview | null>(null);
+  const [loadingTlsPinning, setLoadingTlsPinning] = useState<boolean>(false);
+  const [activeTlsTab, setActiveTlsTab] = useState<'VALIDATOR' | 'PINS' | 'QUARANTINE'>('VALIDATOR');
+
+  // Validador & Simulador MitM
+  const [tlsHostname, setTlsHostname] = useState<string>('api.terapiainfoco.com.br');
+  const [tlsSimScenario, setTlsSimScenario] = useState<
+    'LEGITIMATE_LETS_ENCRYPT' | 'BURP_MITM_PROXY' | 'EXPIRED_CERTIFICATE' | 'SAN_SPOOFING' | 'ROGUE_QUARANTINED_CA' | 'BACKUP_ROTATION_TEST'
+  >('LEGITIMATE_LETS_ENCRYPT');
+  const [validatingTls, setValidatingTls] = useState<boolean>(false);
+  const [lastTlsValidationResult, setLastTlsValidationResult] = useState<TlsPinValidationResult | null>(null);
+
+  // Rotação de CA
+  const [rotatingPinId, setRotatingPinId] = useState<string | null>(null);
+
+  // Quarentena de CAs
+  const [newQuarantineCaName, setNewQuarantineCaName] = useState<string>('');
+  const [newQuarantineReason, setNewQuarantineReason] = useState<string>('Chave privada intermediária vazada / comprometimento relatado');
+  const [quarantiningCa, setQuarantiningCa] = useState<boolean>(false);
+
+  // Modal de Selo WORM
+  const [selectedTlsSealForModal, setSelectedTlsSealForModal] = useState<TlsPinProofSeal | null>(null);
+  const [verifyingTlsSeal, setVerifyingTlsSeal] = useState<boolean>(false);
+  const [tlsSealVerifyResult, setTlsSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  const fetchTlsPinningData = async () => {
+    try {
+      setLoadingTlsPinning(true);
+      const res = await api.getTlsPinningOverview();
+      if (res.success) {
+        setTlsPinningOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de TLS Pinning:', err);
+    } finally {
+      setLoadingTlsPinning(false);
+    }
+  };
+
+  const handleValidateTlsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tlsHostname.trim()) {
+      setFeedback({ type: 'error', message: 'Informe o hostname do domínio clínico.' });
+      return;
+    }
+
+    try {
+      setValidatingTls(true);
+      const res = await api.validateTlsPin({
+        hostname: tlsHostname.trim(),
+        simulatedScenario: tlsSimScenario
+      });
+      setLastTlsValidationResult(res.result);
+      if (res.result.threatLevel === 'CRITICAL_MITM') {
+        setFeedback({
+          type: 'error',
+          message: `ALERTA DE SEGURANÇA: Interceptação MitM Bloqueada (${res.result.status})!`
+        });
+      } else if (res.result.threatLevel === 'HIGH') {
+        setFeedback({
+          type: 'error',
+          message: `Conexão Rejeitada: ${res.result.recommendation}`
+        });
+      } else if (res.result.status === TlsPinValidationStatus.PIN_MATCH_BACKUP) {
+        setFeedback({
+          type: 'success',
+          message: `Sucesso: Pin SPKI de Rotação Suave correspondido (${res.result.matchedPin?.caIssuer}).`
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          message: `Conexão 100% Segura: Pin Primário correspondido com integridade SPKI RFC 7469.`
+        });
+      }
+      await fetchTlsPinningData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar TLS Pinning.' });
+    } finally {
+      setValidatingTls(false);
+    }
+  };
+
+  const handleRotateCaSubmit = async (pin: TlsSpkiPin) => {
+    try {
+      setRotatingPinId(pin.pinId);
+      const res = await api.rotateTlsCa({
+        hostname: pin.hostname,
+        newPrimaryPinId: pin.pinId,
+        reason: 'Promoção de Backup Pin para Primary via console de governança'
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchTlsPinningData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao executar rotação de CA.' });
+    } finally {
+      setRotatingPinId(null);
+    }
+  };
+
+  const handleQuarantineCaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuarantineCaName.trim()) {
+      setFeedback({ type: 'error', message: 'Informe o identificador da Autoridade Certificadora.' });
+      return;
+    }
+
+    try {
+      setQuarantiningCa(true);
+      const res = await api.quarantineTlsCa({
+        caCommonNameOrIdentifier: newQuarantineCaName.trim(),
+        reason: newQuarantineReason.trim()
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setNewQuarantineCaName('');
+      await fetchTlsPinningData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao quarentenar CA.' });
+    } finally {
+      setQuarantiningCa(false);
+    }
+  };
+
+  const handleVerifyTlsSealSubmit = async (token: string) => {
+    try {
+      setVerifyingTlsSeal(true);
+      setTlsSealVerifyResult(null);
+      const res = await api.verifyTlsPinSeal({ sealToken: token });
+      setTlsSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de TLS Pinning.' });
+    } finally {
+      setVerifyingTlsSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2988,6 +3133,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSsrfData();
       fetchAdvancedRateLimitData();
       fetchSecureMemoryData();
+      fetchTlsPinningData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -14288,6 +14434,493 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 42. TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                <GlobeLock className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    TLS Certificate Pinning & Rotação Contínua de CAs
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                    OWASP MASVS & RFC 7469
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Blindagem estrita contra Proxies MitM, CAs fraudulentas, validação de SPKI SHA-256 e rotação atômica de autoridades (RFC-001 §4.4, §5.2).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                tlsPinningOverview?.systemStatus === 'PINNED_SECURE'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : tlsPinningOverview?.systemStatus === 'MITM_ATTACK_DETECTED'
+                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+              }`}>
+                {tlsPinningOverview?.systemStatus === 'PINNED_SECURE' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                )}
+                {tlsPinningOverview?.systemStatus === 'PINNED_SECURE' ? 'CADEIA 100% BLINDADA' : tlsPinningOverview?.systemStatus || 'PROTEGIDO'}
+              </span>
+
+              <button
+                type="button"
+                onClick={fetchTlsPinningData}
+                disabled={loadingTlsPinning}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Recarregar Telemetria TLS"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingTlsPinning ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pins SPKI Ativos</span>
+              <span className="text-xl font-black text-slate-900 dark:text-white mt-1 block">
+                {tlsPinningOverview?.metrics.activePinsCount || 0}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                {tlsPinningOverview?.metrics.primaryPinsCount || 0} Primary / {tlsPinningOverview?.metrics.backupPinsCount || 0} Backup
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Validações 24h</span>
+              <span className="text-xl font-black text-cyan-600 dark:text-cyan-400 mt-1 block">
+                {tlsPinningOverview?.metrics.verifications24h || 0}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Handshakes verificados</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">MitM Bloqueados</span>
+              <span className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
+                {tlsPinningOverview?.metrics.mitmBlockedCount || 0}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Proxies / Falsas CAs</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Rotações de CA</span>
+              <span className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1 block">
+                {tlsPinningOverview?.metrics.caRotationsCount || 0}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Promoções atômicas</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CAs Quarentenadas</span>
+              <span className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
+                {tlsPinningOverview?.metrics.compromisedCAsQuarantined || 0}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Revogadas no DPO</span>
+            </div>
+          </div>
+
+          {/* Abas */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
+            <button
+              type="button"
+              onClick={() => setActiveTlsTab('VALIDATOR')}
+              className={`pb-2.5 text-xs font-bold cursor-pointer transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTlsTab === 'VALIDATOR'
+                  ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <GlobeLock className="w-3.5 h-3.5" />
+              Verificador & Simulador de Ataques MitM
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTlsTab('PINS')}
+              className={`pb-2.5 text-xs font-bold cursor-pointer transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTlsTab === 'PINS'
+                  ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Key className="w-3.5 h-3.5" />
+              Pins SPKI Cadastrados & Rotação de CA
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTlsTab('QUARANTINE')}
+              className={`pb-2.5 text-xs font-bold cursor-pointer transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTlsTab === 'QUARANTINE'
+                  ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Ban className="w-3.5 h-3.5" />
+              Quarentena de CAs Comprometidas
+            </button>
+          </div>
+
+          {/* Conteúdo Aba 1: Verificador & Simulador MitM */}
+          {activeTlsTab === 'VALIDATOR' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <form onSubmit={handleValidateTlsSubmit} className="lg:col-span-7 space-y-4">
+                <div className="p-4 rounded-2xl bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/40 text-xs text-cyan-800 dark:text-cyan-300">
+                  Valide handshakes TLS contra os Pins cadastrados no enclave ou execute testes de estresse simulando ataques de interceptação MitM (Burp Suite, Charles Proxy, certificados expirados e desvio de SAN).
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Domínio Clínico Alvo (Hostname):
+                    </label>
+                    <select
+                      value={tlsHostname}
+                      onChange={(e) => setTlsHostname(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      <option value="api.terapiainfoco.com.br">api.terapiainfoco.com.br (REST / Enclave)</option>
+                      <option value="meet.terapiainfoco.com.br">meet.terapiainfoco.com.br (Teleconsulta WebRTC)</option>
+                      <option value="notary.terapiainfoco.com.br">notary.terapiainfoco.com.br (Cartório ICP-Brasil)</option>
+                      <option value="auth.terapiainfoco.com.br">auth.terapiainfoco.com.br (IdP / 2FA / DPoP)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Cenário de Teste / Pentest:
+                    </label>
+                    <select
+                      value={tlsSimScenario}
+                      onChange={(e) => setTlsSimScenario(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      <option value="LEGITIMATE_LETS_ENCRYPT">Conexão Legítima (Let's Encrypt / Primary Pin)</option>
+                      <option value="BURP_MITM_PROXY">Ataque MitM Interceptador (PortSwigger / Burp Suite CA)</option>
+                      <option value="EXPIRED_CERTIFICATE">Certificado Vencido / Expirado no Transporte</option>
+                      <option value="SAN_SPOOFING">Divergência de SAN (Domínio Falso / Phishing)</option>
+                      <option value="ROGUE_QUARANTINED_CA">Certificado Emitido por CA em Quarentena</option>
+                      <option value="BACKUP_ROTATION_TEST">Conexão com Backup Pin (Rotação Suave)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={validatingTls}
+                    className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {validatingTls ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <GlobeLock className="w-3.5 h-3.5" />}
+                    Executar Inspeção & Validação de TLS Pinning
+                  </button>
+                </div>
+              </form>
+
+              {/* Resultado da Inspeção */}
+              <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    Último Diagnóstico de Transporte TLS
+                  </h4>
+                  {lastTlsValidationResult ? (
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Status da Validação:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          lastTlsValidationResult.status === TlsPinValidationStatus.PIN_MATCH_PRIMARY
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                            : lastTlsValidationResult.status === TlsPinValidationStatus.PIN_MATCH_BACKUP
+                              ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                              : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                        }`}>
+                          {lastTlsValidationResult.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Nível de Ameaça:</span>
+                        <span className={`font-bold font-mono ${
+                          lastTlsValidationResult.threatLevel === 'NONE'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : lastTlsValidationResult.threatLevel === 'LOW'
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                        }`}>
+                          {lastTlsValidationResult.threatLevel}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">CA Emissora Apresentada:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">
+                          {lastTlsValidationResult.presentedCertificate.issuerCN}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">SPKI SHA-256:</span>
+                        <span className="font-mono text-[9px] text-slate-700 dark:text-slate-300 truncate max-w-[180px]">
+                          {lastTlsValidationResult.presentedCertificate.spkiSha256}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300">
+                        {lastTlsValidationResult.recommendation}
+                      </div>
+
+                      {lastTlsValidationResult.mitmSignaturesDetected.length > 0 && (
+                        <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-[10px] text-rose-800 dark:text-rose-300 font-mono">
+                          Assinaturas MitM: {lastTlsValidationResult.mitmSignaturesDetected.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs italic py-6 text-center">
+                      Nenhuma validação executada nesta sessão. Selecione os parâmetros e clique em inspecionar.
+                    </div>
+                  )}
+                </div>
+
+                {lastTlsValidationResult && (
+                  <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTlsSealForModal(lastTlsValidationResult.proofSeal)}
+                      className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Visualizar Selo Notarial WORM
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Conteúdo Aba 2: Pins Cadastrados & Rotação de CA */}
+          {activeTlsTab === 'PINS' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-600 dark:text-slate-300">
+                  Os Pins SPKI SHA-256 (RFC 7469) garantem que os clientes só estabeleçam conexões se a chave pública coincidir com os certificados homologados. Pins de Rotação Suave permitem alternar a CA sem interrupção de serviço.
+                </span>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Hostname</th>
+                      <th className="py-2.5 px-3">Tipo de Pin</th>
+                      <th className="py-2.5 px-3">CA Emissora Homologada</th>
+                      <th className="py-2.5 px-3">Digest SPKI (RFC 7469)</th>
+                      <th className="py-2.5 px-3">Validade</th>
+                      <th className="py-2.5 px-3 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(tlsPinningOverview?.pins || []).map((pin) => (
+                      <tr key={pin.pinId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <span className="font-bold text-slate-900 dark:text-white font-mono">{pin.hostname}</span>
+                          <span className="block text-[9px] text-slate-400 font-mono">{pin.pinId}</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            pin.type === 'PRIMARY'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                              : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                          }`}>
+                            {pin.type}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200 max-w-[180px] truncate">
+                          {pin.caIssuer}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
+                          {pin.spkiSha256}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                          {new Date(pin.validTo).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {pin.type !== 'PRIMARY' ? (
+                            <button
+                              type="button"
+                              disabled={rotatingPinId === pin.pinId}
+                              onClick={() => handleRotateCaSubmit(pin)}
+                              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                              title="Promover a Primary Pin com Rotação Atômica"
+                            >
+                              {rotatingPinId === pin.pinId ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Promover a PRIMARY'}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Ativo</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Conteúdo Aba 3: Quarentena de CAs Comprometidas */}
+          {activeTlsTab === 'QUARANTINE' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <form onSubmit={handleQuarantineCaSubmit} className="lg:col-span-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
+                  Colocar uma Autoridade Certificadora em Quarentena revoga compulsoriamente todos os Pins e rejeita qualquer certificado emitido por ela, neutralizando riscos de chaves intermediárias vazadas.
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Nome / Common Name da CA Comprometida:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newQuarantineCaName}
+                    onChange={(e) => setNewQuarantineCaName(e.target.value)}
+                    placeholder="Ex: Compromised Intermediate CA Ltd"
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Justificativa / Notificação DPO (Gravada no WORM):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newQuarantineReason}
+                    onChange={(e) => setNewQuarantineReason(e.target.value)}
+                    placeholder="Ex: Alerta CERT.br de vazamento de chave privada"
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={quarantiningCa}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {quarantiningCa ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                    Aplicar Quarentena Compulsória à CA
+                  </button>
+                </div>
+              </form>
+
+              {/* Lista de CAs Quarentenadas */}
+              <div className="lg:col-span-6 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>CAs em Quarentena Ativa ({tlsPinningOverview?.quarantinedCAs.length || 0})</span>
+                  <span className="text-[10px] text-rose-500 font-bold">BLOQUEIO IMEDIATO</span>
+                </h4>
+
+                <div className="space-y-2 max-h-[260px] overflow-y-auto">
+                  {(tlsPinningOverview?.quarantinedCAs || []).map((ca) => (
+                    <div
+                      key={ca}
+                      className="p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-rose-900 dark:text-rose-200 block">{ca}</span>
+                        <span className="text-[10px] text-rose-600 dark:text-rose-400">Emissão de certificados bloqueada no enclave</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100">
+                        QUARENTENADA
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tabela de Validações Recentes */}
+          <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-cyan-500" />
+                Histórico Auditado de Validações TLS & Selos WORM
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {tlsPinningOverview?.recentVerifications.length || 0} registros
+              </span>
+            </h4>
+
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">Data/Hora</th>
+                    <th className="py-2.5 px-3">Domínio Alvo</th>
+                    <th className="py-2.5 px-3">Resultado</th>
+                    <th className="py-2.5 px-3">Nível de Ameaça</th>
+                    <th className="py-2.5 px-3">CA Apresentada</th>
+                    <th className="py-2.5 px-3 text-right">Selo WORM</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(tlsPinningOverview?.recentVerifications || []).slice(0, 8).map((v) => (
+                    <tr key={v.evaluationId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
+                        {new Date(v.timestamp).toLocaleTimeString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white font-mono">
+                        {v.hostname}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          v.status === TlsPinValidationStatus.PIN_MATCH_PRIMARY
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                            : v.status === TlsPinValidationStatus.PIN_MATCH_BACKUP
+                              ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                              : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                        }`}>
+                          {v.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-bold font-mono text-[10px]">
+                        <span className={v.threatLevel === 'NONE' ? 'text-emerald-600' : v.threatLevel === 'LOW' ? 'text-blue-600' : 'text-rose-600'}>
+                          {v.threatLevel}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 max-w-[140px] truncate">
+                        {v.presentedCertificate.issuerCN}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTlsSealForModal(v.proofSeal)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          Auditar Selo
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -18313,6 +18946,121 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {verifyingZeroizationSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 35.A: Auditoria Notarial de Selo WORM de TLS Pinning */}
+      {selectedTlsSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <GlobeLock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                Auditoria de Selo WORM de TLS Pinning
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTlsSealForModal(null);
+                  setTlsSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/40 space-y-1">
+                <div className="font-bold text-cyan-900 dark:text-cyan-200 flex items-center justify-between">
+                  <span>Token: <code className="font-mono text-[11px]">{selectedTlsSealForModal.token}</code></span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300">
+                    {selectedTlsSealForModal.status}
+                  </span>
+                </div>
+                <div className="text-[11px] text-cyan-700 dark:text-cyan-300">
+                  Domínio Homologado: <strong>{selectedTlsSealForModal.hostname}</strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Identificador do Selo:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedTlsSealForModal.sealId}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Pin Correspondido:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedTlsSealForModal.matchedPinId || 'Nenhum (Divergência)'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Data de Emissão:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedTlsSealForModal.issuedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 dark:text-slate-400">Digest Canônico JCS (SHA-256):</span>
+                  <div className="font-mono text-[10px] text-slate-800 dark:text-slate-200 truncate">
+                    {selectedTlsSealForModal.canonicalDigest}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Assinatura HMAC-SHA256:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-cyan-600 dark:text-cyan-400 break-all mt-1">
+                  {selectedTlsSealForModal.hmacSignature}
+                </div>
+              </div>
+
+              {tlsSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  tlsSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {tlsSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {tlsSealVerifyResult.isValid ? 'Selo de TLS Pinning Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{tlsSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(tlsSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTlsSealForModal(null);
+                  setTlsSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingTlsSeal}
+                onClick={() => handleVerifyTlsSealSubmit(selectedTlsSealForModal.token)}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingTlsSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Executar Validação Forense Notarial
               </button>
             </div>

@@ -233,7 +233,14 @@ export enum AuditAction {
   HEAP_SPRAYING_DETECTED = 'HEAP_SPRAYING_DETECTED',
   HEAP_SPRAYING_BLOCKED = 'HEAP_SPRAYING_BLOCKED',
   DEK_EXPIRATION_PURGED = 'DEK_EXPIRATION_PURGED',
-  MEMORY_ZEROIZATION_SEAL_VERIFIED = 'MEMORY_ZEROIZATION_SEAL_VERIFIED'
+  MEMORY_ZEROIZATION_SEAL_VERIFIED = 'MEMORY_ZEROIZATION_SEAL_VERIFIED',
+  // Ações de TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)
+  TLS_PIN_VERIFIED = 'TLS_PIN_VERIFIED',
+  TLS_PIN_VIOLATION_BLOCKED = 'TLS_PIN_VIOLATION_BLOCKED',
+  TLS_CA_ROTATED = 'TLS_CA_ROTATED',
+  TLS_ROGUE_CA_DETECTED = 'TLS_ROGUE_CA_DETECTED',
+  TLS_BACKUP_PIN_PROMOTED = 'TLS_BACKUP_PIN_PROMOTED',
+  TLS_PIN_SEAL_VERIFIED = 'TLS_PIN_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -274,7 +281,8 @@ export enum AuditResourceType {
   HOMOMORPHIC_ENCRYPTION_ENGINE = 'HOMOMORPHIC_ENCRYPTION_ENGINE',
   SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD',
   ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE',
-  SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD'
+  SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD',
+  TLS_PINNING_GUARD = 'TLS_PINNING_GUARD'
 }
 
 /**
@@ -1080,6 +1088,32 @@ export enum SecureBufferState {
   RELEASED = 'RELEASED',     // Memória liberada para coleta do runtime
   CORRUPTED = 'CORRUPTED'    // Falha de integridade ou tentativa de uso após desalocação
 }
+
+/**
+ * 40. TLS CERTIFICATE PINNING & ROTAÇÃO DE CAS
+ * (RFC-001 §4.4, §5.2, RFC 7469 HPKP, RFC 6698 DANE & OWASP MASVS)
+ */
+export enum TlsPinningStrategy {
+  PUBLIC_KEY_SPKI = 'PUBLIC_KEY_SPKI',                 // SPKI RFC 7469 SHA-256 Base64
+  CERTIFICATE_FINGERPRINT = 'CERTIFICATE_FINGERPRINT', // Digest SHA-256 do Certificado DER completo
+  DANE_TLSA_EE = 'DANE_TLSA_EE',                       // RFC 6698 DANE Uso 3 (End Entity)
+  DANE_TLSA_CA = 'DANE_TLSA_CA'                        // RFC 6698 DANE Uso 2 (Trust Anchor Assertion)
+}
+
+export enum TlsPinValidationStatus {
+  PIN_MATCH_PRIMARY = 'PIN_MATCH_PRIMARY',                     // Pin corresponde perfeitamente ao Primary SPKI
+  PIN_MATCH_BACKUP = 'PIN_MATCH_BACKUP',                       // Pin corresponde ao Backup SPKI de rotação suave
+  PIN_MISMATCH_SUSPECTED_MITM = 'PIN_MISMATCH_SUSPECTED_MITM', // Divergência de chave pública - Ataque MitM suspeito
+  CHAIN_UNTRUSTED_ROGUE_CA = 'CHAIN_UNTRUSTED_ROGUE_CA',       // CA emissora não confiável, quarentenada ou proxy de interceptação
+  CERTIFICATE_EXPIRED = 'CERTIFICATE_EXPIRED',                 // Certificado X.509 expirado ou fora do período notBefore/notAfter
+  SAN_MISMATCH = 'SAN_MISMATCH'                                // Subject Alternative Names (SAN) incompatíveis com o domínio requisitado
+}
+
+export enum TlsPinPolicyMode {
+  STRICT_ENFORCE = 'STRICT_ENFORCE', // Aborta e bloqueia imediatamente a conexão clínica
+  DRY_RUN_REPORT = 'DRY_RUN_REPORT'  // Registra alerta e notifica DPO sem abortar conexão
+}
+
 
 
 

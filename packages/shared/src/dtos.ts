@@ -2498,6 +2498,86 @@ export interface SecureMemoryOverviewResponse {
   overview: import('./models').SecureMemoryOverview;
 }
 
+/**
+ * 40. TLS CERTIFICATE PINNING & ROTAÇÃO DE CAS
+ * (RFC-001 §4.4, §5.2, RFC 7469 HPKP, RFC 6698 DANE & OWASP MASVS)
+ */
+export interface ValidateTlsPinDTO {
+  hostname: string;
+  presentedSpkiOrCertPem?: string;
+  simulatedScenario?: 'LEGITIMATE_LETS_ENCRYPT' | 'BURP_MITM_PROXY' | 'EXPIRED_CERTIFICATE' | 'SAN_SPOOFING' | 'ROGUE_QUARANTINED_CA' | 'BACKUP_ROTATION_TEST';
+}
+
+export interface ValidateTlsPinResponse {
+  success: boolean;
+  result: import('./models').TlsPinValidationResult;
+  message: string;
+}
+
+export interface RegisterTlsPinDTO {
+  hostname: string;
+  spkiSha256: string;
+  strategy?: import('./enums').TlsPinningStrategy;
+  type: 'PRIMARY' | 'BACKUP_ROTATION' | 'EMERGENCY_RECOVERY';
+  caIssuer: string;
+  subjectCommonName: string;
+  validFrom: string;
+  validTo: string;
+}
+
+export interface RegisterTlsPinResponse {
+  success: boolean;
+  pin: import('./models').TlsSpkiPin;
+  message: string;
+}
+
+export interface RotateTlsCaDTO {
+  hostname: string;
+  newPrimaryPinId: string;
+  reason: string;
+  emergencyRevocation?: boolean;
+}
+
+export interface RotateTlsCaResponse {
+  success: boolean;
+  promotedPin: import('./models').TlsSpkiPin;
+  demotedPin?: import('./models').TlsSpkiPin;
+  message: string;
+  rotatedAt: string;
+}
+
+export interface QuarantineCompromisedCaDTO {
+  caCommonNameOrIdentifier: string;
+  reason: string;
+  cveReference?: string;
+}
+
+export interface QuarantineCompromisedCaResponse {
+  success: boolean;
+  quarantinedCa: string;
+  revokedPinsCount: number;
+  message: string;
+  quarantinedAt: string;
+}
+
+export interface VerifyTlsPinSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyTlsPinSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').TlsPinProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface TlsPinningOverviewResponse {
+  success: boolean;
+  overview: import('./models').TlsPinningOverview;
+}
+
+
 
 
 
