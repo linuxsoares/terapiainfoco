@@ -277,7 +277,13 @@ export enum AuditAction {
   SLIDING_WINDOW_EVALUATED = 'SLIDING_WINDOW_EVALUATED',
   BLOOM_FILTER_ROTATED = 'BLOOM_FILTER_ROTATED',
   ANTI_REPLAY_SEAL_VERIFIED = 'ANTI_REPLAY_SEAL_VERIFIED',
-  REPLAY_POLICY_UPDATED = 'REPLAY_POLICY_UPDATED'
+  REPLAY_POLICY_UPDATED = 'REPLAY_POLICY_UPDATED',
+  // Ações de Marcação D'água Esteganográfica Visual e Traçabilidade Forense (LGPD Art. 46 & CFP 011/2018)
+  VISUAL_WATERMARK_EMBEDDED = 'VISUAL_WATERMARK_EMBEDDED',
+  LEAK_EXTRACTION_ATTEMPTED = 'LEAK_EXTRACTION_ATTEMPTED',
+  LEAK_SOURCE_IDENTIFIED = 'LEAK_SOURCE_IDENTIFIED',
+  WATERMARK_PROOF_VERIFIED = 'WATERMARK_PROOF_VERIFIED',
+  WATERMARK_POLICY_UPDATED = 'WATERMARK_POLICY_UPDATED'
 }
 
 export enum AuditResourceType {
@@ -324,7 +330,8 @@ export enum AuditResourceType {
   PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE',
   BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE',
   SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD',
-  ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD'
+  ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD',
+  VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD'
 }
 
 /**
@@ -1372,6 +1379,45 @@ export enum ReplayTargetProtocol {
   DPOP_HTTP_TOKEN = 'DPOP_HTTP_TOKEN',                             // Nonces e JTI de tokens de sessão clínica DPoP
   CHAUMIAN_VOUCHER_NULLIFIER = 'CHAUMIAN_VOUCHER_NULLIFIER',       // Nullifiers de vouchers psiquiátricos e votos anônimos
   REST_API_REQUEST = 'REST_API_REQUEST'                            // Requisições REST mutantes com cabeçalho X-Nonce
+}
+
+/**
+ * Padrões de Esteganografia Visual Espectral e Espacial (LGPD Art. 46 / CFP 011/2018)
+ */
+export enum WatermarkPatternType {
+  QUASI_ORTHOGONAL_PN = 'QUASI_ORTHOGONAL_PN',                     // Sequência pseudo-aleatória bipolar {+1, -1} quase-ortogonal
+  DCT_MID_FREQUENCY = 'DCT_MID_FREQUENCY',                         // Modulação em coeficientes de frequência intermediária da DCT
+  FOURIER_MELLIN_INVARIANT = 'FOURIER_MELLIN_INVARIANT',           // Invariante a rotações e redimensionamentos (Log-Polar)
+  MICRO_DOT_GRID = 'MICRO_DOT_GRID'                                // Grade estocástica de micro-pontos imperceptíveis
+}
+
+/**
+ * Nível de Confiança Forense da Extração de Vazamento (Normalized Cross-Correlation NCC)
+ */
+export enum WatermarkExtractionConfidence {
+  DEFINITIVE_MATCH = 'DEFINITIVE_MATCH',                           // NCC >= 0.55, p < 10^-8: Autoria comprovada com certeza forense incontestável
+  HIGH_PROBABILITY = 'HIGH_PROBABILITY',                           // 0.35 <= NCC < 0.55: Elevada probabilidade de autoria de vazamento
+  SUSPICIOUS_WEAK = 'SUSPICIOUS_WEAK',                             // 0.20 <= NCC < 0.35: Correlação fraca/residual detectada
+  NO_CORRELATION = 'NO_CORRELATION'                                // NCC < 0.20: Nenhuma correspondência estatística com sessões ativas
+}
+
+/**
+ * Alvos de Aplicação da Marca D'água Visual Esteganográfica
+ */
+export enum VisualWatermarkTarget {
+  WEBRTC_VIDEO_STREAM = 'WEBRTC_VIDEO_STREAM',                     // Fluxo de vídeo ao vivo de teleconsulta WebRTC
+  CLINICAL_PRONTUARY_PRINT = 'CLINICAL_PRONTUARY_PRINT',           // Renderização de prontuários clínicos SOAP
+  PRESCRIPTION_PDF_CANVAS = 'PRESCRIPTION_PDF_CANVAS',             // Receituários, atestados e documentos timbrados CFP
+  ATTACHMENT_IMAGE = 'ATTACHMENT_IMAGE'                            // Imagens de exames e laudos clínicos anexados
+}
+
+/**
+ * Força / Amplitude de Injeção da Marca D'água Espectral
+ */
+export enum WatermarkEmbeddingStrength {
+  SUBTLE_INVISIBLE = 'SUBTLE_INVISIBLE',                           // Alpha 0.008 (PSNR > 52dB, SSIM > 0.995 - Máxima imperceptibilidade)
+  BALANCED_RESILIENT = 'BALANCED_RESILIENT',                       // Alpha 0.015 (PSNR > 46dB, SSIM > 0.985 - Equilíbrio recomendado)
+  AGGRESSIVE_ROBUST = 'AGGRESSIVE_ROBUST'                          // Alpha 0.030 (PSNR > 40dB, SSIM > 0.965 - Resistência a fotos de celular)
 }
 
 

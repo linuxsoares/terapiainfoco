@@ -382,7 +382,20 @@ import type {
   SimulateReplayAttackResponse,
   VerifyAntiReplaySealDTO,
   VerifyAntiReplaySealResponse,
-  AntiReplayOverviewResponse
+  AntiReplayOverviewResponse,
+  CreateWatermarkSeedDTO,
+  CreateWatermarkSeedResponse,
+  EmbedVisualWatermarkDTO,
+  EmbedVisualWatermarkResponse,
+  ExtractLeakSourceDTO,
+  ExtractLeakSourceResponse,
+  SimulateScreenLeakDTO,
+  SimulateScreenLeakResponse,
+  UpdateWatermarkStrengthDTO,
+  UpdateWatermarkStrengthResponse,
+  VerifyVisualWatermarkSealDTO,
+  VerifyVisualWatermarkSealResponse,
+  VisualWatermarkOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2505,6 +2518,53 @@ export const api = {
 
   async verifyAntiReplaySeal(dto: VerifyAntiReplaySealDTO): Promise<VerifyAntiReplaySealResponse> {
     return await request<VerifyAntiReplaySealResponse>('/anti-replay/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 42. Marcação D'água Esteganográfica Visual & Rastreamento Anti-Exfiltração de Tela (LGPD Art. 46 / CFP 011/2018)
+  async getVisualWatermarkOverview(): Promise<VisualWatermarkOverviewResponse> {
+    return await request<VisualWatermarkOverviewResponse>('/visual-watermark/overview');
+  },
+
+  async createWatermarkSeed(dto: CreateWatermarkSeedDTO): Promise<CreateWatermarkSeedResponse> {
+    return await request<CreateWatermarkSeedResponse>('/visual-watermark/create-seed', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async embedVisualWatermark(dto: EmbedVisualWatermarkDTO): Promise<EmbedVisualWatermarkResponse> {
+    return await request<EmbedVisualWatermarkResponse>('/visual-watermark/embed', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async extractLeakSource(dto: ExtractLeakSourceDTO): Promise<ExtractLeakSourceResponse> {
+    return await request<ExtractLeakSourceResponse>('/visual-watermark/extract-leak', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateScreenLeak(dto: SimulateScreenLeakDTO): Promise<SimulateScreenLeakResponse> {
+    return await request<SimulateScreenLeakResponse>('/visual-watermark/simulate-screen-leak', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateWatermarkStrength(dto: UpdateWatermarkStrengthDTO): Promise<UpdateWatermarkStrengthResponse> {
+    return await request<UpdateWatermarkStrengthResponse>('/visual-watermark/update-strength', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyVisualWatermarkSeal(dto: VerifyVisualWatermarkSealDTO): Promise<VerifyVisualWatermarkSealResponse> {
+    return await request<VerifyVisualWatermarkSealResponse>('/visual-watermark/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
