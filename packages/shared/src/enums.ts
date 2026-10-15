@@ -263,7 +263,14 @@ export enum AuditAction {
   BLIND_SIGNATURE_UNBLINDED = 'BLIND_SIGNATURE_UNBLINDED',
   BLIND_SIGNATURE_TOKEN_REDEEMED = 'BLIND_SIGNATURE_TOKEN_REDEEMED',
   BLIND_SIGNATURE_VERIFIED = 'BLIND_SIGNATURE_VERIFIED',
-  BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED = 'BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED'
+  BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED = 'BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED',
+  // Ações de Proteção contra Side-Channel e Timing Attacks (NIST SP 800-38D & RFC §4.2, §4.4)
+  SIDE_CHANNEL_DEFENSE_ASSESSED = 'SIDE_CHANNEL_DEFENSE_ASSESSED',
+  CONSTANT_TIME_EXECUTION_VERIFIED = 'CONSTANT_TIME_EXECUTION_VERIFIED',
+  TIMING_LEAK_DETECTED = 'TIMING_LEAK_DETECTED',
+  TIMING_JITTER_INJECTED = 'TIMING_JITTER_INJECTED',
+  SIDE_CHANNEL_SEAL_VERIFIED = 'SIDE_CHANNEL_SEAL_VERIFIED',
+  SIDE_CHANNEL_POLICY_UPDATED = 'SIDE_CHANNEL_POLICY_UPDATED'
 }
 
 export enum AuditResourceType {
@@ -308,7 +315,8 @@ export enum AuditResourceType {
   TLS_PINNING_GUARD = 'TLS_PINNING_GUARD',
   DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE',
   PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE',
-  BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE'
+  BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE',
+  SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD'
 }
 
 /**
@@ -1295,6 +1303,38 @@ export enum BlindBallotDecision {
   ABSTENTION = 'ABSTENTION',                                 // Abstenção motivada por impedimento ou foro íntimo
   REVISION_REQUESTED = 'REVISION_REQUESTED'                  // Solicitação de diligência adicional ou nova perícia psicológica
 }
+
+/**
+ * Modos de Operação da Blindagem Side-Channel (NIST SP 800-38D & RFC §4.2, §4.4)
+ */
+export enum SideChannelProtectionMode {
+  STRICT_CONSTANT_TIME_ONLY = 'STRICT_CONSTANT_TIME_ONLY',         // Apenas primitivas de tempo constante sem branching
+  CONSTANT_TIME_PLUS_GAUSSIAN_JITTER = 'CONSTANT_TIME_PLUS_GAUSSIAN_JITTER', // Tempo constante + injeção estocástica gaussiana (Recomendado)
+  ADAPTIVE_DECEPTION_TIMING = 'ADAPTIVE_DECEPTION_TIMING',         // Decepção temporal com atrasos calculados para confundir sondas
+  MONITORING_BENCHMARK = 'MONITORING_BENCHMARK'                    // Apenas telemetria e análise comparativa sem atenuação ativa
+}
+
+/**
+ * Nível de Vulnerabilidade a Ataques de Temporização (Critério NIST Welch t-score)
+ */
+export enum SideChannelVulnerabilityLevel {
+  IMMUNE_NIST_COMPLIANT = 'IMMUNE_NIST_COMPLIANT',                 // |t| < 4.5: Estatisticamente indistinguível e imune
+  LOW_RISK_ACCEPTABLE = 'LOW_RISK_ACCEPTABLE',                     // 4.5 <= |t| < 6.0: Risco baixo em rede remota com latência
+  VULNERABLE_TIMING_LEAK = 'VULNERABLE_TIMING_LEAK',               // 6.0 <= |t| < 15.0: Vazamento detectável em amostragens estatísticas
+  CRITICAL_MICRO_VARIANCE = 'CRITICAL_MICRO_VARIANCE'              // |t| >= 15.0: Vazamento severo por interrupção precoce de loop (Early Exit)
+}
+
+/**
+ * Operações Criptográficas Sensíveis Protegidas contra Side-Channel
+ */
+export enum SideChannelTargetOperation {
+  AES_GCM_AUTH_TAG_VERIFY = 'AES_GCM_AUTH_TAG_VERIFY',             // Verificação da Tag de Autenticação GCM de 128 bits
+  BLIND_INDEX_HMAC_COMPUTE = 'BLIND_INDEX_HMAC_COMPUTE',           // Computação de Blind Index HMAC-SHA256 para CPF/E-mail
+  PASSWORD_PBKDF2_COMPARE = 'PASSWORD_PBKDF2_COMPARE',             // Comparação da hash de senha ou passphrase de exportação
+  RSA_MODULAR_EXPONENTIATION = 'RSA_MODULAR_EXPONENTIATION',       // Exponenciação modular com blinding para assinaturas e KEM
+  JWT_DPOP_SIGNATURE_VERIFY = 'JWT_DPOP_SIGNATURE_VERIFY'          // Validação de token binding e assinaturas digitais ECDSA
+}
+
 
 
 

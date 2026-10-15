@@ -357,7 +357,20 @@ import type {
   SimulateDoubleSpendResponse,
   VerifyBlindSealDTO,
   VerifyBlindSealResponse,
-  BlindSignaturesOverviewResponse
+  BlindSignaturesOverviewResponse,
+  InspectSideChannelDTO,
+  InspectSideChannelResponse,
+  RunWelchTestDTO,
+  RunWelchTestResponse,
+  CalibrateJitterDTO,
+  CalibrateJitterResponse,
+  UpdateSideChannelPolicyDTO,
+  UpdateSideChannelPolicyResponse,
+  SimulateTimingAttackDTO,
+  SimulateTimingAttackResponse,
+  VerifySideChannelSealDTO,
+  VerifySideChannelSealResponse,
+  SideChannelOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2387,6 +2400,53 @@ export const api = {
 
   async verifyBlindSeal(dto: VerifyBlindSealDTO): Promise<VerifyBlindSealResponse> {
     return await request<VerifyBlindSealResponse>('/blind-signatures/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 40. Proteção contra Side-Channel e Timing Attacks (NIST SP 800-38D, RFC-001 §4.2, §4.4)
+  async getSideChannelOverview(): Promise<SideChannelOverviewResponse> {
+    return await request<SideChannelOverviewResponse>('/side-channel/overview');
+  },
+
+  async inspectSideChannelOperation(dto: InspectSideChannelDTO): Promise<InspectSideChannelResponse> {
+    return await request<InspectSideChannelResponse>('/side-channel/inspect-operation', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async runSideChannelWelchTest(dto: RunWelchTestDTO): Promise<RunWelchTestResponse> {
+    return await request<RunWelchTestResponse>('/side-channel/run-welch-test', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async calibrateSideChannelJitter(dto: CalibrateJitterDTO): Promise<CalibrateJitterResponse> {
+    return await request<CalibrateJitterResponse>('/side-channel/calibrate-jitter', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateSideChannelPolicy(dto: UpdateSideChannelPolicyDTO): Promise<UpdateSideChannelPolicyResponse> {
+    return await request<UpdateSideChannelPolicyResponse>('/side-channel/update-policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateSideChannelTimingAttack(dto: SimulateTimingAttackDTO): Promise<SimulateTimingAttackResponse> {
+    return await request<SimulateTimingAttackResponse>('/side-channel/simulate-timing-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySideChannelSeal(dto: VerifySideChannelSealDTO): Promise<VerifySideChannelSealResponse> {
+    return await request<VerifySideChannelSealResponse>('/side-channel/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

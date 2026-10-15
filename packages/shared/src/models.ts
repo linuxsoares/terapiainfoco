@@ -2991,6 +2991,78 @@ export interface BlindSignatureOverview {
   systemHealth: 'OPERATIONAL' | 'DEGRADED' | 'WARNING';
 }
 
+// ============================================================================
+// Módulo de Proteção Criptográfica contra Side-Channel e Timing Attacks
+// NIST SP 800-38D, RFC-001 §4.2, §4.4 & OWASP Top 10 API Security
+// ============================================================================
+
+export interface SideChannelInspectionResult {
+  id: string;
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  constantTimeGuaranteed: boolean;
+  meanDurationNs: number;
+  varianceNs: number;
+  deltaTimingNs: number;             // Diferença absoluta entre caso A (válido) e B (inválido)
+  jitterInjectedMs: number;          // Jitter estocástico regulado adicionado
+  vulnerabilityLevel: import('./enums').SideChannelVulnerabilityLevel;
+  welchTScore: number;               // Estatística t de Welch (|t| < 4.5 NIST)
+  explanation: string;
+  inspectedAt: string;
+}
+
+export interface WelchTTestSampleData {
+  sampleCountA: number;             // Quantidade de amostras com input válido
+  sampleCountB: number;             // Quantidade de amostras com input incorreto
+  meanDurationNsA: number;          // Tempo médio em nanossegundos (Grupo A)
+  meanDurationNsB: number;          // Tempo médio em nanossegundos (Grupo B)
+  stdDevA: number;                  // Desvio-padrão amostral (Grupo A)
+  stdDevB: number;                  // Desvio-padrão amostral (Grupo B)
+  degreesOfFreedom: number;         // Graus de liberdade (Welch-Satterthwaite)
+  tScore: number;                   // Valor |t| estatístico
+  pValEstimate: number;             // Valor-p estimado
+  nistCompliant: boolean;           // True se |t| < 4.5
+  vulnerabilityLevel: import('./enums').SideChannelVulnerabilityLevel;
+  explanation: string;
+}
+
+export interface SideChannelProofSeal {
+  sealToken: string;
+  canonicalDigest: string;          // Digest SHA-256 canônico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura HMAC-SHA256 WORM
+  issuedAt: string;
+  operationId: string;
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  mode: import('./enums').SideChannelProtectionMode;
+}
+
+export interface SideChannelBenchmarkReport {
+  id: string;
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  protectionMode: import('./enums').SideChannelProtectionMode;
+  welchTest: WelchTTestSampleData;
+  isTimingSafe: boolean;
+  proofSeal: SideChannelProofSeal;
+  generatedAt: string;
+}
+
+export interface SideChannelMetrics {
+  totalInspectionsCount: number;
+  timingLeaksBlockedCount: number;
+  constantTimeVerificationsCount: number;
+  activeJitterTargetMs: number;
+  averageWelchTScore: number;
+  systemHealth: 'IMMUNE' | 'HARDENED' | 'MONITORING';
+}
+
+export interface SideChannelOverview {
+  metrics: SideChannelMetrics;
+  activeProtectionMode: import('./enums').SideChannelProtectionMode;
+  recentInspections: SideChannelInspectionResult[];
+  recentBenchmarks: SideChannelBenchmarkReport[];
+  availableOperations: import('./enums').SideChannelTargetOperation[];
+}
+
+
 
 
 
