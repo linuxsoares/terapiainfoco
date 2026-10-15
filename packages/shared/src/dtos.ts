@@ -2085,5 +2085,77 @@ export interface PowDefenseOverviewResponse {
   overview: import('./models').PowDefenseOverview;
 }
 
+/**
+ * 33. DTOS DE PROTEÇÃO ANTI-AUTOMAÇÃO, HONEYPOT DINÂMICO & TARPIT CRIPTOGRÁFICO
+ * (OWASP OAT-011 / OAT-020 & RFC-001 §4.4, §5.2)
+ */
+
+export interface CreateHoneypotTrapDTO {
+  routePath: string;
+  ttlSeconds?: number;
+  clientIp?: string;
+}
+
+export interface CreateHoneypotTrapResponse {
+  success: boolean;
+  trap: import('./models').HoneypotTrapConfig;
+  invisibleHtmlSnippet: string;
+}
+
+export interface TriggerHoneypotTrapDTO {
+  token: string;
+}
+
+export interface TriggerHoneypotTrapResponse {
+  success: boolean;
+  tarpitDelayAppliedMs: number;
+  defenseSeal?: string;
+  incident: import('./models').ScraperIncidentRecord;
+  message: string;
+}
+
+export interface SimulateScrapingAttackDTO {
+  ipAddress?: string;
+  threatCategory: import('./enums').ScraperThreatCategory;
+  requestsBurstCount?: number;
+  simulateHoneypotHit?: boolean;
+}
+
+export interface SimulateScrapingAttackResponse {
+  success: boolean;
+  attackContained: boolean;
+  tarpitDelayMs: number;
+  bandwidthSavedBytes: number;
+  incident: import('./models').ScraperIncidentRecord;
+  defenseSeal: string;
+  message: string;
+}
+
+export interface ReleaseTarpitQuarantineDTO {
+  ipAddress: string;
+  reason: string;
+}
+
+export interface ReleaseTarpitQuarantineResponse {
+  success: boolean;
+  ipAddress: string;
+  message: string;
+}
+
+export interface VerifyTarpitSealDTO {
+  seal: string;
+}
+
+export interface VerifyTarpitSealResponse {
+  success: boolean;
+  verification: import('./models').TarpitDefenseProof;
+}
+
+export interface TarpitMetricsOverviewResponse {
+  success: boolean;
+  overview: import('./models').TarpitMetricsOverview;
+}
+
+
 
 

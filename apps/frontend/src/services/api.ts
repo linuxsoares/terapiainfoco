@@ -243,7 +243,16 @@ import type {
   SimulateBruteForceAttackResponse,
   ResetIpReputationDTO,
   ResetIpReputationResponse,
-  PowDefenseOverviewResponse
+  PowDefenseOverviewResponse,
+  CreateHoneypotTrapDTO,
+  CreateHoneypotTrapResponse,
+  TriggerHoneypotTrapResponse,
+  SimulateScrapingAttackDTO,
+  SimulateScrapingAttackResponse,
+  ReleaseTarpitQuarantineDTO,
+  ReleaseTarpitQuarantineResponse,
+  TarpitMetricsOverviewResponse,
+  TarpitDefenseProof
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1830,6 +1839,44 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ seal })
     });
+  },
+
+  // 35. Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020 & RFC-001 §4.4)
+  async getTarpitOverview(): Promise<TarpitMetricsOverviewResponse> {
+    return await request<TarpitMetricsOverviewResponse>('/anti-automation/overview');
+  },
+
+  async createHoneypotTrap(dto: CreateHoneypotTrapDTO): Promise<CreateHoneypotTrapResponse> {
+    return await request<CreateHoneypotTrapResponse>('/anti-automation/trap/create', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async triggerHoneypotTrap(token: string): Promise<TriggerHoneypotTrapResponse> {
+    return await request<TriggerHoneypotTrapResponse>(`/anti-automation/trap/${encodeURIComponent(token)}`);
+  },
+
+  async simulateScrapingAttack(dto: SimulateScrapingAttackDTO): Promise<SimulateScrapingAttackResponse> {
+    return await request<SimulateScrapingAttackResponse>('/anti-automation/simulate-scraping', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async releaseTarpitQuarantine(dto: ReleaseTarpitQuarantineDTO): Promise<ReleaseTarpitQuarantineResponse> {
+    return await request<ReleaseTarpitQuarantineResponse>('/anti-automation/release-ip', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyTarpitSeal(seal: string): Promise<{ success: boolean; verification: TarpitDefenseProof }> {
+    return await request<{ success: boolean; verification: TarpitDefenseProof }>('/anti-automation/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify({ seal })
+    });
   }
 };
+
 

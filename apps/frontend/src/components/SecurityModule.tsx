@@ -51,7 +51,10 @@ import {
   Share2,
   Scale,
   Monitor,
-  PowerOff
+  PowerOff,
+  Bug,
+  Hourglass,
+  Crosshair
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -167,7 +170,12 @@ import {
   PowChallenge,
   BruteForceIpReputation,
   PowDefenseOverview,
-  PowDefenseProof
+  PowDefenseProof,
+  ScraperThreatCategory,
+  TarpitDefenseStatus,
+  ScraperIncidentRecord,
+  TarpitMetricsOverview,
+  TarpitDefenseProof
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2074,6 +2082,133 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020 & RFC-001 §4.4)
+  const [tarpitOverview, setTarpitOverview] = useState<TarpitMetricsOverview | null>(null);
+  const [loadingTarpit, setLoadingTarpit] = useState<boolean>(false);
+  const [simulatingScraping, setSimulatingScraping] = useState<boolean>(false);
+  const [selectedScraperThreat, setSelectedScraperThreat] = useState<ScraperThreatCategory>(ScraperThreatCategory.DATA_SCRAPING_OAT011);
+  const [unbanTarpitModal, setUnbanTarpitModal] = useState<ScraperIncidentRecord | null>(null);
+  const [unbanTarpitReason, setUnbanTarpitReason] = useState<string>('');
+  const [releasingTarpit, setReleasingTarpit] = useState<boolean>(false);
+  const [selectedTarpitSealModal, setSelectedTarpitSealModal] = useState<TarpitDefenseProof | null>(null);
+  const [verifyingTarpitSeal, setVerifyingTarpitSeal] = useState<boolean>(false);
+  const [testingTrap, setTestingTrap] = useState<boolean>(false);
+  const [lastTrapResult, setLastTrapResult] = useState<{
+    delayMs: number;
+    proofSeal: string;
+    incident: ScraperIncidentRecord;
+  } | null>(null);
+
+  const fetchTarpitData = async () => {
+    try {
+      setLoadingTarpit(true);
+      const res = await api.getTarpitOverview();
+      if (res.success) {
+        setTarpitOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar governança de Anti-Automação & Tarpit:', err);
+    } finally {
+      setLoadingTarpit(false);
+    }
+  };
+
+  const handleSimulateScraping = async () => {
+    try {
+      setSimulatingScraping(true);
+      const res = await api.simulateScrapingAttack({
+        threatCategory: selectedScraperThreat,
+        requestsBurstCount: 15,
+        simulateHoneypotHit: true
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        await fetchTarpitData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao simular ataque de raspagem.'
+      });
+    } finally {
+      setSimulatingScraping(false);
+    }
+  };
+
+  const handleTriggerLiveTrap = async (token: string) => {
+    try {
+      setTestingTrap(true);
+      const res = await api.triggerHoneypotTrap(token);
+      if (res.success) {
+        setLastTrapResult({
+          delayMs: res.tarpitDelayAppliedMs,
+          proofSeal: res.defenseSeal || '',
+          incident: res.incident
+        });
+        setFeedback({
+          type: 'success',
+          message: `Armadilha acionada! Conexão desacelerada e retida no poço de piche (${res.tarpitDelayAppliedMs}ms).`
+        });
+        await fetchTarpitData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao acionar armadilha Honeypot.'
+      });
+    } finally {
+      setTestingTrap(false);
+    }
+  };
+
+  const handleReleaseTarpitIp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unbanTarpitModal) return;
+    try {
+      setReleasingTarpit(true);
+      const res = await api.releaseTarpitQuarantine({
+        ipAddress: unbanTarpitModal.ipAddress,
+        reason: unbanTarpitReason.trim() || 'Desbloqueio manual auditado pelo DPO'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        setUnbanTarpitModal(null);
+        setUnbanTarpitReason('');
+        await fetchTarpitData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao revogar quarentena do IP.'
+      });
+    } finally {
+      setReleasingTarpit(false);
+    }
+  };
+
+  const handleInspectTarpitSeal = async (seal: string) => {
+    try {
+      setVerifyingTarpitSeal(true);
+      const res = await api.verifyTarpitSeal(seal);
+      if (res.success) {
+        setSelectedTarpitSealModal(res.verification);
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao verificar selo WORM de Tarpit.'
+      });
+    } finally {
+      setVerifyingTarpitSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2093,6 +2228,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchDpData();
       fetchSessionBindingData();
       fetchPowData();
+      fetchTarpitData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -10891,6 +11027,387 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 28. PROTEÇÃO ANTI-AUTOMAÇÃO, HONEYPOT DINÂMICO & TARPIT CRIPTOGRÁFICO (OWASP OAT-011 / OAT-020 & RFC-001 §4.4, §5.2) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+          {/* Cabeçalho do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500/10 via-amber-500/10 to-orange-500/10 text-rose-600 dark:text-rose-400">
+                <Bug className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico
+                  </h3>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                    OWASP OAT-011 / OAT-020
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Contenção ativa de crawlers maliciosos, armadilhas invisíveis e desaceleração progressiva de conexões hostis (RFC-001 §4.4, §5.2)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                tarpitOverview?.currentThreatIndex === 'HIGH'
+                  ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                  : tarpitOverview?.currentThreatIndex === 'ELEVATED'
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                  : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+              }`}>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Ameaça Sistêmica: {tarpitOverview?.currentThreatIndex || 'NORMAL'}
+              </span>
+
+              <button
+                type="button"
+                onClick={fetchTarpitData}
+                disabled={loadingTarpit}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                title="Atualizar Métricas de Anti-Automação"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingTarpit ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs de Governança Executiva */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/60">
+              <div className="flex items-center justify-between text-rose-700 dark:text-rose-300 text-xs font-semibold mb-1">
+                <span>Crawlers Presos em Tarpit</span>
+                <Hourglass className="w-4 h-4 text-rose-600" />
+              </div>
+              <div className="text-2xl font-black text-rose-900 dark:text-rose-100 font-mono">
+                {tarpitOverview?.totalTrappedCrawlersCount ?? 0}
+              </div>
+              <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
+                Conexões desaceleradas
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60">
+              <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 text-xs font-semibold mb-1">
+                <span>Honeypots Acionados</span>
+                <Crosshair className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="text-2xl font-black text-amber-900 dark:text-amber-100 font-mono">
+                {tarpitOverview?.totalHoneypotsTriggered ?? 0}
+              </div>
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1">
+                Armadilhas invisíveis atingidas
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60">
+              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-xs font-semibold mb-1">
+                <span>Largura de Banda Preservada</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100 font-mono">
+                {(tarpitOverview?.bandwidthSavedKb ?? 0).toLocaleString()} KB
+              </div>
+              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 mt-1">
+                Payload clínico não exfiltrado
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60">
+              <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-1">
+                <span>IPs em Quarentena Tarpit</span>
+                <Ban className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div className="text-2xl font-black text-indigo-900 dark:text-indigo-100 font-mono">
+                {tarpitOverview?.isolatedIpsCount ?? 0}
+              </div>
+              <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+                {tarpitOverview?.activeHoneypotsCount ?? 2} armadilhas ativas
+              </p>
+            </div>
+          </div>
+
+          {/* Banner Arquitetural: Mecânica do Tarpit e Honeypots */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/5 dark:from-rose-950/30 dark:via-amber-950/30 dark:to-rose-950/10 border border-rose-200 dark:border-rose-800/60 flex items-start gap-3.5">
+            <div className="p-2 rounded-xl bg-rose-500/20 text-rose-700 dark:text-rose-300 mt-0.5">
+              <Hourglass className="w-5 h-5" />
+            </div>
+            <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+              <p className="font-bold text-slate-900 dark:text-white">
+                Como Funciona a Contenção por Tarpit & Honeypots Invisíveis (RFC-001 §4.4)
+              </p>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Armadilhas criptografadas são distribuídas no DOM como links invisíveis a humanos (com atributos <code>aria-hidden</code> e estilos zero-pixel). Scrapers que varrem o HTML sem heurísticas de renderização caem na armadilha e têm suas conexões retidas no <strong>Tarpit</strong> (poço de piche assíncrono). O servidor responde em micropedaços com atrasos deliberados progressivos (de 2s a 30s), exaurindo o pool de sockets do atacante sem consumir CPU nem memória do enclave médico.
+              </p>
+            </div>
+          </div>
+
+          {/* Tabela de Scrapers & Crawlers Monitorados */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                Monitoramento de Scrapers & Crawlers em Tempo Real
+              </h4>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                {tarpitOverview?.recentIncidents?.length ?? 0} incidentes registrados
+              </span>
+            </div>
+
+            {(!tarpitOverview?.recentIncidents || tarpitOverview.recentIncidents.length === 0) ? (
+              <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                Nenhum crawler ou scraper detectado no momento. Sistema operando em nível nominal.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 pl-4 pr-3 font-semibold">IP & User-Agent</th>
+                      <th className="py-2.5 pr-3 font-semibold">Vetor / Ameaça</th>
+                      <th className="py-2.5 pr-3 font-semibold">Vetores Heurísticos</th>
+                      <th className="py-2.5 pr-3 font-semibold">Retenção Tarpit</th>
+                      <th className="py-2.5 pr-3 font-semibold">Status de Defesa</th>
+                      <th className="py-2.5 pr-4 font-semibold text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {tarpitOverview.recentIncidents.map((incident) => {
+                      const isQuarantined = incident.status === TarpitDefenseStatus.ISOLATED;
+                      return (
+                        <tr key={incident.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="py-3 pl-4 pr-3">
+                            <div className="font-mono font-bold text-slate-900 dark:text-white">
+                              {incident.ipAddress}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate max-w-xs" title={incident.userAgent}>
+                              {incident.userAgent || 'Header ausente'}
+                            </div>
+                          </td>
+
+                          <td className="py-3 pr-3">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {incident.threatCategory}
+                            </span>
+                            <div className="text-[10px] text-slate-400">
+                              Score: {incident.threatScore}/100
+                            </div>
+                          </td>
+
+                          <td className="py-3 pr-3">
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {incident.detectedVectors.slice(0, 2).map((vec, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                  {vec}
+                                </span>
+                              ))}
+                              {incident.detectedVectors.length > 2 && (
+                                <span className="text-[9px] text-slate-400 font-mono">
+                                  +{incident.detectedVectors.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-3 pr-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 flex items-center gap-1 w-max">
+                              <Hourglass className="w-3 h-3" />
+                              {incident.tarpitDelayMs} ms
+                            </span>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {incident.totalTrapsTriggered} violações
+                            </div>
+                          </td>
+
+                          <td className="py-3 pr-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              incident.status === TarpitDefenseStatus.ISOLATED
+                                ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                                : incident.status === TarpitDefenseStatus.TARPITTING
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 animate-pulse'
+                                : incident.status === TarpitDefenseStatus.RELEASED
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                            }`}>
+                              {incident.status}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3.5 text-right space-x-2">
+                            {isQuarantined && (
+                              <button
+                                type="button"
+                                onClick={() => setUnbanTarpitModal(incident)}
+                                className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                Desbloquear
+                              </button>
+                            )}
+
+                            {incident.proofSeal && (
+                              <button
+                                type="button"
+                                onClick={() => handleInspectTarpitSeal(incident.proofSeal!)}
+                                disabled={verifyingTarpitSeal}
+                                className="px-2.5 py-1 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                Laudo WORM
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Painel Interativo de Simulação & Teste de Armadilhas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Bloco 1: Simulador de Rajadas de Raspagem */}
+            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    Simulador de Scraping Massivo & Agregação (OAT-011 / OAT-020)
+                  </h4>
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold">
+                    CONTENÇÃO TARPIT
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  Dispara uma simulação de crawler automatizado tentando raspar dados de agendamentos e prontuários para observar a retenção assíncrona da conexão e isolamento na quarentena.
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Vetor de Ataque a Simular:
+                  </label>
+                  <select
+                    value={selectedScraperThreat}
+                    onChange={(e) => setSelectedScraperThreat(e.target.value as ScraperThreatCategory)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={ScraperThreatCategory.DATA_SCRAPING_OAT011}>
+                      OAT-011: Data Scraping (Varredura Massiva de Pacientes)
+                    </option>
+                    <option value={ScraperThreatCategory.ACCOUNT_ENUMERATION_OAT020}>
+                      OAT-020: Account Enumeration (Agregação de Contas Clínicas)
+                    </option>
+                    <option value={ScraperThreatCategory.HEADLESS_BOT_PROBE}>
+                      Headless Bot Probe (Puppeteer / Playwright Não Autorizado)
+                    </option>
+                    <option value={ScraperThreatCategory.RESOURCE_EXHAUSTION_OAT015}>
+                      OAT-015: Denial of Service em Camada de Aplicação
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSimulateScraping}
+                disabled={simulatingScraping}
+                className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 mt-2"
+              >
+                {simulatingScraping ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Simulando & Contendo no Tarpit...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    Disparar Simulação de Raspagem (15 Requests)
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Bloco 2: Testador de Armadilha Honeypot ao Vivo */}
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Crosshair className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Teste de Armadilha Honeypot ao Vivo
+                  </h4>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                    DELAY COOPERATIVO
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  Executa uma chamada direta ao link armadilha invisível. A requisição será capturada e submetida à retenção do poço de piche com selo probatório WORM.
+                </p>
+
+                {lastTrapResult ? (
+                  <div className="mt-2.5 p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200 dark:border-amber-800 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Retenção Tarpit Aplicada:</span>
+                      <strong className="text-rose-600 dark:text-rose-400 font-mono">
+                        {lastTrapResult.delayMs} ms
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Vetor Identificado:</span>
+                      <strong className="text-slate-900 dark:text-white">
+                        {lastTrapResult.incident.threatCategory}
+                      </strong>
+                    </div>
+                    {lastTrapResult.proofSeal && (
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleInspectTarpitSeal(lastTrapResult.proofSeal)}
+                          disabled={verifyingTarpitSeal}
+                          className="px-2.5 py-1 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          Ver Laudo Notarial WORM
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2.5 p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 italic text-center">
+                    Clique abaixo para acionar a armadilha como crawler e medir o retardo.
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const trap = tarpitOverview?.activeTraps?.[0];
+                  if (trap) {
+                    handleTriggerLiveTrap(trap.token);
+                  }
+                }}
+                disabled={testingTrap || !tarpitOverview?.activeTraps?.length}
+                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 mt-2"
+              >
+                {testingTrap ? (
+                  <>
+                    <Hourglass className="w-3.5 h-3.5 animate-spin" />
+                    Conexão Presa no Tarpit...
+                  </>
+                ) : (
+                  <>
+                    <Crosshair className="w-3.5 h-3.5" />
+                    Acionar Armadilha Honeypot Ativa
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -13455,6 +13972,213 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 type="button"
                 onClick={() => setSelectedPowSealModal(null)}
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 28.A: Desbloqueio e Revogação de Quarentena de IP Tarpit */}
+      {unbanTarpitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Unlock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Desbloquear IP em Quarentena Tarpit
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  {unbanTarpitModal.ipAddress}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Vetor Identificado:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {unbanTarpitModal.threatCategory}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Score de Ameaça:</span>
+                <strong className="text-rose-600 dark:text-rose-400 font-mono">
+                  {unbanTarpitModal.threatScore}/100
+                </strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Armadilhas Disparadas:</span>
+                <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
+                  {unbanTarpitModal.totalTrapsTriggered} ocorrências
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Retenção Tarpit:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">
+                  {unbanTarpitModal.tarpitDelayMs} ms
+                </span>
+              </div>
+              {unbanTarpitModal.blockedUntil && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bloqueado até:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    {new Date(unbanTarpitModal.blockedUntil).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleReleaseTarpitIp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Parecer Técnico / Justificativa DPO (Auditada WORM):
+                </label>
+                <textarea
+                  value={unbanTarpitReason}
+                  onChange={(e) => setUnbanTarpitReason(e.target.value)}
+                  placeholder="Ex: IP corporativo de rede acadêmica desbloqueado após ajuste de User-Agent de crawler..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnbanTarpitModal(null);
+                    setUnbanTarpitReason('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={releasingTarpit}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  {releasingTarpit ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Desbloqueando...
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" />
+                      Revogar Quarentena
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 28.B: Laudo Notarial Pericial do Selo WORM Tarpit */}
+      {selectedTarpitSealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  <BadgeCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Laudo Pericial de Defesa Tarpit & Anti-Automação
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Certificado Notarial WORM (OWASP OAT-011 / RFC §4.4)
+                  </p>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                selectedTarpitSealModal.isValid 
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+              }`}>
+                {selectedTarpitSealModal.isValid ? 'ÍNTEGRO & VÁLIDO' : 'SELO ADULTERADO'}
+              </span>
+            </div>
+
+            {/* Metadados Periciais */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>IP de Origem Auditado:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {selectedTarpitSealModal.clientIp}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Identificador da Armadilha:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white text-[11px]">
+                  {selectedTarpitSealModal.trapId}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Categoria de Ameaça:</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">
+                  {selectedTarpitSealModal.threatCategory}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Retenção Tarpit Aplicada:</span>
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {selectedTarpitSealModal.delayMs} ms
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Data/Hora da Captura:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {new Date(selectedTarpitSealModal.trappedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 text-slate-600 dark:text-slate-400">
+                <span>Parecer Forense:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedTarpitSealModal.details}
+                </span>
+              </div>
+            </div>
+
+            {/* Selo Criptográfico WORM Base64Url */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Token Pericial Notarial WORM:</span>
+                <span className="font-mono text-[10px] text-rose-600 dark:text-rose-400 font-bold">
+                  TARPIT_PROOF_V1
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-500 break-all p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 select-all">
+                {selectedTarpitSealModal.proofSeal}
+              </div>
+            </div>
+
+            {/* Ações do Modal */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedTarpitSealModal.proofSeal);
+                  setFeedback({ type: 'success', message: 'Selo WORM de Prova Tarpit copiado para a área de transferência!' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Selo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedTarpitSealModal(null)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Fechar Laudo
               </button>

@@ -32,6 +32,7 @@ import { uebaRouter } from './routes/ueba';
 import { dpRouter } from './routes/differentialPrivacy';
 import { sessionBindingRoute } from './routes/sessionBinding';
 import { bruteForcePowRoute } from './routes/bruteForcePow';
+import { antiAutomationTarpitRoute } from './routes/antiAutomationTarpit';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -160,6 +161,7 @@ app.route('/api/ueba', uebaRouter);
 app.route('/api/differential-privacy', dpRouter);
 app.route('/api/session-binding', sessionBindingRoute);
 app.route('/api/brute-force-pow', bruteForcePowRoute);
+app.route('/api/anti-automation', antiAutomationTarpitRoute);
 
 
 

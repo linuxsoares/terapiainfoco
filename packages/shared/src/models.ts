@@ -1966,5 +1966,61 @@ export interface PowDefenseProof {
   details: string;
 }
 
+/**
+ * 33. MODELOS DE ANTI-AUTOMAÇÃO, HONEYPOT DINÂMICO & TARPIT CRIPTOGRÁFICO
+ * (OWASP OAT-011 / OAT-020 & RFC-001 §4.4, §5.2)
+ */
+
+export interface HoneypotTrapConfig {
+  trapId: string;
+  token: string;
+  routePath: string;
+  expiresAt: string;
+  clientIp?: string;
+  triggerCount: number;
+  createdAt: string;
+}
+
+export interface ScraperIncidentRecord {
+  id: string;
+  ipAddress: string;
+  threatCategory: import('./enums').ScraperThreatCategory;
+  status: import('./enums').TarpitDefenseStatus;
+  userAgent?: string;
+  detectedVectors: string[];
+  threatScore: number;
+  tarpitDelayMs: number;
+  totalTrapsTriggered: number;
+  bandwidthSavedBytes: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  blockedUntil?: string;
+  proofSeal?: string;
+}
+
+export interface TarpitMetricsOverview {
+  totalTrappedCrawlersCount: number;
+  totalHoneypotsTriggered: number;
+  totalTarpitTimeSpentMs: number;
+  bandwidthSavedKb: number;
+  isolatedIpsCount: number;
+  activeHoneypotsCount: number;
+  currentThreatIndex: 'NORMAL' | 'ELEVATED' | 'HIGH';
+  recentIncidents: ScraperIncidentRecord[];
+  activeTraps: HoneypotTrapConfig[];
+}
+
+export interface TarpitDefenseProof {
+  isValid: boolean;
+  proofSeal: string;
+  trapId: string;
+  clientIp: string;
+  threatCategory: import('./enums').ScraperThreatCategory;
+  delayMs: number;
+  trappedAt: string;
+  details: string;
+}
+
+
 
 
