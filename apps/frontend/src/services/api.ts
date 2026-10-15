@@ -234,7 +234,16 @@ import type {
   VerifyDpopBindingResponse,
   SessionOverviewResponse,
   ActiveSessionsListResponse,
-  SessionRevocationProof
+  SessionRevocationProof,
+  RequestPowChallengeDTO,
+  RequestPowChallengeResponse,
+  SubmitPowSolutionDTO,
+  SubmitPowSolutionResponse,
+  SimulateBruteForceAttackDTO,
+  SimulateBruteForceAttackResponse,
+  ResetIpReputationDTO,
+  ResetIpReputationResponse,
+  PowDefenseOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1781,6 +1790,46 @@ export const api = {
 
   async verifySessionSeal(sessionId: string): Promise<{ success: boolean; verification: SessionRevocationProof }> {
     return await request<{ success: boolean; verification: SessionRevocationProof }>(`/session-binding/verify-seal/${encodeURIComponent(sessionId)}`);
+  },
+
+  // 34. Defesa Ativa contra Força Bruta & PoW Criptográfico (RFC-001 §4.4, OWASP OAT-007 / OAT-008)
+  async getPowOverview(): Promise<PowDefenseOverviewResponse> {
+    return await request<PowDefenseOverviewResponse>('/brute-force-pow/overview');
+  },
+
+  async requestPowChallenge(dto?: RequestPowChallengeDTO): Promise<RequestPowChallengeResponse> {
+    return await request<RequestPowChallengeResponse>('/brute-force-pow/challenge', {
+      method: 'POST',
+      body: JSON.stringify(dto || {})
+    });
+  },
+
+  async submitPowSolution(dto: SubmitPowSolutionDTO): Promise<SubmitPowSolutionResponse> {
+    return await request<SubmitPowSolutionResponse>('/brute-force-pow/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateBruteForceAttack(dto: SimulateBruteForceAttackDTO): Promise<SimulateBruteForceAttackResponse> {
+    return await request<SimulateBruteForceAttackResponse>('/brute-force-pow/simulate-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async resetIpReputation(dto: ResetIpReputationDTO): Promise<ResetIpReputationResponse> {
+    return await request<ResetIpReputationResponse>('/brute-force-pow/reset-ip', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPowSeal(seal: string): Promise<{ success: boolean; verification: any }> {
+    return await request<{ success: boolean; verification: any }>('/brute-force-pow/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify({ seal })
+    });
   }
 };
 

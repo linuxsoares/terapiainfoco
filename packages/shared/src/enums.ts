@@ -183,7 +183,13 @@ export enum AuditAction {
   SESSION_DPOP_VERIFIED = 'SESSION_DPOP_VERIFIED',
   SESSION_FORCE_TERMINATED = 'SESSION_FORCE_TERMINATED',
   SESSION_CONCURRENT_REVOKED = 'SESSION_CONCURRENT_REVOKED',
-  SESSION_ALL_OTHER_REVOKED = 'SESSION_ALL_OTHER_REVOKED'
+  SESSION_ALL_OTHER_REVOKED = 'SESSION_ALL_OTHER_REVOKED',
+  // Ações de Prevenção de Força Bruta & PoW Criptográfico (RFC-001 §4.4 & OWASP OAT-007 / OAT-008)
+  POW_CHALLENGE_ISSUED = 'POW_CHALLENGE_ISSUED',
+  POW_SOLUTION_VERIFIED = 'POW_SOLUTION_VERIFIED',
+  POW_DEFENSE_TRIGGERED = 'POW_DEFENSE_TRIGGERED',
+  BRUTE_FORCE_BLOCKED = 'BRUTE_FORCE_BLOCKED',
+  IP_QUARANTINE_RESET = 'IP_QUARANTINE_RESET'
 }
 
 export enum AuditResourceType {
@@ -216,7 +222,8 @@ export enum AuditResourceType {
   CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID',
   UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE',
   DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE',
-  SESSION_MANAGEMENT = 'SESSION_MANAGEMENT'
+  SESSION_MANAGEMENT = 'SESSION_MANAGEMENT',
+  BRUTE_FORCE_DEFENSE = 'BRUTE_FORCE_DEFENSE'
 }
 
 /**
@@ -801,5 +808,38 @@ export enum SessionDeviceType {
   CLINICAL_WORKSTATION = 'CLINICAL_WORKSTATION',           // Terminal dedicado de consultório homologado
   UNKNOWN = 'UNKNOWN'                                      // Origem genérica / Não classificada
 }
+
+/**
+ * Tiers de Dificuldade de Prova de Trabalho Criptográfica (PoW Hashcash Moderno)
+ */
+export enum PowDifficultyTier {
+  NONE = 'NONE',       // Dificuldade 0: Acesso comum sem PoW
+  LOW = 'LOW',         // Dificuldade 3: Desafio leve (~4k iterações)
+  MEDIUM = 'MEDIUM',   // Dificuldade 4: Desafio moderado (~65k iterações)
+  HIGH = 'HIGH',       // Dificuldade 5: Desafio alto (~1M iterações)
+  MAXIMUM = 'MAXIMUM'  // Dificuldade 6: Contenção extrema para ataques massivos
+}
+
+/**
+ * Categorias Heurísticas de Ataques de Força Bruta (OWASP Automated Threats OAT-007 / OAT-008)
+ */
+export enum BruteForceThreatCategory {
+  CREDENTIAL_STUFFING = 'CREDENTIAL_STUFFING',   // Uso automatizado de listas vazadas de credenciais (OAT-007)
+  DICTIONARY_ATTACK = 'DICTIONARY_ATTACK',       // Ataque de dicionário contra senhas comuns (OAT-008)
+  DISTRIBUTED_SPRAYING = 'DISTRIBUTED_SPRAYING', // Password spraying distribuído de múltiplos IPs
+  RAPID_ENUMERATION = 'RAPID_ENUMERATION'        // Enumeração rápida de logins/CPFs de psicólogos
+}
+
+/**
+ * Status do Desafio PoW
+ */
+export enum PowChallengeStatus {
+  ISSUED = 'ISSUED',                     // Desafio gerado e entregue ao cliente
+  SOLVED = 'SOLVED',                     // Desafio resolvido com sucesso
+  EXPIRED = 'EXPIRED',                   // Desafio expirou sem resposta válida
+  INVALID_SOLUTION = 'INVALID_SOLUTION', // Solução incorreta fornecida
+  REPLAY_ATTEMPT = 'REPLAY_ATTEMPT'      // Tentativa de reutilização de desafio já consumido
+}
+
 
 

@@ -1231,6 +1231,47 @@ terapiainfoco/
 
 ---
 
+### 45. Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B)
+- [x] **Core Criptográfico & Motor Hashcash Adaptativo (`packages/crypto/src/powChallenge.ts`):**
+  - Emissão determinística de desafios PoW com proteção anti-tampering via HMAC-SHA256 (`challengeId:salt:difficulty:expiresAt:clientIp`), impedindo manipulação de dificuldade ou troca de salt por atacantes.
+  - Algoritmo de resolução client-side Hashcash SHA-256 (`solvePowChallenge`) com busca iterativa e não-bloqueante por prefixo hexadecimal de zeros (`"0".repeat(difficulty)`).
+  - Verificação instantânea $O(1)$ pelo servidor (`verifyPowSolution`) sem custo computacional para o enclave da aplicação.
+  - Cálculo de barreira adaptativa (`calculateDynamicDifficulty`): graduação de dificuldade (Tier 0 baseline instantâneo, Tier 1 a 3 para atipicidades leves, Tier 4 a 6 com custo exponencial para botnets, credential stuffing e força bruta massiva).
+  - Emissão e atestação pericial de selos notariais WORM `pow_proof_v1_<base64url>` com digest canônico SHA-256 (RFC 8785 JCS).
+  - Suíte com 9 testes unitários passando em `packages/crypto/test/powChallenge.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `PowDifficultyTier` (`NONE`, `LOW`, `MEDIUM`, `HIGH`, `MAXIMUM`), `BruteForceThreatCategory` (`DICTIONARY_ATTACK`, `CREDENTIAL_STUFFING`, `DISTRIBUTED_BOTNET`, `PASSWORD_SPRAYING`, `ANOMALOUS_BURST`) e `PowChallengeStatus` (`PENDING`, `SOLVED`, `EXPIRED`, `TAMPERED`).
+  - Ações de auditoria WORM `POW_CHALLENGE_ISSUED`, `POW_SOLUTION_VERIFIED`, `POW_DEFENSE_TRIGGERED`, `BRUTE_FORCE_BLOCKED`, `IP_QUARANTINE_RESET` e recurso `AuditResourceType.BRUTE_FORCE_DEFENSE`.
+  - Interfaces `PowChallenge`, `PowVerificationResult`, `BruteForceIpReputation`, `PowDefenseOverview`, `PowDefenseProof`.
+  - DTOs `RequestPowChallengeDTO`, `RequestPowChallengeResponse`, `SubmitPowSolutionDTO`, `SubmitPowSolutionResponse`, `SimulateBruteForceAttackDTO`, `SimulateBruteForceAttackResponse`, `ResetIpReputationDTO`, `ResetIpReputationResponse`, `VerifyPowSealDTO`, `VerifyPowSealResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `BruteForcePowService`:
+    - Rastreabilidade de reputação de IPs em memória com detecção de rajadas anômalas e contagem de falhas recentes em janelas deslizantes.
+    - Mecanismo anti-replay estrito com cache `consumedChallenges`, invalidando tentativas de reutilização do mesmo desafio e registrando ofensas na trilha WORM.
+    - Elevação dinâmica e automática da barreira PoW antes de quarentena total, desacelerando bots sem descartar usuários legítimos.
+    - Quarentena administrativa temporária com capacidade de desbloqueio pericial auditado pelo DPO (`resetIpReputation`).
+    - Integração compulsória com a trilha de auditoria inviolável WORM (`AuditService.log`).
+  - Rotas REST sob `/api/brute-force-pow`:
+    - `GET /api/brute-force-pow/overview`: Visão geral executiva com KPIs de desafios emitidos, mitigados, nível de ameaça sistêmico e lista de reputações.
+    - `POST /api/brute-force-pow/challenge`: Emissão de desafio dinâmico assinado.
+    - `POST /api/brute-force-pow/verify`: Validação $O(1)$ da solução, consumo do nonce e geração do selo notarial.
+    - `POST /api/brute-force-pow/simulate-attack`: Simulação controlada de rajada de ataque (20+ tentativas) para validação da contenção ativa.
+    - `POST /api/brute-force-pow/reset-ip`: Remoção de quarentena com parecer DPO.
+    - `POST /api/brute-force-pow/verify-seal`: Validação pericial pública da integridade do selo de defesa.
+  - Suíte com 7 testes de integração passando em `apps/backend/test/bruteForcePow.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** Métodos `getPowOverview`, `requestPowChallenge`, `submitPowSolution`, `simulateBruteForceAttack`, `resetIpReputation`, `verifyPowSeal`.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 27** (*Defesa Ativa contra Força Bruta & PoW Criptográfico Dinâmico*) com 4 KPIs regulatórios (Desafios Emitidos, Ataques Automatizados Mitigados, Quarentenas Ativas, Tempo Médio de Resolução Client-Side).
+    - **Tabela de Reputação de IPs em Tempo Real:** Listagem de IPs suspeitos, contadores de falhas, categorias de ameaça (Credential Stuffing, Botnet, Ataque de Dicionário), badges de status e barreira de dificuldade imposta.
+    - **Simulador Interativo de Rajadas:** Teste de estresse com injeção de 20 tentativas automatizadas para observação da elevação imediata da barreira e bloqueio preventivo.
+    - **Benchmark PoW Client-Side:** Cálculo nativo no navegador via `crypto.subtle` (SHA-256 não-bloqueante) para testes de benchmark nas dificuldades 3 e 4 com validação em tempo real no enclave backend.
+    - **Modal de Desbloqueio de IP:** Formulário com parecer técnico / justificativa DPO registrada na trilha WORM.
+    - **Modal Notarial Pericial do Selo WORM:** Laudo timbrado com fé pública, status de integridade, identificadores técnicos e botão de cópia do token `pow_proof_v1_*`.
+  - Suporte total a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1289,13 +1330,14 @@ terapiainfoco/
 | `feat/did-verifiable-credentials-clinical-federation` | Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials - W3C DID v1.0, W3C VC v2.0, RFC-001 §3.5) | [PR #58](https://github.com/linuxsoares/terapiainfoco/pull/58) | Merged |
 | `feat/ueba-anomaly-detection-record-access` | Análise Comportamental Preditiva de Acesso Anômalo (UEBA) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46) | [PR #59](https://github.com/linuxsoares/terapiainfoco/pull/59) | Merged |
 | `feat/differential-privacy-clinical-research` | Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) | [PR #60](https://github.com/linuxsoares/terapiainfoco/pull/60) | Merged |
-| `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | [PR #61](https://github.com/linuxsoares/terapiainfoco/pull/61) | Em Aberto |
+| `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | [PR #61](https://github.com/linuxsoares/terapiainfoco/pull/61) | Merged |
+| `feat/brute-force-pow-defense-challenge` | Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B) | [PR #62](https://github.com/linuxsoares/terapiainfoco/pull/62) | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA - User and Entity Behavior Analytics) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46)**, o **Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials - W3C DID v1.0, W3C VC v2.0, RFC-001 §3.5)**, o **Mecanismo de Descarte e Expurgamento Seguro de Dados Históricos por Fim de Ciclo de Tratamento com Prova Criptográfica de Destruição (LGPD Art. 16, CFP nº 001/2009)**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18)**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica & Prevenção de Exfiltração de Prontuários (LGPD Art. 46 & CFP nº 001/2009)**, o **Controle Granular de Consentimento do Paciente com Smart Revocation & Trilha Consent-Led (LGPD Art. 7/8/9/11/18 & CFP nº 006/2019)**, o **Módulo de Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção de Incidentes (Threat Intelligence / k-Anonymity NIST SP 800-63B, LGPD Art. 46/48 e Resolução CD/ANPD nº 15/2024)**, o **Protocolo de Validação Forense de Assinaturas Digitais com Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5 & CFP nº 006/2019)**, o **Detector de Desconexão Abrupta & Protocolo de Reconexão Segura com Retenção de Estado Clínico (RFC-001 §3.2 & CFP nº 011/2018)**, o **Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia & Crypto-Shredding Forense (RFC-001 §3.2, §4.2, LGPD Art. 11/16, CFP nº 011/2018)**, o **Simulador de Resiliência de Redes Instáveis & Avaliação de Inteligibilidade Clínica (ITU-T G.107 / CFP nº 011/2018)**, o **WAF Integrado com Detecção de Injeção SQL & XSS em Camada de Aplicação (OWASP Top 10)**, a **Auditoria de Sessão WebRTC com Fingerprint de Segurança (DTLS-SRTP / SAS) & Laudo WORM (RFC-001 §3.2, §4.4, §5.2 e CFP nº 011/2018)**, a **Integração Google Meet REST API v2 (RFC §3.2 & CFP 011/2018)**, o **Hardening de Segurança HTTP (CSP, HSTS & OWASP) e Honeypot Anti-Probe**, o **Dashboard Executivo de Governança & Compliance Package Multi-Normativo**, a **Exportação Automática OpenTelemetry OTLP & Coletores Remotos**, a **Homologação sob Carga & Auditoria de SLOs RED (k6)**, a **Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57)**, os **Conectores SIEM Externos & Retry Resiliente**, a **Fase 4 do RFC-001 (Auditoria Contínua, Pentest & RIPD/DPIA)**, a **Autenticação Biométrica WebAuthn / Passkeys (Opção O)**, as **Métricas Prometheus & Tracing Distribuído OpenTelemetry (Opção N)**, a **Ficha de Anamnese Biopsicossocial**, o **Termo de Retificação Formal com Hash SHA-256 (CFP nº 001/2009)**, o Monitoramento Sintético E2E, o Simulador de Resiliência PGlite e o suporte mobile completos e validados por **526 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW Criptográfico e Desafio Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **557 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1317,7 +1359,9 @@ Com o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Dif
 - [x] **Análise Comportamental Preditiva de Acesso Anômalo (UEBA - User and Entity Behavior Analytics) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46).**
 - [x] **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009).**
 - [x] **Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B).**
-- [ ] **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats & NIST SP 800-63B).**
+- [x] **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats OAT-007 / OAT-008 & NIST SP 800-63B).**
+- [ ] **Módulo de Proteção Anti-Automação & Honeypot Dinâmico com Tarpit Criptográfico e Desaceleração de Scrapers (OWASP Automated Threats OAT-011 / OAT-020).**
+- [ ] **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (TSA).**
 
 ---
 
@@ -1327,7 +1371,7 @@ Com o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Dif
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (541 testes)
+# 2. Executar suíte completa de testes (557 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

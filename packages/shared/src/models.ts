@@ -1913,4 +1913,58 @@ export interface SessionManagementOverview {
   activeSessions: ClinicalActiveSession[];
 }
 
+/**
+ * 34. PREVENÇÃO DE FORÇA BRUTA & POW CRIPTOGRÁFICO (RFC-001 §4.4, OWASP OAT-007/008 & NIST SP 800-63B)
+ */
+export interface PowChallenge {
+  challengeId: string;
+  salt: string;
+  difficulty: number;
+  tier: import('./enums').PowDifficultyTier;
+  createdAt: string;
+  expiresAt: string;
+  hmacSignature: string;
+  clientIp?: string;
+}
+
+export interface PowVerificationResult {
+  isValid: boolean;
+  difficulty: number;
+  computedHash?: string;
+  verifiedAt: string;
+  error?: string;
+}
+
+export interface BruteForceIpReputation {
+  ipAddress: string;
+  failedAttemptsCount: number;
+  lastAttemptAt: string;
+  currentDifficultyTier: import('./enums').PowDifficultyTier;
+  isBlocked: boolean;
+  blockedUntil?: string;
+  threatCategory?: import('./enums').BruteForceThreatCategory;
+  lastProofSeal?: string;
+}
+
+export interface PowDefenseOverview {
+  totalChallengesIssued: number;
+  totalChallengesSolved: number;
+  automatedAttacksMitigated: number;
+  activeIpQuarantinesCount: number;
+  currentSystemThreatLevel: 'LOW' | 'ELEVATED' | 'CRITICAL';
+  averageSolveTimeMs: number;
+  recentIpIncidents: BruteForceIpReputation[];
+}
+
+export interface PowDefenseProof {
+  isValid: boolean;
+  proofSeal: string;
+  challengeId: string;
+  clientIp: string;
+  difficulty: number;
+  verifiedAt: string;
+  details: string;
+}
+
+
 
