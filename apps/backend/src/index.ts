@@ -38,6 +38,7 @@ import { httpGuardRoutes } from './routes/httpGuard';
 import { homomorphicRoutes } from './routes/homomorphic';
 import { ssrfGuardRoutes } from './routes/ssrfGuard';
 import { advancedRateLimiterRoutes } from './routes/advancedRateLimiter';
+import { secureMemoryRouter } from './routes/secureMemory';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -172,6 +173,7 @@ app.route('/api/http-guard', httpGuardRoutes);
 app.route('/api/homomorphic', homomorphicRoutes);
 app.route('/api/ssrf-guard', ssrfGuardRoutes);
 app.route('/api/advanced-rate-limiter', advancedRateLimiterRoutes);
+app.route('/api/secure-memory', secureMemoryRouter);
 
 
 

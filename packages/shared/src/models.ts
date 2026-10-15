@@ -58,7 +58,10 @@ import {
   WebhookConnectorType,
   RateLimitingAlgorithm,
   RateLimitTier,
-  RateLimitDecision
+  RateLimitDecision,
+  MemorySanitizationAlgorithm,
+  HeapSprayingThreatLevel,
+  SecureBufferState
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2505,6 +2508,61 @@ export interface AdvancedRateLimitOverview {
     details: string;
   }>;
 }
+
+/**
+ * 39. BLINDAGEM DE MEMÓRIA & PREVENÇÃO DE HEAP SPRAYING
+ * (NIST SP 800-88 Rev. 1 & OWASP ASVS v4.0 V14.1)
+ */
+
+export interface SecureMemoryBlock {
+  id: string;
+  tag: string;
+  byteLength: number;
+  allocatedAt: string;
+  state: SecureBufferState;
+  sanitizationPasses: number;
+  zeroizedAt?: string;
+  ttlMs: number;
+  expiresAt: string;
+}
+
+export interface HeapSprayingInspectionResult {
+  isSprayingDetected: boolean;
+  threatLevel: HeapSprayingThreatLevel;
+  detectedPatterns: string[];
+  entropyScore: number; // 0.0 a 8.0 bits por byte
+  analyzedBytes: number;
+  reason: string;
+}
+
+export interface MemoryZeroizationProofSeal {
+  token: string;
+  blockId: string;
+  tag: string;
+  byteLength: number;
+  sanitizationAlgorithm: MemorySanitizationAlgorithm;
+  passesCompleted: number;
+  zeroizedAt: string;
+  canonicalDigest: string;
+  hmacSignature: string;
+}
+
+export interface SecureMemoryMetrics {
+  activeAllocatedBlocks: number;
+  totalBytesInSecureHeap: number;
+  totalZeroizedBlocks: number;
+  heapSprayingAttemptsBlocked: number;
+  autoPurgedExpiredDeks: number;
+  averageBlockLifespanMs: number;
+}
+
+export interface SecureMemoryOverview {
+  metrics: SecureMemoryMetrics;
+  activeBlocks: SecureMemoryBlock[];
+  recentZeroizationSeals: MemoryZeroizationProofSeal[];
+  systemStatus: 'SHIELDED' | 'WARNING' | 'ALERT';
+}
+
 
 
 

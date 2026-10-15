@@ -212,7 +212,12 @@ import {
   RateLimitDecision,
   type AdvancedRateLimitOverview,
   type RateLimitEvaluationResult,
-  type RateLimitProofSeal
+  type RateLimitProofSeal,
+  MemorySanitizationAlgorithm,
+  SecureBufferState,
+  type SecureMemoryOverview,
+  type MemoryZeroizationProofSeal,
+  type HeapSprayingInspectionResult
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2815,6 +2820,148 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 41. Blindagem de Memória & Prevenção de Heap Spraying (NIST SP 800-88 & OWASP ASVS)
+  const [secureMemoryOverview, setSecureMemoryOverview] = useState<SecureMemoryOverview | null>(null);
+  const [loadingSecureMemory, setLoadingSecureMemory] = useState<boolean>(false);
+  const [activeSecureMemoryTab, setActiveSecureMemoryTab] = useState<'ALLOCATION' | 'HEAP_SPRAYING'>('ALLOCATION');
+
+  // Alocação & Ciclo de Vida
+  const [newBufferTag, setNewBufferTag] = useState<string>('DEK_EHR_SOAP_ENCRYPT');
+  const [newBufferSize, setNewBufferSize] = useState<number>(32);
+  const [newBufferTtl, setNewBufferTtl] = useState<number>(60000);
+  const [newBufferAlgorithm, setNewBufferAlgorithm] = useState<MemorySanitizationAlgorithm>(MemorySanitizationAlgorithm.NIST_SP_800_88_OVERWRITE);
+  const [allocatingBuffer, setAllocatingBuffer] = useState<boolean>(false);
+  const [zeroizingBufferId, setZeroizingBufferId] = useState<string | null>(null);
+
+  // Heap Spraying Simulator
+  const [sprayPayloadInput, setSprayPayloadInput] = useState<string>('90'.repeat(32));
+  const [spraySampleTag, setSpraySampleTag] = useState<string>('MALICIOUS_NOP_SLED_INJECTION');
+  const [inspectingSpray, setInspectingSpray] = useState<boolean>(false);
+  const [lastHeapSprayingResult, setLastHeapSprayingResult] = useState<HeapSprayingInspectionResult | null>(null);
+  const [purgingExpiredDeks, setPurgingExpiredDeks] = useState<boolean>(false);
+
+  // Modal de Selo WORM
+  const [selectedZeroizationSealForModal, setSelectedZeroizationSealForModal] = useState<MemoryZeroizationProofSeal | null>(null);
+  const [verifyingZeroizationSeal, setVerifyingZeroizationSeal] = useState<boolean>(false);
+  const [zeroizationSealVerifyResult, setZeroizationSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  const fetchSecureMemoryData = async () => {
+    try {
+      setLoadingSecureMemory(true);
+      const res = await api.getSecureMemoryOverview();
+      if (res.success) {
+        setSecureMemoryOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de memória segura:', err);
+    } finally {
+      setLoadingSecureMemory(false);
+    }
+  };
+
+  const handleAllocateBufferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBufferTag.trim() || newBufferSize <= 0) {
+      setFeedback({ type: 'error', message: 'Preencha a tag e o tamanho em bytes válido.' });
+      return;
+    }
+
+    try {
+      setAllocatingBuffer(true);
+      const res = await api.allocateSecureBuffer({
+        tag: newBufferTag.trim(),
+        sizeBytes: Number(newBufferSize),
+        ttlMs: Number(newBufferTtl)
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchSecureMemoryData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao alocar bloco seguro.' });
+    } finally {
+      setAllocatingBuffer(false);
+    }
+  };
+
+  const handleZeroizeBufferSubmit = async (blockId: string, algorithm: MemorySanitizationAlgorithm) => {
+    try {
+      setZeroizingBufferId(blockId);
+      const res = await api.zeroizeSecureBuffer({ blockId, algorithm });
+      setFeedback({ type: 'success', message: res.message });
+      setSelectedZeroizationSealForModal(res.proofSeal);
+      await fetchSecureMemoryData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao sanitizar bloco de memória.' });
+    } finally {
+      setZeroizingBufferId(null);
+    }
+  };
+
+  const handleInspectHeapSprayingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sprayPayloadInput.trim()) {
+      setFeedback({ type: 'error', message: 'Insira o payload em hex ou texto para inspeção.' });
+      return;
+    }
+
+    try {
+      setInspectingSpray(true);
+      const res = await api.inspectHeapSpraying({
+        payloadHexOrText: sprayPayloadInput.trim(),
+        sampleTag: spraySampleTag.trim()
+      });
+      setLastHeapSprayingResult(res.inspection);
+      if (res.inspection.isSprayingDetected) {
+        setFeedback({
+          type: 'error',
+          message: `Alerta Crítico: Heap Spraying detectado! Nível: ${res.inspection.threatLevel} (Entropia: ${res.inspection.entropyScore} bits/byte).`
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          message: `Payload analisado com sucesso: Entropia de ${res.inspection.entropyScore} bits/byte, sem assinaturas de exploit.`
+        });
+      }
+      await fetchSecureMemoryData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar heap spraying.' });
+    } finally {
+      setInspectingSpray(false);
+    }
+  };
+
+  const handlePurgeExpiredSubmit = async () => {
+    try {
+      setPurgingExpiredDeks(true);
+      const res = await api.purgeExpiredDeks();
+      setFeedback({
+        type: 'success',
+        message: `${res.message} (${res.purgedCount} blocos destruídos com NIST SP 800-88).`
+      });
+      await fetchSecureMemoryData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha na varredura de DEKs expiradas.' });
+    } finally {
+      setPurgingExpiredDeks(false);
+    }
+  };
+
+  const handleVerifyZeroizationSealSubmit = async (token: string) => {
+    try {
+      setVerifyingZeroizationSeal(true);
+      setZeroizationSealVerifyResult(null);
+      const res = await api.verifyZeroizationSeal({ proofSealToken: token });
+      setZeroizationSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de sanitização.' });
+    } finally {
+      setVerifyingZeroizationSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2840,6 +2987,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchHomomorphicData();
       fetchSsrfData();
       fetchAdvancedRateLimitData();
+      fetchSecureMemoryData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -13697,6 +13845,449 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 41. Blindagem de Memória & Prevenção de Heap Spraying (NIST SP 800-88 & OWASP ASVS) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-900/50">
+                <Cpu className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Blindagem de Memória & Prevenção de Heap Spraying
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                    NIST SP 800-88 & ASVS
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Alocação segura, sanitização multi-pass de DEKs (Cryptographic Erase) e detecção de NOP sleds via Entropia de Shannon.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={purgingExpiredDeks}
+                onClick={handlePurgeExpiredSubmit}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {purgingExpiredDeks ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Expurgar DEKs Expiradas
+              </button>
+              <button
+                type="button"
+                onClick={fetchSecureMemoryData}
+                disabled={loadingSecureMemory}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="Atualizar Telemetria de Memória"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingSecureMemory ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs Operacionais */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Blocos em RAM</span>
+              <div className="mt-1 text-xl font-mono font-extrabold text-slate-900 dark:text-white">
+                {secureMemoryOverview?.metrics.activeAllocatedBlocks ?? 4}
+              </div>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400">DEKs em isolamento</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Heap Seguro</span>
+              <div className="mt-1 text-xl font-mono font-extrabold text-slate-900 dark:text-white">
+                {secureMemoryOverview?.metrics.totalBytesInSecureHeap ?? 160} <span className="text-xs font-normal">bytes</span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">Memória protegida</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Sanitizações WORM</span>
+              <div className="mt-1 text-xl font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                {secureMemoryOverview?.metrics.totalZeroizedBlocks ?? 1}
+              </div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Multi-pass NIST/DoD</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Spraying Bloqueados</span>
+              <div className="mt-1 text-xl font-mono font-extrabold text-rose-600 dark:text-rose-400">
+                {secureMemoryOverview?.metrics.heapSprayingAttemptsBlocked ?? 0}
+              </div>
+              <span className="text-[10px] text-rose-600 dark:text-rose-400">NOP sleds contidos</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">DEKs Expiradas Purged</span>
+              <div className="mt-1 text-xl font-mono font-extrabold text-indigo-600 dark:text-indigo-400">
+                {secureMemoryOverview?.metrics.autoPurgedExpiredDeks ?? 0}
+              </div>
+              <span className="text-[10px] text-indigo-600 dark:text-indigo-400">TTL auto-zeroize</span>
+            </div>
+          </div>
+
+          {/* Abas do Simulador */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveSecureMemoryTab('ALLOCATION')}
+              className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                activeSecureMemoryTab === 'ALLOCATION'
+                  ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Alocação & Ciclo de Vida de DEK
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSecureMemoryTab('HEAP_SPRAYING')}
+              className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                activeSecureMemoryTab === 'HEAP_SPRAYING'
+                  ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Simulador de Heap Spraying & Entropia
+            </button>
+          </div>
+
+          {/* Conteúdo Aba 1: Alocação */}
+          {activeSecureMemoryTab === 'ALLOCATION' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold py-1">Presets Clínicos:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBufferTag('DEK_EHR_SOAP_ENCRYPT');
+                    setNewBufferSize(32);
+                    setNewBufferTtl(60000);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold cursor-pointer"
+                >
+                  DEK Prontuário SOAP (32B)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBufferTag('ICP_BRASIL_EPHEMERAL_KEY');
+                    setNewBufferSize(64);
+                    setNewBufferTtl(120000);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold cursor-pointer"
+                >
+                  Chave ICP-Brasil Efêmera (64B)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBufferTag('TOTP_HMAC_MASTER_SECRET');
+                    setNewBufferSize(32);
+                    setNewBufferTtl(180000);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold cursor-pointer"
+                >
+                  Segredo 2FA TOTP (32B)
+                </button>
+              </div>
+
+              <form onSubmit={handleAllocateBufferSubmit} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tag / Descritor do Bloco:
+                  </label>
+                  <input
+                    type="text"
+                    value={newBufferTag}
+                    onChange={(e) => setNewBufferTag(e.target.value)}
+                    placeholder="ex: DEK_SOAP_ENCRYPT"
+                    className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tamanho (bytes):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1024"
+                    value={newBufferSize}
+                    onChange={(e) => setNewBufferSize(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    TTL (segundos):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="600"
+                    value={newBufferTtl / 1000}
+                    onChange={(e) => setNewBufferTtl(Number(e.target.value) * 1000)}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Algoritmo de Sanitização:
+                  </label>
+                  <select
+                    value={newBufferAlgorithm}
+                    onChange={(e) => setNewBufferAlgorithm(e.target.value as MemorySanitizationAlgorithm)}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  >
+                    <option value={MemorySanitizationAlgorithm.NIST_SP_800_88_OVERWRITE}>NIST SP 800-88 (4 passos)</option>
+                    <option value={MemorySanitizationAlgorithm.DOD_5220_22_M}>DoD 5220.22-M (3 passos)</option>
+                    <option value={MemorySanitizationAlgorithm.ZEROIZE_IMMEDIATE}>Imediato (1 passo)</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-5 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={allocatingBuffer}
+                    className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {allocatingBuffer ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Alocar Bloco Protegido em Heap
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Conteúdo Aba 2: Heap Spraying */}
+          {activeSecureMemoryTab === 'HEAP_SPRAYING' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold py-1">Vetores de Ataque:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSprayPayloadInput('90'.repeat(32));
+                    setSpraySampleTag('MALICIOUS_NOP_SLED_INJECTION');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 text-[11px] font-semibold cursor-pointer"
+                >
+                  NOP Sled (0x90)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSprayPayloadInput('0c'.repeat(32));
+                    setSpraySampleTag('BROWSER_HEAP_SPRAY_0C');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 text-[11px] font-semibold cursor-pointer"
+                >
+                  Browser Spray (0x0C)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSprayPayloadInput('deadbeef'.repeat(8));
+                    setSpraySampleTag('REPETITIVE_SPRAY_SAMPLE');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 text-[11px] font-semibold cursor-pointer"
+                >
+                  Repetitive Pattern (DEADBEEF)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSprayPayloadInput('Evolução clínica: paciente mantém estabilidade de humor sem efeitos adversos.');
+                    setSpraySampleTag('LEGITIMATE_CLINICAL_NOTE');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60 text-[11px] font-semibold cursor-pointer"
+                >
+                  Texto Clínico Legítimo
+                </button>
+              </div>
+
+              <form onSubmit={handleInspectHeapSprayingSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Payload a Inspecionar (Hexadecimal ou Texto UTF-8):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={sprayPayloadInput}
+                    onChange={(e) => setSprayPayloadInput(e.target.value)}
+                    placeholder="Insira dados em hexadecimal ou texto UTF-8 para inspeção pericial..."
+                    className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={inspectingSpray}
+                    className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {inspectingSpray ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                    Inspecionar Payload & Calcular Entropia
+                  </button>
+                </div>
+              </form>
+
+              {lastHeapSprayingResult && (
+                <div className={`p-4 rounded-2xl border text-xs space-y-2 ${
+                  lastHeapSprayingResult.isSprayingDetected
+                    ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                    : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {lastHeapSprayingResult.isSprayingDetected ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                      AMEAÇA: {lastHeapSprayingResult.threatLevel}
+                    </span>
+                    <span className="font-mono text-[10px] bg-white/60 dark:bg-slate-900/60 px-2 py-0.5 rounded">
+                      Entropia de Shannon: {lastHeapSprayingResult.entropyScore} / 8.0 bits/byte
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] leading-relaxed">
+                    {lastHeapSprayingResult.reason}
+                  </p>
+
+                  {lastHeapSprayingResult.detectedPatterns.length > 0 && (
+                    <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/60 text-[10px] font-mono space-y-0.5">
+                      <div className="font-bold">Assinaturas e Padrões Detectados:</div>
+                      {lastHeapSprayingResult.detectedPatterns.map((pat, idx) => (
+                        <div key={idx} className="text-rose-700 dark:text-rose-300">• {pat}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Grid de Blocos Ativos e Trilha WORM de Sanitização */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+            {/* Tabela de Blocos Seguros */}
+            <div className="lg:col-span-7 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <HardDrive className="w-4 h-4 text-teal-500" />
+                  Blocos de Memória Segura no Heap
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {secureMemoryOverview?.activeBlocks.length || 0} blocos
+                </span>
+              </h4>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2 px-3">Tag / ID</th>
+                      <th className="py-2 px-2">Tamanho</th>
+                      <th className="py-2 px-2">Estado</th>
+                      <th className="py-2 px-2 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {(secureMemoryOverview?.activeBlocks || []).map((blk) => (
+                      <tr key={blk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <div className="font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
+                            {blk.tag}
+                          </div>
+                          <div className="font-mono text-[9px] text-slate-400 truncate max-w-[150px]">
+                            {blk.id}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-2 font-mono text-slate-700 dark:text-slate-300">
+                          {blk.byteLength} B
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            blk.state === SecureBufferState.ACTIVE || blk.state === SecureBufferState.ALLOCATED
+                              ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {blk.state}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right">
+                          {blk.state !== SecureBufferState.ZEROIZED ? (
+                            <button
+                              type="button"
+                              disabled={zeroizingBufferId === blk.id}
+                              onClick={() => handleZeroizeBufferSubmit(blk.id, MemorySanitizationAlgorithm.NIST_SP_800_88_OVERWRITE)}
+                              className="px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                            >
+                              {zeroizingBufferId === blk.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Sanitizar NIST'}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-mono">Zeroizado</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Trilha WORM de Sanitização de Memória */}
+            <div className="lg:col-span-5 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  Selos de Sanitização WORM (NIST SP 800-88)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {secureMemoryOverview?.recentZeroizationSeals.length || 0} selos
+                </span>
+              </h4>
+
+              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                {(secureMemoryOverview?.recentZeroizationSeals || []).map((seal) => (
+                  <div
+                    key={seal.token}
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between"
+                  >
+                    <div className="space-y-0.5 max-w-[70%]">
+                      <div className="font-mono font-bold text-xs text-teal-600 dark:text-teal-400 truncate">
+                        {seal.tag}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                        {seal.passesCompleted} passos ({seal.sanitizationAlgorithm.split('_')[0]}) • {seal.byteLength}B
+                      </div>
+                      <div className="text-[9px] text-slate-400 truncate font-mono">
+                        {new Date(seal.zeroizedAt).toLocaleTimeString('pt-BR')} • {seal.token}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedZeroizationSealForModal(seal)}
+                      className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-[10px] transition-colors cursor-pointer"
+                    >
+                      Auditar Selo
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -17602,6 +18193,127 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer"
               >
                 Confirmar Desbloqueio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 34.B: Auditoria de Selo WORM de Sanitização de Memória (NIST SP 800-88) */}
+      {selectedZeroizationSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                Auditoria de Selo WORM de Sanitização
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedZeroizationSealForModal(null);
+                  setZeroizationSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/40 space-y-1">
+                <div className="font-bold text-teal-900 dark:text-teal-200 flex items-center justify-between">
+                  <span>Token: <code className="font-mono">{selectedZeroizationSealForModal.token}</code></span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300">
+                    SANITIZAÇÃO AUDITADA
+                  </span>
+                </div>
+                <div className="text-[11px] text-teal-700 dark:text-teal-300">
+                  Algoritmo Criptográfico: <strong>{selectedZeroizationSealForModal.sanitizationAlgorithm}</strong> ({selectedZeroizationSealForModal.passesCompleted} passos)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Tag do Bloco:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedZeroizationSealForModal.tag}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">ID do Bloco:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedZeroizationSealForModal.blockId}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Capacidade Sanitizada:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {selectedZeroizationSealForModal.byteLength} bytes
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Data de Zeroização:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedZeroizationSealForModal.zeroizedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 dark:text-slate-400">Digest Canônico Auditado:</span>
+                  <div className="font-mono text-[10px] text-slate-800 dark:text-slate-200 truncate">
+                    {selectedZeroizationSealForModal.canonicalDigest}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Assinatura HMAC-SHA256:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-teal-600 dark:text-teal-400 break-all mt-1">
+                  {selectedZeroizationSealForModal.hmacSignature}
+                </div>
+              </div>
+
+              {zeroizationSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  zeroizationSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {zeroizationSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {zeroizationSealVerifyResult.isValid ? 'Selo de Sanitização Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{zeroizationSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(zeroizationSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedZeroizationSealForModal(null);
+                  setZeroizationSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingZeroizationSeal}
+                onClick={() => handleVerifyZeroizationSealSubmit(selectedZeroizationSealForModal.token)}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingZeroizationSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
               </button>
             </div>
           </div>

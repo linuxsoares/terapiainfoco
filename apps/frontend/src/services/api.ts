@@ -293,7 +293,17 @@ import type {
   VerifyRateLimitSealDTO,
   VerifyRateLimitSealResponse,
   AdvancedRateLimitOverviewResponse,
-  RateLimitRuleConfig
+  RateLimitRuleConfig,
+  AllocateSecureBufferDTO,
+  AllocateSecureBufferResponse,
+  ZeroizeSecureBufferDTO,
+  ZeroizeSecureBufferResponse,
+  InspectHeapSprayingDTO,
+  InspectHeapSprayingResponse,
+  PurgeExpiredDeksResponse,
+  VerifyZeroizationSealDTO,
+  VerifyZeroizationSealResponse,
+  SecureMemoryOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2092,6 +2102,45 @@ export const api = {
 
   async getRateLimitRules(): Promise<{ success: boolean; rules: RateLimitRuleConfig[] }> {
     return await request<{ success: boolean; rules: RateLimitRuleConfig[] }>('/advanced-rate-limiter/rules');
+  },
+
+  // 41. Blindagem de Memória & Prevenção de Heap Spraying (NIST SP 800-88 & OWASP ASVS)
+  async getSecureMemoryOverview(): Promise<SecureMemoryOverviewResponse> {
+    return await request<SecureMemoryOverviewResponse>('/secure-memory/overview');
+  },
+
+  async allocateSecureBuffer(dto: AllocateSecureBufferDTO): Promise<AllocateSecureBufferResponse> {
+    return await request<AllocateSecureBufferResponse>('/secure-memory/allocate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async zeroizeSecureBuffer(dto: ZeroizeSecureBufferDTO): Promise<ZeroizeSecureBufferResponse> {
+    return await request<ZeroizeSecureBufferResponse>('/secure-memory/zeroize', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async inspectHeapSpraying(dto: InspectHeapSprayingDTO): Promise<InspectHeapSprayingResponse> {
+    return await request<InspectHeapSprayingResponse>('/secure-memory/inspect-heap-spraying', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async purgeExpiredDeks(): Promise<PurgeExpiredDeksResponse> {
+    return await request<PurgeExpiredDeksResponse>('/secure-memory/purge-expired', {
+      method: 'POST'
+    });
+  },
+
+  async verifyZeroizationSeal(dto: VerifyZeroizationSealDTO): Promise<VerifyZeroizationSealResponse> {
+    return await request<VerifyZeroizationSealResponse>('/secure-memory/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
 

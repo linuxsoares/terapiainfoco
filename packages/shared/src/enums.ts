@@ -226,7 +226,14 @@ export enum AuditAction {
   RATE_LIMIT_SLIDING_WINDOW_EXCEEDED = 'RATE_LIMIT_SLIDING_WINDOW_EXCEEDED',
   RATE_LIMIT_QUARANTINE_APPLIED = 'RATE_LIMIT_QUARANTINE_APPLIED',
   RATE_LIMIT_TIER_CONFIGURED = 'RATE_LIMIT_TIER_CONFIGURED',
-  RATE_LIMIT_PROOF_SEAL_VERIFIED = 'RATE_LIMIT_PROOF_SEAL_VERIFIED'
+  RATE_LIMIT_PROOF_SEAL_VERIFIED = 'RATE_LIMIT_PROOF_SEAL_VERIFIED',
+  // Ações de Blindagem de Memória & Prevenção de Heap Spraying (NIST SP 800-88 & OWASP ASVS)
+  SECURE_MEMORY_ALLOCATED = 'SECURE_MEMORY_ALLOCATED',
+  SECURE_MEMORY_ZEROIZED = 'SECURE_MEMORY_ZEROIZED',
+  HEAP_SPRAYING_DETECTED = 'HEAP_SPRAYING_DETECTED',
+  HEAP_SPRAYING_BLOCKED = 'HEAP_SPRAYING_BLOCKED',
+  DEK_EXPIRATION_PURGED = 'DEK_EXPIRATION_PURGED',
+  MEMORY_ZEROIZATION_SEAL_VERIFIED = 'MEMORY_ZEROIZATION_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -266,7 +273,8 @@ export enum AuditResourceType {
   HTTP_SECURITY_GUARD = 'HTTP_SECURITY_GUARD',
   HOMOMORPHIC_ENCRYPTION_ENGINE = 'HOMOMORPHIC_ENCRYPTION_ENGINE',
   SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD',
-  ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE'
+  ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE',
+  SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD'
 }
 
 /**
@@ -1046,6 +1054,33 @@ export enum RateLimitDecision {
   THROTTLED = 'THROTTLED',                           // Bloqueio temporário com cabeçalho Retry-After
   QUARANTINED = 'QUARANTINED'                        // Quarentena automática aplicada por abuso sistemático de burst
 }
+
+/**
+ * 39. BLINDAGEM DE MEMÓRIA & PREVENÇÃO DE HEAP SPRAYING
+ * (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 & RFC-001 §4.2, §4.4, §5.2)
+ */
+
+export enum MemorySanitizationAlgorithm {
+  NIST_SP_800_88_OVERWRITE = 'NIST_SP_800_88_OVERWRITE', // 4 passos de sanitização: 0x00, 0xFF, Cryptographic Random, 0x00
+  DOD_5220_22_M = 'DOD_5220_22_M',                       // 3 passos de sanitização: 0x00, 0xFF, Cryptographic Pseudo-random
+  ZEROIZE_IMMEDIATE = 'ZEROIZE_IMMEDIATE'                // 1 passo de preenchimento imediato com zeros (0x00)
+}
+
+export enum HeapSprayingThreatLevel {
+  NORMAL = 'NORMAL',                         // Payload legítimo com distribuição de entropia padrão
+  SUSPICIOUS = 'SUSPICIOUS',                 // Padrões repetitivos com entropia reduzida
+  ATTACK_DETECTED = 'ATTACK_DETECTED',       // Assinaturas de NOP sleds ou sequências uniformes repetidas
+  CRITICAL_SPRAYING = 'CRITICAL_SPRAYING'    // Tentativa deliberada de saturação contígua de heap
+}
+
+export enum SecureBufferState {
+  ALLOCATED = 'ALLOCATED',   // Bloco seguro alocado e protegido em memória
+  ACTIVE = 'ACTIVE',         // Em uso ativo por rotinas criptográficas
+  ZEROIZED = 'ZEROIZED',     // Sanitizado/Sobrescrito segundo NIST SP 800-88
+  RELEASED = 'RELEASED',     // Memória liberada para coleta do runtime
+  CORRUPTED = 'CORRUPTED'    // Falha de integridade ou tentativa de uso após desalocação
+}
+
 
 
 

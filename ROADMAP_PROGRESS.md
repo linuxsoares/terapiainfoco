@@ -1497,6 +1497,49 @@ terapiainfoco/
 
 ---
 
+### 52. Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)
+- [x] **Motor Criptográfico & Matemático (`packages/crypto/src/secureMemoryShield.ts`):**
+  - **Encapsulamento Defensivo (`SecureBuffer`):** Alocação controlada com proteção contra Use-After-Free (UAF), cópias defensivas estritas e ciclo de vida auditado (`ALLOCATED`, `ACTIVE`, `ZEROIZED`, `RELEASED`, `CORRUPTED`).
+  - **Sanitização Multi-Pass Determinística (Cryptographic Erase):**
+    - **NIST SP 800-88 Overwrite:** 4 passos determinísticos (0x00, 0xFF, bytes pseudo-aleatórios criptograficamente seguros via CSPRNG e 0x00 final com verificação pericial de integridade).
+    - **DoD 5220.22-M:** 3 passos (0x00, 0xFF, CSPRNG + 0x00).
+    - **Zeroize Immediate:** 1 passo rápido para baixa latência.
+  - **Cálculo Estocástico de Entropia de Shannon:** Determinação matemática precisa da aleatoriedade ($H \in [0.0, 8.0]$ bits/byte) para distinguir texto clínico legítimo de injeções repetitivas ou NOP sleds.
+  - **Motor de Detecção de Heap Spraying & Exploit Sleds (`inspectHeapSpraying`):**
+    - Identificação de assinaturas conhecidas: `X86_NOP_SLED` (0x90), `INT3_TRAP_SLED` (0xCC), `ARM64_NOP_SLED` (0x1f2003d5), `CLASSIC_BROWSER_SPRAY_0C/0D/0A` e padding repetido.
+    - Análise de repetição de k-grams (padrões de 2 a 8 bytes repetidos) e dominância de byte (>50%).
+    - Classificação de ameaça em 4 níveis: `NORMAL`, `SUSPICIOUS`, `ATTACK_DETECTED`, `CRITICAL_SPRAYING`.
+  - **Selo Probatório WORM HMAC-SHA256 (`createMemoryZeroizationProofSeal` / `verifyMemoryZeroizationProofSeal`):** Emissão de token criptográfico canônico (`MEM-ZEROIZE-v1-...`) assinado para não-repúdio de destruição de dados.
+  - Suíte com 19 testes unitários rigorosos aprovados em `packages/crypto/test/secureMemoryShield.test.ts`.
+- [x] **Contratos Compartilhados & Tipagem Forte (`packages/shared`):**
+  - **Enums (`enums.ts`):** `MemorySanitizationAlgorithm`, `HeapSprayingThreatLevel`, `SecureBufferState`, `AuditResourceType.SECURE_MEMORY_SHIELD` e 6 ações de auditoria WORM (`SECURE_MEMORY_ALLOCATED`, `SECURE_MEMORY_ZEROIZED`, `HEAP_SPRAYING_DETECTED`, `HEAP_SPRAYING_BLOCKED`, `DEK_EXPIRATION_PURGED`, `MEMORY_ZEROIZATION_SEAL_VERIFIED`).
+  - **Modelos (`models.ts`):** `SecureMemoryBlock`, `HeapSprayingInspectionResult`, `MemoryZeroizationProofSeal`, `SecureMemoryMetrics`, `SecureMemoryOverview`.
+  - **DTOs (`dtos.ts`):** `AllocateSecureBufferDTO`, `AllocateSecureBufferResponse`, `ZeroizeSecureBufferDTO`, `ZeroizeSecureBufferResponse`, `InspectHeapSprayingDTO`, `InspectHeapSprayingResponse`, `PurgeExpiredDeksResponse`, `VerifyZeroizationSealDTO`, `VerifyZeroizationSealResponse`, `SecureMemoryOverviewResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **Serviço Central (`secureMemoryService.ts`):** Gestão em memória de blocos seguros (DEKs SOAP, SRTP WebRTC, ICP-Brasil, TOTP), controle de métricas e ciclo de vida, varredura de DEKs expiradas por TTL com destruição automática compulsória e auditoria WORM via `AuditService.log`.
+  - **Rotas REST (`secureMemory.ts`):**
+    - `GET /api/secure-memory/overview`: Métricas de blocos, bytes em heap, selos de sanitização e status.
+    - `POST /api/secure-memory/allocate`: Alocação protegida de novo bloco com tag, tamanho e TTL.
+    - `POST /api/secure-memory/zeroize`: Sanitização e destruição imediata com algoritmo NIST/DoD.
+    - `POST /api/secure-memory/inspect-heap-spraying`: Inspeção pericial de payloads contra heap spraying e sleds.
+    - `POST /api/secure-memory/purge-expired`: Varredura e expurgamento forçado de DEKs com TTL vencido.
+    - `POST /api/secure-memory/verify-seal`: Validação notarial independente de selo WORM de sanitização.
+  - Montagem central em `apps/backend/src/index.ts` sob `/api/secure-memory`.
+  - Suíte com 10 testes de integração aprovados em `apps/backend/test/secureMemory.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** 6 métodos implementados para integração com a blindagem de memória.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 34** (*Blindagem de Memória & Prevenção de Heap Spraying - NIST SP 800-88 & ASVS*) com 5 KPIs operacionais.
+    - Botão de ação rápida: "Expurgar DEKs Expiradas (Varredura NIST)".
+    - **Aba 1 (Alocação & Ciclo de Vida de DEK):** Formulário completo com presets clínicos (SOAP 32B, ICP-Brasil 64B, TOTP 32B), seletor de algoritmo de sanitização e contadores.
+    - **Aba 2 (Simulador de Heap Spraying & Entropia):** 4 presets rápidos (NOP Sled 0x90, Browser Spray 0x0C, Repetitive DEADBEEF, Texto Clínico Legítimo), cálculo de Entropia de Shannon e badge de ameaça.
+    - **Tabela de Blocos Seguros em Memória:** Status ativo, tamanho em bytes, expiração e botão para sanitização NIST imediata.
+    - **Feed de Selos de Sanitização WORM:** Histórico de selos com tokens e botão para auditoria pericial.
+    - **Modal 34.B (Auditoria de Selo WORM de Sanitização de Memória):** Verificação notarial independente com atestado criptográfico em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1563,13 +1606,14 @@ terapiainfoco/
 | `feat/homomorphic-encryption-paillier-cid11` | Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13 & Resolução CFP nº 001/2009) | [PR #66](https://github.com/linuxsoares/terapiainfoco/pull/66) | Merged |
 | `feat/ssrf-dns-rebinding-protection-guard` | Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0) | [PR #67](https://github.com/linuxsoares/terapiainfoco/pull/67) | Merged |
 | `feat/advanced-api-rate-limiting-token-bucket-sliding-window` | Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2) | [PR #68](https://github.com/linuxsoares/terapiainfoco/pull/68) | Merged |
-| `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Em Aberto |
+| `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Merged |
+| `feat/tls-certificate-pinning-ca-rotation` | Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) | [PR #70](https://github.com/linuxsoares/terapiainfoco/pull/70) | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **701 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **730 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1598,7 +1642,8 @@ Com o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket +
 - [x] **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para agregação estatística segura de diagnósticos CID-11 sem decifragem centralizada.**
 - [x] **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0).**
 - [x] **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2).**
-- [ ] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
+- [x] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
+- [ ] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
 
 ---
 
@@ -1608,7 +1653,7 @@ Com o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket +
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (701 testes)
+# 2. Executar suíte completa de testes (730 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
