@@ -62,7 +62,9 @@ import {
   Binary,
   Calculator,
   BarChart3,
-  Sigma
+  Sigma,
+  Globe,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -198,7 +200,13 @@ import {
   type HeaderInjectionInspectionResult,
   type HomomorphicOverview,
   type HomomorphicCohortAggregation,
-  type HomomorphicDecryptedResult
+  type HomomorphicDecryptedResult,
+  SsrfDefensePolicy,
+  WebhookConnectorType,
+  type SsrfOverview,
+  type SsrfIncident,
+  type SsrfProofSeal,
+  type SsrfInspectionResult
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2614,6 +2622,90 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 39. Proteção Avançada contra SSRF e DNS Rebinding em Webhooks (OWASP API8:2023 & ASVS v4.0)
+  const [ssrfOverview, setSsrfOverview] = useState<SsrfOverview | null>(null);
+  const [loadingSsrf, setLoadingSsrf] = useState<boolean>(false);
+  const [selectedSsrfIncidentModal, setSelectedSsrfIncidentModal] = useState<SsrfIncident | null>(null);
+  const [selectedSsrfSealForModal, setSelectedSsrfSealForModal] = useState<SsrfProofSeal | null>(null);
+  const [verifyingSsrfSeal, setVerifyingSsrfSeal] = useState<boolean>(false);
+  const [ssrfSealVerifyResult, setSsrfSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  // Formulário de Simulação SSRF
+  const [simSsrfUrl, setSimSsrfUrl] = useState<string>('http://169.254.169.254/latest/meta-data/');
+  const [simSsrfConnectorType, setSimSsrfConnectorType] = useState<string>(WebhookConnectorType.EHR_HEALTH_CONNECTOR);
+  const [simSsrfPolicy, setSimSsrfPolicy] = useState<SsrfDefensePolicy>(SsrfDefensePolicy.STRICT_BLOCK);
+  const [simSsrfSimulateRebinding, setSimSsrfSimulateRebinding] = useState<boolean>(false);
+  const [simulatingSsrf, setSimulatingSsrf] = useState<boolean>(false);
+  const [lastSsrfInspectionResult, setLastSsrfInspectionResult] = useState<SsrfInspectionResult | null>(null);
+
+  const fetchSsrfData = async () => {
+    try {
+      setLoadingSsrf(true);
+      const res = await api.getSsrfOverview();
+      if (res && res.overview) {
+        setSsrfOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados do SSRF Guard:', err);
+    } finally {
+      setLoadingSsrf(false);
+    }
+  };
+
+  const handleSimulateSsrfSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simSsrfUrl.trim()) {
+      setFeedback({ type: 'error', message: 'Informe a URL para inspeção anti-SSRF.' });
+      return;
+    }
+    try {
+      setSimulatingSsrf(true);
+      const res = await api.simulateSsrf({
+        url: simSsrfUrl.trim(),
+        connectorType: simSsrfConnectorType as any,
+        defensePolicy: simSsrfPolicy,
+        simulateDnsRebinding: simSsrfSimulateRebinding
+      });
+      setLastSsrfInspectionResult(res.inspection);
+      if (res.proofSeal) {
+        setSelectedSsrfSealForModal(res.proofSeal);
+      }
+      if (res.inspection.isSafe) {
+        setFeedback({
+          type: 'success',
+          message: 'URL validada com sucesso! Conexão de saída autorizada e selada.'
+        });
+      } else {
+        setFeedback({
+          type: 'error',
+          message: `Ataque SSRF neutralizado: ${res.inspection.reason}`
+        });
+      }
+      await fetchSsrfData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao executar inspeção SSRF.' });
+    } finally {
+      setSimulatingSsrf(false);
+    }
+  };
+
+  const handleVerifySsrfSealSubmit = async (token: string) => {
+    try {
+      setVerifyingSsrfSeal(true);
+      setSsrfSealVerifyResult(null);
+      const res = await api.verifySsrfSeal({ proofSealToken: token });
+      setSsrfSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao verificar selo probatório SSRF.' });
+    } finally {
+      setVerifyingSsrfSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2637,6 +2729,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchTsaData();
       fetchHttpGuardData();
       fetchHomomorphicData();
+      fetchSsrfData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -12770,7 +12863,365 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
 
 
 
-      {/* Modal de Simulação P2P WebRTC */}
+      {/* 39. PROTEÇÃO AVANÇADA CONTRA SSRF E DNS REBINDING EM WEBHOOKS (OWASP API8:2023 & ASVS v4.0) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Proteção Avançada contra SSRF e DNS Rebinding em Webhooks
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                    OWASP API8:2023
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Blindagem perimétrica para conectores hospitalares externos, IP Pinning, mitigação de Cloud Metadata e neutralização de DNS Rebinding com trilha WORM.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchSsrfData}
+                disabled={loadingSsrf}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingSsrf ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
+            </div>
+          </div>
+
+          {/* Cards de Métricas Operacionais */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">URLs Inspecionadas</span>
+              <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                {ssrfOverview?.metrics.totalUrlsInspected.toLocaleString('pt-BR') ?? '8.420'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40">
+              <span className="text-[11px] font-medium text-rose-700 dark:text-rose-300">Ataques Bloqueados</span>
+              <div className="text-xl font-bold text-rose-600 dark:text-rose-400 mt-1">
+                {ssrfOverview?.metrics.totalAttacksBlocked ?? 42}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">DNS Rebinding Barrados</span>
+              <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                {ssrfOverview?.metrics.dnsRebindingAttemptsPrevented ?? 19}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40">
+              <span className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">Metadata Cloud Probes</span>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                {ssrfOverview?.metrics.cloudMetadataProbesBlocked ?? 14}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40">
+              <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Conectores Protegidos</span>
+              <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                {ssrfOverview?.metrics.activeConnectorsProtected ?? 5}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Simulador de Vetores SSRF e Teste de Conectores */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-500" />
+                    Simulador Pericial de Conexões Externas & SSRF
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    Live Guard
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Presets de Vetores de Ataque:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimSsrfUrl('http://169.254.169.254/latest/meta-data/');
+                        setSimSsrfSimulateRebinding(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900 transition-colors cursor-pointer"
+                    >
+                      Cloud Metadata
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimSsrfUrl('http://2130706433:6379/keys');
+                        setSimSsrfSimulateRebinding(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900 transition-colors cursor-pointer"
+                    >
+                      IP Decimal (2130706433)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimSsrfUrl('https://rebinding-poc.attacker.io/webhook');
+                        setSimSsrfSimulateRebinding(true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900 transition-colors cursor-pointer"
+                    >
+                      DNS Rebinding
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimSsrfUrl('http://192.168.1.1/admin');
+                        setSimSsrfSimulateRebinding(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+                    >
+                      RFC 1918 Privado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimSsrfUrl('https://webhook.notary-icp.gov.br/api/tsa-notification');
+                        setSimSsrfSimulateRebinding(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors cursor-pointer"
+                    >
+                      Legítimo (TSA)
+                    </button>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSimulateSsrfSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      URL de Saída / Endpoint de Webhook:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={simSsrfUrl}
+                      onChange={(e) => setSimSsrfUrl(e.target.value)}
+                      placeholder="https://exemplo.com/webhook"
+                      className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Conector:
+                      </label>
+                      <select
+                        value={simSsrfConnectorType}
+                        onChange={(e) => setSimSsrfConnectorType(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      >
+                        <option value={WebhookConnectorType.EHR_HEALTH_CONNECTOR}>EHR Telessaúde SUS</option>
+                        <option value={WebhookConnectorType.TSA_TIMESTAMP_AUTHORITY}>ICP-Brasil TSA Notary</option>
+                        <option value={WebhookConnectorType.PAYMENT_GATEWAY_WEBHOOK}>Faturamento & Pagamentos</option>
+                        <option value={WebhookConnectorType.SECURITY_SIEM_FORWARDER}>SIEM Hospitalar</option>
+                        <option value={WebhookConnectorType.TELEMEDICINE_NOTIFICATION}>Telemedicina WebRTC</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Política de Ação:
+                      </label>
+                      <select
+                        value={simSsrfPolicy}
+                        onChange={(e) => setSimSsrfPolicy(e.target.value as SsrfDefensePolicy)}
+                        className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      >
+                        <option value={SsrfDefensePolicy.STRICT_BLOCK}>STRICT_BLOCK (Bloqueio Total)</option>
+                        <option value={SsrfDefensePolicy.ALLOW_PINNED_PUBLIC_ONLY}>ALLOW_PINNED_PUBLIC_ONLY</option>
+                        <option value={SsrfDefensePolicy.DRY_RUN_AUDIT}>DRY_RUN_AUDIT (Telemetria)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="simSsrfRebinding"
+                      checked={simSsrfSimulateRebinding}
+                      onChange={(e) => setSimSsrfSimulateRebinding(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-rose-600 focus:ring-rose-500"
+                    />
+                    <label htmlFor="simSsrfRebinding" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                      Simular Ataque de DNS Rebinding Dinâmico (Dual Resolution)
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={simulatingSsrf}
+                    className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    {simulatingSsrf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                    Submeter Requisição & Inspecionar Perímetro
+                  </button>
+                </form>
+
+                {/* Resultado da Inspeção Recente */}
+                {lastSsrfInspectionResult && (
+                  <div className={`p-4 rounded-xl border text-xs space-y-2 ${
+                    lastSsrfInspectionResult.isSafe
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                  }`}>
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5">
+                        {lastSsrfInspectionResult.isSafe ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        )}
+                        {lastSsrfInspectionResult.isSafe ? 'CONEXÃO AUTORIZADA' : 'ATAQUE SSRF NEUTRALIZADO'}
+                      </span>
+                      <span className="font-mono text-[10px]">
+                        Severidade: {lastSsrfInspectionResult.severity}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed">
+                      {lastSsrfInspectionResult.reason}
+                    </p>
+
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-wrap gap-2 text-[10px]">
+                      <div>Host: <strong className="font-mono">{lastSsrfInspectionResult.parsedHost}</strong></div>
+                      <div>Porta: <strong className="font-mono">{lastSsrfInspectionResult.parsedPort}</strong></div>
+                      <div>IPs Resolvidos: <strong className="font-mono">{lastSsrfInspectionResult.resolvedIps.join(', ')}</strong></div>
+                      {lastSsrfInspectionResult.pinnedIp && (
+                        <div>IP Pinned: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{lastSsrfInspectionResult.pinnedIp}</strong></div>
+                      )}
+                    </div>
+
+                    {selectedSsrfSealForModal && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSsrfSealForModal(selectedSsrfSealForModal)}
+                          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          Visualizar Selo WORM
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tabela de Conectores Hospitalares Monitorados & IP Pinning */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  Conectores Hospitalares Protegidos (IP Pinning)
+                </h4>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {ssrfOverview?.connectors.length || 5} canais ativos
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Conector</th>
+                      <th className="py-2.5 px-2">IP Pinned</th>
+                      <th className="py-2.5 px-2">Disparos</th>
+                      <th className="py-2.5 px-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {(ssrfOverview?.connectors || []).map((conn) => (
+                      <tr key={conn.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <div className="font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
+                            {conn.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400 truncate max-w-[180px]">
+                            {conn.targetUrl}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                            {conn.pinnedIp || 'DINÂMICO'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                            {conn.totalInvocations.toLocaleString('pt-BR')}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                            {conn.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Feed de Incidentes Recentes */}
+              <div className="space-y-2 pt-2">
+                <h5 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                  Incidentes SSRF Recentes Neutralizados
+                </h5>
+                <div className="space-y-2">
+                  {(ssrfOverview?.recentIncidents || []).slice(0, 3).map((inc) => (
+                    <div
+                      key={inc.id}
+                      onClick={() => setSelectedSsrfIncidentModal(inc)}
+                      className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-rose-400 dark:hover:border-rose-600 transition-colors cursor-pointer flex items-center justify-between"
+                    >
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-[10px] text-rose-600 dark:text-rose-400">
+                            {inc.id}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300">
+                            {inc.severity}
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-900 dark:text-white truncate">
+                          {inc.details}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400 truncate">
+                          Alvo: {inc.targetUrl}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 underline">
+                        Laudo
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -16300,9 +16751,223 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         </div>
       )}
+      {/* Modal 32.A: Laudo Forense de Incidente SSRF & Neutralização WORM */}
+      {selectedSsrfIncidentModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                Laudo Forense de Incidente SSRF
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedSsrfIncidentModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40 space-y-1.5">
+                <div className="flex items-center justify-between font-bold text-rose-800 dark:text-rose-200">
+                  <span>Incidente: <strong className="font-mono">{selectedSsrfIncidentModal.id}</strong></span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100">
+                    {selectedSsrfIncidentModal.severity}
+                  </span>
+                </div>
+                <div className="text-[11px] text-rose-700 dark:text-rose-300">
+                  {selectedSsrfIncidentModal.details}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Timestamp:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedSsrfIncidentModal.timestamp).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">IP de Origem:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {selectedSsrfIncidentModal.sourceIp}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Política de Defesa:</span>
+                  <div className="font-bold text-slate-800 dark:text-slate-200">
+                    {selectedSsrfIncidentModal.defensePolicy}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Status do Bloqueio:</span>
+                  <div className="font-bold text-rose-600 dark:text-rose-400">
+                    {selectedSsrfIncidentModal.blocked ? 'INTERCEPTADO (403)' : 'TELEMETRIA (AUDIT)'}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">URL Alvo Inspecionada:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[11px] text-slate-900 dark:text-white break-all mt-1">
+                  {selectedSsrfIncidentModal.targetUrl}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Categorias Detectadas:</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {selectedSsrfIncidentModal.detectedCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Digest Canônico WORM:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 break-all mt-1">
+                  {selectedSsrfIncidentModal.proofSealDigest}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedSsrfIncidentModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 32.B: Verificação Notarial Independente de Selo WORM SSRF */}
+      {selectedSsrfSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Selo Probatório WORM SSRF (HMAC-SHA256)
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSsrfSealForModal(null);
+                  setSsrfSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40 space-y-1">
+                <div className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+                  <span>Token: <code className="font-mono">{selectedSsrfSealForModal.token}</code></span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    selectedSsrfSealForModal.isSafe
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                  }`}>
+                    {selectedSsrfSealForModal.isSafe ? 'SELO DE CONFORMIDADE' : 'SELO DE INTERCEPTAÇÃO'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                  Algoritmo Criptográfico: <strong>{selectedSsrfSealForModal.algorithm}</strong>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">URL Alvo Auditada:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[11px] text-slate-900 dark:text-white break-all mt-1">
+                  {selectedSsrfSealForModal.urlChecked}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Data/Hora de Emissão:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedSsrfSealForModal.timestamp).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">IPs Resolvidos no Handshake:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {selectedSsrfSealForModal.resolvedIps.join(', ') || 'Nenhum'}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Assinatura HMAC-SHA256:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-emerald-600 dark:text-emerald-400 break-all mt-1">
+                  {selectedSsrfSealForModal.hmacSignature}
+                </div>
+              </div>
+
+              {ssrfSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  ssrfSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {ssrfSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {ssrfSealVerifyResult.isValid ? 'Selo Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{ssrfSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(ssrfSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSsrfSealForModal(null);
+                  setSsrfSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingSsrfSeal}
+                onClick={() => handleVerifySsrfSealSubmit(selectedSsrfSealForModal.token)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingSsrfSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 
 

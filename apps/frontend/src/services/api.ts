@@ -277,7 +277,15 @@ import type {
   HomomorphicDecryptResponse,
   HomomorphicVerifyProofResponse,
   Cid11Item,
-  PaillierPublicKey
+  PaillierPublicKey,
+  SimulateSsrfDTO,
+  SimulateSsrfResponse,
+  ValidateWebhookUrlDTO,
+  ValidateWebhookUrlResponse,
+  VerifySsrfSealDTO,
+  VerifySsrfSealResponse,
+  SsrfOverviewResponse,
+  SsrfIncident
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2009,8 +2017,39 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 39. Proteção Avançada contra SSRF e DNS Rebinding em Webhooks (OWASP API8:2023 & ASVS v4.0)
+  async getSsrfOverview(): Promise<SsrfOverviewResponse> {
+    return await request<SsrfOverviewResponse>('/ssrf-guard/overview');
+  },
+
+  async simulateSsrf(dto: SimulateSsrfDTO): Promise<SimulateSsrfResponse> {
+    return await request<SimulateSsrfResponse>('/ssrf-guard/simulate-ssrf', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async validateWebhookUrl(dto: ValidateWebhookUrlDTO): Promise<ValidateWebhookUrlResponse> {
+    return await request<ValidateWebhookUrlResponse>('/ssrf-guard/validate-url', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySsrfSeal(dto: VerifySsrfSealDTO): Promise<VerifySsrfSealResponse> {
+    return await request<VerifySsrfSealResponse>('/ssrf-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getSsrfIncidents(): Promise<{ success: boolean; incidents: SsrfIncident[] }> {
+    return await request<{ success: boolean; incidents: SsrfIncident[] }>('/ssrf-guard/incidents');
   }
 };
+
 
 
 
