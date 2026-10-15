@@ -45,7 +45,10 @@ import {
   SessionLifecycleStatus,
   SessionDeviceType,
   TsaAuthorityType,
-  TimestampVerificationStatus
+  TimestampVerificationStatus,
+  HppAttackCategory,
+  HppDefensePolicy,
+  HppSeverityLevel
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2124,6 +2127,93 @@ export interface TimestampNotaryOverview {
   recentTokens: ClinicalSessionTimestampToken[];
   activePolicyOid: string;
 }
+
+/**
+ * 35. BLINDAGEM CONTRA POLUIÇÃO DE PARÂMETROS HTTP (HPP) & INJEÇÃO DE CABEÇALHOS (CRLF)
+ * (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)
+ */
+
+export interface HppParameterViolation {
+  parameterName: string;
+  values: string[];
+  count: number;
+  source: 'QUERY' | 'BODY' | 'FORM';
+  remediation: string;
+}
+
+export interface HppInspectionResult {
+  isPolluted: boolean;
+  severity: HppSeverityLevel;
+  violations: HppParameterViolation[];
+  canonicalParams: Record<string, string>;
+  analyzedAt: string;
+}
+
+export interface HeaderInjectionViolation {
+  headerName: string;
+  rawHeaderValue: string;
+  sanitizedHeaderValue: string;
+  detectedPattern: string;
+  injectionType: HppAttackCategory;
+  severity: HppSeverityLevel;
+  remediation: string;
+}
+
+export interface HeaderInjectionInspectionResult {
+  hasInjection: boolean;
+  severity: HppSeverityLevel;
+  violations: HeaderInjectionViolation[];
+  sanitizedHeaders: Record<string, string>;
+  analyzedAt: string;
+}
+
+export interface HttpGuardIncident {
+  id: string;
+  timestamp: string;
+  clientIp: string;
+  userAgent: string;
+  targetEndpoint: string;
+  httpMethod: string;
+  category: HppAttackCategory;
+  severity: HppSeverityLevel;
+  actionTaken: HppDefensePolicy;
+  details: string;
+  proofSealToken: string;
+  isBlocked: boolean;
+}
+
+export interface HttpGuardProofSeal {
+  token: string;
+  incidentId: string;
+  timestamp: string;
+  canonicalDigest: string;
+  hmacSignature: string;
+  issuer: string;
+  targetEndpoint: string;
+}
+
+export interface HttpGuardMetrics {
+  totalInspectedRequests: number;
+  hppPollutionsBlocked: number;
+  crlfInjectionsNeutralized: number;
+  criticalEndpointsProtected: number;
+  validProofSealsIssued: number;
+  activeDefensePolicy: HppDefensePolicy;
+  lastIncidentTimestamp?: string;
+}
+
+export interface HttpGuardOverview {
+  metrics: HttpGuardMetrics;
+  recentIncidents: HttpGuardIncident[];
+  protectedEndpoints: Array<{
+    path: string;
+    methods: string[];
+    strictHpp: boolean;
+    preventCrlf: boolean;
+    description: string;
+  }>;
+}
+
 
 
 

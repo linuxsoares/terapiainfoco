@@ -2219,6 +2219,61 @@ export interface TimestampNotaryOverviewResponse {
   overview: import('./models').TimestampNotaryOverview;
 }
 
+/**
+ * 35. BLINDAGEM CONTRA POLUIÇÃO DE PARÂMETROS HTTP (HPP) & INJEÇÃO DE CABEÇALHOS (CRLF)
+ */
+
+export interface SimulateHppAttackDTO {
+  endpoint: string;
+  method?: string;
+  queryString: string;
+  defensePolicy?: import('./enums').HppDefensePolicy;
+  clientIp?: string;
+}
+
+export interface SimulateHppAttackResponse {
+  success: boolean;
+  blocked: boolean;
+  incident?: import('./models').HttpGuardIncident;
+  inspectionResult: import('./models').HppInspectionResult;
+  message: string;
+}
+
+export interface SimulateHeaderInjectionDTO {
+  endpoint: string;
+  method?: string;
+  headerName: string;
+  headerValue: string;
+  clientIp?: string;
+}
+
+export interface SimulateHeaderInjectionResponse {
+  success: boolean;
+  blocked: boolean;
+  incident?: import('./models').HttpGuardIncident;
+  inspectionResult: import('./models').HeaderInjectionInspectionResult;
+  message: string;
+}
+
+export interface VerifyHttpGuardSealDTO {
+  proofSealToken: string;
+}
+
+export interface VerifyHttpGuardSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').HttpGuardProofSeal;
+  incident?: import('./models').HttpGuardIncident;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface HttpGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').HttpGuardOverview;
+}
+
+
 
 
 

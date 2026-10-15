@@ -201,7 +201,13 @@ export enum AuditAction {
   CLINICAL_SESSION_TIMESTAMP_ISSUED = 'CLINICAL_SESSION_TIMESTAMP_ISSUED',
   CLINICAL_SESSION_TIMESTAMP_VERIFIED = 'CLINICAL_SESSION_TIMESTAMP_VERIFIED',
   CLINICAL_SESSION_TIMESTAMP_TAMPERED = 'CLINICAL_SESSION_TIMESTAMP_TAMPERED',
-  TSA_CERTIFICATE_VALIDATED = 'TSA_CERTIFICATE_VALIDATED'
+  TSA_CERTIFICATE_VALIDATED = 'TSA_CERTIFICATE_VALIDATED',
+  // Ações de Blindagem contra Parameter Pollution (HPP) e Header Injection CRLF (OWASP Top 10 API Security)
+  HPP_POLLUTION_DETECTED = 'HPP_POLLUTION_DETECTED',
+  HPP_POLLUTION_BLOCKED = 'HPP_POLLUTION_BLOCKED',
+  HEADER_INJECTION_DETECTED = 'HEADER_INJECTION_DETECTED',
+  HEADER_INJECTION_BLOCKED = 'HEADER_INJECTION_BLOCKED',
+  HTTP_GUARD_SEAL_VERIFIED = 'HTTP_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -237,7 +243,8 @@ export enum AuditResourceType {
   SESSION_MANAGEMENT = 'SESSION_MANAGEMENT',
   BRUTE_FORCE_DEFENSE = 'BRUTE_FORCE_DEFENSE',
   ANTI_AUTOMATION_TARPIT = 'ANTI_AUTOMATION_TARPIT',
-  CLINICAL_SESSION_TSA_NOTARY = 'CLINICAL_SESSION_TSA_NOTARY'
+  CLINICAL_SESSION_TSA_NOTARY = 'CLINICAL_SESSION_TSA_NOTARY',
+  HTTP_SECURITY_GUARD = 'HTTP_SECURITY_GUARD'
 }
 
 /**
@@ -902,6 +909,33 @@ export enum TimestampTamperType {
   TAMPER_NONCE = 'TAMPER_NONCE',
   INVALID_SIGNATURE = 'INVALID_SIGNATURE'
 }
+
+/**
+ * 35. BLINDAGEM CONTRA POLUIÇÃO DE PARÂMETROS HTTP (HPP) & INJEÇÃO DE CABEÇALHOS (CRLF)
+ * (OWASP Top 10 API Security, OWASP Secure Headers & RFC-001 §4.4, §5.2)
+ */
+
+export enum HppAttackCategory {
+  HTTP_PARAMETER_POLLUTION = 'HTTP_PARAMETER_POLLUTION', // Múltiplas ocorrências de parâmetros não permitidos
+  CRLF_HEADER_INJECTION = 'CRLF_HEADER_INJECTION',       // Injeção de quebras de linha (\r\n) em cabeçalhos HTTP
+  HTTP_RESPONSE_SPLITTING = 'HTTP_RESPONSE_SPLITTING',   // Divisão de resposta HTTP para injeção de corpo malicioso
+  COOKIE_POISONING = 'COOKIE_POISONING',                 // Tentativa de injetar Set-Cookie via injeção de cabeçalho
+  NULL_BYTE_INJECTION = 'NULL_BYTE_INJECTION'            // Byte nulo (%00) para contornar validações de extensão/path
+}
+
+export enum HppDefensePolicy {
+  REJECT_REQUEST = 'REJECT_REQUEST',                           // Rejeição estrita com HTTP 400 Bad Request
+  STRIP_DUPLICATES_KEEP_FIRST = 'STRIP_DUPLICATES_KEEP_FIRST', // Sanitização retendo apenas o primeiro parâmetro canônico
+  SANITIZE_AND_AUDIT = 'SANITIZE_AND_AUDIT'                    // Remoção de caracteres de controle CRLF e registro no WORM
+}
+
+export enum HppSeverityLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
 
 
 
