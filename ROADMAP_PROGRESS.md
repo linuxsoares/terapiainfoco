@@ -1289,7 +1289,7 @@ terapiainfoco/
 | `feat/did-verifiable-credentials-clinical-federation` | Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials - W3C DID v1.0, W3C VC v2.0, RFC-001 §3.5) | [PR #58](https://github.com/linuxsoares/terapiainfoco/pull/58) | Merged |
 | `feat/ueba-anomaly-detection-record-access` | Análise Comportamental Preditiva de Acesso Anômalo (UEBA) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46) | [PR #59](https://github.com/linuxsoares/terapiainfoco/pull/59) | Merged |
 | `feat/differential-privacy-clinical-research` | Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) | [PR #60](https://github.com/linuxsoares/terapiainfoco/pull/60) | Merged |
-| `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | PR #61 | Em Aberto |
+| `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | [PR #61](https://github.com/linuxsoares/terapiainfoco/pull/61) | Em Aberto |
 
 ---
 
