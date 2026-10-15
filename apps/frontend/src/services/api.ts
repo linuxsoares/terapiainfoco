@@ -260,7 +260,15 @@ import type {
   SimulateTimestampTamperDTO,
   SimulateTimestampTamperResponse,
   TimestampNotaryOverviewResponse,
-  ClinicalSessionTimestampToken
+  ClinicalSessionTimestampToken,
+  SimulateHppAttackDTO,
+  SimulateHppAttackResponse,
+  SimulateHeaderInjectionDTO,
+  SimulateHeaderInjectionResponse,
+  VerifyHttpGuardSealDTO,
+  VerifyHttpGuardSealResponse,
+  HttpGuardOverviewResponse,
+  HttpGuardIncident
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1918,7 +1926,38 @@ export const api = {
 
   async getTsaInfo(): Promise<{ success: boolean; tsaCertificate: any; activePolicyOid: string; supportedOids: any[] }> {
     return await request<{ success: boolean; tsaCertificate: any; activePolicyOid: string; supportedOids: any[] }>('/tsa-notary/tsa-info');
+  },
+
+  // 37. Blindagem contra Parameter Pollution (HPP) & Injeção de Cabeçalhos (CRLF) — OWASP Top 10 API Security
+  async getHttpGuardOverview(): Promise<HttpGuardOverviewResponse> {
+    return await request<HttpGuardOverviewResponse>('/http-guard/overview');
+  },
+
+  async simulateHppAttack(dto: SimulateHppAttackDTO): Promise<SimulateHppAttackResponse> {
+    return await request<SimulateHppAttackResponse>('/http-guard/simulate-hpp', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateHeaderInjection(dto: SimulateHeaderInjectionDTO): Promise<SimulateHeaderInjectionResponse> {
+    return await request<SimulateHeaderInjectionResponse>('/http-guard/simulate-header-injection', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyHttpGuardSeal(dto: VerifyHttpGuardSealDTO): Promise<VerifyHttpGuardSealResponse> {
+    return await request<VerifyHttpGuardSealResponse>('/http-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getHttpGuardIncidents(): Promise<{ success: boolean; incidents: HttpGuardIncident[] }> {
+    return await request<{ success: boolean; incidents: HttpGuardIncident[] }>('/http-guard/incidents');
   }
 };
+
 
 
