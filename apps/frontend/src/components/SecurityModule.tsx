@@ -227,7 +227,15 @@ import {
   DevicePostureEnforcementPolicy,
   DevicePostureDecision,
   type DevicePostureOverview,
-  type DevicePostureAssessmentResult
+  type DevicePostureAssessmentResult,
+  PqcHybridMode,
+  PqcClinicalTargetType,
+  PqcQuantumAttackType,
+  type PqcOverview,
+  type PqcProtectedClinicalRecord,
+  type PqcQuantumAttackSimulationResult,
+  type PqcHybridSignatureResult,
+  type PqcSignatureVerificationResult
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -3255,6 +3263,178 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 45. Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+  const [pqcOverview, setPqcOverview] = useState<PqcOverview | null>(null);
+  const [loadingPqc, setLoadingPqc] = useState<boolean>(false);
+  const [activePqcTab, setActivePqcTab] = useState<'ENVELOPE' | 'SIGNATURE' | 'PENTEST'>('ENVELOPE');
+
+  // Envelope & Cifragem
+  const [selectedPqcPresetId, setSelectedPqcPresetId] = useState<string>('preset_soap_suicidal_risk');
+  const [pqcTargetType, setPqcTargetType] = useState<PqcClinicalTargetType>(PqcClinicalTargetType.SOAP_EVOLUTION_RECORD);
+  const [pqcTitle, setPqcTitle] = useState<string>('Evolução Psiquiátrica — Risco Grave de Autoextermínio (CID-11 6A70)');
+  const [pqcPlaintext, setPqcPlaintext] = useState<string>('Paciente comparece com ideação suicida ativa e plano estruturado. Iniciada contenção de crise, contato com suporte familiar e prescrição de vigilância contínua sob termo de sigilo estrito.');
+  const [pqcPatientBlind] = useState<string>('pt_blind_88492048201');
+  const [pqcHybridMode, setPqcHybridMode] = useState<PqcHybridMode>(PqcHybridMode.HYBRID_PQC_CLASSICAL);
+  const [encapsulatingPqc, setEncapsulatingPqc] = useState<boolean>(false);
+  const [lastProtectedRecord, setLastProtectedRecord] = useState<PqcProtectedClinicalRecord | null>(null);
+
+  // Decapsulamento & Leitura
+  const [decapsulatingRecordId, setDecapsulatingRecordId] = useState<string | null>(null);
+  const [decapsulatedResult, setDecapsulatedResult] = useState<{ plaintext: string; verifiedSignature: boolean; message: string } | null>(null);
+
+  // Assinatura Dual
+  const [pqcDocContentToSign, setPqcDocContentToSign] = useState<string>('Termo de Consentimento Livre e Esclarecido (TCLE) com validade jurídica digital pós-quântica (Resolução CFP nº 011/2018).');
+  const [signingPqcDoc, setSigningPqcDoc] = useState<boolean>(false);
+  const [lastSignatureResult, setLastSignatureResult] = useState<PqcHybridSignatureResult | null>(null);
+  const [verifyingPqcDoc, setVerifyingPqcDoc] = useState<boolean>(false);
+  const [lastSignatureVerification, setLastSignatureVerification] = useState<PqcSignatureVerificationResult | null>(null);
+
+  // Pentest Quântico
+  const [selectedPentestAttackType, setSelectedPentestAttackType] = useState<PqcQuantumAttackType>(PqcQuantumAttackType.SHORS_ALGORITHM_DISCRETE_LOG);
+  const [selectedPentestRecordId, setSelectedPentestRecordId] = useState<string>('');
+  const [simulatingQuantumAttack, setSimulatingQuantumAttack] = useState<boolean>(false);
+  const [lastQuantumSimResult, setLastQuantumSimResult] = useState<PqcQuantumAttackSimulationResult | null>(null);
+
+  // Modal Selo WORM
+  const [selectedPqcSealForModal, setSelectedPqcSealForModal] = useState<import('@terapiainfoco/shared').PqcProofSeal | null>(null);
+  const [verifyingPqcSeal, setVerifyingPqcSeal] = useState<boolean>(false);
+  const [pqcSealVerifyResult, setPqcSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  const fetchPqcData = async () => {
+    try {
+      setLoadingPqc(true);
+      const res = await api.getPqcOverview();
+      if (res.success) {
+        setPqcOverview(res.overview);
+        if (res.overview.protectedRecords.length > 0 && !selectedPentestRecordId) {
+          setSelectedPentestRecordId(res.overview.protectedRecords[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de criptografia pós-quântica:', err);
+    } finally {
+      setLoadingPqc(false);
+    }
+  };
+
+  const handleEncapsulateRecordSubmit = async () => {
+    if (!pqcOverview?.activeHybridKeyPair?.keyId) return;
+    try {
+      setEncapsulatingPqc(true);
+      const res = await api.encapsulatePqcRecord({
+        keyId: pqcOverview.activeHybridKeyPair.keyId,
+        targetType: pqcTargetType,
+        title: pqcTitle,
+        patientBlindIndex: pqcPatientBlind,
+        plaintextClinicalData: pqcPlaintext,
+        hybridMode: pqcHybridMode
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setLastProtectedRecord(res.protectedRecord);
+      await fetchPqcData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao proteger registro com envelope quântico.' });
+    } finally {
+      setEncapsulatingPqc(false);
+    }
+  };
+
+  const handleDecapsulateRecordSubmit = async (recordId: string, keyId: string) => {
+    try {
+      setDecapsulatingRecordId(recordId);
+      setDecapsulatedResult(null);
+      const res = await api.decapsulatePqcRecord({ recordId, keyId });
+      setFeedback({ type: 'success', message: 'Prontuário decapsulado e decifrado com sucesso.' });
+      setDecapsulatedResult({
+        plaintext: res.decryptedPlaintext,
+        verifiedSignature: res.verifiedSignature,
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao decapsular registro clínico.' });
+    } finally {
+      setDecapsulatingRecordId(null);
+    }
+  };
+
+  const handleSignPqcDocumentSubmit = async () => {
+    if (!pqcOverview?.activeHybridKeyPair?.keyId) return;
+    try {
+      setSigningPqcDoc(true);
+      const res = await api.signPqcDocument({
+        keyId: pqcOverview.activeHybridKeyPair.keyId,
+        documentContent: pqcDocContentToSign
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setLastSignatureResult(res.signatureResult);
+      await fetchPqcData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao assinar documento pós-quântico.' });
+    } finally {
+      setSigningPqcDoc(false);
+    }
+  };
+
+  const handleVerifyPqcSignatureSubmit = async () => {
+    if (!pqcOverview?.activeHybridKeyPair?.keyId || !lastSignatureResult) return;
+    try {
+      setVerifyingPqcDoc(true);
+      const res = await api.verifyPqcSignature({
+        keyId: pqcOverview.activeHybridKeyPair.keyId,
+        documentContent: pqcDocContentToSign,
+        classicalSignatureHex: lastSignatureResult.classicalSignatureHex,
+        pqSignatureBase64: lastSignatureResult.pqSignatureBase64
+      });
+      setLastSignatureVerification(res.verification);
+      setFeedback({
+        type: res.verification.isValid ? 'success' : 'error',
+        message: res.verification.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao verificar assinatura dual.' });
+    } finally {
+      setVerifyingPqcDoc(false);
+    }
+  };
+
+  const handleSimulateQuantumAttackSubmit = async () => {
+    if (!selectedPentestRecordId) return;
+    try {
+      setSimulatingQuantumAttack(true);
+      const res = await api.simulateQuantumAttack({
+        recordId: selectedPentestRecordId,
+        attackType: selectedPentestAttackType
+      });
+      setLastQuantumSimResult(res.simulation);
+      setFeedback({
+        type: res.simulation.dataExfiltrated ? 'error' : 'success',
+        message: res.message
+      });
+      await fetchPqcData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque quântico.' });
+    } finally {
+      setSimulatingQuantumAttack(false);
+    }
+  };
+
+  const handleVerifyPqcSealSubmit = async (token: string) => {
+    try {
+      setVerifyingPqcSeal(true);
+      setPqcSealVerifyResult(null);
+      const res = await api.verifyPqcSeal({ sealToken: token });
+      setPqcSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório PQC.' });
+    } finally {
+      setVerifyingPqcSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -3283,6 +3463,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSecureMemoryData();
       fetchTlsPinningData();
       fetchDevicePostureData();
+      fetchPqcData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -15647,6 +15828,534 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 45. Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Cpu className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                    FIPS 203/204
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Proteção perpétua contra ataques "Store Now, Decrypt Later" (SNDL) e Algoritmo de Shor com reticulados matemáticos (CRYSTALS-Kyber/Dilithium)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchPqcData}
+                disabled={loadingPqc}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingPqc ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Prontuários Protegidos</div>
+              <div className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">
+                {pqcOverview?.metrics.totalProtectedRecords ?? 0}
+              </div>
+              <div className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5">Envelope Híbrido PQC</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Chaves Híbridas Ativas</div>
+              <div className="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-1">
+                {pqcOverview?.metrics.activeKeyPairsCount ?? 0}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">ML-KEM + ECDH</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Nível de Segurança</div>
+              <div className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-2">
+                NIST Categoria 3
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">192-bit Quantum Safe</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Ataques SNDL Mitigados</div>
+              <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                {pqcOverview?.metrics.sndlAttacksNeutralized ?? 0}
+              </div>
+              <div className="text-[10px] text-emerald-600 mt-0.5">Retenção Inviolada</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Status Quântico</div>
+              <div className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-2">
+                {pqcOverview?.systemHealth || 'QUANTUM_SAFE'}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Dual-Defense Ativa</div>
+            </div>
+          </div>
+
+          {/* Abas */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setActivePqcTab('ENVELOPE')}
+              className={`pb-2.5 transition-colors cursor-pointer border-b-2 ${
+                activePqcTab === 'ENVELOPE'
+                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Envelope Híbrido Quântico & Cifragem
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePqcTab('SIGNATURE')}
+              className={`pb-2.5 transition-colors cursor-pointer border-b-2 ${
+                activePqcTab === 'SIGNATURE'
+                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Assinatura Dual Pós-Quântica (ML-DSA)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePqcTab('PENTEST')}
+              className={`pb-2.5 transition-colors cursor-pointer border-b-2 ${
+                activePqcTab === 'PENTEST'
+                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Simulador de Ataques Quânticos (Shor / SNDL)
+            </button>
+          </div>
+
+          {/* Conteúdo Aba 1: Envelope Híbrido */}
+          {activePqcTab === 'ENVELOPE' && (
+            <div className="space-y-4">
+              {/* Presets Clínicos */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Presets Clínicos de Alta Sensibilidade (Saúde Mental):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  {[
+                    {
+                      id: 'preset_soap_suicidal_risk',
+                      label: 'Evolução SOAP (Risco Suicida)',
+                      target: PqcClinicalTargetType.SOAP_EVOLUTION_RECORD,
+                      title: 'Evolução Psiquiátrica — Risco Grave de Autoextermínio (CID-11 6A70)',
+                      text: 'Paciente comparece com ideação suicida ativa e plano estruturado. Iniciada contenção de crise, contato com suporte familiar e prescrição de vigilância contínua sob termo de sigilo estrito.'
+                    },
+                    {
+                      id: 'preset_telemedicine_violence',
+                      label: 'Teleconsulta (Violência Doméstica)',
+                      target: PqcClinicalTargetType.TELEMEDICINE_AUDIO_RECORDING,
+                      title: 'Gravação de Teleconsulta — Relato de Abuso Doméstico & Medida Protetiva',
+                      text: 'Áudio gravado em teleconsulta confidencial de 50 minutos. Paciente relata histórico detalhado de violência doméstica, coação psicológica e encaminhamento para acolhimento emergencial.'
+                    },
+                    {
+                      id: 'preset_anamnesis_child',
+                      label: 'Anamnese Infantil (TEA 6A02)',
+                      target: PqcClinicalTargetType.ANAMNESIS_BIOPSYCHOSOCIAL,
+                      title: 'Anamnese Biopsicossocial Infantil — Transtorno do Espectro Autista',
+                      text: 'Ficha detalhada de marcos de neurodesenvolvimento da infância, histórico pré-natal, relatórios psicopedagógicos e avaliação neuropsicológica com matrizes de inteligência.'
+                    },
+                    {
+                      id: 'preset_tcle_digital_signature',
+                      label: 'Termo de Consentimento TCLE',
+                      target: PqcClinicalTargetType.TCLE_CONSENT_FORM,
+                      title: 'Termo de Consentimento Livre e Esclarecido (TCLE) com Assinatura Dual',
+                      text: 'Consentimento formal para telepsicologia (Resolução CFP nº 011/2018), gravação com crypto-shredding e tratamento de dados de saúde mental sob a LGPD com certificação quântica.'
+                    }
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPqcPresetId(p.id);
+                        setPqcTargetType(p.target);
+                        setPqcTitle(p.title);
+                        setPqcPlaintext(p.text);
+                      }}
+                      className={`p-2.5 rounded-xl text-left border transition-all text-xs cursor-pointer ${
+                        selectedPqcPresetId === p.id
+                          ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 text-indigo-900 dark:text-indigo-200 font-bold'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form de Cifragem */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Título do Registro Clínico:
+                  </label>
+                  <input
+                    type="text"
+                    value={pqcTitle}
+                    onChange={(e) => setPqcTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Modo Criptográfico de Operação:
+                  </label>
+                  <select
+                    value={pqcHybridMode}
+                    onChange={(e) => setPqcHybridMode(e.target.value as PqcHybridMode)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={PqcHybridMode.HYBRID_PQC_CLASSICAL}>HYBRID_PQC_CLASSICAL (ML-KEM + ECDH P-256)</option>
+                    <option value={PqcHybridMode.QUANTUM_RESISTANT_ONLY}>QUANTUM_RESISTANT_ONLY (Apenas Reticulados PQC)</option>
+                    <option value={PqcHybridMode.CLASSICAL_COMPAT_ONLY}>CLASSICAL_COMPAT_ONLY (Modo Legado Vulnerável)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Conteúdo Clínico Confidencial (Texto Claro / SOAP / Diagnóstico):
+                </label>
+                <textarea
+                  rows={3}
+                  value={pqcPlaintext}
+                  onChange={(e) => setPqcPlaintext(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={encapsulatingPqc || !pqcPlaintext.trim()}
+                  onClick={handleEncapsulateRecordSubmit}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  {encapsulatingPqc ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  Cifrar & Proteger com Envelope Híbrido PQC
+                </button>
+              </div>
+
+              {/* Resultado da Cifragem Recente */}
+              {lastProtectedRecord && (
+                <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Envelope PQC Gerado com Sucesso ({lastProtectedRecord.id})
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white font-mono">
+                      DEK Derivada via HKDF-SHA256
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[10px]">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-400 font-sans text-[9px]">Chave KEM</div>
+                      <div className="text-indigo-600 dark:text-indigo-400 font-bold truncate">
+                        {lastProtectedRecord.encapsulation.kemScheme}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-400 font-sans text-[9px]">IV / AuthTag GCM</div>
+                      <div className="text-slate-700 dark:text-slate-300 truncate">
+                        {lastProtectedRecord.ivHex.slice(0, 12)}... | {lastProtectedRecord.authTagHex.slice(0, 12)}...
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-400 font-sans text-[9px]">Selo Notarial WORM</div>
+                      <div className="text-emerald-600 font-bold truncate">
+                        {lastProtectedRecord.proofSeal.sealToken.slice(0, 20)}...
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Conteúdo Aba 2: Assinatura Dual */}
+          {activePqcTab === 'SIGNATURE' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Assine digitalmente documentos e pareceres clínicos combinando a validade jurídica nacional (DOC-ICP-15 / ECDSA P-256) com a imunidade a computadores quânticos futuros (NIST FIPS 204 ML-DSA):
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Documento / Laudo Clínico a Ser Assinado:
+                </label>
+                <textarea
+                  rows={3}
+                  value={pqcDocContentToSign}
+                  onChange={(e) => setPqcDocContentToSign(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  disabled={signingPqcDoc || !pqcDocContentToSign.trim()}
+                  onClick={handleSignPqcDocumentSubmit}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  {signingPqcDoc ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileCheck2 className="w-3.5 h-3.5" />}
+                  Emitir Assinatura Dual (ECDSA + ML-DSA)
+                </button>
+              </div>
+
+              {lastSignatureResult && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      Assinatura Dual Emitida
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-mono">
+                      {lastSignatureResult.dsaScheme}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 font-mono text-[10px]">
+                    <div className="text-slate-500">Digest SHA-256: {lastSignatureResult.documentDigestHex}</div>
+                    <div className="text-slate-500 truncate">Assinatura Clássica (ECDSA): {lastSignatureResult.classicalSignatureHex.slice(0, 40)}...</div>
+                    <div className="text-slate-500 truncate">Assinatura Quântica (ML-DSA): {lastSignatureResult.pqSignatureBase64.slice(0, 40)}...</div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={verifyingPqcDoc}
+                      onClick={handleVerifyPqcSignatureSubmit}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      {verifyingPqcDoc ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Validar Integridade Forense Dual
+                    </button>
+                  </div>
+
+                  {lastSignatureVerification && (
+                    <div className={`p-3 rounded-xl border text-xs ${
+                      lastSignatureVerification.isValid
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                        : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                    }`}>
+                      <div className="font-bold">{lastSignatureVerification.message}</div>
+                      <div className="text-[10px] mt-1 font-mono">
+                        Clássica: {lastSignatureVerification.classicalSignatureValid ? 'VÁLIDA' : 'FALHA'} | Reticulados PQC: {lastSignatureVerification.pqSignatureValid ? 'VÁLIDA' : 'FALHA'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Conteúdo Aba 3: Pentest Quântico */}
+          {activePqcTab === 'PENTEST' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Simule vetores de ataque quântico contra o enclave criptográfico clínico para validar empiricamente a eficácia da barreira de reticulados:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Vetor de Ataque Quântico:
+                  </label>
+                  <select
+                    value={selectedPentestAttackType}
+                    onChange={(e) => setSelectedPentestAttackType(e.target.value as PqcQuantumAttackType)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={PqcQuantumAttackType.SHORS_ALGORITHM_DISCRETE_LOG}>
+                      Algoritmo de Shor (Colapso do Logaritmo Discreto ECDH)
+                    </option>
+                    <option value={PqcQuantumAttackType.STORE_NOW_DECRYPT_LATER_SNDL}>
+                      Store Now, Decrypt Later (SNDL - Gravação Retroativa)
+                    </option>
+                    <option value={PqcQuantumAttackType.FORGED_CLASSICAL_SIGNATURE}>
+                      Falsificação Quântica de Assinatura Clássica ECDSA
+                    </option>
+                    <option value={PqcQuantumAttackType.GROVERS_KEY_SEARCH}>
+                      Algoritmo de Grover (Busca de Chave Simétrica AES-256)
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Registro Clínico Alvo:
+                  </label>
+                  <select
+                    value={selectedPentestRecordId}
+                    onChange={(e) => setSelectedPentestRecordId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono"
+                  >
+                    {(pqcOverview?.protectedRecords || []).map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.title} ({r.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={simulatingQuantumAttack || !selectedPentestRecordId}
+                  onClick={handleSimulateQuantumAttackSubmit}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  {simulatingQuantumAttack ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Disparar Ataque Quântico Simulado
+                </button>
+              </div>
+
+              {lastQuantumSimResult && (
+                <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                  lastQuantumSimResult.dataExfiltrated
+                    ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                    : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {lastQuantumSimResult.dataExfiltrated ? (
+                        <AlertCircle className="w-4 h-4 text-rose-600" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      )}
+                      Resultado: {lastQuantumSimResult.outcome}
+                    </span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-current">
+                      Exfiltração: {lastQuantumSimResult.dataExfiltrated ? 'SIM (VULNERÁVEL)' : 'NÃO (BLOQUEADA)'}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] leading-relaxed">{lastQuantumSimResult.explanation}</p>
+
+                  <div className="pt-2 border-t border-current/20 flex items-center justify-between font-mono text-[10px]">
+                    <span>Camada Clássica: {lastQuantumSimResult.classicalCracked ? 'QUEBRADA POR SHOR' : 'PRESERVADA'}</span>
+                    <span>Componente ML-KEM / ML-DSA: {lastQuantumSimResult.postQuantumCracked ? 'VIOLADO' : 'INVIOLÁVEL'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tabela de Registros com Proteção Quântica Ativa */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <FileLock2 className="w-4 h-4 text-indigo-600" />
+              Prontuários & Gravações sob Proteção Pós-Quântica Ativa
+            </h4>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">Identificador / Título</th>
+                    <th className="py-2.5 px-3">Tipo Clínico</th>
+                    <th className="py-2.5 px-3">Esquema KEM / DSA</th>
+                    <th className="py-2.5 px-3">Status Quântico</th>
+                    <th className="py-2.5 px-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(pqcOverview?.protectedRecords || []).map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-900 dark:text-white">{r.title}</div>
+                        <div className="font-mono text-[10px] text-slate-400">{r.id}</div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        {r.targetType}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
+                        {r.encapsulation.kemScheme}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          r.quantumSafe
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                        }`}>
+                          {r.quantumSafe ? 'QUANTUM SAFE' : 'CLASSICAL ONLY'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right space-x-1.5">
+                        <button
+                          type="button"
+                          disabled={decapsulatingRecordId === r.id}
+                          onClick={() => handleDecapsulateRecordSubmit(r.id, r.encapsulation.keyId)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          {decapsulatingRecordId === r.id ? 'Decapsulando...' : 'Abrir'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPqcSealForModal(r.proofSeal)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          Laudo WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Painel de Exibição do Prontuário Aberto */}
+            {decapsulatedResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Unlock className="w-4 h-4 text-emerald-600" />
+                    Conteúdo Clínico Decifrado com DEK Pós-Quântica
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDecapsulatedResult(null)}
+                    className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    ✕ Fechar
+                  </button>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 font-sans leading-relaxed">
+                  {decapsulatedResult.plaintext}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  Assinatura Dual Verificada: {decapsulatedResult.verifiedSignature ? 'SIM (DOC-ICP-15 + FIPS 204)' : 'NÃO'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -19938,7 +20647,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     {postureSealVerifyResult.isValid ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                     )}
                     {postureSealVerifyResult.isValid ? 'Selo de Postura Íntegro e Autêntico' : 'Falha na Validação Pericial'}
                   </div>
@@ -19968,6 +20677,155 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {verifyingPostureSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 37.A: Laudo Pericial Timbrado de Criptografia Pós-Quântica (FIPS 203/204) */}
+      {selectedPqcSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Laudo Notarial de Criptografia Pós-Quântica (NIST FIPS 203 & 204)
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    ID da Operação: {selectedPqcSealForModal.operationId}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPqcSealForModal(null);
+                  setPqcSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Metadados Periciais */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Tipo Clínico Protegido</span>
+                  <span className="font-bold text-slate-900 dark:text-white font-mono">
+                    {selectedPqcSealForModal.targetType}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Modo Operacional</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                    {selectedPqcSealForModal.hybridMode}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Data de Emissão (UTC)</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px]">
+                    {new Date(selectedPqcSealForModal.issuedAt).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Resistência a Computadores Quânticos</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    NIST Categoria 3 / FIPS 203 & 204
+                  </span>
+                </div>
+              </div>
+
+              {/* Hashes Canônicos */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Digest Canônico SHA-256 (RFC 8785 JCS):
+                </label>
+                <div className="p-2.5 rounded-xl bg-slate-900 font-mono text-[10px] text-indigo-300 break-all select-all">
+                  {selectedPqcSealForModal.canonicalDigest}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Assinatura HMAC-SHA256 Anti-Tampering:
+                </label>
+                <div className="p-2.5 rounded-xl bg-slate-900 font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedPqcSealForModal.hmacSignature}
+                </div>
+              </div>
+
+              {/* Token WORM Completo */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Token Criptográfico WORM de Perícia PQC:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedPqcSealForModal.sealToken);
+                      setFeedback({ type: 'success', message: 'Selo WORM PQC copiado com sucesso!' });
+                    }}
+                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copiar Token
+                  </button>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-900 font-mono text-[10px] text-indigo-300 break-all select-all">
+                  {selectedPqcSealForModal.sealToken}
+                </div>
+              </div>
+
+              {/* Resultado da Validação Pericial */}
+              {pqcSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  pqcSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {pqcSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {pqcSealVerifyResult.isValid ? 'Selo PQC Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{pqcSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(pqcSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPqcSealForModal(null);
+                  setPqcSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingPqcSeal}
+                onClick={() => handleVerifyPqcSealSubmit(selectedPqcSealForModal.sealToken)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingPqcSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Executar Validação Forense Notarial
               </button>
             </div>

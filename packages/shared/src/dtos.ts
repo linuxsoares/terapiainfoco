@@ -2644,6 +2644,102 @@ export interface DevicePostureOverviewResponse {
   overview: import('./models').DevicePostureOverview;
 }
 
+/**
+ * 36. DTOs de Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+ */
+export interface GeneratePqcKeyPairDTO {
+  alias: string;
+  securityLevel?: import('./enums').PqcSecurityLevel;
+  kemScheme?: import('./enums').PqcKemScheme;
+  dsaScheme?: import('./enums').PqcDsaScheme;
+}
+
+export interface GeneratePqcKeyPairResponse {
+  success: boolean;
+  keyPair: import('./models').PqcHybridKeyPair;
+  message: string;
+}
+
+export interface EncapsulatePqcRecordDTO {
+  keyId: string;
+  targetType: import('./enums').PqcClinicalTargetType;
+  title: string;
+  patientBlindIndex: string;
+  plaintextClinicalData: string;
+  hybridMode?: import('./enums').PqcHybridMode;
+}
+
+export interface EncapsulatePqcRecordResponse {
+  success: boolean;
+  protectedRecord: import('./models').PqcProtectedClinicalRecord;
+  message: string;
+}
+
+export interface DecapsulatePqcRecordDTO {
+  recordId: string;
+  keyId: string;
+}
+
+export interface DecapsulatePqcRecordResponse {
+  success: boolean;
+  decryptedPlaintext: string;
+  verifiedSignature: boolean;
+  message: string;
+}
+
+export interface SignPqcDocumentDTO {
+  keyId: string;
+  documentContent: string;
+  dsaScheme?: import('./enums').PqcDsaScheme;
+}
+
+export interface SignPqcDocumentResponse {
+  success: boolean;
+  signatureResult: import('./models').PqcHybridSignatureResult;
+  message: string;
+}
+
+export interface VerifyPqcSignatureDTO {
+  keyId: string;
+  documentContent: string;
+  classicalSignatureHex: string;
+  pqSignatureBase64: string;
+}
+
+export interface VerifyPqcSignatureResponse {
+  success: boolean;
+  verification: import('./models').PqcSignatureVerificationResult;
+  message: string;
+}
+
+export interface SimulateQuantumAttackDTO {
+  recordId: string;
+  attackType: import('./enums').PqcQuantumAttackType;
+}
+
+export interface SimulateQuantumAttackResponse {
+  success: boolean;
+  simulation: import('./models').PqcQuantumAttackSimulationResult;
+  message: string;
+}
+
+export interface VerifyPqcSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyPqcSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').PqcProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface PqcOverviewResponse {
+  success: boolean;
+  overview: import('./models').PqcOverview;
+}
+
 
 
 

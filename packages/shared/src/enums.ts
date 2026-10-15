@@ -247,7 +247,15 @@ export enum AuditAction {
   DEVICE_QUARANTINED = 'DEVICE_QUARANTINED',
   DEVICE_QUARANTINE_RELEASED = 'DEVICE_QUARANTINE_RELEASED',
   DEVICE_POSTURE_POLICY_UPDATED = 'DEVICE_POSTURE_POLICY_UPDATED',
-  DEVICE_POSTURE_SEAL_VERIFIED = 'DEVICE_POSTURE_SEAL_VERIFIED'
+  DEVICE_POSTURE_SEAL_VERIFIED = 'DEVICE_POSTURE_SEAL_VERIFIED',
+  // Ações de Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+  PQC_KEYPAIR_GENERATED = 'PQC_KEYPAIR_GENERATED',
+  PQC_HYBRID_ENCAPSULATED = 'PQC_HYBRID_ENCAPSULATED',
+  PQC_HYBRID_DECAPSULATED = 'PQC_HYBRID_DECAPSULATED',
+  PQC_HYBRID_SIGNED = 'PQC_HYBRID_SIGNED',
+  PQC_HYBRID_SIGNATURE_VERIFIED = 'PQC_HYBRID_SIGNATURE_VERIFIED',
+  PQC_QUANTUM_ATTACK_SIMULATED = 'PQC_QUANTUM_ATTACK_SIMULATED',
+  PQC_SEAL_VERIFIED = 'PQC_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -290,7 +298,8 @@ export enum AuditResourceType {
   ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE',
   SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD',
   TLS_PINNING_GUARD = 'TLS_PINNING_GUARD',
-  DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE'
+  DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE',
+  PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE'
 }
 
 /**
@@ -1168,6 +1177,73 @@ export enum DevicePostureDecision {
   RESTRICTED_READ_ONLY = 'RESTRICTED_READ_ONLY',             // Acesso degradado: visualização mascarada sem downloads
   STEP_UP_REQUIRED = 'STEP_UP_REQUIRED',                     // Desafio de segundo fator (MFA) compulsório
   BLOCKED_QUARANTINED = 'BLOCKED_QUARANTINED'                // Acesso bloqueado e terminal isolado em quarentena
+}
+
+/**
+ * Esquema de Envelopamento e Troca de Chaves Pós-Quântico (KEM - NIST FIPS 203)
+ */
+export enum PqcKemScheme {
+  ML_KEM_768 = 'ML_KEM_768',                                 // CRYSTALS-Kyber-768 (NIST Categoria 3, 192-bit security)
+  ML_KEM_1024 = 'ML_KEM_1024',                               // CRYSTALS-Kyber-1024 (NIST Categoria 5, 256-bit security)
+  PURE_CLASSICAL_X25519 = 'PURE_CLASSICAL_X25519'            // Linha base clássica Curve25519 (ECDH) para comparação
+}
+
+/**
+ * Esquema de Assinatura Digital Pós-Quântica (DSA - NIST FIPS 204)
+ */
+export enum PqcDsaScheme {
+  ML_DSA_65 = 'ML_DSA_65',                                   // CRYSTALS-Dilithium-3 (NIST Categoria 3, 192-bit security)
+  ML_DSA_87 = 'ML_DSA_87',                                   // CRYSTALS-Dilithium-5 (NIST Categoria 5, 256-bit security)
+  PURE_CLASSICAL_ECDSA_P256 = 'PURE_CLASSICAL_ECDSA_P256'    // Clássica ICP-Brasil / DOC-ICP-15 (ECDSA P-256)
+}
+
+/**
+ * Modo de Operação PQC: Híbrido Obrigatório vs Fallback
+ */
+export enum PqcHybridMode {
+  HYBRID_PQC_CLASSICAL = 'HYBRID_PQC_CLASSICAL',             // Recomendado: KEM = ML-KEM + ECDH, Assinatura = ML-DSA + ECDSA
+  QUANTUM_RESISTANT_ONLY = 'QUANTUM_RESISTANT_ONLY',         // Apenas primitivas de reticulados (Lattice-based)
+  CLASSICAL_COMPAT_ONLY = 'CLASSICAL_COMPAT_ONLY'            // Modo legado: vulnerável a computadores quânticos futuros
+}
+
+/**
+ * Níveis de Segurança Criptográfica NIST PQC
+ */
+export enum PqcSecurityLevel {
+  NIST_LEVEL_3 = 'NIST_LEVEL_3',                             // Segurança equivalente a AES-192 / SHA-384
+  NIST_LEVEL_5 = 'NIST_LEVEL_5',                             // Segurança equivalente a AES-256 / SHA-512
+  NIST_LEVEL_1 = 'NIST_LEVEL_1'                              // Segurança equivalente a AES-128
+}
+
+/**
+ * Tipo de Alvo Clínico Protegido com Criptografia Quântica
+ */
+export enum PqcClinicalTargetType {
+  SOAP_EVOLUTION_RECORD = 'SOAP_EVOLUTION_RECORD',           // Evolução clínica e anotações SOAP
+  TELEMEDICINE_AUDIO_RECORDING = 'TELEMEDICINE_AUDIO_RECORDING', // Gravações confidenciais de teleconsulta
+  ANAMNESIS_BIOPSYCHOSOCIAL = 'ANAMNESIS_BIOPSYCHOSOCIAL',   // Anamnese biopsicossocial do paciente
+  TCLE_CONSENT_FORM = 'TCLE_CONSENT_FORM',                   // Termo de consentimento livre e esclarecido
+  PRESCRIPTION_DOCUMENT = 'PRESCRIPTION_DOCUMENT'            // Encaminhamento e relatório com assinatura dual
+}
+
+/**
+ * Vetor de Ataque Quântico no Simulador de Pentest (SNDL / Shor)
+ */
+export enum PqcQuantumAttackType {
+  SHORS_ALGORITHM_DISCRETE_LOG = 'SHORS_ALGORITHM_DISCRETE_LOG', // Algoritmo de Shor fatorando RSA ou quebrando Log Discreto ECDH
+  STORE_NOW_DECRYPT_LATER_SNDL = 'STORE_NOW_DECRYPT_LATER_SNDL', // Interceptação e decodificação retroativa de tráfego TLS/KEM
+  GROVERS_KEY_SEARCH = 'GROVERS_KEY_SEARCH',                     // Algoritmo de Grover buscando chaves simétricas (quadrática)
+  FORGED_CLASSICAL_SIGNATURE = 'FORGED_CLASSICAL_SIGNATURE'      // Falsificação de assinatura clássica por colapso quântico de chave privada
+}
+
+/**
+ * Resultado da Defesa Criptográfica contra Ataque Quântico
+ */
+export enum PqcDefenseOutcome {
+  PROTECTED_BY_PQC_LATTICE = 'PROTECTED_BY_PQC_LATTICE',     // Ataque clássico teve sucesso, mas componente PQC impediu decifragem
+  DUAL_SECURITY_PRESERVED = 'DUAL_SECURITY_PRESERVED',       // Ambas as camadas clássica e pós-quântica continuam íntegras
+  CRACKED_CLASSICAL_ONLY = 'CRACKED_CLASSICAL_ONLY',         // O modo clássico falhou isoladamente (demonstrando a vulnerabilidade)
+  ATTACK_REPELLED = 'ATTACK_REPELLED'                        // Tentativa de assinatura forjada rejeitada pela verificação dual
 }
 
 
