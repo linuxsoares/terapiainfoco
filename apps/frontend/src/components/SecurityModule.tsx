@@ -68,7 +68,10 @@ import {
   Timer,
   Vote,
   Ticket,
-  FileText
+  FileText,
+  Link,
+  QrCode,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -274,7 +277,16 @@ import {
   type VisualWatermarkIncident,
   type VisualWatermarkOverview,
   type SimulateScreenLeakResponse,
-  type VerifyVisualWatermarkSealResponse
+  type VerifyVisualWatermarkSealResponse,
+  EphemeralTokenStatus,
+  EphemeralTokenTarget,
+  RevocationReason,
+  type EphemeralAccessToken,
+  type EphemeralTokenProofSeal,
+  type EphemeralTokenOverview,
+  type ConsumeEphemeralTokenResponse,
+  type SimulateTokenIntrusionResponse,
+  type VerifyEphemeralTokenSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4208,6 +4220,182 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ==========================================
+  // ESTADOS DO MÓDULO 42: TOKENS EFÊMEROS DE TELECONSULTA & AUTO-REVOGAÇÃO (RFC 7519, RFC 7009 & LGPD Art. 46)
+  // ==========================================
+  const [ephemeralOverview, setEphemeralOverview] = useState<EphemeralTokenOverview | null>(null);
+  const [loadingEphemeral, setLoadingEphemeral] = useState<boolean>(false);
+  const [ephemeralActiveTab, setEphemeralActiveTab] = useState<'issuer' | 'validator' | 'revocation'>('issuer');
+
+  // Emissor
+  const [ephPatientId, setEphPatientId] = useState<string>('paciente_daniela_silva_404');
+  const [ephTherapistCrp, setEphTherapistCrp] = useState<string>('CRP-06/987654');
+  const [ephRoomId, setEphRoomId] = useState<string>('room_telepsi_sala_daniela');
+  const [ephTarget, setEphTarget] = useState<EphemeralTokenTarget>(EphemeralTokenTarget.TELECONSULTATION_ROOM);
+  const [ephTtlMinutes, setEphTtlMinutes] = useState<number>(60);
+  const [ephAdvanceMinutes, setEphAdvanceMinutes] = useState<number>(15);
+  const [ephSingleUse, setEphSingleUse] = useState<boolean>(true);
+  const [issuingEphToken, setIssuingEphToken] = useState<boolean>(false);
+  const [lastIssuedToken, setLastIssuedToken] = useState<EphemeralAccessToken | null>(null);
+  const [lastMagicLink, setLastMagicLink] = useState<string>('');
+  const [lastQrCodeDataUri, setLastQrCodeDataUri] = useState<string | null>(null);
+
+  // Validador
+  const [validateTokenString, setValidateTokenString] = useState<string>('');
+  const [validateRoomId, setValidateRoomId] = useState<string>('room_telepsi_sala_daniela');
+  const [validatingEphToken, setValidatingEphToken] = useState<boolean>(false);
+  const [lastConsumptionResponse, setLastConsumptionResponse] = useState<ConsumeEphemeralTokenResponse | null>(null);
+
+  // Simulador Adversarial
+  const [simIntrusionScenario, setSimIntrusionScenario] = useState<'EXPIRED_TOKEN' | 'REUSED_CONSUMED_TOKEN' | 'REVOKED_TOKEN' | 'TAMPERED_SIGNATURE' | 'WRONG_ROOM'>('EXPIRED_TOKEN');
+  const [simulatingIntrusion, setSimulatingIntrusion] = useState<boolean>(false);
+  const [simIntrusionResult, setSimIntrusionResult] = useState<SimulateTokenIntrusionResponse | null>(null);
+
+  // Políticas & Revogação
+  const [policyTtl, setPolicyTtl] = useState<number>(60);
+  const [policyAllowConcurrent, setPolicyAllowConcurrent] = useState<boolean>(false);
+  const [updatingEphPolicy, setUpdatingEphPolicy] = useState<boolean>(false);
+  const [revokingTokenId, setRevokingTokenId] = useState<string | null>(null);
+
+  // Modal 42.A
+  const [selectedEphemeralSealForModal, setSelectedEphemeralSealForModal] = useState<EphemeralTokenProofSeal | null>(null);
+  const [ephemeralModalTokenItem, setEphemeralModalTokenItem] = useState<EphemeralAccessToken | null>(null);
+  const [verifyingEphemeralSeal, setVerifyingEphemeralSeal] = useState<boolean>(false);
+  const [ephemeralSealVerifyResult, setEphemeralSealVerifyResult] = useState<VerifyEphemeralTokenSealResponse | null>(null);
+
+  const fetchEphemeralTokensData = async () => {
+    try {
+      setLoadingEphemeral(true);
+      const res = await api.getEphemeralTokensOverview();
+      setEphemeralOverview(res.overview);
+      if (res.overview?.defaultTtlMinutes) {
+        setPolicyTtl(res.overview.defaultTtlMinutes);
+      }
+      if (res.overview?.allowConcurrentAccess !== undefined) {
+        setPolicyAllowConcurrent(res.overview.allowConcurrentAccess);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar telemetria de tokens efêmeros:', err);
+    } finally {
+      setLoadingEphemeral(false);
+    }
+  };
+
+  const handleIssueEphemeralTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIssuingEphToken(true);
+      const res = await api.issueEphemeralToken({
+        patientId: ephPatientId.trim(),
+        therapistCrp: ephTherapistCrp.trim(),
+        roomId: ephRoomId.trim(),
+        target: ephTarget,
+        ttlMinutes: ephTtlMinutes,
+        validInAdvanceMinutes: ephAdvanceMinutes,
+        singleUse: ephSingleUse
+      });
+      setLastIssuedToken(res.token);
+      setLastMagicLink(res.magicLink);
+      setLastQrCodeDataUri(res.qrCodeDataUri || null);
+      setValidateTokenString(res.token.tokenString);
+      setValidateRoomId(res.token.roomId);
+      setFeedback({ type: 'success', message: res.message });
+      await fetchEphemeralTokensData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao emitir credencial efêmera.' });
+    } finally {
+      setIssuingEphToken(false);
+    }
+  };
+
+  const handleConsumeEphemeralTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateTokenString.trim() || !validateRoomId.trim()) {
+      setFeedback({ type: 'error', message: 'Preencha o token assinado e a sala pretendida.' });
+      return;
+    }
+    try {
+      setValidatingEphToken(true);
+      setLastConsumptionResponse(null);
+      const res = await api.consumeEphemeralToken({
+        tokenString: validateTokenString.trim(),
+        roomId: validateRoomId.trim()
+      });
+      setLastConsumptionResponse(res);
+      setFeedback({
+        type: res.granted ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchEphemeralTokensData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar credencial efêmera.' });
+    } finally {
+      setValidatingEphToken(false);
+    }
+  };
+
+  const handleRevokeEphemeralTokenSubmit = async (tokenId: string, reason: RevocationReason) => {
+    try {
+      setRevokingTokenId(tokenId);
+      const res = await api.revokeEphemeralToken({ tokenId, reason });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchEphemeralTokensData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao revogar token efêmero.' });
+    } finally {
+      setRevokingTokenId(null);
+    }
+  };
+
+  const handleSimulateTokenIntrusionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingIntrusion(true);
+      setSimIntrusionResult(null);
+      const res = await api.simulateTokenIntrusion({ scenario: simIntrusionScenario });
+      setSimIntrusionResult(res);
+      setFeedback({
+        type: res.blocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchEphemeralTokensData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha na simulação de intrusão.' });
+    } finally {
+      setSimulatingIntrusion(false);
+    }
+  };
+
+  const handleUpdateEphemeralPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingEphPolicy(true);
+      const res = await api.updateEphemeralPolicy({
+        defaultTtlMinutes: policyTtl,
+        allowConcurrentAccess: policyAllowConcurrent
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchEphemeralTokensData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de acesso temporário.' });
+    } finally {
+      setUpdatingEphPolicy(false);
+    }
+  };
+
+  const handleVerifyEphemeralSealSubmit = async (token: string) => {
+    try {
+      setVerifyingEphemeralSeal(true);
+      setEphemeralSealVerifyResult(null);
+      const res = await api.verifyEphemeralTokenSeal({ sealToken: token });
+      setEphemeralSealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório WORM.' });
+    } finally {
+      setVerifyingEphemeralSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4241,6 +4429,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSideChannelData();
       fetchAntiReplayData();
       fetchVisualWatermarkData();
+      fetchEphemeralTokensData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -19857,6 +20046,794 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* CARD 42: RASTREABILIDADE & CREDENCIAIS EFÊMERAS DE TELECONSULTA (RFC 7519, RFC 7009 & LGPD ART. 46) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+        {/* Header do Card */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+              <Link className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Módulo 42 • Credenciais Efêmeras de Teleconsulta & Auto-Revogação
+                <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  RFC 7519 • RFC 7009
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Links efêmeros assinados via HMAC-SHA256, controle de uso único, janelas temporais restritas e auto-revogação atômica com selo probatório WORM.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <button
+              type="button"
+              onClick={fetchEphemeralTokensData}
+              disabled={loadingEphemeral}
+              className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              title="Recarregar Telemetria de Tokens Efêmeros"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingEphemeral ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Links Emitidos</span>
+              <Ticket className="w-3.5 h-3.5 text-indigo-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+              {ephemeralOverview?.metrics.totalTokensIssued ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Total no Enclave</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Ativos / Pendentes</span>
+              <Timer className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+              {ephemeralOverview?.metrics.activePendingTokens ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Aguardando Uso</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Consumidos</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            </div>
+            <div className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              {ephemeralOverview?.metrics.consumedTokens ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Sessões Concluídas</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Intrusões Bloqueadas</span>
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400">
+              {ephemeralOverview?.metrics.unauthorizedIntrusionsBlocked ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Reusos & Expirados</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">TTL Padrão</span>
+              <Clock className="w-3.5 h-3.5 text-teal-500" />
+            </div>
+            <div className="text-xl font-mono font-bold text-slate-800 dark:text-slate-200">
+              {ephemeralOverview?.defaultTtlMinutes ?? 60}m
+            </div>
+            <span className="text-[10px] text-slate-400">Janela de Segurança</span>
+          </div>
+        </div>
+
+        {/* Abas */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setEphemeralActiveTab('issuer')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              ephemeralActiveTab === 'issuer'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            Emissor de Magic Link & QR Code
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEphemeralActiveTab('validator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              ephemeralActiveTab === 'validator'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Validador & Simulador Adversarial
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEphemeralActiveTab('revocation')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              ephemeralActiveTab === 'revocation'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Ban className="w-3.5 h-3.5" />
+            Políticas & Revogação Imediata
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Emissor */}
+        {ephemeralActiveTab === 'issuer' && (
+          <div className="space-y-4">
+            <form onSubmit={handleIssueEphemeralTokenSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-indigo-500" />
+                  Emissão de Credencial de Acesso Temporário (Magic Link)
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  HMAC-SHA256 • RFC 7519
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    ID do Paciente:
+                  </label>
+                  <input
+                    type="text"
+                    value={ephPatientId}
+                    onChange={(e) => setEphPatientId(e.target.value)}
+                    required
+                    placeholder="paciente_..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    CRP do Terapeuta:
+                  </label>
+                  <input
+                    type="text"
+                    value={ephTherapistCrp}
+                    onChange={(e) => setEphTherapistCrp(e.target.value)}
+                    required
+                    placeholder="CRP-06/..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Sala Telepsi (Room ID):
+                  </label>
+                  <input
+                    type="text"
+                    value={ephRoomId}
+                    onChange={(e) => setEphRoomId(e.target.value)}
+                    required
+                    placeholder="room_telepsi_..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Finalidade / Target:
+                  </label>
+                  <select
+                    value={ephTarget}
+                    onChange={(e) => setEphTarget(e.target.value as EphemeralTokenTarget)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value={EphemeralTokenTarget.TELECONSULTATION_ROOM}>Sala de Teleconsulta WebRTC (Uso Único)</option>
+                    <option value={EphemeralTokenTarget.TEMPORARY_SOAP_VIEWER}>Visualizador Temporário de Prontuário</option>
+                    <option value={EphemeralTokenTarget.PRESCRIPTION_PICKUP_LINK}>Coleta Segura de Receituário Clínico</option>
+                    <option value={EphemeralTokenTarget.PATIENT_CONSENT_SIGNING}>Assinatura Digital de Termo de Consentimento</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Validade TTL (Minutos): {ephTtlMinutes}m
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={240}
+                    step={5}
+                    value={ephTtlMinutes}
+                    onChange={(e) => setEphTtlMinutes(Number(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>5 min (Alta restrição)</span>
+                    <span>240 min (4h)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Liberação Antecipada (nbf): {ephAdvanceMinutes}m
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={60}
+                    step={5}
+                    value={ephAdvanceMinutes}
+                    onChange={(e) => setEphAdvanceMinutes(Number(e.target.value))}
+                    className="w-full accent-teal-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>0m (Na hora)</span>
+                    <span>60m antes da sessão</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="ephSingleUse"
+                    checked={ephSingleUse}
+                    onChange={(e) => setEphSingleUse(e.target.checked)}
+                    className="rounded accent-indigo-600"
+                  />
+                  <label htmlFor="ephSingleUse" className="text-xs text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                    Auto-revogação Imediata ao Ingressar na Sala (Single-Use Token)
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={issuingEphToken}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  {issuingEphToken ? 'Emitindo Criptograficamente...' : 'Emitir Credencial Efêmera'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado do Último Token Emitido */}
+            {lastIssuedToken && (
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    Credencial Criptográfica Gerada com Sucesso
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 uppercase">
+                    {lastIssuedToken.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                  <div className="md:col-span-2 space-y-3 text-xs">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                        Magic Link Temporário para Paciente:
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={lastMagicLink}
+                          className="w-full px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 font-mono text-xs select-all text-slate-800 dark:text-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(lastMagicLink);
+                            setFeedback({ type: 'success', message: 'Magic Link copiado para a área de transferência!' });
+                          }}
+                          className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Copiar Link"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <a
+                          href={lastMagicLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Abrir Link em Nova Aba"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Token ID:</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block">
+                          {lastIssuedToken.tokenId}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Válido A Partir (nbf):</span>
+                        <span className="font-mono text-slate-700 dark:text-slate-300 block">
+                          {new Date(lastIssuedToken.notBefore).toLocaleTimeString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Expira Em (exp):</span>
+                        <span className="font-mono text-slate-700 dark:text-slate-300 block">
+                          {new Date(lastIssuedToken.expiresAt).toLocaleTimeString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Blind Index Paciente:</span>
+                        <span className="font-mono text-indigo-600 dark:text-indigo-400 truncate block">
+                          {lastIssuedToken.patientBlindIndex.slice(0, 12)}...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* QR Code Container */}
+                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 text-center">
+                    {lastQrCodeDataUri ? (
+                      <>
+                        <img
+                          src={lastQrCodeDataUri}
+                          alt="QR Code de Acesso Efêmero"
+                          className="w-32 h-32 rounded-lg border border-slate-100 dark:border-slate-800"
+                        />
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1 font-medium">
+                          <QrCode className="w-3 h-3 text-indigo-500" />
+                          Escaneie via Smartphone
+                        </span>
+                      </>
+                    ) : (
+                      <div className="w-32 h-32 flex items-center justify-center text-slate-400 text-xs">
+                        QR Code Indisponível
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conteúdo Aba 2: Validador & Simulador */}
+        {ephemeralActiveTab === 'validator' && (
+          <div className="space-y-4">
+            {/* Validador de Consumo */}
+            <form onSubmit={handleConsumeEphemeralTokenSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  Consumir Credencial Efêmera & Ingressar na Sala Telepsi
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Validação Atômica em Tempo Constante
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Token Efêmero Assinado (JWT RFC 7519):
+                  </label>
+                  <input
+                    type="text"
+                    value={validateTokenString}
+                    onChange={(e) => setValidateTokenString(e.target.value)}
+                    required
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Sala Pretendida (Room ID):
+                  </label>
+                  <input
+                    type="text"
+                    value={validateRoomId}
+                    onChange={(e) => setValidateRoomId(e.target.value)}
+                    required
+                    placeholder="room_telepsi_..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={validatingEphToken}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {validatingEphToken ? 'Validando Integridade e Consumindo...' : 'Validar e Consumir Ingresso'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado do Consumo */}
+            {lastConsumptionResponse && (
+              <div className={`p-4 rounded-2xl border shadow-sm space-y-2 text-xs ${
+                lastConsumptionResponse.granted
+                  ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
+                  : 'bg-rose-50/60 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold flex items-center gap-2">
+                    {lastConsumptionResponse.granted ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <ShieldAlert className="w-4 h-4 text-rose-500" />
+                    )}
+                    Veredito: {lastConsumptionResponse.verdict}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    lastConsumptionResponse.granted
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                  }`}>
+                    {lastConsumptionResponse.granted ? 'ACESSO AUTORIZADO' : 'ACESSO NEGADO'}
+                  </span>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300">
+                  {lastConsumptionResponse.message}
+                </p>
+                {lastConsumptionResponse.record?.proofSeal && (
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-[10px] text-slate-500 break-all">
+                    <span className="font-bold text-slate-700 dark:text-slate-300 block mb-0.5">Selo Probatório WORM:</span>
+                    {lastConsumptionResponse.record.proofSeal.sealToken}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Simulador Adversarial */}
+            <form onSubmit={handleSimulateTokenIntrusionSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-rose-500" />
+                  Simulador de Ataques Adversariais & Intrusão em Credenciais
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Testes de Replay & Falsificação
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Selecione o Vetor de Ataque Simulado:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSimIntrusionScenario('EXPIRED_TOKEN')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simIntrusionScenario === 'EXPIRED_TOKEN'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Token Expirado (exp violado)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tentativa de ingresso após término do tempo limite da sessão.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimIntrusionScenario('REUSED_CONSUMED_TOKEN')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simIntrusionScenario === 'REUSED_CONSUMED_TOKEN'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Reuso de Token Consumido</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Ataque de replay com token que já ingressou anteriormente.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimIntrusionScenario('REVOKED_TOKEN')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simIntrusionScenario === 'REVOKED_TOKEN'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Token Revogado por Terapeuta</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tentativa de uso de link explicitamente revogado (kill-switch).
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimIntrusionScenario('TAMPERED_SIGNATURE')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simIntrusionScenario === 'TAMPERED_SIGNATURE'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Assinatura Forjada / Adulterada</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Payload modificado arbitrariamente sem chave mestra HMAC.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimIntrusionScenario('WRONG_ROOM')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simIntrusionScenario === 'WRONG_ROOM'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Sala Divergente (Cross-Room)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Token emitido para uma sala mas injetado em outra consulta.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={simulatingIntrusion}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  {simulatingIntrusion ? 'Executando Ataque...' : 'Executar Ataque Simulado & Validar Bloqueio'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado do Teste Adversarial */}
+            {simIntrusionResult && (
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    {simIntrusionResult.blocked ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                    )}
+                    Resposta do Enclave de Segurança
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    simIntrusionResult.blocked
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  }`}>
+                    {simIntrusionResult.blocked ? 'INTRUSÃO BLOQUEADA COM SUCESSO' : 'INTRUSÃO NÃO DETECTADA'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {simIntrusionResult.message}
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Veredito:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {simIntrusionResult.verdict}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Cenário Testado:</span>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                      {simIntrusionScenario}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Data do Bloqueio:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      {new Date(simIntrusionResult.record?.timestamp || Date.now()).toLocaleTimeString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conteúdo Aba 3: Políticas & Revogação */}
+        {ephemeralActiveTab === 'revocation' && (
+          <div className="space-y-4">
+            <form onSubmit={handleUpdateEphemeralPolicySubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Ban className="w-4 h-4 text-indigo-500" />
+                  Políticas Globais de Expiração e Concorrência de Credenciais
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  RFC 7009 Token Revocation
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    TTL Padrão para Novos Links: {policyTtl} minutos
+                  </label>
+                  <input
+                    type="range"
+                    min={15}
+                    max={240}
+                    step={15}
+                    value={policyTtl}
+                    onChange={(e) => setPolicyTtl(Number(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>15 min</span>
+                    <span>60 min</span>
+                    <span>120 min</span>
+                    <span>240 min</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-center space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="policyAllowConcurrent"
+                      checked={policyAllowConcurrent}
+                      onChange={(e) => setPolicyAllowConcurrent(e.target.checked)}
+                      className="rounded accent-indigo-600"
+                    />
+                    <label htmlFor="policyAllowConcurrent" className="text-xs text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                      Permitir Acesso Concorrente de Múltiplos Dispositivos (Desativado por Padrão)
+                    </label>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Recomendado: manter desligado para impedir invasão por duplicação simultânea de link de consulta.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={updatingEphPolicy}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {updatingEphPolicy ? 'Gravando Políticas...' : 'Salvar Políticas de Acesso Efêmero'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Tabela de Credenciais Efêmeras Recentes */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Ticket className="w-3.5 h-3.5 text-slate-500" />
+              Livro Razão de Credenciais Efêmeras Emitidas & Status de Revogação
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              WORM Ledger Conforme LGPD Art. 46
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="p-3">Emissão</th>
+                  <th className="p-3">Finalidade / Target</th>
+                  <th className="p-3">Sala (Room ID)</th>
+                  <th className="p-3">Paciente (Blind Index)</th>
+                  <th className="p-3">Validade (exp)</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Ações & Selo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                {(ephemeralOverview?.activeTokens || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                      Nenhuma credencial efêmera registrada. Emita links temporários de teleconsulta acima para habilitar o rastreamento criptográfico.
+                    </td>
+                  </tr>
+                ) : (
+                  (ephemeralOverview?.activeTokens || []).map((token) => (
+                    <tr key={token.tokenId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(token.issuedAt).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {token.target}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-800 dark:text-slate-200">
+                        {token.roomId}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
+                        {token.patientBlindIndex.slice(0, 10)}...
+                      </td>
+                      <td className="p-3 font-mono text-[11px] whitespace-nowrap">
+                        {new Date(token.expiresAt).toLocaleTimeString('pt-BR')}
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          token.status === EphemeralTokenStatus.ACTIVE_PENDING
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : token.status === EphemeralTokenStatus.CONSUMED_IN_SESSION
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        }`}>
+                          {token.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {token.status === EphemeralTokenStatus.ACTIVE_PENDING && (
+                            <button
+                              type="button"
+                              disabled={revokingTokenId === token.tokenId}
+                              onClick={() => handleRevokeEphemeralTokenSubmit(token.tokenId, RevocationReason.THERAPIST_FORCE_KILL)}
+                              className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 font-bold text-[10px] cursor-pointer"
+                              title="Revogar Imediatamente (Kill-Switch)"
+                            >
+                              {revokingTokenId === token.tokenId ? '...' : 'Revogar'}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEphemeralModalTokenItem(token);
+                              setSelectedEphemeralSealForModal(token.proofSeal);
+                              setEphemeralSealVerifyResult(null);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                          >
+                            Certidão WORM
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -24960,6 +25937,151 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedVisualWatermarkSealForModal(null);
                     setVisualWatermarkModalIncidentItem(null);
                     setVisualWatermarkSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 42.A: CERTIDÃO NOTARIAL FORENSE DE CREDENCIAL EFÊMERA WORM (RFC 7519 & RFC 7009) */}
+      {selectedEphemeralSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Certidão Notarial Forense de Credencial Efêmera WORM
+              </h3>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                RFC 7519 • RFC 7009 • LGPD Art. 46
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block">Token ID:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedEphemeralSealForModal.tokenId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Ação Notarial Registrada:</span>
+                    <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                      {selectedEphemeralSealForModal.action}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Data de Emissão (UTC):</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      {new Date(selectedEphemeralSealForModal.issuedAt).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Selo Probatório Formatado:</span>
+                    <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 truncate block">
+                      {selectedEphemeralSealForModal.sealToken.slice(0, 24)}...
+                    </span>
+                  </div>
+                </div>
+
+                {ephemeralModalTokenItem && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Finalidade / Target:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {ephemeralModalTokenItem.target}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Sala Telepsi (Room ID):</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {ephemeralModalTokenItem.roomId}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Terapeuta Responsável:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {ephemeralModalTokenItem.therapistCrp}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Status no Enclave:</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {ephemeralModalTokenItem.status}
+                      </span>
+                    </div>
+                    {ephemeralModalTokenItem.revocationReason && (
+                      <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
+                        <span>Motivo da Revogação:</span>
+                        <span className="font-bold">{ephemeralModalTokenItem.revocationReason}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hash Canônico JCS (RFC 8785) */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico Determinístico SHA-256 (RFC 8785 JSON Canonicalization Scheme)
+                </span>
+                <p className="font-mono text-[10px] text-teal-400 break-all select-all">
+                  {selectedEphemeralSealForModal.canonicalDigest}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-indigo-300 break-all select-all">
+                  {selectedEphemeralSealForModal.sealToken}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {ephemeralSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  ephemeralSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {ephemeralSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {ephemeralSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedEphemeralSealForModal.issuedAt).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingEphemeralSeal}
+                  onClick={() => handleVerifyEphemeralSealSubmit(selectedEphemeralSealForModal.sealToken)}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingEphemeralSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEphemeralSealForModal(null);
+                    setEphemeralModalTokenItem(null);
+                    setEphemeralSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

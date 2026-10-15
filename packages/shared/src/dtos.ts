@@ -3095,6 +3095,97 @@ export interface VisualWatermarkOverviewResponse {
   overview: import('./models').VisualWatermarkOverview;
 }
 
+// ============================================================================
+// DTOs: Tokens Efêmeros de Teleconsulta e Auto-Revogação (RFC 7519, RFC 7009 & LGPD Art. 46)
+// ============================================================================
+
+export interface IssueEphemeralTokenDTO {
+  patientId: string;
+  therapistCrp: string;
+  roomId: string;
+  target?: import('./enums').EphemeralTokenTarget;
+  ttlMinutes?: number;
+  validInAdvanceMinutes?: number;
+  singleUse?: boolean;
+}
+
+export interface IssueEphemeralTokenResponse {
+  success: boolean;
+  token: import('./models').EphemeralAccessToken;
+  magicLink: string;
+  qrCodeDataUri?: string;
+  message: string;
+}
+
+export interface ConsumeEphemeralTokenDTO {
+  tokenString: string;
+  roomId: string;
+  clientIp?: string;
+  userAgent?: string;
+}
+
+export interface ConsumeEphemeralTokenResponse {
+  success: boolean;
+  verdict: import('./enums').EphemeralTokenVerificationVerdict;
+  granted: boolean;
+  token?: import('./models').EphemeralAccessToken;
+  record: import('./models').EphemeralTokenConsumptionRecord;
+  message: string;
+}
+
+export interface RevokeEphemeralTokenDTO {
+  tokenId: string;
+  reason: import('./enums').RevocationReason;
+}
+
+export interface RevokeEphemeralTokenResponse {
+  success: boolean;
+  token: import('./models').EphemeralAccessToken;
+  message: string;
+}
+
+export interface SimulateTokenIntrusionDTO {
+  scenario: 'EXPIRED_TOKEN' | 'REUSED_CONSUMED_TOKEN' | 'REVOKED_TOKEN' | 'TAMPERED_SIGNATURE' | 'WRONG_ROOM';
+  tokenId?: string;
+}
+
+export interface SimulateTokenIntrusionResponse {
+  success: boolean;
+  blocked: boolean;
+  verdict: import('./enums').EphemeralTokenVerificationVerdict;
+  message: string;
+  record: import('./models').EphemeralTokenConsumptionRecord;
+}
+
+export interface UpdateEphemeralPolicyDTO {
+  defaultTtlMinutes: number;
+  allowConcurrentAccess: boolean;
+}
+
+export interface UpdateEphemeralPolicyResponse {
+  success: boolean;
+  defaultTtlMinutes: number;
+  allowConcurrentAccess: boolean;
+  message: string;
+}
+
+export interface VerifyEphemeralTokenSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyEphemeralTokenSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').EphemeralTokenProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface EphemeralTokenOverviewResponse {
+  success: boolean;
+  overview: import('./models').EphemeralTokenOverview;
+}
+
 
 
 

@@ -283,7 +283,14 @@ export enum AuditAction {
   LEAK_EXTRACTION_ATTEMPTED = 'LEAK_EXTRACTION_ATTEMPTED',
   LEAK_SOURCE_IDENTIFIED = 'LEAK_SOURCE_IDENTIFIED',
   WATERMARK_PROOF_VERIFIED = 'WATERMARK_PROOF_VERIFIED',
-  WATERMARK_POLICY_UPDATED = 'WATERMARK_POLICY_UPDATED'
+  WATERMARK_POLICY_UPDATED = 'WATERMARK_POLICY_UPDATED',
+  // Ações de Tokens Efêmeros de Teleconsulta e Auto-Revogação (RFC 7519, RFC 7009 & LGPD Art. 46)
+  EPHEMERAL_TOKEN_ISSUED = 'EPHEMERAL_TOKEN_ISSUED',
+  EPHEMERAL_TOKEN_CONSUMED = 'EPHEMERAL_TOKEN_CONSUMED',
+  EPHEMERAL_TOKEN_REVOKED = 'EPHEMERAL_TOKEN_REVOKED',
+  EPHEMERAL_TOKEN_EXPIRED = 'EPHEMERAL_TOKEN_EXPIRED',
+  EPHEMERAL_TOKEN_ACCESS_BLOCKED = 'EPHEMERAL_TOKEN_ACCESS_BLOCKED',
+  EPHEMERAL_TOKEN_PROOF_VERIFIED = 'EPHEMERAL_TOKEN_PROOF_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -331,7 +338,8 @@ export enum AuditResourceType {
   BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE',
   SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD',
   ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD',
-  VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD'
+  VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD',
+  EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD'
 }
 
 /**
@@ -1418,6 +1426,52 @@ export enum WatermarkEmbeddingStrength {
   SUBTLE_INVISIBLE = 'SUBTLE_INVISIBLE',                           // Alpha 0.008 (PSNR > 52dB, SSIM > 0.995 - Máxima imperceptibilidade)
   BALANCED_RESILIENT = 'BALANCED_RESILIENT',                       // Alpha 0.015 (PSNR > 46dB, SSIM > 0.985 - Equilíbrio recomendado)
   AGGRESSIVE_ROBUST = 'AGGRESSIVE_ROBUST'                          // Alpha 0.030 (PSNR > 40dB, SSIM > 0.965 - Resistência a fotos de celular)
+}
+
+/**
+ * Status do Ciclo de Vida do Token Efêmero de Acesso (RFC 7519 / RFC 7009)
+ */
+export enum EphemeralTokenStatus {
+  ACTIVE_PENDING = 'ACTIVE_PENDING',                               // Emitido, dentro da janela [nbf, exp] e aguardando uso
+  CONSUMED_IN_SESSION = 'CONSUMED_IN_SESSION',                     // Consumido com sucesso no ingresso à teleconsulta
+  EXPIRED = 'EXPIRED',                                             // Excedeu o timestamp de expiração (exp)
+  REVOKED_BY_THERAPIST = 'REVOKED_BY_THERAPIST',                   // Revogado deliberadamente pelo terapeuta
+  REVOKED_SECURITY_BREACH = 'REVOKED_SECURITY_BREACH'              // Revogado automaticamente por suspeita de intrusão ou acesso concorrente
+}
+
+/**
+ * Alvo / Recurso do Token Efêmero Criptografado
+ */
+export enum EphemeralTokenTarget {
+  TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM',                 // Sala virtual criptografada de telepsicologia WebRTC
+  TEMPORARY_SOAP_VIEWER = 'TEMPORARY_SOAP_VIEWER',                 // Visualização temporária e controlada de prontuário SOAP
+  PRESCRIPTION_PICKUP_LINK = 'PRESCRIPTION_PICKUP_LINK',           // Resgate temporário de receita digital timbrada CFP
+  PATIENT_CONSENT_SIGNING = 'PATIENT_CONSENT_SIGNING'              // Assinatura de termo de consentimento livre e esclarecido
+}
+
+/**
+ * Razão / Motivo da Revogação do Token Efêmero (RFC 7009)
+ */
+export enum RevocationReason {
+  SESSION_CONCLUDED_NORMAL = 'SESSION_CONCLUDED_NORMAL',           // Sessão clínica finalizada normalmente com sucesso
+  THERAPIST_FORCE_KILL = 'THERAPIST_FORCE_KILL',                   // Encerramento forçado de emergência pelo psicólogo
+  SUSPICIOUS_CONCURRENT_IP = 'SUSPICIOUS_CONCURRENT_IP',           // Tentativa de acesso concomitante de IP divergente
+  PATIENT_DISCONNECTED = 'PATIENT_DISCONNECTED',                   // Desconexão definitiva do paciente após timeout
+  EXPIRATION_TIMEOUT = 'EXPIRATION_TIMEOUT',                       // Token não utilizado durante o prazo estipulado
+  MANUAL_ADMIN_REVOKE = 'MANUAL_ADMIN_REVOKE'                      // Revogação manual pelo Administrador / DPO
+}
+
+/**
+ * Veredito da Validação de Integridade do Token Efêmero
+ */
+export enum EphemeralTokenVerificationVerdict {
+  VALID_GRANTED = 'VALID_GRANTED',                                 // Token íntegro, autêntico, válido e tempestivo
+  TOKEN_EXPIRED = 'TOKEN_EXPIRED',                                 // Timestamp atual posterior a exp
+  TOKEN_ALREADY_CONSUMED = 'TOKEN_ALREADY_CONSUMED',               // Tentativa de reuso de token de uso único
+  TOKEN_REVOKED = 'TOKEN_REVOKED',                                 // Token marcado como revogado no enclave
+  SIGNATURE_INVALID = 'SIGNATURE_INVALID',                         // Assinatura HMAC-SHA256 não confere
+  ROOM_MISMATCH = 'ROOM_MISMATCH',                                 // Tentativa de uso do token em outra sala
+  PREMATURE_ACCESS_NBF = 'PREMATURE_ACCESS_NBF'                    // Acesso antes do horário nbf estipulado
 }
 
 

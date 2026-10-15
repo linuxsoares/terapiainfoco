@@ -3231,6 +3231,86 @@ export interface VisualWatermarkOverview {
   activeStrength: import('./enums').WatermarkEmbeddingStrength;
 }
 
+// ============================================================================
+// Modelos: Tokens Efêmeros de Teleconsulta e Auto-Revogação (RFC 7519, RFC 7009 & LGPD Art. 46)
+// ============================================================================
+
+export interface EphemeralTokenProofSeal {
+  sealToken: string;                // Token público ephemeral_v1_<base64url>
+  canonicalDigest: string;          // Digest SHA-256 determinístico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura de não-repúdio do Enclave
+  issuedAt: string;
+  tokenId: string;
+  action: string;
+}
+
+export interface EphemeralAccessTokenPayload {
+  jti: string;                      // JWT ID único anti-replay
+  sub: string;                      // Blind Index do Paciente
+  therapistCrp: string;             // CRP do psicólogo responsável
+  roomId: string;                   // ID da sala clínica
+  roomHash: string;                 // Hash SHA-256 da sala para vinculação estrita
+  target: import('./enums').EphemeralTokenTarget;
+  singleUse: boolean;               // Consumo único obrigatório
+  iat: number;                      // Emitido em (epoch segundos)
+  nbf: number;                      // Válido a partir de (epoch segundos)
+  exp: number;                      // Expiração definitiva (epoch segundos)
+  maxDurationMinutes: number;
+  nonce: string;                    // Entropia criptográfica adicional
+}
+
+export interface EphemeralAccessToken {
+  tokenId: string;
+  tokenString: string;              // String canônica assinada (header.payload.signature)
+  patientBlindIndex: string;
+  patientIdMasked: string;
+  therapistCrp: string;
+  roomId: string;
+  target: import('./enums').EphemeralTokenTarget;
+  status: import('./enums').EphemeralTokenStatus;
+  singleUse: boolean;
+  issuedAt: string;
+  notBefore: string;
+  expiresAt: string;
+  ttlSecondsRemaining: number;
+  consumedAt?: string;
+  consumedByIp?: string;
+  revokedAt?: string;
+  revocationReason?: import('./enums').RevocationReason;
+  proofSeal: EphemeralTokenProofSeal;
+}
+
+export interface EphemeralTokenConsumptionRecord {
+  id: string;
+  tokenId: string;
+  timestamp: string;
+  clientIp: string;
+  userAgent: string;
+  verdict: import('./enums').EphemeralTokenVerificationVerdict;
+  granted: boolean;
+  denialReason?: string;
+  proofSeal: EphemeralTokenProofSeal;
+}
+
+export interface EphemeralTokenMetrics {
+  totalTokensIssued: number;
+  activePendingTokens: number;
+  consumedTokens: number;
+  revokedTokens: number;
+  expiredTokens: number;
+  unauthorizedIntrusionsBlocked: number;
+  averageTokenTtlMinutes: number;
+  systemHealth: 'PROTECTED' | 'WARNING' | 'ALERT';
+}
+
+export interface EphemeralTokenOverview {
+  metrics: EphemeralTokenMetrics;
+  activeTokens: EphemeralAccessToken[];
+  recentAccessLogs: EphemeralTokenConsumptionRecord[];
+  defaultTtlMinutes: number;
+  allowConcurrentAccess: boolean;
+}
+
 
 
 
