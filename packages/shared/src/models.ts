@@ -43,7 +43,9 @@ import {
   DpResearchStatus,
   SessionBindingMode,
   SessionLifecycleStatus,
-  SessionDeviceType
+  SessionDeviceType,
+  TsaAuthorityType,
+  TimestampVerificationStatus
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2020,6 +2022,109 @@ export interface TarpitDefenseProof {
   trappedAt: string;
   details: string;
 }
+
+/**
+ * 34. CERTIFICAÇÃO NOTARIAL DE SESSÃO CLÍNICA & CARIMBO DO TEMPO RFC 3161 / ICP-BRASIL TSA
+ * (DOC-ICP-11, MP 2.200-2/2001, CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)
+ */
+
+export interface ClinicalSessionMessageImprint {
+  hashAlgorithm: 'sha256';
+  hashAlgorithmOid: string; // '2.16.840.1.101.3.4.2.1'
+  hashedMessage: string;    // SHA-256 hex dos metadados e conteúdo da sessão
+}
+
+export interface ClinicalSessionTimestampReq {
+  version: number;          // 1 (RFC 3161)
+  sessionId: string;
+  patientBlindIndex: string;
+  therapistId: string;
+  therapistCrp: string;
+  messageImprint: ClinicalSessionMessageImprint;
+  reqPolicyOid: string;     // Ex: '2.16.76.1.4.1' (ICP-Brasil DOC-ICP-11)
+  nonce: string;            // Nonce criptográfico aleatório anti-replay
+  certReq: boolean;
+  requestedAt: string;      // ISO-8601 UTC Zulu
+}
+
+export interface TsaCertificateInfo {
+  tsaId: string;
+  commonName: string;
+  organization: string;
+  country: string;
+  serialNumber: string;
+  validFrom: string;
+  validTo: string;
+  keyUsage: string[];
+  extendedKeyUsageOid: string; // '1.3.6.1.5.5.7.3.8' (id-kp-timeStamping)
+  sha256Thumbprint: string;
+  authorityType: TsaAuthorityType;
+}
+
+export interface TSTInfo {
+  version: number;
+  policyOid: string;
+  messageImprint: ClinicalSessionMessageImprint;
+  serialNumber: string;
+  genTime: string;          // Data e hora atestada em UTC Zulu
+  accuracy: {
+    seconds: number;
+    millis: number;
+    micros: number;
+  };
+  ordering: boolean;
+  nonce: string;
+  tsaName: string;
+}
+
+export interface ClinicalSessionTimestampToken {
+  tokenId: string;          // Prefixo tst_rfc3161_...
+  sessionId: string;
+  patientBlindIndex: string;
+  therapistCrp: string;
+  tstInfo: TSTInfo;
+  signature: string;        // Assinatura digital da TSA
+  tsaCertificate: TsaCertificateInfo;
+  status: {
+    code: number;           // 0 = granted
+    statusString: string;
+  };
+  rawTokenBase64: string;   // Token serializado base64url auditável
+  wormSealHash: string;     // Hash SHA-256 selado na trilha WORM
+  issuedAt: string;
+}
+
+export interface TimestampVerificationResult {
+  isValid: boolean;
+  status: TimestampVerificationStatus;
+  sessionId: string;
+  tokenId: string;
+  verifiedAt: string;
+  messageImprintMatch: boolean;
+  signatureValid: boolean;
+  nonceMatch: boolean;
+  certificateValid: boolean;
+  driftMilliseconds: number;
+  details: string;
+  wormAuditId?: string;
+}
+
+export interface TimestampNotaryMetrics {
+  totalStampsIssued: number;
+  validStampsCount: number;
+  tamperingAttemptsBlocked: number;
+  icpBrasilStampsCount: number;
+  avgIssuanceLatencyMs: number;
+  lastStampTimestamp?: string;
+}
+
+export interface TimestampNotaryOverview {
+  metrics: TimestampNotaryMetrics;
+  tsaCertificate: TsaCertificateInfo;
+  recentTokens: ClinicalSessionTimestampToken[];
+  activePolicyOid: string;
+}
+
 
 
 

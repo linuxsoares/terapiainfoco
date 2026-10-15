@@ -2156,6 +2156,70 @@ export interface TarpitMetricsOverviewResponse {
   overview: import('./models').TarpitMetricsOverview;
 }
 
+/**
+ * 34. DTOs DE CERTIFICAÇÃO NOTARIAL DE SESSÃO CLÍNICA & CARIMBO DO TEMPO RFC 3161 / ICP-BRASIL TSA
+ * (DOC-ICP-11, MP 2.200-2/2001, CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)
+ */
+
+export interface CreateSessionTimestampDTO {
+  sessionId: string;
+  patientId: string;
+  therapistId: string;
+  therapistCrp: string;
+  sessionStartTime: string;
+  sessionEndTime: string;
+  clinicalSummaryOrHash?: string;
+  policyOid?: string;
+  authorityType?: import('./enums').TsaAuthorityType;
+}
+
+export interface CreateSessionTimestampResponse {
+  success: boolean;
+  token: import('./models').ClinicalSessionTimestampToken;
+  message: string;
+}
+
+export interface VerifySessionTimestampDTO {
+  rawTokenBase64?: string;
+  tokenId?: string;
+  sessionId?: string;
+  expectedImprint?: string;
+  sessionData?: {
+    sessionId: string;
+    patientBlindIndex: string;
+    therapistId: string;
+    therapistCrp: string;
+    sessionStartTime: string;
+    sessionEndTime: string;
+    clinicalSummaryOrHash?: string;
+  };
+}
+
+export interface VerifySessionTimestampResponse {
+  success: boolean;
+  result: import('./models').TimestampVerificationResult;
+}
+
+export interface SimulateTimestampTamperDTO {
+  tokenId: string;
+  tamperType: import('./enums').TimestampTamperType;
+}
+
+export interface SimulateTimestampTamperResponse {
+  success: boolean;
+  tamperedTokenBase64: string;
+  tamperType: import('./enums').TimestampTamperType;
+  verificationBefore: import('./models').TimestampVerificationResult;
+  verificationAfter: import('./models').TimestampVerificationResult;
+  message: string;
+}
+
+export interface TimestampNotaryOverviewResponse {
+  success: boolean;
+  overview: import('./models').TimestampNotaryOverview;
+}
+
+
 
 
 

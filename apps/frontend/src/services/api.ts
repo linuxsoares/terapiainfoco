@@ -252,7 +252,15 @@ import type {
   ReleaseTarpitQuarantineDTO,
   ReleaseTarpitQuarantineResponse,
   TarpitMetricsOverviewResponse,
-  TarpitDefenseProof
+  TarpitDefenseProof,
+  CreateSessionTimestampDTO,
+  CreateSessionTimestampResponse,
+  VerifySessionTimestampDTO,
+  VerifySessionTimestampResponse,
+  SimulateTimestampTamperDTO,
+  SimulateTimestampTamperResponse,
+  TimestampNotaryOverviewResponse,
+  ClinicalSessionTimestampToken
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1876,6 +1884,40 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ seal })
     });
+  },
+
+  // 36. Certificação Notarial de Sessão Clínica em Tempo Real — RFC 3161 & ICP-Brasil TSA (DOC-ICP-11 / CFP 001/2009)
+  async getTimestampNotaryOverview(): Promise<TimestampNotaryOverviewResponse> {
+    return await request<TimestampNotaryOverviewResponse>('/tsa-notary/overview');
+  },
+
+  async createSessionTimestamp(dto: CreateSessionTimestampDTO): Promise<CreateSessionTimestampResponse> {
+    return await request<CreateSessionTimestampResponse>('/tsa-notary/stamp-session', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySessionTimestamp(dto: VerifySessionTimestampDTO): Promise<VerifySessionTimestampResponse> {
+    return await request<VerifySessionTimestampResponse>('/tsa-notary/verify-token', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateTimestampTampering(dto: SimulateTimestampTamperDTO): Promise<SimulateTimestampTamperResponse> {
+    return await request<SimulateTimestampTamperResponse>('/tsa-notary/simulate-tampering', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getSessionTimestampToken(sessionId: string): Promise<{ success: boolean; token: ClinicalSessionTimestampToken }> {
+    return await request<{ success: boolean; token: ClinicalSessionTimestampToken }>(`/tsa-notary/session/${encodeURIComponent(sessionId)}/token`);
+  },
+
+  async getTsaInfo(): Promise<{ success: boolean; tsaCertificate: any; activePolicyOid: string; supportedOids: any[] }> {
+    return await request<{ success: boolean; tsaCertificate: any; activePolicyOid: string; supportedOids: any[] }>('/tsa-notary/tsa-info');
   }
 };
 

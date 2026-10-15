@@ -32,6 +32,7 @@ export * from './differentialPrivacy';
 export * from './tokenBinding';
 export * from './powChallenge';
 export * from './antiAutomationTarpit';
+export * from './rfc3161TimestampNotary';
 
 
 
