@@ -303,7 +303,18 @@ import type {
   PurgeExpiredDeksResponse,
   VerifyZeroizationSealDTO,
   VerifyZeroizationSealResponse,
-  SecureMemoryOverviewResponse
+  SecureMemoryOverviewResponse,
+  ValidateTlsPinDTO,
+  ValidateTlsPinResponse,
+  RegisterTlsPinDTO,
+  RegisterTlsPinResponse,
+  RotateTlsCaDTO,
+  RotateTlsCaResponse,
+  QuarantineCompromisedCaDTO,
+  QuarantineCompromisedCaResponse,
+  VerifyTlsPinSealDTO,
+  VerifyTlsPinSealResponse,
+  TlsPinningOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2141,8 +2152,49 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 42. TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)
+  async getTlsPinningOverview(): Promise<TlsPinningOverviewResponse> {
+    return await request<TlsPinningOverviewResponse>('/tls-pinning/overview');
+  },
+
+  async validateTlsPin(dto: ValidateTlsPinDTO): Promise<ValidateTlsPinResponse> {
+    return await request<ValidateTlsPinResponse>('/tls-pinning/validate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async registerTlsPin(dto: RegisterTlsPinDTO): Promise<RegisterTlsPinResponse> {
+    return await request<RegisterTlsPinResponse>('/tls-pinning/register-pin', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async rotateTlsCa(dto: RotateTlsCaDTO): Promise<RotateTlsCaResponse> {
+    return await request<RotateTlsCaResponse>('/tls-pinning/rotate-ca', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async quarantineTlsCa(dto: QuarantineCompromisedCaDTO): Promise<QuarantineCompromisedCaResponse> {
+    return await request<QuarantineCompromisedCaResponse>('/tls-pinning/quarantine-ca', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyTlsPinSeal(dto: VerifyTlsPinSealDTO): Promise<VerifyTlsPinSealResponse> {
+    return await request<VerifyTlsPinSealResponse>('/tls-pinning/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 

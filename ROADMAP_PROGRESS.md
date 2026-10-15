@@ -1538,6 +1538,41 @@ terapiainfoco/
     - **Modal 34.B (Auditoria de Selo WORM de Sanitização de Memória):** Verificação notarial independente com atestado criptográfico em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 53. Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)
+- [x] **Core Criptográfico & Motor de Validação X.509 (`packages/crypto/src/tlsPinningGuard.ts`):**
+  - **Cálculo Canônico SPKI Pin (RFC 7469):** `calculateSpkiPinSha256` calculando hash SHA-256 codificado em Base64 da chave pública DER (`pin-sha256="..."`), compatível com especificações HPKP e DANE (RFC 6698).
+  - **Digest de Fingerprint do Certificado:** `calculateCertFingerprintSha256` gerando representação hexadecimal auditável SHA-256 com delimitadores dois pontos (`AA:BB:CC:...`).
+  - **Validação Estrita de Hostname & SAN (RFC 6125):** `matchHostname` com suporte a wildcard restrito ao primeiro subdomínio, rejeitando wildcards em TLDs públicos (`*.com.br`, `*.com`) ou de múltiplos níveis (`*.*.terapiainfoco.com.br`).
+  - **Detecção de Assinaturas de Interceptação MitM:** `detectMitmSignatures` inspecionando CAs fraudulentas conhecidas (`PortSwigger`, `Burp Suite`, `Fiddler`, `Charles Proxy`, `mitmproxy`, `OWASP ZAP`) e quarentenadas pelo DPO.
+  - **Validação de Cadeia & Validade Temporal:** Verificação de períodos de vigência (`validFrom`, `validTo`) e sanidade de emissores.
+  - **Motor Central de Avaliação (`evaluateTlsCertificatePinning`):** Classificação em 6 status (`PIN_MATCH_PRIMARY`, `PIN_MATCH_BACKUP`, `PIN_MISMATCH_SUSPECTED_MITM`, `CHAIN_UNTRUSTED_ROGUE_CA`, `CERTIFICATE_EXPIRED`, `SAN_MISMATCH`) e 5 níveis de ameaça (`NONE`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL_MITM`).
+  - **Selo Notarial Probatório WORM (`createTlsPinProofSeal` / `verifyTlsPinProofSeal`):** Token canônico assinado HMAC-SHA256 (`tls_pin_v1_<base64url>`) com digest JCS (RFC 8785) e validação pericial matemática anti-tampering.
+  - Suíte com 19 testes unitários aprovados em `packages/crypto/test/tlsPinningGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.TLS_PINNING_GUARD`, ações (`TLS_PIN_VERIFIED`, `TLS_PIN_VIOLATION_BLOCKED`, `TLS_CA_ROTATED`, `TLS_ROGUE_CA_DETECTED`, `TLS_BACKUP_PIN_PROMOTED`, `TLS_PIN_SEAL_VERIFIED`), `TlsPinningStrategy`, `TlsPinValidationStatus`, `TlsPinPolicyMode`.
+  - **Modelos e DTOs:** Interfaces `TlsSpkiPin`, `X509CertInspection`, `TlsPinProofSeal`, `TlsPinValidationResult`, `TlsPinningMetrics`, `TlsPinningOverview` e DTOs `ValidateTlsPinDTO`, `RegisterTlsPinDTO`, `RotateTlsCaDTO`, `QuarantineCompromisedCaDTO`, `VerifyTlsPinSealDTO`, `TlsPinningOverviewResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **TlsPinningService (`apps/backend/src/services/tlsPinningService.ts`):** Gestão em memória dos pins homologados para domínios clínicos (`api...`, `meet...`, `notary...`, `auth...`), catálogo de CAs quarentenadas, rotação atômica de autoridades (zero-downtime) promovendo Backup Pin a Primary e gravação na trilha WORM inalterável via `AuditService.log`.
+  - **Rotas REST (`apps/backend/src/routes/tlsPinning.ts`):**
+    - `GET /api/tls-pinning/overview`: Visão geral executiva com métricas, pins ativos, CAs em quarentena e validações recentes.
+    - `POST /api/tls-pinning/validate`: Validação em tempo real de certificados/handshakes com simulador de pentest.
+    - `POST /api/tls-pinning/register-pin`: Cadastro de novos Pins SPKI com tipagem PRIMARY ou BACKUP_ROTATION.
+    - `POST /api/tls-pinning/rotate-ca`: Rotação controlada de CA com rebaixamento e promoção atômica.
+    - `POST /api/tls-pinning/quarantine-ca`: Quarentena de CA com revogação em cascata de pins vinculados.
+    - `POST /api/tls-pinning/verify-seal`: Validação pericial independente da fé pública do selo WORM.
+  - Suíte com 11 testes de integração aprovados em `apps/backend/test/tlsPinning.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Métodos de API (`api.ts`):** `getTlsPinningOverview`, `validateTlsPin`, `registerTlsPin`, `rotateTlsCa`, `quarantineTlsCa`, `verifyTlsPinSeal`.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 35** (*TLS Certificate Pinning & Rotação Contínua de CAs*) com 5 KPIs regulatórios (Pins SPKI Ativos, Validações 24h, Ataques MitM Bloqueados, Rotações de CA, CAs Quarentenadas).
+    - **Abas Especializadas:**
+      - Aba 1: *Verificador & Simulador de Ataques MitM*: Teste com presets (Let's Encrypt Legítimo, Burp Suite CA, Certificado Expirado, SAN Spoofing, CA Quarentenada, Rotação Suave).
+      - Aba 2: *Pins SPKI Cadastrados & Rotação de CA*: Tabela de Pins por domínio com botão de promoção imediata a Primary.
+      - Aba 3: *Quarentena de CAs Comprometidas*: Formulário para isolamento e lista de CAs sob bloqueio ativo.
+    - **Tabela Auditada de Validações Recentes:** Histórico com status, nível de ameaça, CA apresentada e botão para auditar selo WORM.
+    - **Modal 35.A:** Laudo Notarial do Selo WORM de TLS Pinning com validação pericial HMAC-SHA256 em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -1607,13 +1642,14 @@ terapiainfoco/
 | `feat/ssrf-dns-rebinding-protection-guard` | Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0) | [PR #67](https://github.com/linuxsoares/terapiainfoco/pull/67) | Merged |
 | `feat/advanced-api-rate-limiting-token-bucket-sliding-window` | Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2) | [PR #68](https://github.com/linuxsoares/terapiainfoco/pull/68) | Merged |
 | `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Merged |
-| `feat/tls-certificate-pinning-ca-rotation` | Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) | [PR #70](https://github.com/linuxsoares/terapiainfoco/pull/70) | Em Aberto |
+| `feat/tls-certificate-pinning-ca-rotation` | Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) | [PR #70](https://github.com/linuxsoares/terapiainfoco/pull/70) | Merged |
+| `feat/device-posture-zero-trust-assessment` | Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS) | [PR #71](https://github.com/linuxsoares/terapiainfoco/pull/71) | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **730 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)**, o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **760 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1643,7 +1679,8 @@ Com o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sess�
 - [x] **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0).**
 - [x] **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2).**
 - [x] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
-- [ ] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
+- [x] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
+- [ ] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
 
 ---
 
@@ -1653,7 +1690,7 @@ Com o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sess�
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (730 testes)
+# 2. Executar suíte completa de testes (760 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
