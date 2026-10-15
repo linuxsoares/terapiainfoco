@@ -40,6 +40,7 @@ export * from './advancedRateLimiter';
 export * from './secureMemoryShield';
 export * from './tlsPinningGuard';
 export * from './devicePostureGuard';
+export * from './pqcHybridCrypto';
 
 
 

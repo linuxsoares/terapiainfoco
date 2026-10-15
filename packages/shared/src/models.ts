@@ -2734,6 +2734,126 @@ export interface DevicePostureOverview {
   systemHealth: 'COMPLIANT' | 'DEGRADED' | 'THREAT_CONTAINMENT';
 }
 
+/**
+ * 36. CRIPTOGRAFIA PÓS-QUÂNTICA HÍBRIDA (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+ */
+export interface PqcPublicKeyBundle {
+  classicalPublicKeyPem: string;   // ECDH P-256 (ou X25519)
+  pqKemPublicKeyBase64: string;    // ML-KEM-768 ou ML-KEM-1024
+  classicalVerifyKeyPem: string;   // ECDSA P-256
+  pqDsaPublicKeyBase64: string;    // ML-DSA-65 ou ML-DSA-87
+  kemScheme: import('./enums').PqcKemScheme;
+  dsaScheme: import('./enums').PqcDsaScheme;
+  keyId: string;
+  createdAt: string;
+}
+
+export interface PqcPrivateKeyBundle {
+  classicalPrivateKeyPem: string;
+  pqKemPrivateKeyBase64: string;
+  classicalSignKeyPem: string;
+  pqDsaPrivateKeyBase64: string;
+  keyId: string;
+}
+
+export interface PqcHybridKeyPair {
+  keyId: string;
+  alias: string;
+  securityLevel: import('./enums').PqcSecurityLevel;
+  kemScheme: import('./enums').PqcKemScheme;
+  dsaScheme: import('./enums').PqcDsaScheme;
+  publicKey: PqcPublicKeyBundle;
+  privateKey?: PqcPrivateKeyBundle;
+  createdAt: string;
+}
+
+export interface PqcEncapsulationResult {
+  keyId: string;
+  sharedSecretHex: string;          // DEK canônica de 256 bits derivada via HKDF-SHA256 (SS_classical || SS_pq)
+  classicalCiphertextPem: string;   // Chave efêmera pública ECDH
+  pqCiphertextBase64: string;       // Texto cifrado do reticulado ML-KEM
+  kemScheme: import('./enums').PqcKemScheme;
+  encapsulatedAt: string;
+}
+
+export interface PqcHybridSignatureResult {
+  keyId: string;
+  documentDigestHex: string;        // SHA-256 do documento clínico
+  classicalSignatureHex: string;    // Assinatura ECDSA P-256 (ICP-Brasil/DOC-ICP-15)
+  pqSignatureBase64: string;        // Assinatura digital por reticulados ML-DSA
+  dsaScheme: import('./enums').PqcDsaScheme;
+  signedAt: string;
+}
+
+export interface PqcSignatureVerificationResult {
+  isValid: boolean;
+  classicalSignatureValid: boolean;
+  pqSignatureValid: boolean;
+  hybridValid: boolean;
+  signerKeyId: string;
+  evaluatedAt: string;
+  message: string;
+}
+
+export interface PqcProofSeal {
+  sealToken: string;                // formato 'pqc_proof_v1_<base64url>'
+  canonicalDigest: string;          // Digest SHA-256 canônico JCS (RFC 8785)
+  hmacSignature: string;            // Assinatura HMAC-SHA256 anti-tampering WORM
+  issuedAt: string;
+  operationId: string;
+  targetType: import('./enums').PqcClinicalTargetType;
+  hybridMode: import('./enums').PqcHybridMode;
+}
+
+export interface PqcProtectedClinicalRecord {
+  id: string;
+  targetType: import('./enums').PqcClinicalTargetType;
+  title: string;
+  patientBlindIndex: string;
+  therapistId: string;
+  ciphertextBase64: string;         // AES-256-GCM com a DEK híbrida
+  ivHex: string;
+  authTagHex: string;
+  encapsulation: PqcEncapsulationResult;
+  signature: PqcHybridSignatureResult;
+  proofSeal: PqcProofSeal;
+  createdAt: string;
+  quantumSafe: boolean;
+}
+
+export interface PqcQuantumAttackSimulationResult {
+  simulationId: string;
+  attackType: import('./enums').PqcQuantumAttackType;
+  targetRecordId: string;
+  outcome: import('./enums').PqcDefenseOutcome;
+  classicalCracked: boolean;
+  postQuantumCracked: boolean;
+  dataExfiltrated: boolean;
+  explanation: string;
+  proofSeal: PqcProofSeal;
+  simulatedAt: string;
+}
+
+export interface PqcMetrics {
+  totalProtectedRecords: number;
+  activeKeyPairsCount: number;
+  hybridEncapsulationsCount: number;
+  hybridSignaturesCount: number;
+  quantumSimulationsRun: number;
+  sndlAttacksNeutralized: number;
+  averageKdfLatencyMs: number;
+}
+
+export interface PqcOverview {
+  metrics: PqcMetrics;
+  activeHybridKeyPair: PqcHybridKeyPair;
+  availableKeyPairs: PqcHybridKeyPair[];
+  protectedRecords: PqcProtectedClinicalRecord[];
+  recentSimulations: PqcQuantumAttackSimulationResult[];
+  defaultSecurityLevel: import('./enums').PqcSecurityLevel;
+  systemHealth: 'QUANTUM_SAFE' | 'TRANSITIONING' | 'AT_RISK';
+}
+
 
 
 

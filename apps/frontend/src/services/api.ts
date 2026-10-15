@@ -325,7 +325,22 @@ import type {
   UpdatePosturePolicyResponse,
   VerifyDevicePostureSealDTO,
   VerifyDevicePostureSealResponse,
-  DevicePostureOverviewResponse
+  DevicePostureOverviewResponse,
+  GeneratePqcKeyPairDTO,
+  GeneratePqcKeyPairResponse,
+  EncapsulatePqcRecordDTO,
+  EncapsulatePqcRecordResponse,
+  DecapsulatePqcRecordDTO,
+  DecapsulatePqcRecordResponse,
+  SignPqcDocumentDTO,
+  SignPqcDocumentResponse,
+  VerifyPqcSignatureDTO,
+  VerifyPqcSignatureResponse,
+  SimulateQuantumAttackDTO,
+  SimulateQuantumAttackResponse,
+  VerifyPqcSealDTO,
+  VerifyPqcSealResponse,
+  PqcOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2240,6 +2255,60 @@ export const api = {
 
   async verifyDevicePostureSeal(dto: VerifyDevicePostureSealDTO): Promise<VerifyDevicePostureSealResponse> {
     return await request<VerifyDevicePostureSealResponse>('/device-posture/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 44. Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA)
+  async getPqcOverview(): Promise<PqcOverviewResponse> {
+    return await request<PqcOverviewResponse>('/pqc-hybrid/overview');
+  },
+
+  async generatePqcKeyPair(dto: GeneratePqcKeyPairDTO): Promise<GeneratePqcKeyPairResponse> {
+    return await request<GeneratePqcKeyPairResponse>('/pqc-hybrid/generate-keypair', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async encapsulatePqcRecord(dto: EncapsulatePqcRecordDTO): Promise<EncapsulatePqcRecordResponse> {
+    return await request<EncapsulatePqcRecordResponse>('/pqc-hybrid/encapsulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async decapsulatePqcRecord(dto: DecapsulatePqcRecordDTO): Promise<DecapsulatePqcRecordResponse> {
+    return await request<DecapsulatePqcRecordResponse>('/pqc-hybrid/decapsulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async signPqcDocument(dto: SignPqcDocumentDTO): Promise<SignPqcDocumentResponse> {
+    return await request<SignPqcDocumentResponse>('/pqc-hybrid/sign', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPqcSignature(dto: VerifyPqcSignatureDTO): Promise<VerifyPqcSignatureResponse> {
+    return await request<VerifyPqcSignatureResponse>('/pqc-hybrid/verify-signature', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateQuantumAttack(dto: SimulateQuantumAttackDTO): Promise<SimulateQuantumAttackResponse> {
+    return await request<SimulateQuantumAttackResponse>('/pqc-hybrid/simulate-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPqcSeal(dto: VerifyPqcSealDTO): Promise<VerifyPqcSealResponse> {
+    return await request<VerifyPqcSealResponse>('/pqc-hybrid/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

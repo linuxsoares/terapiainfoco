@@ -1607,6 +1607,43 @@ terapiainfoco/
     - **Modal 36.A:** Laudo Pericial de Postura de Dispositivo com checklist de violações, metadados do selo WORM e validação HMAC-SHA256 em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 55. Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204, RFC-001 §3.4, §4.2, §4.4, §5.2)
+- [x] **Core Criptográfico & Motor PQC Híbrido (`packages/crypto/src/pqcHybridCrypto.ts`):**
+  - **Primitivas de Reticulados Modulares (Lattice-based Cryptography):** Emulação rigorosa e determinística de anéis ciclotômicos $R_q = \mathbb{Z}_q[X]/(X^{256}+1)$, matrizes polinomiais e amostragem de ruído gaussiano centrado em zero para ML-KEM ($q=3329$) e ML-DSA ($q=8380417$).
+  - **KEM Híbrido (Key Encapsulation Mechanism - NIST FIPS 203):** ML-KEM-768 / Kyber-768 (NIST Categoria 3, 192-bit) e ML-KEM-1024 / Kyber-1024 (NIST Categoria 5, 256-bit) combinados com troca de chaves clássica ECDH curva NIST P-256 (prime256v1).
+  - **KDF Combinada HKDF-SHA256:** Derivação segura da DEK AES-256-GCM combinando $(SS_{classical} \parallel SS_{pq})$ com separação de contexto (`TerapiaInFoco-PQC-Hybrid-KDF-v1`).
+  - **Assinatura Dual Pós-Quântica (DSA - NIST FIPS 204):** Assinatura simultânea com validação nacional DOC-ICP-15 (ECDSA P-256) e resistência quântica baseada em reticulados (ML-DSA-65 / Dilithium-3).
+  - **Cifragem de Envelope de Prontuários e Mídia:** Proteção de evolução SOAP, transcrições de teleconsulta e termos TCLE com envelope quântico e selagem WORM.
+  - **Simulador de Pentest de Computação Quântica:** Simulação de quebra de logaritmo discreto pelo Algoritmo de Shor, ataques *Store Now, Decrypt Later* (SNDL), falsificação de assinaturas clássicas e aceleração quadrática de Grover.
+  - **Emissão e Verificação de Selos Notariais WORM:** Tokens probatórios `pqc_proof_v1_<base64url>` com digest canônico JCS (RFC 8785) e assinatura HMAC-SHA256 inalterável.
+  - Suíte com 12 testes unitários aprovados em `packages/crypto/test/pqcHybridCrypto.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.PQC_CRYPTO_ENGINE`, 7 ações (`PQC_KEYPAIR_GENERATED`, `PQC_HYBRID_ENCAPSULATED`, `PQC_HYBRID_DECAPSULATED`, `PQC_HYBRID_SIGNED`, `PQC_HYBRID_SIGNATURE_VERIFIED`, `PQC_QUANTUM_ATTACK_SIMULATED`, `PQC_SEAL_VERIFIED`), `PqcKemScheme`, `PqcDsaScheme`, `PqcHybridMode`, `PqcSecurityLevel`, `PqcClinicalTargetType`, `PqcQuantumAttackType`, `PqcDefenseOutcome`.
+  - **Modelos e DTOs:** Interfaces `PqcPublicKeyBundle`, `PqcPrivateKeyBundle`, `PqcHybridKeyPair`, `PqcEncapsulationResult`, `PqcHybridSignatureResult`, `PqcSignatureVerificationResult`, `PqcProofSeal`, `PqcProtectedClinicalRecord`, `PqcQuantumAttackSimulationResult`, `PqcMetrics`, `PqcOverview` e 8 DTOs com respostas tipadas.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **PqcHybridService (`apps/backend/src/services/pqcHybridService.ts`):** Enclave em memória gerenciando chaves ativas NIST Level 3 e 5, coorte de registros clínicos protegidos, simulações de pentest e gravação compulsória na trilha WORM via `AuditService.log`.
+  - **Rotas REST (`apps/backend/src/routes/pqcHybrid.ts`):**
+    - `GET /api/pqc-hybrid/overview`: Visão geral e inventário quântico.
+    - `POST /api/pqc-hybrid/generate-keypair`: Emissão de novas chaves híbridas PQC.
+    - `POST /api/pqc-hybrid/encapsulate`: Cifragem de envelope e selagem WORM.
+    - `POST /api/pqc-hybrid/decapsulate`: Abertura e decifragem autorizada de prontuário.
+    - `POST /api/pqc-hybrid/sign`: Emissão de assinatura dual híbrida.
+    - `POST /api/pqc-hybrid/verify-signature`: Validação independente clássica e quântica.
+    - `POST /api/pqc-hybrid/simulate-attack`: Pentest de computação quântica (Shor / SNDL).
+    - `POST /api/pqc-hybrid/verify-seal`: Validação pericial forense de selos WORM.
+  - Suíte com 10 testes de integração aprovados em `apps/backend/test/pqcHybrid.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Métodos de API (`api.ts`):** 8 novos métodos implementados com tipagem forte.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 37** (*Criptografia Pós-Quântica Híbrida - FIPS 203 & 204*) com 5 KPIs regulatórios.
+    - **Abas Especializadas:**
+      - Aba 1: *Envelope Híbrido Quântico & Cifragem*: Seleção de presets clínicos (Risco Suicida, Violência Doméstica, TEA, TCLE), formulário de proteção, exibição do envelope e decapsulamento/abertura em tempo real.
+      - Aba 2: *Assinatura Dual Pós-Quântica*: Assinatura combinada DOC-ICP-15 + FIPS 204 ML-DSA e verificador pericial instantâneo.
+      - Aba 3: *Simulador de Ataques Quânticos (Shor / SNDL)*: Pentest interativo contra registros clínicos com laudo técnico comparativo.
+    - **Tabela Auditada de Prontuários e Gravações:** Histórico com status quântico, chaves KEM e atalho para Laudo WORM.
+    - **Modal 37.A:** Laudo Pericial Timbrado de Criptografia Pós-Quântica com metadados ASN.1/JCS, hashes SHA-256 e validação pericial HMAC em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -1683,7 +1720,7 @@ terapiainfoco/
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS)**, o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)**, o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **794 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204)**, o **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS)**, o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)**, o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **816 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1715,7 +1752,8 @@ Com o **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust D
 - [x] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
 - [x] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
 - [x] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
-- [ ] **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204).**
+- [x] **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204).**
+- [ ] **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol) para Prescrições Digitais e Votações de Colegiado Ético Clínico Anônimas com Verificação de Fé Pública (LGPD Art. 13 & Resolução CFP nº 001/2009).**
 
 ---
 
@@ -1725,7 +1763,7 @@ Com o **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust D
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (794 testes)
+# 2. Executar suíte completa de testes (816 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
