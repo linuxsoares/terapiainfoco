@@ -1573,6 +1573,40 @@ terapiainfoco/
     - **Modal 35.A:** Laudo Notarial do Selo WORM de TLS Pinning com validação pericial HMAC-SHA256 em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 54. Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207, OWASP MASVS & RFC-001 §4.4, §5.2)
+- [x] **Core Criptográfico & Motor de Avaliação Zero Trust (`packages/crypto/src/devicePostureGuard.ts`):**
+  - **Serialização Canônica Determinística JCS (RFC 8785):** Normalização e digest SHA-256 para telemetria de integridade.
+  - **Heurística de Detecção de Violações Multivetoriais:** 9 categorias de ameaça (`ROOT_OR_JAILBREAK`, `DEBUGGER_ATTACHED`, `RUNTIME_HOOK_DETECTED`, `EMULATOR_DETECTED`, `DISK_UNENCRYPTED`, `SCREEN_LOCK_DISABLED`, `DEVTOOLS_OPEN_IN_PROD`, `SYSTEM_CLOCK_SKEWED`, `OUTDATED_OS_VERSION`).
+  - **Cálculo de Trust Score Ponderado (0-100) e Enquadramento em Tiers:** `DeviceTrustTier` (`TRUSTED`, `MONITORED`, `RISKY`, `UNTRUSTED_BLOCKED`).
+  - **Motor de Decisão Automatizada Zero Trust:** `DevicePostureDecision` (`ALLOWED`, `RESTRICTED_READ_ONLY`, `STEP_UP_REQUIRED`, `BLOCKED_QUARANTINED`) condicionado à política ativa.
+  - **Emissão e Verificação Notarial WORM:** Geração de selos probatórios `posture_proof_v1_<base64url>` com HMAC-SHA256 e conferência matemática independente contra adulteração retroativa.
+  - **Presets de Pentest Clínico:** 5 cenários para auditoria (`CLINICAL_TRUSTED_MAC`, `JAILBROKEN_IPHONE`, `DEBUGGED_DEV_STATION`, `UNENCRYPTED_WINDOWS_TERMINAL`, `EMULATOR_OUTDATED_ANDROID`).
+  - Suíte com 23 testes unitários aprovados em `packages/crypto/test/devicePostureGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.DEVICE_POSTURE_ENGINE`, ações (`DEVICE_POSTURE_ASSESSED`, `DEVICE_POSTURE_VIOLATION_BLOCKED`, `DEVICE_QUARANTINED`, `DEVICE_QUARANTINE_RELEASED`, `DEVICE_POSTURE_POLICY_UPDATED`, `DEVICE_POSTURE_SEAL_VERIFIED`), `DeviceTrustTier`, `DevicePlatform`, `DeviceViolationCategory`, `DevicePostureEnforcementPolicy`, `DevicePostureDecision`.
+  - **Modelos e DTOs:** Interfaces `DevicePostureTelemetry`, `DevicePostureViolation`, `DevicePostureProofSeal`, `DevicePostureAssessmentResult`, `DevicePostureRecord`, `DevicePostureMetrics`, `DevicePostureOverview` e DTOs `AssessDevicePostureDTO`, `QuarantineDeviceDTO`, `ReleaseDeviceQuarantineDTO`, `UpdatePosturePolicyDTO`, `VerifyDevicePostureSealDTO`, `DevicePostureOverviewResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **DevicePostureService (`apps/backend/src/services/devicePostureService.ts`):** Gestão em memória do inventário de dispositivos clínicos, quarentena de emergência pelo DPO, controle dinâmico de políticas Zero Trust e registro compulsório na trilha WORM inalterável via `AuditService.log`.
+  - **Rotas REST (`apps/backend/src/routes/devicePosture.ts`):**
+    - `GET /api/device-posture/overview`: Visão geral com métricas, dispositivos cadastrados, violações e política ativa.
+    - `POST /api/device-posture/assess`: Avaliação contínua de telemetria com selagem WORM imediata.
+    - `POST /api/device-posture/quarantine`: Quarentena de emergência de dispositivo clínico violado.
+    - `POST /api/device-posture/release-quarantine`: Liberação de quarentena com parecer técnico do DPO.
+    - `POST /api/device-posture/update-policy`: Atualização dinâmica da política Zero Trust.
+    - `POST /api/device-posture/verify-seal`: Validação pericial independente da fé pública do selo WORM.
+  - Suíte com 11 testes de integração aprovados em `apps/backend/test/devicePosture.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Métodos de API (`api.ts`):** `getDevicePostureOverview`, `assessDevicePosture`, `quarantineDevice`, `releaseDeviceQuarantine`, `updateDevicePosturePolicy`, `verifyDevicePostureSeal`.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 36** (*Avaliação Contínua de Postura de Dispositivo Zero Trust*) com 5 KPIs regulatórios (Dispositivos Homologados, Terminais Confiáveis, Terminais Monitorados/Risco, Quarentenas Ativas, Selos Emitidos).
+    - **Abas Especializadas:**
+      - Aba 1: *Simulador Pentest & Avaliação ao Vivo*: Seleção de presets ou parâmetros manuais, envio de telemetria e exibição de decisão e laudo.
+      - Aba 2: *Inventário de Terminais & Quarentena*: Tabela de terminais com status, score, botão de quarentena ou liberação pericial.
+      - Aba 3: *Políticas de Acesso Zero Trust*: Seletor interativo da postura operacional (`STRICT_BLOCK`, `STEP_UP_AUTH`, `READ_ONLY_DEGRADATION`, `AUDIT_ONLY_MONITOR`).
+    - **Tabela Auditada de Histórico de Avaliações Recentes:** Registro contínuo com botão para visualização do laudo probatório.
+    - **Modal 36.A:** Laudo Pericial de Postura de Dispositivo com checklist de violações, metadados do selo WORM e validação HMAC-SHA256 em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -1649,7 +1683,7 @@ terapiainfoco/
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)**, o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **760 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS)**, o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)**, o **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 Rev. 1, OWASP ASVS v4.0 V14.1 e RFC-001 §4.2, §4.4, §5.2)**, o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **794 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1680,7 +1714,8 @@ Com o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509
 - [x] **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2).**
 - [x] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
 - [x] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
-- [ ] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
+- [x] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
+- [ ] **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204).**
 
 ---
 
@@ -1690,7 +1725,7 @@ Com o **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (760 testes)
+# 2. Executar suíte completa de testes (794 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

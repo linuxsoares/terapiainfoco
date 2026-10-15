@@ -314,7 +314,18 @@ import type {
   QuarantineCompromisedCaResponse,
   VerifyTlsPinSealDTO,
   VerifyTlsPinSealResponse,
-  TlsPinningOverviewResponse
+  TlsPinningOverviewResponse,
+  AssessDevicePostureDTO,
+  AssessDevicePostureResponse,
+  QuarantineDeviceDTO,
+  QuarantineDeviceResponse,
+  ReleaseDeviceQuarantineDTO,
+  ReleaseDeviceQuarantineResponse,
+  UpdatePosturePolicyDTO,
+  UpdatePosturePolicyResponse,
+  VerifyDevicePostureSealDTO,
+  VerifyDevicePostureSealResponse,
+  DevicePostureOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2189,6 +2200,46 @@ export const api = {
 
   async verifyTlsPinSeal(dto: VerifyTlsPinSealDTO): Promise<VerifyTlsPinSealResponse> {
     return await request<VerifyTlsPinSealResponse>('/tls-pinning/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 43. Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS)
+  async getDevicePostureOverview(): Promise<DevicePostureOverviewResponse> {
+    return await request<DevicePostureOverviewResponse>('/device-posture/overview');
+  },
+
+  async assessDevicePosture(dto: AssessDevicePostureDTO): Promise<AssessDevicePostureResponse> {
+    return await request<AssessDevicePostureResponse>('/device-posture/assess', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async quarantineDevice(dto: QuarantineDeviceDTO): Promise<QuarantineDeviceResponse> {
+    return await request<QuarantineDeviceResponse>('/device-posture/quarantine', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async releaseDeviceQuarantine(dto: ReleaseDeviceQuarantineDTO): Promise<ReleaseDeviceQuarantineResponse> {
+    return await request<ReleaseDeviceQuarantineResponse>('/device-posture/release-quarantine', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateDevicePosturePolicy(dto: UpdatePosturePolicyDTO): Promise<UpdatePosturePolicyResponse> {
+    return await request<UpdatePosturePolicyResponse>('/device-posture/update-policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyDevicePostureSeal(dto: VerifyDevicePostureSealDTO): Promise<VerifyDevicePostureSealResponse> {
+    return await request<VerifyDevicePostureSealResponse>('/device-posture/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

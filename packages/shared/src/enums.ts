@@ -240,7 +240,14 @@ export enum AuditAction {
   TLS_CA_ROTATED = 'TLS_CA_ROTATED',
   TLS_ROGUE_CA_DETECTED = 'TLS_ROGUE_CA_DETECTED',
   TLS_BACKUP_PIN_PROMOTED = 'TLS_BACKUP_PIN_PROMOTED',
-  TLS_PIN_SEAL_VERIFIED = 'TLS_PIN_SEAL_VERIFIED'
+  TLS_PIN_SEAL_VERIFIED = 'TLS_PIN_SEAL_VERIFIED',
+  // Ações de Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS)
+  DEVICE_POSTURE_ASSESSED = 'DEVICE_POSTURE_ASSESSED',
+  DEVICE_POSTURE_VIOLATION_BLOCKED = 'DEVICE_POSTURE_VIOLATION_BLOCKED',
+  DEVICE_QUARANTINED = 'DEVICE_QUARANTINED',
+  DEVICE_QUARANTINE_RELEASED = 'DEVICE_QUARANTINE_RELEASED',
+  DEVICE_POSTURE_POLICY_UPDATED = 'DEVICE_POSTURE_POLICY_UPDATED',
+  DEVICE_POSTURE_SEAL_VERIFIED = 'DEVICE_POSTURE_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -282,7 +289,8 @@ export enum AuditResourceType {
   SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD',
   ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE',
   SECURE_MEMORY_SHIELD = 'SECURE_MEMORY_SHIELD',
-  TLS_PINNING_GUARD = 'TLS_PINNING_GUARD'
+  TLS_PINNING_GUARD = 'TLS_PINNING_GUARD',
+  DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE'
 }
 
 /**
@@ -1112,6 +1120,54 @@ export enum TlsPinValidationStatus {
 export enum TlsPinPolicyMode {
   STRICT_ENFORCE = 'STRICT_ENFORCE', // Aborta e bloqueia imediatamente a conexão clínica
   DRY_RUN_REPORT = 'DRY_RUN_REPORT'  // Registra alerta e notifica DPO sem abortar conexão
+}
+
+/**
+ * 41. AVALIAÇÃO CONTÍNUA DE POSTURA DE DISPOSITIVO ZERO TRUST (NIST SP 800-207 & OWASP MASVS)
+ */
+export enum DeviceTrustTier {
+  TRUSTED = 'TRUSTED',                     // Score 85-100: Terminal homologado, sem violações críticas
+  MONITORED = 'MONITORED',                 // Score 70-84: Terminal com atipicidades leves, monitoramento ativo
+  RISKY = 'RISKY',                         // Score 40-69: Terminal com postura degradada ou pendência de segurança
+  UNTRUSTED_BLOCKED = 'UNTRUSTED_BLOCKED'  // Score 0-39: Terminal comprometido, jailbreak/root ou depurador ativo
+}
+
+export enum DevicePlatform {
+  WEB_CHROME = 'WEB_CHROME',
+  WEB_FIREFOX = 'WEB_FIREFOX',
+  WEB_SAFARI = 'WEB_SAFARI',
+  MACOS_DESKTOP = 'MACOS_DESKTOP',
+  WINDOWS_DESKTOP = 'WINDOWS_DESKTOP',
+  LINUX_DESKTOP = 'LINUX_DESKTOP',
+  IOS_MOBILE = 'IOS_MOBILE',
+  ANDROID_MOBILE = 'ANDROID_MOBILE',
+  UNKNOWN = 'UNKNOWN'
+}
+
+export enum DeviceViolationCategory {
+  ROOT_JAILBREAK_DETECTED = 'ROOT_JAILBREAK_DETECTED',       // Acesso privilegiado root/jailbreak (Magisk/Cydia/Dopamine)
+  EMULATOR_DETECTED = 'EMULATOR_DETECTED',                   // Ambiente virtualizado ou emulador hostil
+  DEBUGGER_ATTACHED = 'DEBUGGER_ATTACHED',                   // Depurador acoplado (GDB, LLDB, Frida, Xposed)
+  OS_OUTDATED_CRITICAL = 'OS_OUTDATED_CRITICAL',             // Versão de SO legada com vulnerabilidades críticas
+  DISK_ENCRYPTION_DISABLED = 'DISK_ENCRYPTION_DISABLED',     // Disco sem criptografia ativa (FileVault/BitLocker ausente)
+  SCREEN_LOCK_MISSING = 'SCREEN_LOCK_MISSING',               // Ausência de bloqueio de tela com senha/biometria
+  SUSPICIOUS_HOOKS_INJECTED = 'SUSPICIOUS_HOOKS_INJECTED',   // Injeção de hooks em runtime no browser/app
+  DEVTOOLS_TAMPERING = 'DEVTOOLS_TAMPERING',                 // DevTools abertas em produção com manipulação de console
+  CLOCK_SKEW_EXCESSIVE = 'CLOCK_SKEW_EXCESSIVE'              // Desvio acentuado de relógio (>30s) anti-forense
+}
+
+export enum DevicePostureEnforcementPolicy {
+  STRICT_BLOCK = 'STRICT_BLOCK',                             // Bloqueio imediato se o score for < 70 ou houver violação crítica
+  STEP_UP_AUTH = 'STEP_UP_AUTH',                             // Exige reautenticação com 2FA biométrico se o score for < 85
+  READ_ONLY_DEGRADATION = 'READ_ONLY_DEGRADATION',           // Degradação para somente-leitura sem acesso a gravações de áudio
+  AUDIT_ONLY_MONITOR = 'AUDIT_ONLY_MONITOR'                  // Apenas telemetria e auditoria contínua sem bloqueio punitivo
+}
+
+export enum DevicePostureDecision {
+  ALLOWED = 'ALLOWED',                                       // Acesso pleno aos módulos clínicos e teleconsulta
+  RESTRICTED_READ_ONLY = 'RESTRICTED_READ_ONLY',             // Acesso degradado: visualização mascarada sem downloads
+  STEP_UP_REQUIRED = 'STEP_UP_REQUIRED',                     // Desafio de segundo fator (MFA) compulsório
+  BLOCKED_QUARANTINED = 'BLOCKED_QUARANTINED'                // Acesso bloqueado e terminal isolado em quarentena
 }
 
 

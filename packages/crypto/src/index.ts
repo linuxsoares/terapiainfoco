@@ -39,6 +39,7 @@ export * from './ssrfProtectionGuard';
 export * from './advancedRateLimiter';
 export * from './secureMemoryShield';
 export * from './tlsPinningGuard';
+export * from './devicePostureGuard';
 
 
 

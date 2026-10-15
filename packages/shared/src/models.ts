@@ -2642,6 +2642,98 @@ export interface TlsPinningOverview {
   systemStatus: 'PINNED_SECURE' | 'DEGRADED_ROTATING' | 'MITM_ATTACK_DETECTED';
 }
 
+/**
+ * 41. AVALIAÇÃO CONTÍNUA DE POSTURA DE DISPOSITIVO ZERO TRUST (NIST SP 800-207 & OWASP MASVS)
+ */
+export interface DevicePostureTelemetry {
+  platform: import('./enums').DevicePlatform;
+  osName: string;
+  osVersion: string;
+  browser: string;
+  browserVersion: string;
+  isRootedOrJailbroken: boolean;
+  isDebuggerPresent: boolean;
+  isEmulator: boolean;
+  isDiskEncrypted: boolean;
+  isScreenLockEnabled: boolean;
+  devToolsOpen: boolean;
+  suspiciousHooksDetected: boolean;
+  clockSkewSeconds: number;
+  userAgent: string;
+  clientIp: string;
+}
+
+export interface DevicePostureViolation {
+  id: string;
+  category: import('./enums').DeviceViolationCategory;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  description: string;
+  remediation: string;
+  detectedAt: string;
+}
+
+export interface DevicePostureProofSeal {
+  sealId: string;
+  token: string; // posture_proof_v1_<base64url>
+  canonicalDigest: string;
+  hmacSignature: string;
+  issuedAt: string;
+  assessmentId: string;
+  deviceId: string;
+  trustScore: number;
+  trustTier: import('./enums').DeviceTrustTier;
+}
+
+export interface DevicePostureAssessmentResult {
+  assessmentId: string;
+  deviceId: string;
+  deviceName: string;
+  therapistId: string;
+  trustScore: number;
+  trustTier: import('./enums').DeviceTrustTier;
+  decision: import('./enums').DevicePostureDecision;
+  activePolicy: import('./enums').DevicePostureEnforcementPolicy;
+  violations: DevicePostureViolation[];
+  telemetry: DevicePostureTelemetry;
+  proofSeal: DevicePostureProofSeal;
+  assessedAt: string;
+}
+
+export interface DevicePostureRecord {
+  deviceId: string;
+  deviceName: string;
+  therapistId: string;
+  platform: import('./enums').DevicePlatform;
+  isQuarantined: boolean;
+  quarantineReason?: string;
+  quarantinedAt?: string;
+  quarantinedBy?: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  latestTrustScore: number;
+  latestTrustTier: import('./enums').DeviceTrustTier;
+  latestDecision: import('./enums').DevicePostureDecision;
+}
+
+export interface DevicePostureMetrics {
+  totalDevicesMonitored: number;
+  trustedCount: number;
+  monitoredCount: number;
+  riskyCount: number;
+  blockedCount: number;
+  activeQuarantinesCount: number;
+  averageTrustScore: number;
+  violationsBlocked24h: number;
+}
+
+export interface DevicePostureOverview {
+  metrics: DevicePostureMetrics;
+  activePolicy: import('./enums').DevicePostureEnforcementPolicy;
+  registeredDevices: DevicePostureRecord[];
+  recentAssessments: DevicePostureAssessmentResult[];
+  systemHealth: 'COMPLIANT' | 'DEGRADED' | 'THREAT_CONTAINMENT';
+}
+
 
 
 

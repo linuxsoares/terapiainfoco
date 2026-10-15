@@ -40,6 +40,7 @@ import { ssrfGuardRoutes } from './routes/ssrfGuard';
 import { advancedRateLimiterRoutes } from './routes/advancedRateLimiter';
 import { secureMemoryRouter } from './routes/secureMemory';
 import { tlsPinningRouter } from './routes/tlsPinning';
+import devicePostureRouter from './routes/devicePosture';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -176,6 +177,7 @@ app.route('/api/ssrf-guard', ssrfGuardRoutes);
 app.route('/api/advanced-rate-limiter', advancedRateLimiterRoutes);
 app.route('/api/secure-memory', secureMemoryRouter);
 app.route('/api/tls-pinning', tlsPinningRouter);
+app.route('/api/device-posture', devicePostureRouter);
 
 
 

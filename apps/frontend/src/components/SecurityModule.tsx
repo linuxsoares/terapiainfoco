@@ -222,7 +222,12 @@ import {
   type TlsPinningOverview,
   type TlsSpkiPin,
   type TlsPinValidationResult,
-  type TlsPinProofSeal
+  type TlsPinProofSeal,
+  DeviceTrustTier,
+  DevicePostureEnforcementPolicy,
+  DevicePostureDecision,
+  type DevicePostureOverview,
+  type DevicePostureAssessmentResult
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -3107,6 +3112,149 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 44. Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS)
+  const [devicePostureOverview, setDevicePostureOverview] = useState<DevicePostureOverview | null>(null);
+  const [loadingDevicePosture, setLoadingDevicePosture] = useState<boolean>(false);
+  const [activePostureTab, setActivePostureTab] = useState<'SIMULATOR' | 'INVENTORY' | 'POLICIES'>('SIMULATOR');
+
+  // Simulador & Pentest
+  const [selectedPostureScenario, setSelectedPostureScenario] = useState<
+    'COMPLIANT_MAC_WORKSTATION' | 'UNENCRYPTED_DISK_WINDOWS' | 'ROOTED_ANDROID_WITH_FRIDA' | 'EMULATOR_DEVTOOLS_OPEN' | 'OUTDATED_OS_VULNERABLE'
+  >('COMPLIANT_MAC_WORKSTATION');
+  const [customDeviceName, setCustomDeviceName] = useState<string>('Terminal Clínico de Teste');
+  const [evaluatingPosture, setEvaluatingPosture] = useState<boolean>(false);
+  const [lastPostureAssessment, setLastPostureAssessment] = useState<DevicePostureAssessmentResult | null>(null);
+
+  // Quarentena & Liberação
+  const [quarantineDeviceId, setQuarantineDeviceId] = useState<string>('');
+  const [quarantineReason, setQuarantineReason] = useState<string>('Anomalia persistente de segurança e risco de exfiltração.');
+  const [quarantiningDevice, setQuarantiningDevice] = useState<boolean>(false);
+  const [releasingDeviceId, setReleasingDeviceId] = useState<string | null>(null);
+  const [releaseDpoNotes, setReleaseDpoNotes] = useState<string>('Perícia técnica efetuada. Terminal higienizado e chaves renovadas.');
+  const [releasingDevice, setReleasingDevice] = useState<boolean>(false);
+
+  // Política
+  const [updatingPolicy, setUpdatingPolicy] = useState<boolean>(false);
+
+  // Modal Selo WORM
+  const [selectedPostureSealForModal, setSelectedPostureSealForModal] = useState<DevicePostureAssessmentResult | null>(null);
+  const [verifyingPostureSeal, setVerifyingPostureSeal] = useState<boolean>(false);
+  const [postureSealVerifyResult, setPostureSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  const fetchDevicePostureData = async () => {
+    try {
+      setLoadingDevicePosture(true);
+      const res = await api.getDevicePostureOverview();
+      if (res.success) {
+        setDevicePostureOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de postura de dispositivos:', err);
+    } finally {
+      setLoadingDevicePosture(false);
+    }
+  };
+
+  const handleAssessPostureSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setEvaluatingPosture(true);
+      const res = await api.assessDevicePosture({
+        deviceName: customDeviceName.trim() || undefined,
+        simulatedScenario: selectedPostureScenario
+      });
+      setLastPostureAssessment(res.assessment);
+      if (res.assessment.decision === DevicePostureDecision.BLOCKED_QUARANTINED) {
+        setFeedback({
+          type: 'error',
+          message: `ALERTA ZERO TRUST: Terminal Bloqueado (${res.assessment.trustScore}/100 - ${res.assessment.trustTier})!`
+        });
+      } else if (res.assessment.decision === DevicePostureDecision.STEP_UP_REQUIRED) {
+        setFeedback({
+          type: 'error',
+          message: `Postura Degradada: Autenticação Step-up 2FA requerida (${res.assessment.trustScore}/100).`
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          message: `Postura Conforme: Terminal aprovado com Score de Confiança ${res.assessment.trustScore}/100.`
+        });
+      }
+      await fetchDevicePostureData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao avaliar postura de dispositivo.' });
+    } finally {
+      setEvaluatingPosture(false);
+    }
+  };
+
+  const handleQuarantineDeviceSubmit = async (deviceId: string, reason: string) => {
+    try {
+      setQuarantiningDevice(true);
+      const res = await api.quarantineDevice({
+        deviceId,
+        reason
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setQuarantineDeviceId('');
+      await fetchDevicePostureData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao colocar dispositivo em quarentena.' });
+    } finally {
+      setQuarantiningDevice(false);
+    }
+  };
+
+  const handleReleaseQuarantineSubmit = async (deviceId: string, dpoNotes: string) => {
+    try {
+      setReleasingDevice(true);
+      const res = await api.releaseDeviceQuarantine({
+        deviceId,
+        dpoNotes
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setReleasingDeviceId(null);
+      await fetchDevicePostureData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao liberar quarentena do dispositivo.' });
+    } finally {
+      setReleasingDevice(false);
+    }
+  };
+
+  const handleUpdatePolicySubmit = async (newPolicy: DevicePostureEnforcementPolicy) => {
+    try {
+      setUpdatingPolicy(true);
+      const res = await api.updateDevicePosturePolicy({
+        policy: newPolicy,
+        reason: 'Alteração dinâmica via console de governança de segurança clínica'
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchDevicePostureData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política Zero Trust.' });
+    } finally {
+      setUpdatingPolicy(false);
+    }
+  };
+
+  const handleVerifyPostureSealSubmit = async (token: string) => {
+    try {
+      setVerifyingPostureSeal(true);
+      setPostureSealVerifyResult(null);
+      const res = await api.verifyDevicePostureSeal({ sealToken: token });
+      setPostureSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório de postura.' });
+    } finally {
+      setVerifyingPostureSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -3134,6 +3282,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchAdvancedRateLimitData();
       fetchSecureMemoryData();
       fetchTlsPinningData();
+      fetchDevicePostureData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -14921,6 +15070,583 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 44. Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                <Laptop className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Avaliação Contínua de Postura de Dispositivo Zero Trust
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    NIST SP 800-207 & OWASP MASVS
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Inspeção heurística de terminais clínicos (Root/Jailbreak, depuradores, criptografia de disco, integridade de runtime e score Zero Trust).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                devicePostureOverview?.systemHealth === 'COMPLIANT'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : devicePostureOverview?.systemHealth === 'THREAT_CONTAINMENT'
+                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+              }`}>
+                {devicePostureOverview?.systemHealth === 'COMPLIANT' ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    POSTURA HOMOLOGADA
+                  </>
+                ) : devicePostureOverview?.systemHealth === 'THREAT_CONTAINMENT' ? (
+                  <>
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    CONTENÇÃO ATIVA
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    POSTURA DEGRADADA
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={fetchDevicePostureData}
+                disabled={loadingDevicePosture}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Recarregar telemetria de dispositivos"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingDevicePosture ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs de Governança Zero Trust */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                Terminais Monitorados
+              </span>
+              <span className="text-xl font-extrabold text-slate-900 dark:text-white">
+                {devicePostureOverview?.metrics.totalDevicesMonitored ?? 4}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                Score Médio Confiança
+              </span>
+              <span className="text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                {devicePostureOverview?.metrics.averageTrustScore ?? 100}/100
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                Terminais Confiáveis (Tier 1)
+              </span>
+              <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                {devicePostureOverview?.metrics.trustedCount ?? 2}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                Violações Bloqueadas 24h
+              </span>
+              <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">
+                {devicePostureOverview?.metrics.violationsBlocked24h ?? 1}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                Em Quarentena
+              </span>
+              <span className="text-xl font-extrabold text-orange-600 dark:text-orange-400">
+                {devicePostureOverview?.metrics.activeQuarantinesCount ?? 1}
+              </span>
+            </div>
+          </div>
+
+          {/* Abas de Navegação */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2">
+            <button
+              type="button"
+              onClick={() => setActivePostureTab('SIMULATOR')}
+              className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                activePostureTab === 'SIMULATOR'
+                  ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Simulador Pentest & Avaliação ao Vivo
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePostureTab('INVENTORY')}
+              className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                activePostureTab === 'INVENTORY'
+                  ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Inventário de Terminais & Quarentena ({devicePostureOverview?.registeredDevices.length ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePostureTab('POLICIES')}
+              className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                activePostureTab === 'POLICIES'
+                  ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Políticas de Acesso Zero Trust ({devicePostureOverview?.activePolicy ?? 'STRICT_BLOCK'})
+            </button>
+          </div>
+
+          {/* ABA 1: Simulador & Avaliação de Postura */}
+          {activePostureTab === 'SIMULATOR' && (
+            <div className="space-y-5">
+              <form onSubmit={handleAssessPostureSubmit} className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Cenário Pré-Configurado de Telemetria:
+                    </label>
+                    <select
+                      value={selectedPostureScenario}
+                      onChange={(e) => setSelectedPostureScenario(e.target.value as any)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                    >
+                      <option value="COMPLIANT_MAC_WORKSTATION">Workstation macOS Conforme (Estação Principal)</option>
+                      <option value="UNENCRYPTED_DISK_WINDOWS">Notebook Windows com Disco Descriptografado</option>
+                      <option value="ROOTED_ANDROID_WITH_FRIDA">Terminal Móvel com Root & Depurador Frida Ativo</option>
+                      <option value="EMULATOR_DEVTOOLS_OPEN">Emulador Android com DevTools e Console Aberto</option>
+                      <option value="OUTDATED_OS_VULNERABLE">Notebook com Sistema Operacional Obsoleto</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Identificação Amigável do Dispositivo:
+                    </label>
+                    <input
+                      type="text"
+                      value={customDeviceName}
+                      onChange={(e) => setCustomDeviceName(e.target.value)}
+                      placeholder="Ex: MacBook Pro M3 Titular"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={evaluatingPosture}
+                    className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {evaluatingPosture ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                    Executar Avaliação Heurística de Postura
+                  </button>
+                </div>
+              </form>
+
+              {/* Resultado do Último Assessment */}
+              {lastPostureAssessment && (
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Laudo de Avaliação: {lastPostureAssessment.deviceName}
+                        </h4>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          lastPostureAssessment.trustTier === DeviceTrustTier.TRUSTED
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                            : lastPostureAssessment.trustTier === DeviceTrustTier.MONITORED
+                              ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                              : lastPostureAssessment.trustTier === DeviceTrustTier.RISKY
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                                : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                        }`}>
+                          {lastPostureAssessment.trustTier}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        ID: {lastPostureAssessment.deviceId} | IP: {lastPostureAssessment.telemetry.clientIp} | SO: {lastPostureAssessment.telemetry.osName} {lastPostureAssessment.telemetry.osVersion}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block uppercase font-bold">Decisão Zero Trust</span>
+                        <span className={`text-xs font-bold ${
+                          lastPostureAssessment.decision === DevicePostureDecision.ALLOWED
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : lastPostureAssessment.decision === DevicePostureDecision.BLOCKED_QUARANTINED
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                        }`}>
+                          {lastPostureAssessment.decision}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPostureSealForModal(lastPostureAssessment)}
+                        className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-500/30 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Ver Laudo Pericial WORM
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Barra de Score */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1 font-semibold">
+                      <span>Score de Confiança do Terminal</span>
+                      <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{lastPostureAssessment.trustScore}/100</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 rounded-full ${
+                          lastPostureAssessment.trustScore >= 85
+                            ? 'bg-emerald-500'
+                            : lastPostureAssessment.trustScore >= 70
+                              ? 'bg-blue-500'
+                              : lastPostureAssessment.trustScore >= 40
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${lastPostureAssessment.trustScore}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Violações Detectadas */}
+                  {lastPostureAssessment.violations.length === 0 ? (
+                    <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                      <span>Terminal 100% conforme. Nenhuma violação de integridade ou privilégio detectada.</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Violações Heurísticas Detectadas ({lastPostureAssessment.violations.length}):
+                      </span>
+                      <div className="space-y-1.5">
+                        {lastPostureAssessment.violations.map((v) => (
+                          <div
+                            key={v.id}
+                            className={`p-3 rounded-xl border text-xs space-y-1 ${
+                              v.severity === 'CRITICAL'
+                                ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                                : v.severity === 'HIGH'
+                                  ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-200'
+                                  : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between font-bold">
+                              <span>{v.category}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded font-mono uppercase bg-white/60 dark:bg-black/30">
+                                {v.severity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] opacity-90">{v.description}</p>
+                            <p className="text-[10px] italic font-medium opacity-80">Remediação: {v.remediation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 2: Inventário de Terminais & Quarentena */}
+          {activePostureTab === 'INVENTORY' && (
+            <div className="space-y-5">
+              {/* Formulário de Quarentena Rápida */}
+              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">
+                    Isolamento Administrativo de Emergência (Quarentena DPO)
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <input
+                    type="text"
+                    placeholder="ID do Dispositivo (ex: dev_titular_dell_win_02)"
+                    value={quarantineDeviceId}
+                    onChange={(e) => setQuarantineDeviceId(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-700 text-xs text-slate-900 dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Motivo formal gravado na trilha WORM"
+                    value={quarantineReason}
+                    onChange={(e) => setQuarantineReason(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-700 text-xs text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={quarantiningDevice || !quarantineDeviceId.trim()}
+                    onClick={() => handleQuarantineDeviceSubmit(quarantineDeviceId.trim(), quarantineReason.trim())}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {quarantiningDevice ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                    Aplicar Quarentena Imediata
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabela de Dispositivos */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-3 px-3.5">Terminal / Dispositivo</th>
+                      <th className="py-3 px-3">Plataforma</th>
+                      <th className="py-3 px-3">Score de Confiança</th>
+                      <th className="py-3 px-3">Tier</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3.5 text-right">Ações DPO</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(devicePostureOverview?.registeredDevices || []).map((d) => (
+                      <tr key={d.deviceId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                        <td className="py-3 px-3.5">
+                          <div className="font-bold text-slate-900 dark:text-white">{d.deviceName}</div>
+                          <div className="font-mono text-[10px] text-slate-400">{d.deviceId}</div>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                          {d.platform}
+                        </td>
+                        <td className="py-3 px-3 font-bold font-mono">
+                          <span className={d.latestTrustScore >= 85 ? 'text-emerald-600' : d.latestTrustScore >= 70 ? 'text-blue-600' : 'text-rose-600'}>
+                            {d.latestTrustScore}/100
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-[11px]">
+                          {d.latestTrustTier}
+                        </td>
+                        <td className="py-3 px-3">
+                          {d.isQuarantined ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300">
+                              Em Quarentena
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                              Homologado
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3.5 text-right space-x-1.5">
+                          {d.isQuarantined ? (
+                            <button
+                              type="button"
+                              onClick={() => setReleasingDeviceId(d.deviceId)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 text-emerald-800 dark:text-emerald-200 font-bold text-[10px] transition-colors cursor-pointer"
+                            >
+                              Liberar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleQuarantineDeviceSubmit(d.deviceId, 'Quarentena manual preventiva solicitada pelo titular')}
+                              className="px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 text-rose-800 dark:text-rose-200 font-bold text-[10px] transition-colors cursor-pointer"
+                            >
+                              Quarentenar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Modal Inline de Liberação de Quarentena */}
+              {releasingDeviceId && (
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                      <Unlock className="w-4 h-4 text-emerald-600" />
+                      Parecer Pericial do DPO para Liberação do Dispositivo: {releasingDeviceId}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setReleasingDeviceId(null)}
+                      className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={releaseDpoNotes}
+                    onChange={(e) => setReleaseDpoNotes(e.target.value)}
+                    placeholder="Parecer técnico gravado na trilha WORM inalterável..."
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-xs text-slate-900 dark:text-white"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReleasingDeviceId(null)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={releasingDevice || !releaseDpoNotes.trim()}
+                      onClick={() => handleReleaseQuarantineSubmit(releasingDeviceId, releaseDpoNotes)}
+                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {releasingDevice ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Atestar e Revogar Quarentena
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 3: Políticas de Acesso Zero Trust */}
+          {activePostureTab === 'POLICIES' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Selecione o nível de rigor para o controle de admissão aos prontuários e salas de teleconsulta (RFC-001 §4.4, §5.2 e NIST SP 800-207):
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {[
+                  {
+                    policy: DevicePostureEnforcementPolicy.STRICT_BLOCK,
+                    title: 'STRICT_BLOCK (Padrão Ouro Clínico)',
+                    desc: 'Bloqueia e isola imediatamente qualquer terminal com violação crítica ou score < 70. Exige Step-up 2FA para score < 85.'
+                  },
+                  {
+                    policy: DevicePostureEnforcementPolicy.STEP_UP_AUTH,
+                    title: 'STEP_UP_AUTH (Desafio Biométrico Adaptativo)',
+                    desc: 'Exige reautenticação com 2FA biométrico para terminais intermediários e bloqueia apenas scores críticos (< 50).'
+                  },
+                  {
+                    policy: DevicePostureEnforcementPolicy.READ_ONLY_DEGRADATION,
+                    title: 'READ_ONLY_DEGRADATION (Degradação Preventiva)',
+                    desc: 'Permite visualização mascarada sem acesso a áudios brutos de teleconsulta para terminais com posture score intermediário.'
+                  },
+                  {
+                    policy: DevicePostureEnforcementPolicy.AUDIT_ONLY_MONITOR,
+                    title: 'AUDIT_ONLY_MONITOR (Auditoria Passiva)',
+                    desc: 'Apenas grava telemetria e selos WORM sem bloquear punitivamente. Recomendado exclusivamente para testes de homologação.'
+                  }
+                ].map((item) => (
+                  <div
+                    key={item.policy}
+                    onClick={() => !updatingPolicy && handleUpdatePolicySubmit(item.policy)}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      updatingPolicy ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                    } ${
+                      devicePostureOverview?.activePolicy === item.policy
+                        ? 'bg-amber-500/10 border-amber-500 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/20'
+                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold text-xs">{item.title}</span>
+                      {devicePostureOverview?.activePolicy === item.policy && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white">
+                          Ativa
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Histórico Recente de Avaliações */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              Histórico Recente de Avaliações Notariais WORM
+            </h4>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">Data / Hora</th>
+                    <th className="py-2.5 px-3">Terminal Clínico</th>
+                    <th className="py-2.5 px-3">Score</th>
+                    <th className="py-2.5 px-3">Tier</th>
+                    <th className="py-2.5 px-3">Decisão</th>
+                    <th className="py-2.5 px-3 text-right">Laudo Notarial</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(devicePostureOverview?.recentAssessments || []).map((a) => (
+                    <tr key={a.assessmentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
+                        {new Date(a.assessedAt).toLocaleTimeString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-900 dark:text-white">{a.deviceName}</div>
+                        <div className="font-mono text-[10px] text-slate-400">{a.deviceId}</div>
+                      </td>
+                      <td className="py-2.5 px-3 font-bold font-mono">
+                        <span className={a.trustScore >= 85 ? 'text-emerald-600' : a.trustScore >= 70 ? 'text-blue-600' : 'text-rose-600'}>
+                          {a.trustScore}/100
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-[11px]">
+                        {a.trustTier}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          a.decision === DevicePostureDecision.ALLOWED
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : a.decision === DevicePostureDecision.BLOCKED_QUARANTINED
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                        }`}>
+                          {a.decision}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPostureSealForModal(a)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          Auditar Selo
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -19061,6 +19787,187 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {verifyingTlsSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 36.A: Laudo Pericial Timbrado de Postura de Dispositivo Zero Trust */}
+      {selectedPostureSealForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Laptop className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Laudo Pericial de Postura de Dispositivo Zero Trust
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Atestado de Conformidade de Endpoint — NIST SP 800-207 & OWASP MASVS
+                  </p>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                selectedPostureSealForModal.trustTier === DeviceTrustTier.TRUSTED
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                  : selectedPostureSealForModal.trustTier === DeviceTrustTier.MONITORED
+                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                    : selectedPostureSealForModal.trustTier === DeviceTrustTier.RISKY
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+              }`}>
+                {selectedPostureSealForModal.trustTier}
+              </span>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Resumo do Terminal */}
+              <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 dark:text-white text-sm">
+                    {selectedPostureSealForModal.deviceName}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                    selectedPostureSealForModal.decision === DevicePostureDecision.ALLOWED
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : selectedPostureSealForModal.decision === DevicePostureDecision.BLOCKED_QUARANTINED
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                  }`}>
+                    {selectedPostureSealForModal.decision}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
+                  <div>ID Terminal: <strong>{selectedPostureSealForModal.deviceId}</strong></div>
+                  <div>Plataforma: <strong>{selectedPostureSealForModal.telemetry.platform}</strong></div>
+                  <div>SO: <strong>{selectedPostureSealForModal.telemetry.osName} {selectedPostureSealForModal.telemetry.osVersion}</strong></div>
+                  <div>IP: <strong>{selectedPostureSealForModal.telemetry.clientIp}</strong></div>
+                  <div>Terapeuta: <strong>{selectedPostureSealForModal.therapistId}</strong></div>
+                  <div>Score Confiança: <strong className="text-amber-600">{selectedPostureSealForModal.trustScore}/100</strong></div>
+                </div>
+              </div>
+
+              {/* Violações */}
+              <div>
+                <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Violações e Anomalias Detectadas ({selectedPostureSealForModal.violations.length}):
+                </span>
+                {selectedPostureSealForModal.violations.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Nenhuma anomalia. O terminal cumpre todos os requisitos de segurança Zero Trust.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {selectedPostureSealForModal.violations.map((v) => (
+                      <div key={v.id} className="p-2.5 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20 text-[11px] space-y-0.5">
+                        <div className="flex justify-between font-bold text-rose-800 dark:text-rose-300">
+                          <span>{v.category}</span>
+                          <span className="uppercase text-[10px]">{v.severity}</span>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-400">{v.description}</p>
+                        <p className="text-slate-500 italic">Remediação: {v.remediation}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Metadados do Selo WORM */}
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Identificador do Selo:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedPostureSealForModal.proofSeal.sealId}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Data de Emissão:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedPostureSealForModal.proofSeal.issuedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 dark:text-slate-400">Digest Canônico JCS (SHA-256):</span>
+                  <div className="font-mono text-[10px] text-slate-800 dark:text-slate-200 truncate">
+                    {selectedPostureSealForModal.proofSeal.canonicalDigest}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 dark:text-slate-400">Assinatura Digital HMAC-SHA256:</span>
+                  <div className="font-mono text-[10px] text-amber-600 dark:text-amber-400 truncate">
+                    {selectedPostureSealForModal.proofSeal.hmacSignature}
+                  </div>
+                </div>
+              </div>
+
+              {/* Token WORM com botão de cópia */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold">Token do Selo Probatório WORM:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedPostureSealForModal.proofSeal.token);
+                      setFeedback({ type: 'success', message: 'Selo WORM de Postura de Dispositivo copiado!' });
+                    }}
+                    className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copiar Token
+                  </button>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-900 font-mono text-[10px] text-amber-300 break-all select-all">
+                  {selectedPostureSealForModal.proofSeal.token}
+                </div>
+              </div>
+
+              {/* Resultado da Validação Pericial */}
+              {postureSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  postureSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {postureSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {postureSealVerifyResult.isValid ? 'Selo de Postura Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{postureSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(postureSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPostureSealForModal(null);
+                  setPostureSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingPostureSeal}
+                onClick={() => handleVerifyPostureSealSubmit(selectedPostureSealForModal.proofSeal.token)}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingPostureSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Executar Validação Forense Notarial
               </button>
             </div>
