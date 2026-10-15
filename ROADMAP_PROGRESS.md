@@ -1676,8 +1676,8 @@ terapiainfoco/
 | `feat/ssrf-dns-rebinding-protection-guard` | Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0) | [PR #67](https://github.com/linuxsoares/terapiainfoco/pull/67) | Merged |
 | `feat/advanced-api-rate-limiting-token-bucket-sliding-window` | Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2) | [PR #68](https://github.com/linuxsoares/terapiainfoco/pull/68) | Merged |
 | `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Merged |
-| `feat/tls-certificate-pinning-ca-rotation` | Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) | [PR #70](https://github.com/linuxsoares/terapiainfoco/pull/70) | Merged |
-| `feat/device-posture-zero-trust-assessment` | Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS) | [PR #71](https://github.com/linuxsoares/terapiainfoco/pull/71) | Em Aberto |
+| `feat/device-posture-zero-trust-assessment` | Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS) | [PR #71](https://github.com/linuxsoares/terapiainfoco/pull/71) | Merged |
+| `feat/pqc-hybrid-kyber-dilithium-clinical-crypto` | Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204) | [PR #72](https://github.com/linuxsoares/terapiainfoco/pull/72) | Em Aberto |
 
 ---
 
