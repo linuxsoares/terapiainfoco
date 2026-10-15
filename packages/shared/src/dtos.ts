@@ -2382,6 +2382,58 @@ export interface SsrfOverviewResponse {
   overview: import('./models').SsrfOverview;
 }
 
+/**
+ * 38. DTOs de Rate Limiting Avançado (Token Bucket + Sliding Window Log)
+ */
+
+export interface EvaluateRateLimitDTO {
+  clientId: string;
+  path: string;
+  tokensToConsume?: number;
+  tier?: import('./enums').RateLimitTier;
+  overrideAlgorithm?: import('./enums').RateLimitingAlgorithm;
+}
+
+export interface EvaluateRateLimitResponse {
+  success: boolean;
+  evaluation: import('./models').RateLimitEvaluationResult;
+  proofSeal?: import('./models').RateLimitProofSeal;
+  message: string;
+}
+
+export interface ConfigureRateLimitRuleDTO {
+  ruleId: string;
+  bucketCapacity?: number;
+  refillRatePerSecond?: number;
+  windowSizeSeconds?: number;
+  maxRequestsPerWindow?: number;
+  burstAllowanceMultiplier?: number;
+  penaltyQuarantineMinutes?: number;
+}
+
+export interface ResetClientBucketDTO {
+  clientId: string;
+  reason?: string;
+}
+
+export interface VerifyRateLimitSealDTO {
+  proofSealToken: string;
+}
+
+export interface VerifyRateLimitSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').RateLimitProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface AdvancedRateLimitOverviewResponse {
+  success: boolean;
+  overview: import('./models').AdvancedRateLimitOverview;
+}
+
+
 
 
 

@@ -219,7 +219,14 @@ export enum AuditAction {
   SSRF_ATTACK_BLOCKED = 'SSRF_ATTACK_BLOCKED',
   DNS_REBINDING_DETECTED = 'DNS_REBINDING_DETECTED',
   EXTERNAL_WEBHOOK_VALIDATED = 'EXTERNAL_WEBHOOK_VALIDATED',
-  SSRF_SEAL_VERIFIED = 'SSRF_SEAL_VERIFIED'
+  SSRF_SEAL_VERIFIED = 'SSRF_SEAL_VERIFIED',
+  // Ações de Rate Limiting Avançado Token Bucket + Sliding Window (OWASP API4:2023)
+  RATE_LIMIT_TOKEN_CONSUMED = 'RATE_LIMIT_TOKEN_CONSUMED',
+  RATE_LIMIT_BURST_BLOCKED = 'RATE_LIMIT_BURST_BLOCKED',
+  RATE_LIMIT_SLIDING_WINDOW_EXCEEDED = 'RATE_LIMIT_SLIDING_WINDOW_EXCEEDED',
+  RATE_LIMIT_QUARANTINE_APPLIED = 'RATE_LIMIT_QUARANTINE_APPLIED',
+  RATE_LIMIT_TIER_CONFIGURED = 'RATE_LIMIT_TIER_CONFIGURED',
+  RATE_LIMIT_PROOF_SEAL_VERIFIED = 'RATE_LIMIT_PROOF_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -258,7 +265,8 @@ export enum AuditResourceType {
   CLINICAL_SESSION_TSA_NOTARY = 'CLINICAL_SESSION_TSA_NOTARY',
   HTTP_SECURITY_GUARD = 'HTTP_SECURITY_GUARD',
   HOMOMORPHIC_ENCRYPTION_ENGINE = 'HOMOMORPHIC_ENCRYPTION_ENGINE',
-  SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD'
+  SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD',
+  ADVANCED_RATE_LIMIT_ENGINE = 'ADVANCED_RATE_LIMIT_ENGINE'
 }
 
 /**
@@ -1013,6 +1021,32 @@ export enum WebhookConnectorType {
   TELEMEDICINE_NOTIFICATION = 'TELEMEDICINE_NOTIFICATION',   // Webhooks de telemedicina e salas criptografadas
   SECURITY_SIEM_FORWARDER = 'SECURITY_SIEM_FORWARDER'        // Exportador de auditoria WORM para SIEM hospitalar
 }
+
+/**
+ * 38. RATE LIMITING AVANÇADO (TOKEN BUCKET + SLIDING WINDOW LOG)
+ * (OWASP Top 10 API Security API4:2023 - Unrestricted Resource Consumption & RFC-001 §4.4, §5.2)
+ */
+
+export enum RateLimitingAlgorithm {
+  HYBRID_TOKEN_BUCKET_SLIDING_WINDOW = 'HYBRID_TOKEN_BUCKET_SLIDING_WINDOW', // Algoritmo padrão: Token Bucket para bursts + Sliding Window para volume médio
+  TOKEN_BUCKET = 'TOKEN_BUCKET',                                             // Token Bucket puro com recarga fracionária temporal
+  SLIDING_WINDOW_LOG = 'SLIDING_WINDOW_LOG',                                 // Sliding Window Log com retenção precisa de timestamps
+  LEAKY_BUCKET = 'LEAKY_BUCKET'                                              // Fila com vazão constante
+}
+
+export enum RateLimitTier {
+  PUBLIC_ANONYMOUS = 'PUBLIC_ANONYMOUS',             // Endpoints anônimos/públicos (landing, agendamento público)
+  AUTHENTICATED_CLINICAL = 'AUTHENTICATED_CLINICAL', // Terapeutas autenticados em rotina clínica
+  CRITICAL_EHR_EXPORT = 'CRITICAL_EHR_EXPORT',       // Exportação de prontuários LGPD Art. 18 / Assinatura ICP-Brasil
+  INTERNAL_SERVICE_MESH = 'INTERNAL_SERVICE_MESH'    // Comunicação inter-serviços / Webhooks assinados
+}
+
+export enum RateLimitDecision {
+  ALLOWED = 'ALLOWED',                               // Requisição autorizada sem restrições
+  THROTTLED = 'THROTTLED',                           // Bloqueio temporário com cabeçalho Retry-After
+  QUARANTINED = 'QUARANTINED'                        // Quarentena automática aplicada por abuso sistemático de burst
+}
+
 
 
 

@@ -1460,6 +1460,43 @@ terapiainfoco/
 
 ---
 
+### 51. Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP Top 10 API Security API4:2023 - Unrestricted Resource Consumption & RFC-001 §4.4, §5.2)
+- [x] **Motor Criptográfico & Matemático (`packages/crypto/src/advancedRateLimiter.ts`):**
+  - **Algoritmo Token Bucket Contínuo:** Implementação matemática exata com recarga temporal fracionária contínua $\Delta t \times r$ sem drift de relógio e suporte a absorção elástica de bursts controlados.
+  - **Algoritmo Sliding Window Log:** Registro de requisições retidas em janela deslizante com granularidade de microssegundos, mitigando ataques de rajada sincronizada em bordas de janela fixa.
+  - **Avaliação Híbrida Unificada:** Execução combinada onde o Token Bucket avalia a elasticidade imediata de rajada e o Sliding Window Log valida o teto agregado de volume por janela temporal, com rollback atômico e compensatório de tokens caso a janela deslizante rejeite o acesso.
+  - **Cálculo Preciso de `Retry-After`:** Estimativa analítica do tempo exato de espera necessário para recuperação de saldo de tokens ou expiração dos itens mais antigos do log de janela.
+  - **Quarentena Automática Progressiva:** Isolamento compulsório de clientes ou IPs com excesso de violações consecutivas (>5 bursts excedidos), impedindo exaustão de CPU/memória no desembrulho criptográfico.
+  - **Selo Probatório WORM HMAC-SHA256 (`createRateLimitProofSeal` / `verifyRateLimitProofSeal`):** Emissão de token criptográfico canônico (`RL-SEAL-v1-...`) assinado digitalmente para não-repúdio e auditoria forense.
+  - Suíte com 13 testes unitários rigorosos aprovados em `packages/crypto/test/advancedRateLimiter.test.ts`.
+- [x] **Contratos Compartilhados & Tipagem Forte (`packages/shared`):**
+  - **Enums (`enums.ts`):** `RateLimitingAlgorithm` (`TOKEN_BUCKET`, `SLIDING_WINDOW_LOG`, `HYBRID_DUAL_PASS`), `RateLimitTier` (`PUBLIC_ANONYMOUS`, `AUTHENTICATED_CLINICAL`, `CRITICAL_EHR_EXPORT`, `INTERNAL_SERVICE_MESH`), `RateLimitDecision` (`ALLOWED`, `THROTTLED`, `QUARANTINED`, `BYPASSED`), `AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE` e 6 ações de auditoria WORM (`RATE_LIMIT_EVALUATED`, `RATE_LIMIT_THROTTLED`, `RATE_LIMIT_QUARANTINED`, `RATE_LIMIT_CLIENT_RESET`, `RATE_LIMIT_RULE_UPDATED`, `RATE_LIMIT_SEAL_VERIFIED`).
+  - **Modelos (`models.ts`):** `TokenBucketState`, `SlidingWindowLogEntry`, `RateLimitRuleConfig`, `RateLimitEvaluationResult`, `RateLimitProofSeal`, `AdvancedRateLimitMetrics`, `AdvancedRateLimitOverview`.
+  - **DTOs (`dtos.ts`):** `EvaluateRateLimitDTO`, `EvaluateRateLimitResponse`, `ConfigureRateLimitRuleDTO`, `ResetClientBucketDTO`, `VerifyRateLimitSealDTO`, `VerifyRateLimitSealResponse`, `AdvancedRateLimitOverviewResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **Serviço Central (`advancedRateLimiterService.ts`):** Catálogo de 6 políticas padrão pré-calibradas para endpoints clínicos críticos (Autenticação Login, Desafio 2FA TOTP, Exportação de Prontuário LGPD Art. 18, Assinatura Digital ICP-Brasil, WebRTC ICE Handshake e Agendamento Público Landing), gestão de buckets, retenção de métricas em tempo real e auditoria compulsória no WORM via `AuditService.log`.
+  - **Rotas REST (`advancedRateLimiter.ts`):**
+    - `GET /api/advanced-rate-limiter/overview`: Visão geral de métricas, regras ativas e clientes em quarentena.
+    - `POST /api/advanced-rate-limiter/evaluate`: Avaliação e consumo sob demanda de tokens para qualquer cliente/endpoint.
+    - `POST /api/advanced-rate-limiter/rules/configure`: Criação ou atualização dinâmica de regras por Tier.
+    - `POST /api/advanced-rate-limiter/clients/reset`: Desbloqueio operacional de cliente isolado em quarentena com emissão de log WORM.
+    - `POST /api/advanced-rate-limiter/verify-seal`: Validação notarial independente de autenticidade do selo HMAC-SHA256.
+    - `GET /api/advanced-rate-limiter/rules`: Listagem completa do catálogo de regras ativas.
+  - Montagem central em `apps/backend/src/index.ts` sob `/api/advanced-rate-limiter`.
+  - Suíte com 10 testes de integração aprovados em `apps/backend/test/advancedRateLimiter.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** 6 novos métodos tipados para integração transparente com o motor de rate limiting.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 33** (*Rate Limiting Avançado & Proteção Anti-DDoS - OWASP API4:2023*) com 5 KPIs operacionais (Requisições Avaliadas, Throttlings Ativos, Clientes em Quarentena, Consumos de Bucket, Violações de Janela).
+    - **Simulador Interativo de Tráfego & Consumo:** 4 presets rápidos (Login Brute-Force, 2FA Spraying, Exportação LGPD Massiva, Agendamento Público), configuração de tokens a consumir, seletor de Tier regulatório e exibição de decisão com badge de status e Retry-After.
+    - **Catálogo de Regras por Endpoint & Tier:** Visualização de capacidade de bucket, taxa de recarga contínua e limites de janela deslizante.
+    - **Feed de Clientes em Quarentena:** Listagem com identificador, total de violações, motivo do isolamento, data de expiração e botão de desbloqueio operacional.
+    - **Modal 33.B (Auditoria de Selo WORM de Rate Limiting):** Verificação notarial independente da assinatura digital HMAC-SHA256 com atestado de autenticidade em tempo real.
+    - **Modal 33.C (Confirmação de Desbloqueio de Quarentena):** Modal de segurança para confirmação com justificativa auditada.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1525,13 +1562,14 @@ terapiainfoco/
 | `feat/http-parameter-pollution-header-injection-guard` | Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2) | [PR #65](https://github.com/linuxsoares/terapiainfoco/pull/65) | Merged |
 | `feat/homomorphic-encryption-paillier-cid11` | Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13 & Resolução CFP nº 001/2009) | [PR #66](https://github.com/linuxsoares/terapiainfoco/pull/66) | Merged |
 | `feat/ssrf-dns-rebinding-protection-guard` | Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0) | [PR #67](https://github.com/linuxsoares/terapiainfoco/pull/67) | Merged |
-| `feat/advanced-api-rate-limiting-token-bucket-sliding-window` | Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2) | [PR #68](https://github.com/linuxsoares/terapiainfoco/pull/68) | Em Aberto |
+| `feat/advanced-api-rate-limiting-token-bucket-sliding-window` | Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2) | [PR #68](https://github.com/linuxsoares/terapiainfoco/pull/68) | Merged |
+| `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP Top 10 API Security API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **678 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log (OWASP API4:2023 & RFC-001 §4.4, §5.2)**, a **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)**, o **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2)**, o **Módulo de Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2)**, o **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)**, o **Módulo de Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011 / OAT-020)**, o **Módulo de Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B)**, a **Gestão Segura de Sessões Clínicas com Token Binding DPoP RFC 9449**, o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica (LGPD Art. 13)**, a **Análise Comportamental Preditiva de Acesso Anômalo (UEBA)**, o **Protocolo DID / Verifiable Credentials W3C**, o **Expurgamento Seguro de Dados Históricos com Prova Criptográfica**, o **Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge**, o **Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica**, o **Controle Granular de Consentimento do Paciente**, o **Módulo Dark Web / HaveIBeenPwned Monitor**, as **Provas de Conhecimento Zero (ZKP)**, a **Gravação de Mídia com Sharding & Crypto-Shredding**, o **WAF Integrado em Camada de Aplicação**, a **Auditoria WebRTC com DTLS-SRTP & SAS**, o **Hardening HTTP (CSP, HSTS & Honeypot)**, o **Dashboard Executivo de Governança**, o **Exportador OpenTelemetry OTLP**, a **Gestão de Chaves KMS**, e a suíte completa de **701 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1558,7 +1596,8 @@ Com o **Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF
 - [x] **Módulo de Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4).**
 - [x] **Módulo de Blindagem contra Ataques de Poluição de Parâmetros HTTP (HPP - HTTP Parameter Pollution) e Injeção de Cabeçalhos em Endpoints Críticos (OWASP Top 10 API Security).**
 - [x] **Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para agregação estatística segura de diagnósticos CID-11 sem decifragem centralizada.**
-- [ ] **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0).**
+- [x] **Proteção Avançada contra Server-Side Request Forgery (SSRF) e DNS Rebinding em Webhooks e Conectores Externos (OWASP API8:2023 & ASVS v4.0).**
+- [x] **Módulo de Rate Limiting Avançado com Algoritmo Híbrido Token Bucket + Sliding Window Log para Proteção Anti-DDoS e Abuso de Endpoints Clínicos Sensíveis (OWASP API4:2023 & RFC-001 §4.4, §5.2).**
 - [ ] **Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS).**
 
 ---
@@ -1569,7 +1608,7 @@ Com o **Módulo de Proteção Avançada contra Server-Side Request Forgery (SSRF
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (592 testes)
+# 2. Executar suíte completa de testes (701 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
