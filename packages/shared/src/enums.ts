@@ -177,7 +177,13 @@ export enum AuditAction {
   DP_BUDGET_ALLOCATED = 'DP_BUDGET_ALLOCATED',
   DP_BUDGET_EXHAUSTED = 'DP_BUDGET_EXHAUSTED',
   DP_DATASET_EXPORTED = 'DP_DATASET_EXPORTED',
-  DP_PROOF_VERIFIED = 'DP_PROOF_VERIFIED'
+  DP_PROOF_VERIFIED = 'DP_PROOF_VERIFIED',
+  // Ações de Gestão de Sessões, Token Binding Criptográfico e Concorrência (RFC-001 §4.4 & OWASP ASVS)
+  SESSION_BOUND_CREATED = 'SESSION_BOUND_CREATED',
+  SESSION_DPOP_VERIFIED = 'SESSION_DPOP_VERIFIED',
+  SESSION_FORCE_TERMINATED = 'SESSION_FORCE_TERMINATED',
+  SESSION_CONCURRENT_REVOKED = 'SESSION_CONCURRENT_REVOKED',
+  SESSION_ALL_OTHER_REVOKED = 'SESSION_ALL_OTHER_REVOKED'
 }
 
 export enum AuditResourceType {
@@ -209,7 +215,8 @@ export enum AuditResourceType {
   PURGE_LEDGER = 'PURGE_LEDGER',
   CLINICAL_FEDERATION_DID = 'CLINICAL_FEDERATION_DID',
   UEBA_SECURITY_ENGINE = 'UEBA_SECURITY_ENGINE',
-  DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE'
+  DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE',
+  SESSION_MANAGEMENT = 'SESSION_MANAGEMENT'
 }
 
 /**
@@ -753,4 +760,46 @@ export enum DpResearchStatus {
   DEPLETED = 'DEPLETED', // Orçamento ε completamente consumido
   REVOKED = 'REVOKED'    // Acesso suspenso por violação de protocolo ético
 }
+
+/**
+ * Modo de Vinculação Criptográfica da Sessão Clínica (RFC-001 §4.4 & RFC 9449 DPoP)
+ */
+export enum SessionBindingMode {
+  STRICT_DPOP = 'STRICT_DPOP',                 // Vinculação Criptográfica Estrita com Par de Chaves ECDSA P-256 (RFC 9449)
+  DPOP_BOUND = 'DPOP_BOUND',                   // Vinculação Criptográfica com Par de Chaves ECDSA P-256 do Cliente (RFC 9449)
+  COOKIE_BOUND = 'COOKIE_BOUND',               // Vinculação a Cookie Criptografado com SameSite Strict
+  DEVICE_FINGERPRINT = 'DEVICE_FINGERPRINT',   // Vinculação por Fingerprint Criptográfico de Hardware/Navegador
+  BEARER_LEGACY = 'BEARER_LEGACY'              // Token Bearer convencional sem prova de posse (Não recomendado)
+}
+
+/**
+ * Ciclo de Vida da Sessão do Profissional de Saúde
+ */
+export enum SessionLifecycleStatus {
+  ACTIVE = 'ACTIVE',                                       // Sessão ativa e plenamente autorizada
+  TERMINATED_BY_USER = 'TERMINATED_BY_USER',               // Revogada voluntariamente pelo psicólogo
+  REVOKED_BY_USER = 'REVOKED_BY_USER',                     // Revogada remotamente pelo próprio psicólogo
+  REVOKED_CONCURRENT_LIMIT = 'REVOKED_CONCURRENT_LIMIT',   // Interrompida por excesso de dispositivos concorrentes (Eviction)
+  REVOKED_BY_CONCURRENCY = 'REVOKED_BY_CONCURRENCY',       // Interrompida por excesso de dispositivos concorrentes
+  FORCE_KILLED_ADMIN = 'FORCE_KILLED_ADMIN',               // Encerrada em massa por Kill Switch Administrativo
+  REVOKED_BY_DPO = 'REVOKED_BY_DPO',                       // Interrompida compulsória pelo Encarregado (DPO / Segurança)
+  EXPIRED = 'EXPIRED'                                      // Expirada por inatividade ética
+}
+
+/**
+ * Categoria do Dispositivo de Acesso Clínico
+ */
+export enum SessionDeviceType {
+  DESKTOP = 'DESKTOP',                                     // Estação de trabalho / Notebook clínico genérico
+  DESKTOP_CHROME = 'DESKTOP_CHROME',                       // Navegador Google Chrome Desktop
+  DESKTOP_FIREFOX = 'DESKTOP_FIREFOX',                     // Navegador Mozilla Firefox Desktop
+  DESKTOP_SAFARI = 'DESKTOP_SAFARI',                       // Navegador Apple Safari macOS
+  MOBILE = 'MOBILE',                                       // Dispositivo móvel / Smartphone genérico
+  MOBILE_IOS = 'MOBILE_IOS',                               // Apple iPhone / iOS
+  MOBILE_ANDROID = 'MOBILE_ANDROID',                       // Google Android
+  TABLET = 'TABLET',                                       // Tablet clínico / iPad
+  CLINICAL_WORKSTATION = 'CLINICAL_WORKSTATION',           // Terminal dedicado de consultório homologado
+  UNKNOWN = 'UNKNOWN'                                      // Origem genérica / Não classificada
+}
+
 

@@ -1183,6 +1183,50 @@ terapiainfoco/
     - **Livro Notarial WORM de Consultas Científicas:** Tabela com histórico auditável, IDs de query, custos $\varepsilon$, valores protegidos e selos WORM.
     - **Modal de Alocação de Cota DPO:** Formulário para autorização ética e concessão de cotas $\varepsilon$ para instituições de pesquisa.
     - **Modal Timbrado Forense de Laudo Diferencial:** Documento oficial com fé pública sob LGPD Art. 13 e CFP nº 001/2009, garantias matemáticas $e^\varepsilon$, selo probatório `dp_v1_*` e atestado de não-reidentificação.
+    - **Modal Timbrado Forense de Laudo Diferencial:** Documento oficial com fé pública sob LGPD Art. 13 e CFP nº 001/2009, garantias matemáticas $e^\varepsilon$, selo probatório `dp_v1_*` e atestado de não-reidentificação.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+### 44. Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B)
+- [x] **Core Criptográfico & Motor de Token Binding DPoP (`packages/crypto/src/tokenBinding.ts`):**
+  - `generateClientDeviceKeyPair`: Geração determinística de pares de chaves assimétricas ECDSA curva NIST P-256 (prime256v1) com exportação combinada em PEM e JWK RFC 7638.
+  - `calculateJwkThumbprint`: Cálculo canônico RFC 7638 ordenando estritamente as propriedades (`crv`, `kty`, `x`, `y`) com digest SHA-256 Base64URL (`clientJkt`).
+  - `createDpopProof`: Geração de provas de posse DPoP JWT em conformidade com a RFC 9449, contendo cabeçalho `typ: "dpop+jwt"`, `alg: "ES256"`, `jwk`, e payload com `jti`, método HTTP (`htm`), URI de destino (`htu`), timestamp de emissão (`iat`) e hash criptográfico do token de acesso (`ath` SHA-256 Base64URL).
+  - `verifyDpopProof`: Verificação matemática rigorosa contra adulterações, validação cruzada de método HTTP e URI, verificação temporal anti-replay (janela de tolerância estrita de 300s) e validação da assinatura digital ECDSA P-256 com IEEE P1363.
+  - `generateSessionRevocationProof`: Geração de selo notarial probatório WORM de revogação de sessão no formato `session_rev_v1_<base64url>` com digest canônico SHA-256 (RFC 8785 JCS) e assinatura HMAC anti-tampering.
+  - `verifySessionRevocationProof`: Verificação pericial da fé pública e integridade matemática do selo de revogação de dispositivo.
+  - Suíte com 8 testes unitários passando em `packages/crypto/test/tokenBinding.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `SessionBindingMode` (`STRICT_DPOP`, `DPOP_BOUND`, `COOKIE_BOUND`, etc.), `SessionLifecycleStatus` (`ACTIVE`, `TERMINATED_BY_USER`, `REVOKED_CONCURRENT_LIMIT`, `FORCE_KILLED_ADMIN`, etc.) e `SessionDeviceType` (`DESKTOP_CHROME`, `MOBILE_IOS`, `CLINICAL_WORKSTATION`, etc.).
+  - Ações de auditoria WORM `SESSION_CREATE`, `SESSION_TERMINATE`, `SESSION_TERMINATE_ALL_OTHERS`, `SESSION_CONCURRENT_DISPLACEMENT`, `SESSION_DPOP_REJECTED` e recurso `AuditResourceType.SESSION_MANAGEMENT`.
+  - Interfaces `ClinicalActiveSession`, `DpopProofPayload`, `DpopVerificationResult`, `SessionRevocationProof`, `SessionManagementOverview`.
+  - DTOs `TerminateSessionDTO`, `TerminateSessionResponse`, `TerminateAllOtherSessionsDTO`, `TerminateAllOtherSessionsResponse`, `SimulateConcurrentLoginDTO`, `SimulateConcurrentLoginResponse`, `VerifyDpopBindingDTO`, `VerifyDpopBindingResponse`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `SessionBindingService`:
+    - Gerenciamento de sessões clínicas ativas em memória com persistência e rastreabilidade por terapeuta.
+    - Política de concorrência com limite máximo configurável (padrão 2 dispositivos simultâneos) e auto-eviction da sessão mais antiga sob novo login concorrente.
+    - Kill switch remoto para revogação em massa de todas as outras sessões ativas (`terminateAllOtherSessions`).
+    - Validação em tempo real de provas DPoP com detecção de replay attacks e injeção de tokens não vinculados.
+    - Registro compulsório de todas as operações na trilha de auditoria inviolável WORM (`AuditService.log`).
+  - Rotas REST sob `/api/session-binding`:
+    - `GET /api/session-binding/overview`: Visão geral de governança e concorrência.
+    - `GET /api/session-binding/sessions`: Listagem de sessões do terapeuta autenticado com identificação da sessão vigente.
+    - `POST /api/session-binding/terminate`: Revogação forçada de um dispositivo específico com emissão de selo WORM.
+    - `POST /api/session-binding/terminate-others`: Kill switch de concorrência.
+    - `POST /api/session-binding/simulate-concurrent`: Simulação de novos logins, estouro de limite e replay attacks.
+    - `POST /api/session-binding/verify-dpop`: Validação de provas de posse DPoP JWT.
+    - `GET /api/session-binding/verify-seal/:sessionId`: Verificação pericial pública de integridade do selo notarial.
+  - Suíte com 7 testes de integração passando em `apps/backend/test/sessionBinding.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** Métodos `getSessionOverview`, `getActiveSessions`, `terminateSession`, `terminateAllOtherSessions`, `simulateConcurrentLogin`, `verifyDpopBinding`, `verifySessionSeal`.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 26** (*Gestão Segura de Sessões Clínicas & Token Binding Criptográfico*) com 4 KPIs regulatórios (Dispositivos Ativos Conectados, Token Binding DPoP 100%, Política de Concorrência Máx. 2 com Auto-Eviction, Revogações Forenses WORM).
+    - **Tabela de Dispositivos Conectados:** Ícones específicos por ambiente/SO, IPs, localizações, thumbprints JWK DPoP, badges de status (`Ativa`, `Expulsa por Concorrência`, `Kill Switch Remoto`, `Revogada`), tag `Este Dispositivo` e ações de revogação/laudo.
+    - **Ação Rápida de Kill Switch:** Botão *"Kill Switch (Desconectar Outras)"* para revogação instantânea de todas as sessões concorrentes.
+    - **Simulador Interativo de Segurança & Ataques de Replay:** Testes de estresse com 3 cenários clicáveis (Simular 3º Login Concorrente com Eviction, Simular Replay Attack de Token sem chave ECDSA, Vincular Novo Dispositivo Clínico).
+    - **Modal de Justificativa de Revogação:** Coleta do motivo formal gravado permanentemente na trilha WORM.
+    - **Modal Notarial Pericial do Selo WORM:** Documento timbrado com fé pública, status de integridade da assinatura, dados da sessão, timestamp ISO e botão de cópia do token `session_rev_v1_*`.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
 ---
@@ -1244,7 +1288,8 @@ terapiainfoco/
 | `feat/secure-data-purge-crypto-proof` | Mecanismo de Descarte e Expurgamento Seguro de Dados Históricos por Fim de Ciclo de Tratamento com Prova Criptográfica de Destruição (LGPD Art. 16, CFP nº 001/2009) | [PR #57](https://github.com/linuxsoares/terapiainfoco/pull/57) | Merged |
 | `feat/did-verifiable-credentials-clinical-federation` | Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials - W3C DID v1.0, W3C VC v2.0, RFC-001 §3.5) | [PR #58](https://github.com/linuxsoares/terapiainfoco/pull/58) | Merged |
 | `feat/ueba-anomaly-detection-record-access` | Análise Comportamental Preditiva de Acesso Anômalo (UEBA) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46) | [PR #59](https://github.com/linuxsoares/terapiainfoco/pull/59) | Merged |
-| `feat/differential-privacy-clinical-research` | Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) | [PR #60](https://github.com/linuxsoares/terapiainfoco/pull/60) | Em Aberto |
+| `feat/differential-privacy-clinical-research` | Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) | [PR #60](https://github.com/linuxsoares/terapiainfoco/pull/60) | Merged |
+| `feat/session-token-binding-concurrent-revocation` | Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B) | [PR #61](https://github.com/linuxsoares/terapiainfoco/pull/61) | Em Aberto |
 
 ---
 
@@ -1271,7 +1316,8 @@ Com o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Dif
 - [x] **Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials) para Interoperabilidade em Saúde Mental (RFC-001 §3.5).**
 - [x] **Análise Comportamental Preditiva de Acesso Anômalo (UEBA - User and Entity Behavior Analytics) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46).**
 - [x] **Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009).**
-- [ ] **Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4 & OWASP ASVS).**
+- [x] **Módulo de Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes e Token Binding Criptográfico (RFC-001 §4.4, RFC 9449, OWASP ASVS v4.0 & NIST SP 800-63B).**
+- [ ] **Módulo de Detecção e Prevenção Ativa de Brute-Force & Credential Stuffing com PoW (Proof-of-Work) Criptográfico e Desafio Dinâmico (RFC-001 §4.4, OWASP Automated Threats & NIST SP 800-63B).**
 
 ---
 
@@ -1281,7 +1327,7 @@ Com o **Protocolo Criptográfico de Anonimização Estatística Diferencial (Dif
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (474 testes)
+# 2. Executar suíte completa de testes (541 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

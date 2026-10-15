@@ -40,7 +40,10 @@ import {
   DpQueryType,
   DpBudgetStatus,
   DpCohortMetric,
-  DpResearchStatus
+  DpResearchStatus,
+  SessionBindingMode,
+  SessionLifecycleStatus,
+  SessionDeviceType
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -1836,4 +1839,78 @@ export interface DpSystemOverview {
   recentQueries: DpQueryResult[];
   activeProjects: DpResearchProject[];
 }
+
+/**
+ * 33. GESTÃO SEGURA DE SESSÕES CLÍNICAS, TOKEN BINDING CRIPTOGRÁFICO (DPoP) & CONCORRÊNCIA (RFC-001 §4.4 & OWASP ASVS)
+ */
+
+/**
+ * Representação de Sessão Clínica Ativa do Terapeuta / Usuário
+ */
+export interface ClinicalActiveSession {
+  sessionId: string;
+  userId: string;
+  therapistCrp?: string;
+  deviceType: SessionDeviceType;
+  deviceName: string; // Ex: "MacBook Pro 16\" (macOS / Chrome 129)"
+  ipAddress: string;
+  location: string;   // Ex: "Belo Horizonte, MG - BR"
+  bindingMode: SessionBindingMode;
+  clientJkt?: string; // JWK SHA-256 Thumbprint (RFC 7638 / RFC 9449)
+  status: SessionLifecycleStatus;
+  createdAt: string;
+  lastActivityAt: string;
+  isCurrentDevice: boolean;
+  revokedAt?: string;
+  revocationReason?: string;
+  revocationProofSeal?: string; // session_rev_v1_<base64url>
+}
+
+/**
+ * Payload estruturado de Prova de Posse DPoP (RFC 9449)
+ */
+export interface DpopProofPayload {
+  jti: string;
+  htm: string; // Método HTTP (GET, POST, etc.)
+  htu: string; // URI HTTP completa
+  iat: number; // Timestamp Unix em segundos
+  ath?: string; // Access Token Hash (SHA-256 Base64URL)
+}
+
+/**
+ * Resultado da Validação Criptográfica de Token Binding DPoP
+ */
+export interface DpopVerificationResult {
+  isValid: boolean;
+  clientThumbprint: string;
+  error?: string;
+  verifiedAt: string;
+  claims?: DpopProofPayload;
+}
+
+/**
+ * Resultado da Verificação Pericial do Selo de Revogação de Sessão
+ */
+export interface SessionRevocationProof {
+  isValid: boolean;
+  proofSeal: string;
+  sessionId: string;
+  userId: string;
+  reason: string;
+  revokedAt: string;
+  details: string;
+}
+
+/**
+ * Visão Geral Executiva de Governança de Sessões e Dispositivos
+ */
+export interface SessionManagementOverview {
+  totalActiveSessions: number;
+  totalProtectedUsers: number;
+  dpopBoundPercentage: number;
+  concurrencyLimitPerTherapist: number;
+  recentRevocationsCount: number;
+  activeSessions: ClinicalActiveSession[];
+}
+
 

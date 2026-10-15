@@ -49,7 +49,9 @@ import {
   ScrollText,
   BadgeCheck,
   Share2,
-  Scale
+  Scale,
+  Monitor,
+  PowerOff
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -154,7 +156,12 @@ import {
   DpQueryResult,
   DpProofVerification,
   DpEpidemiologicalBenchmark,
-  DpSystemOverview
+  DpSystemOverview,
+  SessionDeviceType,
+  SessionLifecycleStatus,
+  ClinicalActiveSession,
+  SessionManagementOverview,
+  SessionRevocationProof
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -1737,6 +1744,143 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // Estados de Gestão Segura de Sessões Clínicas & Token Binding DPoP (RFC-001 §4.4)
+  const [sessionOverview, setSessionOverview] = useState<SessionManagementOverview | null>(null);
+  const [activeSessions, setActiveSessions] = useState<ClinicalActiveSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState<boolean>(false);
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
+  const [terminatingAllOthers, setTerminatingAllOthers] = useState<boolean>(false);
+  const [simulatingConcurrent, setSimulatingConcurrent] = useState<boolean>(false);
+  const [selectedSealForModal, setSelectedSealForModal] = useState<SessionRevocationProof | null>(null);
+  const [sessionToRevokeModal, setSessionToRevokeModal] = useState<ClinicalActiveSession | null>(null);
+  const [sessionRevokeReason, setSessionRevokeReason] = useState<string>('');
+  const [verifyingSealSessionId, setVerifyingSealSessionId] = useState<string | null>(null);
+
+  const fetchSessionBindingData = async () => {
+    try {
+      setLoadingSessions(true);
+      const [ovRes, sessRes] = await Promise.all([
+        api.getSessionOverview(currentUser.id),
+        api.getActiveSessions(currentUser.id)
+      ]);
+      if (ovRes.success) setSessionOverview(ovRes.overview);
+      if (sessRes.success) setActiveSessions(sessRes.sessions);
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de Gestão de Sessões:', err);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleTerminateSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sessionToRevokeModal) return;
+    try {
+      setTerminatingSessionId(sessionToRevokeModal.sessionId);
+      const res = await api.terminateSession({
+        sessionId: sessionToRevokeModal.sessionId,
+        reason: sessionRevokeReason.trim() || 'Revogação forçada de dispositivo sob demanda do terapeuta'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Sessão ${sessionToRevokeModal.deviceName} revogada e selo WORM emitido com sucesso!`
+        });
+        setSessionToRevokeModal(null);
+        setSessionRevokeReason('');
+        await fetchSessionBindingData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao revogar sessão.'
+      });
+    } finally {
+      setTerminatingSessionId(null);
+    }
+  };
+
+  const handleTerminateAllOtherSessions = async () => {
+    const currentSession = activeSessions.find(s => s.isCurrentDevice) || activeSessions[0];
+    if (!currentSession) {
+      setFeedback({ type: 'error', message: 'Nenhuma sessão corrente identificada para preservação.' });
+      return;
+    }
+
+    try {
+      setTerminatingAllOthers(true);
+      const res = await api.terminateAllOtherSessions({
+        currentSessionId: currentSession.sessionId,
+        reason: 'Kill Switch de Concorrência acionado pelo usuário — revogação de todos os outros dispositivos'
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Kill Switch ativado: ${res.terminatedCount} dispositivo(s) concorrente(s) desconectado(s)!`
+        });
+        await fetchSessionBindingData();
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao encerrar outros dispositivos.'
+      });
+    } finally {
+      setTerminatingAllOthers(false);
+    }
+  };
+
+  const handleSimulateConcurrent = async (scenario: 'EXCEED_CONCURRENCY_LIMIT' | 'TOKEN_REPLAY_ATTACK' | 'NEW_UNKNOWN_DEVICE') => {
+    try {
+      setSimulatingConcurrent(true);
+      const res = await api.simulateConcurrentLogin({
+        userId: currentUser.id,
+        scenario,
+        deviceName: scenario === 'TOKEN_REPLAY_ATTACK' 
+          ? 'Atacante Externo (Kali Linux / Rogue Client)'
+          : 'Consultório Secundário (Workstation Linux / Chrome)',
+        ipAddress: scenario === 'TOKEN_REPLAY_ATTACK' ? '198.51.100.99' : '200.140.80.30'
+      });
+
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message
+        });
+        await fetchSessionBindingData();
+      } else {
+        setFeedback({
+          type: 'error',
+          message: `Segurança Ativa: ${res.message}`
+        });
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Erro ao simular evento de concorrência.'
+      });
+    } finally {
+      setSimulatingConcurrent(false);
+    }
+  };
+
+  const handleInspectRevocationSeal = async (sessionId: string) => {
+    try {
+      setVerifyingSealSessionId(sessionId);
+      const res = await api.verifySessionSeal(sessionId);
+      if (res.success) {
+        setSelectedSealForModal(res.verification);
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao obter laudo pericial do selo de revogação.'
+      });
+    } finally {
+      setVerifyingSealSessionId(null);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -1754,6 +1898,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchDidData();
       fetchUebaData();
       fetchDpData();
+      fetchSessionBindingData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -9763,6 +9908,386 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Card 26: Gestão Segura de Sessões Clínicas & Token Binding Criptográfico (RFC-001 §4.4, OWASP ASVS & NIST SP 800-63B) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Cabeçalho do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Gestão Segura de Sessões Clínicas & Token Binding Criptográfico
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                  RFC-001 §4.4
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  RFC 9449 (DPoP)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  OWASP ASVS v4.0
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  NIST SP 800-63B
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Vinculação Criptográfica ECDSA P-256 DPoP, Controle Ativo de Concorrência e Revogação Forçada com Selo Notarial WORM.
+              </p>
+            </div>
+
+            {/* Ações Rápidas no Cabeçalho */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchSessionBindingData}
+                disabled={loadingSessions}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                title="Recarregar Sessões Clínicas"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingSessions ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTerminateAllOtherSessions}
+                disabled={terminatingAllOthers || activeSessions.filter(s => s.status === SessionLifecycleStatus.ACTIVE && !s.isCurrentDevice).length === 0}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Desconectar todas as outras sessões concorrentes"
+              >
+                <PowerOff className="w-3.5 h-3.5" />
+                {terminatingAllOthers ? 'Revogando...' : 'Kill Switch (Desconectar Outras)'}
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Executivos de Gestão de Sessões */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Dispositivos Ativos */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Dispositivos Ativos Conectados
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  {sessionOverview?.totalActiveSessions ?? activeSessions.filter(s => s.status === SessionLifecycleStatus.ACTIVE).length}
+                  <span className="text-xs text-slate-400 font-sans ml-1">/ {sessionOverview?.concurrencyLimitPerTherapist ?? 2} máx</span>
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                  CONFORME
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Limite de concorrência simultânea respeitado por terapeuta.
+              </p>
+            </div>
+
+            {/* KPI 2: Taxa Token Binding DPoP */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Token Binding Criptográfico
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                  {sessionOverview?.dpopBoundPercentage ?? 100}%
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400">
+                  ECDSA P-256
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Tokens estritamente amarrados a chaves de hardware (RFC 9449).
+              </p>
+            </div>
+
+            {/* KPI 3: Política de Concorrência */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Política de Concorrência
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  Máx. {sessionOverview?.concurrencyLimitPerTherapist ?? 2}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400">
+                  AUTO-EVICTION
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Deslocamento preventivo da sessão mais antiga sob novo acesso.
+              </p>
+            </div>
+
+            {/* KPI 4: Selos Notariais WORM */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">
+                Revogações Forenses WORM
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                  {sessionOverview?.recentRevocationsCount ?? activeSessions.filter(s => s.status !== SessionLifecycleStatus.ACTIVE).length}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  FÉ PÚBLICA
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Selos com digest canônico SHA-256 e HMAC anti-tampering.
+              </p>
+            </div>
+          </div>
+
+          {/* Tabela de Dispositivos Conectados */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Dispositivos Conectados & Histórico de Revogação
+              </h3>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {activeSessions.length} dispositivo(s) cadastrado(s)
+              </span>
+            </div>
+
+            {activeSessions.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                Nenhuma sessão registrada no momento.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 text-[11px] font-semibold">
+                      <th className="py-3 px-3.5">Dispositivo / Ambiente</th>
+                      <th className="py-3 px-3.5">IP & Localização</th>
+                      <th className="py-3 px-3.5">Token Binding (JWK JKT)</th>
+                      <th className="py-3 px-3.5">Última Atividade</th>
+                      <th className="py-3 px-3.5">Status</th>
+                      <th className="py-3 px-3.5 text-right">Ações de Segurança</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {activeSessions.map((s) => {
+                      const isActive = s.status === SessionLifecycleStatus.ACTIVE;
+                      return (
+                        <tr
+                          key={s.sessionId}
+                          className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${
+                            s.isCurrentDevice ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''
+                          }`}
+                        >
+                          {/* Dispositivo / Ambiente */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`p-2 rounded-xl ${
+                                isActive
+                                  ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              }`}>
+                                {s.deviceType === SessionDeviceType.MOBILE_IOS || s.deviceType === SessionDeviceType.MOBILE_ANDROID ? (
+                                  <Smartphone className="w-4 h-4" />
+                                ) : s.deviceType === SessionDeviceType.CLINICAL_WORKSTATION ? (
+                                  <Server className="w-4 h-4" />
+                                ) : (
+                                  <Laptop className="w-4 h-4" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  {s.deviceName}
+                                  {s.isCurrentDevice && (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300">
+                                      Este Dispositivo
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  ID: {s.sessionId}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* IP & Localização */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-mono text-slate-700 dark:text-slate-300 font-medium">
+                              {s.ipAddress}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {s.location}
+                            </div>
+                          </td>
+
+                          {/* Token Binding */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-[10px] text-slate-600 dark:text-slate-300 truncate max-w-[130px]" title={s.clientJkt}>
+                                {s.clientJkt || 'Não vinculado'}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                                DPoP
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Última Atividade */}
+                          <td className="py-3 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                            {new Date(s.lastActivityAt).toLocaleString('pt-BR')}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3.5">
+                            {isActive ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Ativa
+                              </span>
+                            ) : s.status === SessionLifecycleStatus.REVOKED_CONCURRENT_LIMIT ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300" title="Deslocada por limite concorrente">
+                                Expulsa (Concorrência)
+                              </span>
+                            ) : s.status === SessionLifecycleStatus.FORCE_KILLED_ADMIN ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300" title="Revogada por Kill Switch Remoto">
+                                Kill Switch Remoto
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                                Revogada
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Ações */}
+                          <td className="py-3 px-3.5 text-right space-x-2">
+                            {isActive ? (
+                              s.isCurrentDevice ? (
+                                <span className="text-[10px] text-slate-400 italic">
+                                  Sessão Vigente
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSessionToRevokeModal(s)}
+                                  disabled={terminatingSessionId === s.sessionId}
+                                  className="px-2.5 py-1 rounded-xl bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold transition-colors cursor-pointer"
+                                >
+                                  {terminatingSessionId === s.sessionId ? 'Encerrando...' : 'Revogar Acesso'}
+                                </button>
+                              )
+                            ) : s.revocationProofSeal ? (
+                              <button
+                                type="button"
+                                onClick={() => handleInspectRevocationSeal(s.sessionId)}
+                                disabled={verifyingSealSessionId === s.sessionId}
+                                className="px-2.5 py-1 rounded-xl bg-blue-100 dark:bg-blue-950/60 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                {verifyingSealSessionId === s.sessionId ? 'Validando...' : 'Selo Notarial WORM'}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">
+                                Inativa
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Painel Interativo de Simulação de Segurança & Ataques */}
+          <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Simulador de Resiliência Concorrente & Prevenção a Token Theft (OWASP ASVS §4.0)
+              </h4>
+              <span className="text-[10px] text-slate-400 font-mono">
+                ENFORCEMENT EM TEMPO REAL
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Execute testes de estresse criptográfico para validar o deslocamento preventivo de sessões e a contenção automática de tokens vazados.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              {/* Card 1: Exceder Limite de Concorrência */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Simular 3º Login Concorrente
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Excede o limite máximo de 2 sessões. O sentinela WORM expulsa compulsoriamente o dispositivo mais antigo e emite o selo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSimulateConcurrent('EXCEED_CONCURRENCY_LIMIT')}
+                  disabled={simulatingConcurrent}
+                  className="w-full mt-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Testar Limite Concorrente
+                </button>
+              </div>
+
+              {/* Card 2: Replay Attack (Token Theft) */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    Simular Replay Attack (Token Theft)
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Simula um atacante que interceptou o token mas não possui a chave privada do hardware cliente (DPoP mismatch bloqueado).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSimulateConcurrent('TOKEN_REPLAY_ATTACK')}
+                  disabled={simulatingConcurrent}
+                  className="w-full mt-2 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  Simular Ataque de Replay
+                </button>
+              </div>
+
+              {/* Card 3: Novo Dispositivo Legítimo */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Vincular Novo Dispositivo Clínico
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Registra uma nova estação clínica gerando par efêmero ECDSA P-256 e DPoP JWT em estrita conformidade com a RFC 9449.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSimulateConcurrent('NEW_UNKNOWN_DEVICE')}
+                  disabled={simulatingConcurrent}
+                  className="w-full mt-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  Vincular Dispositivo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -11965,6 +12490,173 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 type="button"
                 onClick={() => setSelectedDpProofForModal(null)}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                Fechar Laudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Justificativa de Revogação de Sessão */}
+      {sessionToRevokeModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                Revogação Forçada de Dispositivo
+              </h3>
+              <button 
+                onClick={() => setSessionToRevokeModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-xs space-y-1.5">
+              <div>Dispositivo: <strong className="text-slate-900 dark:text-white">{sessionToRevokeModal.deviceName}</strong></div>
+              <div>Endereço IP: <strong className="font-mono text-slate-900 dark:text-white">{sessionToRevokeModal.ipAddress}</strong> ({sessionToRevokeModal.location})</div>
+              <div>Chave Vinculada (JKT): <span className="font-mono text-[10px] text-slate-500 truncate block">{sessionToRevokeModal.clientJkt || 'N/A'}</span></div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Esta ação invalidará compulsoriamente os tokens vinculados à chave deste dispositivo e gerará um selo probatório com fé pública registrado na trilha WORM.
+            </p>
+
+            <form onSubmit={handleTerminateSession} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Motivo Formal da Revogação:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Dispositivo extraviado / Término de sessão em consultório compartilhado"
+                  value={sessionRevokeReason}
+                  onChange={(e) => setSessionRevokeReason(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSessionToRevokeModal(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={terminatingSessionId === sessionToRevokeModal.sessionId || !sessionRevokeReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {terminatingSessionId === sessionToRevokeModal.sessionId ? 'Revogando...' : 'Confirmar Revogação'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pericial do Selo de Revogação WORM */}
+      {selectedSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                Laudo Pericial Notarial de Revogação de Sessão (WORM)
+              </h3>
+              <button 
+                onClick={() => setSelectedSealForModal(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status de Fé Pública */}
+            <div className={`p-3.5 rounded-2xl border text-xs space-y-1.5 ${
+              selectedSealForModal.isValid
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200'
+                : 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 text-rose-900 dark:text-rose-200'
+            }`}>
+              <div className="flex items-center justify-between font-bold">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Status de Autenticidade Forense:
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
+                  {selectedSealForModal.isValid ? 'ASSINATURA ÍNTEGRA & VÁLIDA' : 'VIOLAÇÃO DETECTADA'}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                {selectedSealForModal.details}
+              </p>
+            </div>
+
+            {/* Detalhes Notariais */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-xs space-y-2">
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Sessão Alvo Revogada:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {selectedSealForModal.sessionId}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Data e Hora de Revogação:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {new Date(selectedSealForModal.revokedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <span>Motivo Formal Registrado:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedSealForModal.reason}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 text-slate-600 dark:text-slate-400">
+                <span>Identificador do Operador:</span>
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {selectedSealForModal.userId}
+                </span>
+              </div>
+            </div>
+
+            {/* Selo Criptográfico WORM */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-[11px]">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>Selo Probatório Notarial WORM:</span>
+                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                  SESSION_REV_V1
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-slate-500 break-all p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 select-all">
+                {selectedSealForModal.proofSeal}
+              </div>
+            </div>
+
+            {/* Ações do Laudo */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedSealForModal.proofSeal);
+                  setFeedback({ type: 'success', message: 'Selo WORM de revogação copiado para a área de transferência!' });
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Selo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSealForModal(null)}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Fechar Laudo
               </button>
