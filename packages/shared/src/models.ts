@@ -55,7 +55,10 @@ import {
   SsrfAttackCategory,
   SsrfDefensePolicy,
   SsrfSeverityLevel,
-  WebhookConnectorType
+  WebhookConnectorType,
+  RateLimitingAlgorithm,
+  RateLimitTier,
+  RateLimitDecision
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2417,6 +2420,92 @@ export interface SsrfOverview {
     details: string;
   }>;
 }
+
+/**
+ * 38. RATE LIMITING AVANÇADO (TOKEN BUCKET + SLIDING WINDOW LOG)
+ * (OWASP Top 10 API Security API4:2023 - Unrestricted Resource Consumption & RFC-001 §4.4, §5.2)
+ */
+
+export interface TokenBucketState {
+  tokens: number;
+  capacity: number;
+  refillRatePerSecond: number;
+  lastRefillTimestampMs: number;
+}
+
+export interface SlidingWindowLogEntry {
+  timestampMs: number;
+  weight: number;
+}
+
+export interface RateLimitRuleConfig {
+  id: string;
+  name: string;
+  pathPattern: string;
+  tier: RateLimitTier;
+  algorithm: RateLimitingAlgorithm;
+  bucketCapacity: number;
+  refillRatePerSecond: number;
+  windowSizeSeconds: number;
+  maxRequestsPerWindow: number;
+  burstAllowanceMultiplier: number;
+  penaltyQuarantineMinutes: number;
+  description: string;
+}
+
+export interface RateLimitEvaluationResult {
+  decision: RateLimitDecision;
+  isAllowed: boolean;
+  clientId: string;
+  ruleId: string;
+  tier: RateLimitTier;
+  remainingTokens: number;
+  tokenBucketCapacity: number;
+  currentWindowCount: number;
+  maxWindowAllowance: number;
+  retryAfterSeconds: number;
+  quarantinedUntil?: string;
+  reason: string;
+  timestamp: string;
+}
+
+export interface RateLimitProofSeal {
+  token: string;
+  clientId: string;
+  ruleId: string;
+  decision: RateLimitDecision;
+  canonicalDigest: string;
+  hmacSignature: string;
+  timestamp: string;
+  algorithm: string;
+}
+
+export interface AdvancedRateLimitMetrics {
+  totalEvaluatedRequests: number;
+  totalThrottledRequests: number;
+  activeQuarantinedClients: number;
+  tokenBucketConsumptions: number;
+  slidingWindowRejections: number;
+  activeRulesCount: number;
+}
+
+export interface AdvancedRateLimitOverview {
+  metrics: AdvancedRateLimitMetrics;
+  rules: RateLimitRuleConfig[];
+  quarantinedClients: Array<{
+    clientId: string;
+    reason: string;
+    quarantinedUntil: string;
+    totalViolations: number;
+  }>;
+  recentAudits: Array<{
+    id: string;
+    action: string;
+    timestamp: string;
+    details: string;
+  }>;
+}
+
 
 
 

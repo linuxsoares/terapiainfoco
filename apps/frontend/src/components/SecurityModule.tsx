@@ -64,7 +64,8 @@ import {
   BarChart3,
   Sigma,
   Globe,
-  AlertTriangle
+  AlertTriangle,
+  Timer
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -206,7 +207,12 @@ import {
   type SsrfOverview,
   type SsrfIncident,
   type SsrfProofSeal,
-  type SsrfInspectionResult
+  type SsrfInspectionResult,
+  RateLimitTier,
+  RateLimitDecision,
+  type AdvancedRateLimitOverview,
+  type RateLimitEvaluationResult,
+  type RateLimitProofSeal
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2706,6 +2712,109 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 40. Rate Limiting Avançado (Token Bucket + Sliding Window Log - OWASP API4:2023)
+  const [advancedRateLimitOverview, setAdvancedRateLimitOverview] = useState<AdvancedRateLimitOverview | null>(null);
+  const [loadingRateLimit, setLoadingRateLimit] = useState<boolean>(false);
+  const [selectedRateLimitSealForModal, setSelectedRateLimitSealForModal] = useState<RateLimitProofSeal | null>(null);
+  const [verifyingRateLimitSeal, setVerifyingRateLimitSeal] = useState<boolean>(false);
+  const [rateLimitSealVerifyResult, setRateLimitSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+  const [unquarantineModalClient, setUnquarantineModalClient] = useState<{ clientId: string; reason: string } | null>(null);
+
+  // Simulador de Tráfego / Consumo de Tokens
+  const [simRateLimitClientId, setSimRateLimitClientId] = useState<string>('client_sim_user_123');
+  const [simRateLimitPath, setSimRateLimitPath] = useState<string>('/api/auth/login');
+  const [simRateLimitTokens, setSimRateLimitTokens] = useState<number>(1);
+  const [simRateLimitTier, setSimRateLimitTier] = useState<RateLimitTier>(RateLimitTier.PUBLIC_ANONYMOUS);
+  const [evaluatingRateLimit, setEvaluatingRateLimit] = useState<boolean>(false);
+  const [lastRateLimitEvaluation, setLastRateLimitEvaluation] = useState<RateLimitEvaluationResult | null>(null);
+
+  const fetchAdvancedRateLimitData = async () => {
+    try {
+      setLoadingRateLimit(true);
+      const res = await api.getAdvancedRateLimitOverview();
+      if (res && res.overview) {
+        setAdvancedRateLimitOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados do Rate Limiter Avançado:', err);
+    } finally {
+      setLoadingRateLimit(false);
+    }
+  };
+
+  const handleEvaluateRateLimitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simRateLimitClientId.trim() || !simRateLimitPath.trim()) {
+      setFeedback({ type: 'error', message: 'Informe o ID do cliente e o caminho do endpoint.' });
+      return;
+    }
+    try {
+      setEvaluatingRateLimit(true);
+      const res = await api.evaluateRateLimit({
+        clientId: simRateLimitClientId.trim(),
+        path: simRateLimitPath.trim(),
+        tokensToConsume: Number(simRateLimitTokens) || 1,
+        tier: simRateLimitTier
+      });
+      setLastRateLimitEvaluation(res.evaluation);
+      if (res.proofSeal) {
+        setSelectedRateLimitSealForModal(res.proofSeal);
+      }
+      if (res.evaluation.isAllowed) {
+        setFeedback({
+          type: 'success',
+          message: `Requisição aprovada! Restam ${res.evaluation.remainingTokens} tokens no bucket.`
+        });
+      } else if (res.evaluation.decision === RateLimitDecision.QUARANTINED) {
+        setFeedback({
+          type: 'error',
+          message: `Cliente em Quarentena: ${res.evaluation.reason}`
+        });
+      } else {
+        setFeedback({
+          type: 'error',
+          message: `Requisição Limitada (Throttled): Tente novamente em ${res.evaluation.retryAfterSeconds}s`
+        });
+      }
+      await fetchAdvancedRateLimitData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao avaliar limite de taxa.' });
+    } finally {
+      setEvaluatingRateLimit(false);
+    }
+  };
+
+  const handleResetClientSubmit = async (clientId: string) => {
+    try {
+      const res = await api.resetRateLimitClient({
+        clientId,
+        reason: 'Desbloqueio operacional via painel de governança'
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setUnquarantineModalClient(null);
+      await fetchAdvancedRateLimitData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao resetar cliente.' });
+    }
+  };
+
+  const handleVerifyRateLimitSealSubmit = async (token: string) => {
+    try {
+      setVerifyingRateLimitSeal(true);
+      setRateLimitSealVerifyResult(null);
+      const res = await api.verifyRateLimitSeal({ proofSealToken: token });
+      setRateLimitSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório.' });
+    } finally {
+      setVerifyingRateLimitSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2730,6 +2839,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchHttpGuardData();
       fetchHomomorphicData();
       fetchSsrfData();
+      fetchAdvancedRateLimitData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -13222,6 +13332,371 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 40. RATE LIMITING AVANÇADO (TOKEN BUCKET + SLIDING WINDOW LOG - OWASP API4:2023) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50">
+                <Timer className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Rate Limiting Avançado & Proteção Anti-DDoS
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    OWASP API4:2023
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Algoritmo híbrido com Token Bucket fracionário e Sliding Window Log com retenção em microssegundos (RFC-001 §4.4, §5.2).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchAdvancedRateLimitData}
+                disabled={loadingRateLimit}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingRateLimit ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
+            </div>
+          </div>
+
+          {/* KPIs Operacionais */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Avaliado</span>
+              <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                {advancedRateLimitOverview?.metrics.totalEvaluatedRequests.toLocaleString('pt-BR') ?? '48.250'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Throttled (429)</span>
+              <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                {advancedRateLimitOverview?.metrics.totalThrottledRequests ?? 184}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40">
+              <span className="text-[11px] font-medium text-rose-700 dark:text-rose-300">Clientes em Quarentena</span>
+              <div className="text-xl font-bold text-rose-600 dark:text-rose-400 mt-1">
+                {advancedRateLimitOverview?.metrics.activeQuarantinedClients ?? 3}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40">
+              <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Tokens Consumidos</span>
+              <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                {advancedRateLimitOverview?.metrics.tokenBucketConsumptions.toLocaleString('pt-BR') ?? '48.066'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40">
+              <span className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">Rejeições Sliding Window</span>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                {advancedRateLimitOverview?.metrics.slidingWindowRejections ?? 112}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Simulador de Tráfego / Consumo de Tokens */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-amber-500" />
+                    Simulador Pericial de Consumo & Bursts
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    Dual Engine
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Presets de Cenários Clínicos:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimRateLimitClientId('ip_test_attacker_burst');
+                        setSimRateLimitPath('/api/auth/login');
+                        setSimRateLimitTokens(5);
+                        setSimRateLimitTier(RateLimitTier.PUBLIC_ANONYMOUS);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 hover:bg-rose-200 transition-colors cursor-pointer"
+                    >
+                      Burst Login (5 tokens)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimRateLimitClientId('therapist_dr_juliana');
+                        setSimRateLimitPath('/api/data-portability/export');
+                        setSimRateLimitTokens(2);
+                        setSimRateLimitTier(RateLimitTier.CRITICAL_EHR_EXPORT);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 transition-colors cursor-pointer"
+                    >
+                      Exportação LGPD (2 tokens)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimRateLimitClientId('therapist_dr_carlos');
+                        setSimRateLimitPath('/api/clinical-records/sign');
+                        setSimRateLimitTokens(1);
+                        setSimRateLimitTier(RateLimitTier.CRITICAL_EHR_EXPORT);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 transition-colors cursor-pointer"
+                    >
+                      Assinatura ICP (1 token)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSimRateLimitClientId('meet_relay_session_01');
+                        setSimRateLimitPath('/api/teleconsultation/webrtc');
+                        setSimRateLimitTokens(1);
+                        setSimRateLimitTier(RateLimitTier.AUTHENTICATED_CLINICAL);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 hover:bg-teal-200 transition-colors cursor-pointer"
+                    >
+                      WebRTC ICE (1 token)
+                    </button>
+                  </div>
+                </div>
+
+                <form onSubmit={handleEvaluateRateLimitSubmit} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Client ID / IP:
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={simRateLimitClientId}
+                        onChange={(e) => setSimRateLimitClientId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Endpoint Path:
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={simRateLimitPath}
+                        onChange={(e) => setSimRateLimitPath(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Tokens a Consumir:
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={simRateLimitTokens}
+                        onChange={(e) => setSimRateLimitTokens(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Tier Regulatório:
+                      </label>
+                      <select
+                        value={simRateLimitTier}
+                        onChange={(e) => setSimRateLimitTier(e.target.value as RateLimitTier)}
+                        className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      >
+                        <option value={RateLimitTier.PUBLIC_ANONYMOUS}>Público Anônimo</option>
+                        <option value={RateLimitTier.AUTHENTICATED_CLINICAL}>Clínico Autenticado</option>
+                        <option value={RateLimitTier.CRITICAL_EHR_EXPORT}>Crítico (EHR / ICP-Brasil)</option>
+                        <option value={RateLimitTier.INTERNAL_SERVICE_MESH}>Service Mesh Interno</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={evaluatingRateLimit}
+                    className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    {evaluatingRateLimit ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    Avaliar & Consumir Tokens
+                  </button>
+                </form>
+
+                {/* Resultado da Última Avaliação */}
+                {lastRateLimitEvaluation && (
+                  <div className={`p-4 rounded-xl border text-xs space-y-2 ${
+                    lastRateLimitEvaluation.isAllowed
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                      : lastRateLimitEvaluation.decision === RateLimitDecision.QUARANTINED
+                        ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                        : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                  }`}>
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5">
+                        {lastRateLimitEvaluation.isAllowed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        )}
+                        DECISÃO: {lastRateLimitEvaluation.decision}
+                      </span>
+                      {lastRateLimitEvaluation.retryAfterSeconds > 0 && (
+                        <span className="font-mono text-[10px] bg-amber-200 dark:bg-amber-900/60 px-2 py-0.5 rounded text-amber-900 dark:text-amber-200">
+                          Retry-After: {lastRateLimitEvaluation.retryAfterSeconds}s
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed">
+                      {lastRateLimitEvaluation.reason}
+                    </p>
+
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-wrap gap-3 text-[10px]">
+                      <div>Tokens Restantes: <strong className="font-mono">{lastRateLimitEvaluation.remainingTokens} / {lastRateLimitEvaluation.tokenBucketCapacity}</strong></div>
+                      <div>Janela Deslizante: <strong className="font-mono">{lastRateLimitEvaluation.currentWindowCount} / {lastRateLimitEvaluation.maxWindowAllowance}</strong></div>
+                      <div>Regra: <strong className="font-mono">{lastRateLimitEvaluation.ruleId}</strong></div>
+                    </div>
+
+                    {selectedRateLimitSealForModal && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRateLimitSealForModal(selectedRateLimitSealForModal)}
+                          className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          Visualizar Selo WORM
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Catálogo de Regras & Clientes em Quarentena */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-500" />
+                  Regras Ativas por Endpoint & Tier
+                </h4>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {advancedRateLimitOverview?.rules.length || 6} políticas
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Regra</th>
+                      <th className="py-2.5 px-2">Bucket</th>
+                      <th className="py-2.5 px-2">Recarga</th>
+                      <th className="py-2.5 px-2">Janela</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {(advancedRateLimitOverview?.rules || []).map((rule) => (
+                      <tr key={rule.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <div className="font-bold text-slate-900 dark:text-white truncate max-w-[170px]">
+                            {rule.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400 truncate max-w-[170px]">
+                            {rule.pathPattern}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                            {rule.bucketCapacity} tokens
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                            {rule.refillRatePerSecond}/s
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                            {rule.maxRequestsPerWindow} / {rule.windowSizeSeconds}s
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Feed de Clientes em Quarentena */}
+              <div className="space-y-2 pt-2">
+                <h5 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                    <Ban className="w-3.5 h-3.5 text-rose-500" />
+                    Clientes Isolados em Quarentena Automática
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {advancedRateLimitOverview?.quarantinedClients.length || 0} isolados
+                  </span>
+                </h5>
+                <div className="space-y-2">
+                  {(advancedRateLimitOverview?.quarantinedClients || []).map((q) => (
+                    <div
+                      key={q.clientId}
+                      className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 flex items-center justify-between"
+                    >
+                      <div className="space-y-0.5 max-w-[75%]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs text-rose-600 dark:text-rose-400">
+                            {q.clientId}
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            {q.totalViolations} violações
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-700 dark:text-slate-300 truncate">
+                          {q.reason}
+                        </div>
+                        <div className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">
+                          Expira em: {new Date(q.quarantinedUntil).toLocaleTimeString('pt-BR')}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUnquarantineModalClient({ clientId: q.clientId, reason: q.reason })}
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                      >
+                        Desbloquear
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -16959,6 +17434,174 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
               >
                 {verifyingSsrfSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 33.B: Verificação Notarial Independente de Selo WORM de Rate Limiting */}
+      {selectedRateLimitSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Timer className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                Auditoria de Selo WORM de Rate Limiting
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRateLimitSealForModal(null);
+                  setRateLimitSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 space-y-1">
+                <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center justify-between">
+                  <span>Token: <code className="font-mono">{selectedRateLimitSealForModal.token}</code></span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    selectedRateLimitSealForModal.decision === RateLimitDecision.ALLOWED
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                      : selectedRateLimitSealForModal.decision === RateLimitDecision.QUARANTINED
+                        ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                        : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                  }`}>
+                    {selectedRateLimitSealForModal.decision}
+                  </span>
+                </div>
+                <div className="text-[11px] text-amber-700 dark:text-amber-300">
+                  Algoritmo Criptográfico: <strong>{selectedRateLimitSealForModal.algorithm}</strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Cliente / ID:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedRateLimitSealForModal.clientId}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Identificador da Regra:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedRateLimitSealForModal.ruleId}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 dark:text-slate-400">Digest Canônico Auditado:</span>
+                  <div className="font-mono text-[10px] text-slate-800 dark:text-slate-200 truncate">
+                    {selectedRateLimitSealForModal.canonicalDigest}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Data de Emissão:</span>
+                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {new Date(selectedRateLimitSealForModal.timestamp).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Assinatura HMAC-SHA256:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[10px] text-amber-600 dark:text-amber-400 break-all mt-1">
+                  {selectedRateLimitSealForModal.hmacSignature}
+                </div>
+              </div>
+
+              {rateLimitSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  rateLimitSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {rateLimitSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {rateLimitSealVerifyResult.isValid ? 'Selo Íntegro e Autêntico' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{rateLimitSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(rateLimitSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRateLimitSealForModal(null);
+                  setRateLimitSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingRateLimitSeal}
+                onClick={() => handleVerifyRateLimitSealSubmit(selectedRateLimitSealForModal.token)}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingRateLimitSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 33.C: Confirmação de Desbloqueio de Quarentena */}
+      {unquarantineModalClient && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Ban className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                Desbloquear Cliente em Quarentena
+              </h3>
+              <button
+                type="button"
+                onClick={() => setUnquarantineModalClient(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 dark:text-slate-300">
+                Tem certeza que deseja revogar o isolamento do cliente <code className="font-mono font-bold text-rose-600 dark:text-rose-400">{unquarantineModalClient.clientId}</code>?
+              </p>
+              <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-200">
+                Esta ação redefinirá o Token Bucket com capacidade máxima e limpará a janela temporal de violações, permitindo novas requisições imediatamente. Um registro auditável WORM será emitido.
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUnquarantineModalClient(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleResetClientSubmit(unquarantineModalClient.clientId)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Confirmar Desbloqueio
               </button>
             </div>
           </div>

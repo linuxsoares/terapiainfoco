@@ -285,7 +285,15 @@ import type {
   VerifySsrfSealDTO,
   VerifySsrfSealResponse,
   SsrfOverviewResponse,
-  SsrfIncident
+  SsrfIncident,
+  EvaluateRateLimitDTO,
+  EvaluateRateLimitResponse,
+  ConfigureRateLimitRuleDTO,
+  ResetClientBucketDTO,
+  VerifyRateLimitSealDTO,
+  VerifyRateLimitSealResponse,
+  AdvancedRateLimitOverviewResponse,
+  RateLimitRuleConfig
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2047,8 +2055,46 @@ export const api = {
 
   async getSsrfIncidents(): Promise<{ success: boolean; incidents: SsrfIncident[] }> {
     return await request<{ success: boolean; incidents: SsrfIncident[] }>('/ssrf-guard/incidents');
+  },
+
+  // 40. Rate Limiting Avançado (Token Bucket + Sliding Window Log - OWASP API4:2023)
+  async getAdvancedRateLimitOverview(): Promise<AdvancedRateLimitOverviewResponse> {
+    return await request<AdvancedRateLimitOverviewResponse>('/advanced-rate-limiter/overview');
+  },
+
+  async evaluateRateLimit(dto: EvaluateRateLimitDTO): Promise<EvaluateRateLimitResponse> {
+    return await request<EvaluateRateLimitResponse>('/advanced-rate-limiter/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async configureRateLimitRule(dto: ConfigureRateLimitRuleDTO): Promise<{ success: boolean; rule: RateLimitRuleConfig; message: string }> {
+    return await request<{ success: boolean; rule: RateLimitRuleConfig; message: string }>('/advanced-rate-limiter/rules/configure', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async resetRateLimitClient(dto: ResetClientBucketDTO): Promise<{ success: boolean; message: string }> {
+    return await request<{ success: boolean; message: string }>('/advanced-rate-limiter/clients/reset', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyRateLimitSeal(dto: VerifyRateLimitSealDTO): Promise<VerifyRateLimitSealResponse> {
+    return await request<VerifyRateLimitSealResponse>('/advanced-rate-limiter/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getRateLimitRules(): Promise<{ success: boolean; rules: RateLimitRuleConfig[] }> {
+    return await request<{ success: boolean; rules: RateLimitRuleConfig[] }>('/advanced-rate-limiter/rules');
   }
 };
+
 
 
 
