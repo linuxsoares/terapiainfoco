@@ -1958,3 +1958,71 @@ export interface DpProjectsResponse {
   total: number;
 }
 
+/**
+ * DTOs para Gestão Segura de Sessões Clínicas e Token Binding DPoP (RFC-001 §4.4 & OWASP ASVS)
+ */
+export interface TerminateSessionDTO {
+  sessionId: string;
+  reason?: string;
+}
+
+export interface TerminateSessionResponse {
+  success: boolean;
+  sessionId: string;
+  proofSeal?: string;
+  message: string;
+}
+
+export interface TerminateAllOtherSessionsDTO {
+  currentSessionId: string;
+  reason?: string;
+}
+
+export interface TerminateAllOtherSessionsResponse {
+  success: boolean;
+  terminatedCount: number;
+  terminatedSessionIds: string[];
+  message: string;
+}
+
+export interface SimulateConcurrentLoginDTO {
+  userId?: string;
+  scenario: 'NEW_UNKNOWN_DEVICE' | 'TOKEN_REPLAY_ATTACK' | 'EXCEED_CONCURRENCY_LIMIT';
+  ipAddress?: string;
+  deviceName?: string;
+}
+
+export interface SimulateConcurrentLoginResponse {
+  success: boolean;
+  actionTaken: 'ALLOWED' | 'REVOKED_OLDER_SESSION' | 'BLOCKED_TOKEN_BINDING_MISMATCH' | 'BLOCKED_CONCURRENCY_LIMIT';
+  session?: import('./models').ClinicalActiveSession;
+  revokedSessionId?: string;
+  proofSeal?: string;
+  message: string;
+}
+
+export interface VerifyDpopBindingDTO {
+  dpopProof: string;
+  httpMethod: string;
+  httpUri: string;
+  accessToken?: string;
+}
+
+export interface VerifyDpopBindingResponse {
+  success: boolean;
+  verification: import('./models').DpopVerificationResult;
+  message: string;
+}
+
+export interface SessionOverviewResponse {
+  success: boolean;
+  overview: import('./models').SessionManagementOverview;
+}
+
+export interface ActiveSessionsListResponse {
+  success: boolean;
+  sessions: import('./models').ClinicalActiveSession[];
+  total: number;
+}
+
+

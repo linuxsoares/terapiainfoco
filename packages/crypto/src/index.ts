@@ -29,6 +29,7 @@ export * from './securePurge';
 export * from './clinicalDid';
 export * from './uebaEngine';
 export * from './differentialPrivacy';
+export * from './tokenBinding';
 
 
 

@@ -223,7 +223,18 @@ import type {
   GenerateDpBenchmarkDTO,
   GenerateDpBenchmarkResponse,
   DpOverviewResponse,
-  DpProjectsResponse
+  DpProjectsResponse,
+  TerminateSessionDTO,
+  TerminateSessionResponse,
+  TerminateAllOtherSessionsDTO,
+  TerminateAllOtherSessionsResponse,
+  SimulateConcurrentLoginDTO,
+  SimulateConcurrentLoginResponse,
+  VerifyDpopBindingDTO,
+  VerifyDpopBindingResponse,
+  SessionOverviewResponse,
+  ActiveSessionsListResponse,
+  SessionRevocationProof
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1724,6 +1735,52 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 33. Gestão Segura de Sessões Clínicas com Revogação Forçada de Dispositivos Concorrentes & DPoP Token Binding (RFC-001 §4.4)
+  async getSessionOverview(userId?: string): Promise<SessionOverviewResponse> {
+    const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+    return await request<SessionOverviewResponse>(`/session-binding/overview${query}`);
+  },
+
+  async getActiveSessions(userId?: string, currentSessionId?: string): Promise<ActiveSessionsListResponse> {
+    const params = new URLSearchParams();
+    if (userId) params.set('userId', userId);
+    if (currentSessionId) params.set('currentSessionId', currentSessionId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return await request<ActiveSessionsListResponse>(`/session-binding/sessions${query}`);
+  },
+
+  async terminateSession(dto: TerminateSessionDTO): Promise<TerminateSessionResponse> {
+    return await request<TerminateSessionResponse>('/session-binding/terminate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async terminateAllOtherSessions(dto: TerminateAllOtherSessionsDTO): Promise<TerminateAllOtherSessionsResponse> {
+    return await request<TerminateAllOtherSessionsResponse>('/session-binding/terminate-others', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateConcurrentLogin(dto: SimulateConcurrentLoginDTO): Promise<SimulateConcurrentLoginResponse> {
+    return await request<SimulateConcurrentLoginResponse>('/session-binding/simulate-concurrent', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyDpopBinding(dto: VerifyDpopBindingDTO): Promise<VerifyDpopBindingResponse> {
+    return await request<VerifyDpopBindingResponse>('/session-binding/verify-dpop', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySessionSeal(sessionId: string): Promise<{ success: boolean; verification: SessionRevocationProof }> {
+    return await request<{ success: boolean; verification: SessionRevocationProof }>(`/session-binding/verify-seal/${encodeURIComponent(sessionId)}`);
   }
 };
 

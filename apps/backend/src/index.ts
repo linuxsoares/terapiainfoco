@@ -30,6 +30,7 @@ import { securePurgeRoutes } from './routes/securePurge';
 import { didRouter } from './routes/clinicalDid';
 import { uebaRouter } from './routes/ueba';
 import { dpRouter } from './routes/differentialPrivacy';
+import { sessionBindingRoute } from './routes/sessionBinding';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -156,6 +157,7 @@ app.route('/api/purge', securePurgeRoutes);
 app.route('/api/did', didRouter);
 app.route('/api/ueba', uebaRouter);
 app.route('/api/differential-privacy', dpRouter);
+app.route('/api/session-binding', sessionBindingRoute);
 
 
 
