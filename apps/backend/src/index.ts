@@ -43,6 +43,7 @@ import { tlsPinningRouter } from './routes/tlsPinning';
 import devicePostureRouter from './routes/devicePosture';
 import pqcHybridRouter from './routes/pqcHybrid';
 import { blindSignaturesRouter } from './routes/blindSignatures';
+import { sideChannelRouter } from './routes/sideChannel';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -182,6 +183,7 @@ app.route('/api/tls-pinning', tlsPinningRouter);
 app.route('/api/device-posture', devicePostureRouter);
 app.route('/api/pqc-hybrid', pqcHybridRouter);
 app.route('/api/blind-signatures', blindSignaturesRouter);
+app.route('/api/side-channel', sideChannelRouter);
 
 
 

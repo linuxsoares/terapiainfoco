@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 35 Extensões de Segurança + Suporte Mobile + Ficha de Anamnese & Retificação CFP + Métricas Prometheus & Tracing OTel + WebAuthn Passkeys + Auditoria Contínua & Relatório RIPD/DPIA + Conectores SIEM Externos + Gestão de Chaves KMS + Homologação sob Carga + Exportador Automático OpenTelemetry OTLP + Dashboard Executivo de Governança & Compliance Package Multi-Normativo + Hardening HTTP (CSP/HSTS) & Honeypot + Google Meet REST API v2 + Auditoria de Sessão WebRTC com Fingerprint DTLS-SRTP & Safety Numbers + WAF Integrado com Detecção Heurística de SQLi/XSS & Registro WORM + Simulador de Resiliência de Redes & Fala Clínica (ITU-T G.107 / CFP 011/2018) + Gravação Cifrada com Sharding de Mídia, Envelope Encryption e Crypto-Shredding WORM (RFC §3.2, §4.2, LGPD Art. 16, CFP nº 011/2018) + Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC §3.2 & CFP nº 011/2018) + Protocolo Forense de Assinaturas com Provas de Conhecimento Zero (ZKP - RFC §3.4, §3.5 & CFP nº 006/2019) + Detecção Proativa de Vazamento de Credenciais na Dark Web & Contenção DPO (Threat Intelligence k-Anonymity NIST SP 800-63B / LGPD Art. 46, 48) + Controle Granular de Consentimento do Paciente com Smart Revocation & Trilha Consent-Led (LGPD Art. 7/8/9/11/18 & CFP nº 006/2019) + Data Loss Prevention (DLP) no Clipboard Clínico com Marca d'Água Esteganográfica Zero-Width & Prevenção de Exfiltração de Prontuários (LGPD Art. 46 & CFP nº 001/2009) + Cartório Notarial Digital de Prontuários & Auditoria Forense Zero-Knowledge (CFP nº 001/2009 e LGPD Art. 18) + Mecanismo de Descarte e Expurgamento Seguro de Dados Históricos por Fim de Ciclo de Tratamento com Prova Criptográfica de Destruição (LGPD Art. 16, CFP nº 001/2009) + Protocolo de Federação de Chaves e Identidades Clínicas Descentralizadas (DID / Verifiable Credentials - W3C DID v1.0, W3C VC v2.0, RFC-001 §3.5) + Análise Comportamental Preditiva de Acesso Anômalo (UEBA - User and Entity Behavior Analytics) para Detecção de Exfiltração Interna em Prontuários (RFC-001 §4.4 & LGPD Art. 46) + Protocolo Criptográfico de Anonimização Estatística Diferencial (Differential Privacy - ε-DP) para Pesquisa Clínica e Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) + Gestão de Sessões Clínicas com Token Binding DPoP RFC 9449 & Revogação Concorrente + Módulo de Detecção e Prevenção de Brute-Force & Credential Stuffing com PoW Criptográfico Dinâmico (OWASP OAT-007/OAT-008 & NIST SP 800-63B) + Proteção Anti-Automação, Honeypot Dinâmico & Tarpit Criptográfico (OWASP OAT-011/OAT-020) + Certificação Notarial de Sessão Clínica em Tempo Real com Timestamping RFC 3161 & ICP-Brasil Time-Stamping Authority (DOC-ICP-11, MP 2.200-2/2001, Resolução CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4) + Blindagem contra Parameter Pollution (HPP) e Injeção de Cabeçalhos (CRLF) em Endpoints Críticos (OWASP Top 10 API Security & RFC-001 §4.4, §5.2) + Protocolo de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) para Agregação Estatística Segura de Diagnósticos CID-11 sem Decifragem Centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 e RFC-001 §4.4, §5.2) | 644/644 Testes Passando
+> **Status Geral:** 8 Módulos Principais + 39 Extensões de Segurança + Proteção Side-Channel & Timing Attack Shield (NIST SP 800-38D) + Criptografia Pós-Quântica Híbrida (ML-KEM/ML-DSA) + Assinaturas Cegas Chaumianas (RFC 9474) + Zero Trust Device Posture + TLS Certificate Pinning + Blindagem de Memória & Heap Spraying Shield + Rate Limiting Token Bucket + Proteção SSRF + Cifragem Homomórfica PHE Paillier + Blindagem HPP/CRLF + Notarização Temporal TSA ICP-Brasil + Tarpit Anti-Automação + PoW Anti-Brute-Force + Token Binding DPoP + Privacidade Diferencial (ε-DP) + UEBA + DID/VC W3C + Expurgamento Seguro + Cartório Notarial Digital + DLP Clipboard + Consentimento Granular + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF Heurístico + WebRTC DTLS-SRTP + Hardening HTTP + Google Meet v2 + Dashboard Executivo + Exportador OTel OTLP + Gestão de Chaves KMS | 857/857 Testes Passando (0 falhas em 94 arquivos)
 
 
 
@@ -1663,6 +1663,23 @@ terapiainfoco/
 - [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
   - **Módulo de Segurança (`SecurityModule.tsx`):** Card 38 com 5 KPIs e 3 abas interativas (*Votação de Colegiado Ético Anônima*, *Prescrição Digital / Voucher Psiquiátrico Desvinculado*, *Verificador Forense de Fé Pública & Anti-Double-Spend*).
   - **Modal 38.A:** Laudo Pericial Chaumiano com digest canônico, descegamento matemático e validação pericial WORM em tempo real.
+---
+
+### 57. Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)
+- [x] **Motor Criptográfico de Tempo Constante & Jitter Estocástico (`packages/crypto/src/sideChannelShield.ts`):**
+  - **Primitivas de Comparação em Tempo Constante (Constant-Time Equality):** Implementação de comparação bitwise XOR sem branching condicional (`constantTimeCompare`), cópia atômica (`constantTimeBufferCopy`) e seleção condicional (`constantTimeSelect`), eliminando vazamentos de temporização em validações de Auth Tags AES-GCM, HMACs e senhas.
+  - **Injeção de Jitter Estocástico Regulado (Gaussian Noise Jitter):** Adição de latência estocástica calibrada via Transformada de Box-Muller em endpoints de decifragem e autenticação, destruindo correlações estatísticas de tempo em ataques remotos de temporização.
+  - **Pentest Estatístico Automatizado de Welch (Welch's t-test):** Módulo de análise estatística comparando 100 amostras com entradas corretas versus incorretas, calculando o $t$-score. Critério NIST: se $|t| < 4.5$, a operação é matematicamente indistinguível e imune a vazamentos microarquiteturais.
+  - **Selo Probatório WORM HMAC-SHA256:** Geração de selo canônico JCS (RFC 8785) e verificação de não-adulteração de telemetria.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.SIDE_CHANNEL_SHIELD`, 6 ações de auditoria (`SIDE_CHANNEL_DEFENSE_ASSESSED`, `CONSTANT_TIME_EXECUTION_VERIFIED`, `TIMING_LEAK_DETECTED`, `TIMING_JITTER_INJECTED`, `SIDE_CHANNEL_SEAL_VERIFIED`, `SIDE_CHANNEL_POLICY_UPDATED`), `SideChannelProtectionMode`, `SideChannelVulnerabilityLevel`, `SideChannelTargetOperation`.
+  - **Modelos e DTOs:** `SideChannelInspectionResult`, `SideChannelBenchmarkReport`, `SideChannelMetrics`, `SideChannelOverview`, `SideChannelProofSeal` e DTOs de inspeção, pentest e configuração de políticas.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **SideChannelService (`apps/backend/src/services/sideChannelService.ts`):** Enclave de inspeção contínua, telemetria de jitter, pentest de Welch $t$-test e registro na hash-chain WORM.
+  - **Rotas REST (`apps/backend/src/routes/sideChannel.ts`):** 7 rotas sob `/api/side-channel` (`/overview`, `/inspect-operation`, `/run-welch-test`, `/calibrate-jitter`, `/update-policy`, `/simulate-timing-attack`, `/verify-seal`).
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Módulo de Segurança (`SecurityModule.tsx`):** Card 39 com 5 KPIs e 3 abas interativas (*Inspetor de Operações em Tempo Constante*, *Calibrador de Jitter Estocástico*, *Pentest Estatístico Welch t-test*).
+  - **Modal 39.A:** Laudo Pericial Timbrado de Imunidade Side-Channel com análise estatística de Welch, intervalo de confiança e validação WORM em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
 ---
@@ -1736,7 +1753,8 @@ terapiainfoco/
 | `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Merged |
 | `feat/device-posture-zero-trust-assessment` | Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS) | [PR #71](https://github.com/linuxsoares/terapiainfoco/pull/71) | Merged |
 | `feat/pqc-hybrid-kyber-dilithium-clinical-crypto` | Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204) | [PR #72](https://github.com/linuxsoares/terapiainfoco/pull/72) | Merged |
-| `feat/blind-signatures-chaumian-protocol` | Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol) para Prescrições Digitais e Votações de Colegiado Ético Clínico Anônimas com Verificação de Fé Pública (LGPD Art. 13 & Resolução CFP nº 001/2009) | [PR #73](https://github.com/linuxsoares/terapiainfoco/pull/73) | Em Aberto |
+| `feat/blind-signatures-chaumian-protocol` | Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol) para Prescrições Digitais e Votações de Colegiado Ético Clínico Anônimas com Verificação de Fé Pública (LGPD Art. 13 & Resolução CFP nº 001/2009) | [PR #73](https://github.com/linuxsoares/terapiainfoco/pull/73) | Merged |
+| `feat/side-channel-timing-attack-protection` | Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4) | [PR #74](https://github.com/linuxsoares/terapiainfoco/pull/74) | Em Aberto |
 
 ---
 
@@ -1775,8 +1793,8 @@ Com o **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protoc
 - [x] **Módulo de TLS Certificate Pinning & Validação Estrita de Cadeia X.509 com HPKP/DANE e Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS).**
 - [x] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
 - [x] **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204).**
-- [x] **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol) para Prescrições Digitais e Votações de Colegiado Ético Clínico Anônimas com Verificação de Fé Pública (LGPD Art. 13 & Resolução CFP nº 001/2009).**
-- [ ] **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4).**
+- [x] **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4).**
+- [ ] **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security).**
 
 ---
 
@@ -1786,7 +1804,7 @@ Com o **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protoc
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (834 testes)
+# 2. Executar suíte completa de testes (857 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

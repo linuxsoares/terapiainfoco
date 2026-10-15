@@ -2852,6 +2852,86 @@ export interface BlindSignaturesOverviewResponse {
   overview: import('./models').BlindSignatureOverview;
 }
 
+// ============================================================================
+// DTOs e Responses: Proteção contra Side-Channel e Timing Attacks
+// ============================================================================
+
+export interface InspectSideChannelDTO {
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  payloadA?: string;
+  payloadB?: string;
+  iterations?: number;
+}
+
+export interface InspectSideChannelResponse {
+  success: boolean;
+  inspection: import('./models').SideChannelInspectionResult;
+  message: string;
+}
+
+export interface RunWelchTestDTO {
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  sampleSize?: number;
+}
+
+export interface RunWelchTestResponse {
+  success: boolean;
+  report: import('./models').SideChannelBenchmarkReport;
+  message: string;
+}
+
+export interface CalibrateJitterDTO {
+  targetLatencyMs: number;
+  varianceMs?: number;
+}
+
+export interface CalibrateJitterResponse {
+  success: boolean;
+  activeJitterTargetMs: number;
+  message: string;
+}
+
+export interface UpdateSideChannelPolicyDTO {
+  protectionMode: import('./enums').SideChannelProtectionMode;
+}
+
+export interface UpdateSideChannelPolicyResponse {
+  success: boolean;
+  protectionMode: import('./enums').SideChannelProtectionMode;
+  message: string;
+}
+
+export interface SimulateTimingAttackDTO {
+  targetOperation: import('./enums').SideChannelTargetOperation;
+  useVulnerableAlgorithm?: boolean;
+}
+
+export interface SimulateTimingAttackResponse {
+  success: boolean;
+  detectedLeak: boolean;
+  welchTScore: number;
+  leakedInformation: string;
+  message: string;
+}
+
+export interface VerifySideChannelSealDTO {
+  sealToken: string;
+}
+
+export interface VerifySideChannelSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').SideChannelProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface SideChannelOverviewResponse {
+  success: boolean;
+  overview: import('./models').SideChannelOverview;
+}
+
+
 
 
 
