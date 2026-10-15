@@ -2577,6 +2577,73 @@ export interface TlsPinningOverviewResponse {
   overview: import('./models').TlsPinningOverview;
 }
 
+/**
+ * 41. AVALIAÇÃO CONTÍNUA DE POSTURA DE DISPOSITIVO ZERO TRUST (NIST SP 800-207 & OWASP MASVS)
+ */
+export interface AssessDevicePostureDTO {
+  deviceId?: string;
+  deviceName?: string;
+  therapistId?: string;
+  telemetry?: Partial<import('./models').DevicePostureTelemetry>;
+  simulatedScenario?: 'COMPLIANT_MAC_WORKSTATION' | 'UNENCRYPTED_DISK_WINDOWS' | 'ROOTED_ANDROID_WITH_FRIDA' | 'EMULATOR_DEVTOOLS_OPEN' | 'OUTDATED_OS_VULNERABLE';
+}
+
+export interface AssessDevicePostureResponse {
+  success: boolean;
+  assessment: import('./models').DevicePostureAssessmentResult;
+  message: string;
+}
+
+export interface QuarantineDeviceDTO {
+  deviceId: string;
+  reason: string;
+}
+
+export interface QuarantineDeviceResponse {
+  success: boolean;
+  device: import('./models').DevicePostureRecord;
+  message: string;
+}
+
+export interface ReleaseDeviceQuarantineDTO {
+  deviceId: string;
+  dpoNotes: string;
+}
+
+export interface ReleaseDeviceQuarantineResponse {
+  success: boolean;
+  device: import('./models').DevicePostureRecord;
+  message: string;
+}
+
+export interface UpdatePosturePolicyDTO {
+  policy: import('./enums').DevicePostureEnforcementPolicy;
+  reason?: string;
+}
+
+export interface UpdatePosturePolicyResponse {
+  success: boolean;
+  policy: import('./enums').DevicePostureEnforcementPolicy;
+  message: string;
+}
+
+export interface VerifyDevicePostureSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyDevicePostureSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').DevicePostureProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface DevicePostureOverviewResponse {
+  success: boolean;
+  overview: import('./models').DevicePostureOverview;
+}
+
 
 
 
