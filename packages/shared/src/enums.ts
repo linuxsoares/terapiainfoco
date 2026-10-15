@@ -195,7 +195,13 @@ export enum AuditAction {
   TARPIT_DEFENSE_ENGAGED = 'TARPIT_DEFENSE_ENGAGED',
   SCRAPER_BLOCKED = 'SCRAPER_BLOCKED',
   SCRAPER_IP_ISOLATED = 'SCRAPER_IP_ISOLATED',
-  TARPIT_QUARANTINE_RELEASED = 'TARPIT_QUARANTINE_RELEASED'
+  TARPIT_QUARANTINE_RELEASED = 'TARPIT_QUARANTINE_RELEASED',
+  // Ações de Certificação Notarial de Sessão Clínica & Carimbo do Tempo RFC 3161 / ICP-Brasil TSA (DOC-ICP-11 / CFP 001/2009)
+  CLINICAL_SESSION_TIMESTAMP_REQUESTED = 'CLINICAL_SESSION_TIMESTAMP_REQUESTED',
+  CLINICAL_SESSION_TIMESTAMP_ISSUED = 'CLINICAL_SESSION_TIMESTAMP_ISSUED',
+  CLINICAL_SESSION_TIMESTAMP_VERIFIED = 'CLINICAL_SESSION_TIMESTAMP_VERIFIED',
+  CLINICAL_SESSION_TIMESTAMP_TAMPERED = 'CLINICAL_SESSION_TIMESTAMP_TAMPERED',
+  TSA_CERTIFICATE_VALIDATED = 'TSA_CERTIFICATE_VALIDATED'
 }
 
 export enum AuditResourceType {
@@ -230,7 +236,8 @@ export enum AuditResourceType {
   DIFFERENTIAL_PRIVACY_ENGINE = 'DIFFERENTIAL_PRIVACY_ENGINE',
   SESSION_MANAGEMENT = 'SESSION_MANAGEMENT',
   BRUTE_FORCE_DEFENSE = 'BRUTE_FORCE_DEFENSE',
-  ANTI_AUTOMATION_TARPIT = 'ANTI_AUTOMATION_TARPIT'
+  ANTI_AUTOMATION_TARPIT = 'ANTI_AUTOMATION_TARPIT',
+  CLINICAL_SESSION_TSA_NOTARY = 'CLINICAL_SESSION_TSA_NOTARY'
 }
 
 /**
@@ -867,6 +874,35 @@ export enum TarpitDefenseStatus {
   ISOLATED = 'ISOLATED',     // IP colocado em quarentena de baixa prioridade por reincidência
   RELEASED = 'RELEASED'      // Quarentena removida com parecer auditado pelo DPO
 }
+
+/**
+ * 34. CERTIFICAÇÃO NOTARIAL DE SESSÃO CLÍNICA & CARIMBO DO TEMPO RFC 3161 / ICP-BRASIL TSA
+ * (DOC-ICP-11, MP 2.200-2/2001, CFP nº 001/2009 e RFC-001 §3.4, §3.5, §4.4)
+ */
+
+export enum TsaAuthorityType {
+  ICP_BRASIL_ACT = 'ICP_BRASIL_ACT',             // Autoridade de Carimbo do Tempo credenciada pelo ITI / ICP-Brasil (DOC-ICP-11)
+  INTERNAL_NOTARY_TSA = 'INTERNAL_NOTARY_TSA',   // TSA corporativa interna de alta tempestividade (RFC 3161)
+  FEDERATED_HEALTH_TSA = 'FEDERATED_HEALTH_TSA'  // Autoridade notarial da federação interoperável em saúde mental
+}
+
+export enum TimestampVerificationStatus {
+  VALID = 'VALID',                                     // Carimbo do tempo íntegro, autêntico e tempestivo
+  HASH_MISMATCH = 'HASH_MISMATCH',                     // O digest dos dados da sessão difere do MessageImprint
+  NONCE_MISMATCH = 'NONCE_MISMATCH',                   // Nonce não corresponde ao desafio original (ataque de replay)
+  SIGNATURE_INVALID = 'SIGNATURE_INVALID',             // Assinatura digital da TSA violada ou corrompida
+  EXPIRED_TSA_CERTIFICATE = 'EXPIRED_TSA_CERTIFICATE', // Certificado digital da TSA expirado no momento da validação
+  UNAUTHORIZED_POLICY = 'UNAUTHORIZED_POLICY'          // Política de carimbo (OID) não autorizada
+}
+
+export enum TimestampTamperType {
+  NONE = 'NONE',
+  CORRUPT_IMPRINT = 'CORRUPT_IMPRINT',
+  ALTER_TIMESTAMP = 'ALTER_TIMESTAMP',
+  TAMPER_NONCE = 'TAMPER_NONCE',
+  INVALID_SIGNATURE = 'INVALID_SIGNATURE'
+}
+
 
 
 
