@@ -51,7 +51,11 @@ import {
   HppSeverityLevel,
   Cid11Category,
   HomomorphicSecurityLevel,
-  HomomorphicCohortStatus
+  HomomorphicCohortStatus,
+  SsrfAttackCategory,
+  SsrfDefensePolicy,
+  SsrfSeverityLevel,
+  WebhookConnectorType
 } from './enums';
 import type { EncryptedPayload } from './crypto';
 
@@ -2326,6 +2330,94 @@ export interface HomomorphicOverview {
     details: string;
   }>;
 }
+
+/**
+ * 37. PROTEÇÃO AVANÇADA CONTRA SSRF E DNS REBINDING EM WEBHOOKS E CONECTORES EXTERNOS
+ * (OWASP Top 10 API Security API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)
+ */
+
+export interface SsrfInspectionResult {
+  isSafe: boolean;
+  targetUrl: string;
+  normalizedUrl: string;
+  parsedHost: string;
+  parsedPort: number;
+  parsedProtocol: string;
+  resolvedIps: string[];
+  pinnedIp?: string;
+  detectedThreats: SsrfAttackCategory[];
+  severity: SsrfSeverityLevel;
+  actionTaken: SsrfDefensePolicy;
+  dnsRebindingRisk: boolean;
+  dnsTtlSeconds?: number;
+  reason: string;
+  timestamp: string;
+}
+
+export interface WebhookConnectorConfig {
+  id: string;
+  name: string;
+  connectorType: WebhookConnectorType;
+  targetUrl: string;
+  pinnedIp?: string;
+  strictHttpsOnly: boolean;
+  allowedPorts: number[];
+  defensePolicy: SsrfDefensePolicy;
+  status: 'ACTIVE' | 'ISOLATED' | 'BLOCKED';
+  totalInvocations: number;
+  blockedAttempts: number;
+  lastValidatedAt: string;
+}
+
+export interface SsrfIncident {
+  id: string;
+  timestamp: string;
+  sourceIp: string;
+  targetUrl: string;
+  detectedCategories: SsrfAttackCategory[];
+  severity: SsrfSeverityLevel;
+  defensePolicy: SsrfDefensePolicy;
+  blocked: boolean;
+  dnsRebindingAttempt: boolean;
+  resolvedIp?: string;
+  proofSealDigest: string;
+  details: string;
+}
+
+export interface SsrfProofSeal {
+  token: string;
+  incidentId?: string;
+  urlChecked: string;
+  resolvedIps: string[];
+  canonicalDigest: string;
+  hmacSignature: string;
+  timestamp: string;
+  algorithm: string;
+  isSafe: boolean;
+}
+
+export interface SsrfMetrics {
+  totalUrlsInspected: number;
+  totalAttacksBlocked: number;
+  dnsRebindingAttemptsPrevented: number;
+  cloudMetadataProbesBlocked: number;
+  privateSubnetProbesBlocked: number;
+  activeConnectorsProtected: number;
+  activeDefensePolicy: SsrfDefensePolicy;
+}
+
+export interface SsrfOverview {
+  metrics: SsrfMetrics;
+  connectors: WebhookConnectorConfig[];
+  recentIncidents: SsrfIncident[];
+  recentAudits: Array<{
+    id: string;
+    action: string;
+    timestamp: string;
+    details: string;
+  }>;
+}
+
 
 
 

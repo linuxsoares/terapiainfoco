@@ -213,7 +213,13 @@ export enum AuditAction {
   HOMOMORPHIC_COHORT_ENCRYPTED = 'HOMOMORPHIC_COHORT_ENCRYPTED',
   HOMOMORPHIC_AGGREGATION_COMPUTED = 'HOMOMORPHIC_AGGREGATION_COMPUTED',
   HOMOMORPHIC_RESULT_DECRYPTED = 'HOMOMORPHIC_RESULT_DECRYPTED',
-  HOMOMORPHIC_PROOF_VERIFIED = 'HOMOMORPHIC_PROOF_VERIFIED'
+  HOMOMORPHIC_PROOF_VERIFIED = 'HOMOMORPHIC_PROOF_VERIFIED',
+  // Ações de Proteção Avançada contra SSRF e DNS Rebinding (OWASP API8:2023 & ASVS v4.0)
+  SSRF_ATTACK_DETECTED = 'SSRF_ATTACK_DETECTED',
+  SSRF_ATTACK_BLOCKED = 'SSRF_ATTACK_BLOCKED',
+  DNS_REBINDING_DETECTED = 'DNS_REBINDING_DETECTED',
+  EXTERNAL_WEBHOOK_VALIDATED = 'EXTERNAL_WEBHOOK_VALIDATED',
+  SSRF_SEAL_VERIFIED = 'SSRF_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -251,7 +257,8 @@ export enum AuditResourceType {
   ANTI_AUTOMATION_TARPIT = 'ANTI_AUTOMATION_TARPIT',
   CLINICAL_SESSION_TSA_NOTARY = 'CLINICAL_SESSION_TSA_NOTARY',
   HTTP_SECURITY_GUARD = 'HTTP_SECURITY_GUARD',
-  HOMOMORPHIC_ENCRYPTION_ENGINE = 'HOMOMORPHIC_ENCRYPTION_ENGINE'
+  HOMOMORPHIC_ENCRYPTION_ENGINE = 'HOMOMORPHIC_ENCRYPTION_ENGINE',
+  SSRF_PROTECTION_GUARD = 'SSRF_PROTECTION_GUARD'
 }
 
 /**
@@ -970,6 +977,43 @@ export enum HomomorphicCohortStatus {
   DECRYPTED_AUTHORIZED = 'DECRYPTED_AUTHORIZED',
   AUDITED_SEALED = 'AUDITED_SEALED'
 }
+
+/**
+ * 37. PROTEÇÃO AVANÇADA CONTRA SSRF & DNS REBINDING EM WEBHOOKS E CONECTORES EXTERNOS
+ * (OWASP Top 10 API Security API8:2023, OWASP ASVS v4.0 e RFC-001 §4.4, §5.2)
+ */
+
+export enum SsrfAttackCategory {
+  CLOUD_METADATA_EXFILTRATION = 'CLOUD_METADATA_EXFILTRATION',     // Ex: 169.254.169.254 (AWS/GCP/Azure instance metadata)
+  INTERNAL_LOOPBACK_PROBING = 'INTERNAL_LOOPBACK_PROBING',         // Ex: 127.0.0.1, localhost, ::1, 0.0.0.0
+  PRIVATE_SUBNET_RECONNAISSANCE = 'PRIVATE_SUBNET_RECONNAISSANCE', // Ex: RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, CGNAT 100.64.0.0/10)
+  OBFUSCATED_IP_ENCODING = 'OBFUSCATED_IP_ENCODING',               // Ex: Decimal dword (2130706433), Octal (0177.0.0.1), Hex (0x7f000001), IPv6-mapped (::ffff:127.0.0.1)
+  DNS_REBINDING_MANIPULATION = 'DNS_REBINDING_MANIPULATION',       // Ex: Resolução com TTL=0 ou alteração de IP público para IP restrito
+  DANGEROUS_SCHEME_INVOCATION = 'DANGEROUS_SCHEME_INVOCATION',     // Ex: file://, gopher://, dict://, ftp://, ldap://
+  PORT_SCANNING_PROBING = 'PORT_SCANNING_PROBING'                  // Ex: portas de infraestrutura interna restritas (ex: 22, 2375, 6379, 9200, 27017)
+}
+
+export enum SsrfDefensePolicy {
+  STRICT_BLOCK = 'STRICT_BLOCK',                             // Bloqueio imediato com HTTP 403 Forbidden e corte de requisição
+  ALLOW_PINNED_PUBLIC_ONLY = 'ALLOW_PINNED_PUBLIC_ONLY',     // Permite apenas IPs públicos validados e fixados (IP Pinning anti-rebinding)
+  DRY_RUN_AUDIT = 'DRY_RUN_AUDIT'                            // Modo telemetria/auditoria sem bloqueio ativo (para homologação)
+}
+
+export enum SsrfSeverityLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+export enum WebhookConnectorType {
+  EHR_HEALTH_CONNECTOR = 'EHR_HEALTH_CONNECTOR',             // Integração com prontuários eletrônicos externos (Telessaúde)
+  TSA_TIMESTAMP_AUTHORITY = 'TSA_TIMESTAMP_AUTHORITY',       // Autoridade Notarial de Carimbo de Tempo ICP-Brasil
+  PAYMENT_GATEWAY_WEBHOOK = 'PAYMENT_GATEWAY_WEBHOOK',       // Notificações de pagamento e faturamento de consultas
+  TELEMEDICINE_NOTIFICATION = 'TELEMEDICINE_NOTIFICATION',   // Webhooks de telemedicina e salas criptografadas
+  SECURITY_SIEM_FORWARDER = 'SECURITY_SIEM_FORWARDER'        // Exportador de auditoria WORM para SIEM hospitalar
+}
+
 
 
 

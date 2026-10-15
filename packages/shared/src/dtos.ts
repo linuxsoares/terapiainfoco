@@ -2331,6 +2331,58 @@ export interface HomomorphicVerifyProofResponse {
   verifiedAt: string;
 }
 
+/**
+ * 37. DTOs de Proteção Avançada contra SSRF & DNS Rebinding em Webhooks (OWASP API8:2023)
+ */
+
+export interface SimulateSsrfDTO {
+  url: string;
+  connectorType?: import('./enums').WebhookConnectorType;
+  simulateDnsRebinding?: boolean;
+  forcedResolvedIp?: string;
+  defensePolicy?: import('./enums').SsrfDefensePolicy;
+}
+
+export interface SimulateSsrfResponse {
+  success: boolean;
+  inspection: import('./models').SsrfInspectionResult;
+  incident?: import('./models').SsrfIncident;
+  proofSeal?: import('./models').SsrfProofSeal;
+  message: string;
+}
+
+export interface ValidateWebhookUrlDTO {
+  url: string;
+  connectorId?: string;
+  connectorType?: import('./enums').WebhookConnectorType;
+  policy?: import('./enums').SsrfDefensePolicy;
+}
+
+export interface ValidateWebhookUrlResponse {
+  success: boolean;
+  inspection: import('./models').SsrfInspectionResult;
+  proofSeal?: import('./models').SsrfProofSeal;
+  message: string;
+}
+
+export interface VerifySsrfSealDTO {
+  proofSealToken: string;
+}
+
+export interface VerifySsrfSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').SsrfProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface SsrfOverviewResponse {
+  success: boolean;
+  overview: import('./models').SsrfOverview;
+}
+
+
 
 
 
