@@ -251,7 +251,17 @@ import {
   type SideChannelBenchmarkReport,
   type SideChannelProofSeal,
   type SimulateTimingAttackResponse,
-  type VerifySideChannelSealResponse
+  type VerifySideChannelSealResponse,
+  ReplayDefenseMode,
+  ReplayThreatSeverity,
+  ReplayTargetProtocol,
+  type AntiReplayOverview,
+  type ReplayVerificationResult,
+  type SlidingWindowStatus,
+  type AntiReplayProofSeal,
+  type ReplayIncidentRecord,
+  type SimulateReplayAttackResponse,
+  type VerifyAntiReplaySealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -3850,6 +3860,159 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 47. PROTEÇÃO CONTRA ATAQUES DE REPLAY & REUTILIZAÇÃO DE NONCE (RFC 8446, RFC 9147 DTLS 1.3 & OWASP API Security)
+  const [antiReplayOverview, setAntiReplayOverview] = useState<AntiReplayOverview | null>(null);
+  const [loadingAntiReplay, setLoadingAntiReplay] = useState<boolean>(false);
+  const [antiReplayActiveTab, setAntiReplayActiveTab] = useState<'verify' | 'sliding_window' | 'bloom_mitm'>('verify');
+
+  // Aba 1: Verificador de Nonce & Unicidade de IV
+  const [verifyReplayProtocol, setVerifyReplayProtocol] = useState<ReplayTargetProtocol>(ReplayTargetProtocol.WEBRTC_DTLS_SRTP);
+  const [verifyNonceInput, setVerifyNonceInput] = useState<string>('45');
+  const [verifyChannelInput, setVerifyChannelInput] = useState<string>('room_telemedicina_crp06_1');
+  const [verifyKeyIdInput, setVerifyKeyIdInput] = useState<string>('master_kek_v1');
+  const [verifyingNonce, setVerifyingNonce] = useState<boolean>(false);
+  const [lastReplayVerification, setLastReplayVerification] = useState<ReplayVerificationResult | null>(null);
+
+  // Aba 2: Janela Deslizante (RFC 6479)
+  const [selectedChannelForWindow, setSelectedChannelForWindow] = useState<string>('room_telemedicina_crp06_1');
+  const [windowDetailData, setWindowDetailData] = useState<SlidingWindowStatus | null>(null);
+  const [loadingWindowDetail, setLoadingWindowDetail] = useState<boolean>(false);
+  const [replayPolicySelect, setReplayPolicySelect] = useState<ReplayDefenseMode>(ReplayDefenseMode.HYBRID_DEFENSE_WINDOW_PLUS_BLOOM);
+  const [updatingReplayDefensePolicy, setUpdatingReplayDefensePolicy] = useState<boolean>(false);
+
+  // Aba 3: Filtro de Bloom & Simulador de Replay / MITM
+  const [rotatingBloomFilter, setRotatingBloomFilter] = useState<boolean>(false);
+  const [simReplayProtocol, setSimReplayProtocol] = useState<ReplayTargetProtocol>(ReplayTargetProtocol.WEBRTC_DTLS_SRTP);
+  const [simReplaySeq, setSimReplaySeq] = useState<number>(88);
+  const [simReplayIv, setSimReplayIv] = useState<string>('0102030405060708090a0b0c');
+  const [simAttemptReplay, setSimAttemptReplay] = useState<boolean>(true);
+  const [simulatingReplay, setSimulatingReplay] = useState<boolean>(false);
+  const [simReplayResult, setSimReplayResult] = useState<SimulateReplayAttackResponse | null>(null);
+
+  // Modal 40.A: Selo Probatório WORM
+  const [selectedAntiReplaySealForModal, setSelectedAntiReplaySealForModal] = useState<AntiReplayProofSeal | null>(null);
+  const [antiReplayModalIncidentItem, setAntiReplayModalIncidentItem] = useState<ReplayIncidentRecord | null>(null);
+  const [verifyingAntiReplaySeal, setVerifyingAntiReplaySeal] = useState<boolean>(false);
+  const [antiReplaySealVerifyResult, setAntiReplaySealVerifyResult] = useState<VerifyAntiReplaySealResponse | null>(null);
+
+  const fetchAntiReplayData = async () => {
+    try {
+      setLoadingAntiReplay(true);
+      const res = await api.getAntiReplayOverview();
+      if (res.success) {
+        setAntiReplayOverview(res.overview);
+        setReplayPolicySelect(res.overview.activeMode);
+        if (res.overview.activeWindows.length > 0) {
+          setWindowDetailData(res.overview.activeWindows[0]);
+          setSelectedChannelForWindow(res.overview.activeWindows[0].channelId);
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao buscar dados de anti-replay shield:', err);
+    } finally {
+      setLoadingAntiReplay(false);
+    }
+  };
+
+  const handleVerifyNonceSubmit = async () => {
+    try {
+      setVerifyingNonce(true);
+      setLastReplayVerification(null);
+      const res = await api.verifyNonce({
+        targetProtocol: verifyReplayProtocol,
+        nonceOrSeq: verifyNonceInput.trim(),
+        channelId: verifyChannelInput.trim() || undefined,
+        keyId: verifyKeyIdInput.trim() || undefined
+      });
+      setLastReplayVerification(res.result);
+      setFeedback({
+        type: res.result.allowed ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchAntiReplayData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao verificar nonce/sequência.' });
+    } finally {
+      setVerifyingNonce(false);
+    }
+  };
+
+  const handleFetchWindowStatus = async (channelId: string) => {
+    try {
+      setLoadingWindowDetail(true);
+      const res = await api.getSlidingWindowStatus({ channelId });
+      if (res.success) {
+        setWindowDetailData(res.window);
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao consultar estado da janela.' });
+    } finally {
+      setLoadingWindowDetail(false);
+    }
+  };
+
+  const handleRotateBloomFilterSubmit = async () => {
+    try {
+      setRotatingBloomFilter(true);
+      const res = await api.rotateBloomFilter();
+      setFeedback({ type: 'success', message: res.message });
+      await fetchAntiReplayData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao rotacionar filtro de Bloom.' });
+    } finally {
+      setRotatingBloomFilter(false);
+    }
+  };
+
+  const handleUpdateReplayPolicySubmit = async () => {
+    try {
+      setUpdatingReplayDefensePolicy(true);
+      const res = await api.updateReplayPolicy({ mode: replayPolicySelect });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchAntiReplayData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política anti-replay.' });
+    } finally {
+      setUpdatingReplayDefensePolicy(false);
+    }
+  };
+
+  const handleSimulateReplayAttackSubmit = async () => {
+    try {
+      setSimulatingReplay(true);
+      setSimReplayResult(null);
+      const res = await api.simulateReplayAttack({
+        targetProtocol: simReplayProtocol,
+        sequenceNumber: simReplayProtocol === ReplayTargetProtocol.WEBRTC_DTLS_SRTP ? Number(simReplaySeq) : undefined,
+        nonce: simReplayProtocol === ReplayTargetProtocol.AES_GCM_ENVELOPE_IV ? simReplayIv.trim() : undefined,
+        attemptReplay: simAttemptReplay
+      });
+      setSimReplayResult(res);
+      setFeedback({
+        type: res.replayDetected ? 'error' : 'success',
+        message: res.message
+      });
+      await fetchAntiReplayData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de replay.' });
+    } finally {
+      setSimulatingReplay(false);
+    }
+  };
+
+  const handleVerifyAntiReplaySealSubmit = async (token: string) => {
+    try {
+      setVerifyingAntiReplaySeal(true);
+      setAntiReplaySealVerifyResult(null);
+      const res = await api.verifyAntiReplaySeal({ sealToken: token });
+      setAntiReplaySealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório anti-replay.' });
+    } finally {
+      setVerifyingAntiReplaySeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -3881,6 +4044,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchPqcData();
       fetchBlindData();
       fetchSideChannelData();
+      fetchAntiReplayData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -17954,6 +18118,780 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* CARD 40: PROTEÇÃO CONTRA ATAQUES DE REPLAY & REUTILIZAÇÃO DE NONCE/IV (RFC 8446, RFC 9147 DTLS 1.3 & OWASP API SECURITY) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  Módulo 40 • Anti-Replay Shield (RFC 9147 DTLS 1.3 & RFC 6479)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  Sliding Window 64-bit & Rotating Bloom Filter
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Prevenção contra Injeção de Replay & Reutilização Crítica de Nonce/IV Criptográfico
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Validação em tempo real de pacotes UDP/WebRTC fora de ordem com tolerância a jitter de rede via Bitmap de 64 bits (RFC 6479/4303), bloqueio incondicional de duplicatas de IV em AES-GCM (NIST SP 800-38D) e descarte automático por Filtro de Bloom rotativo com persistência WORM.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={loadingAntiReplay}
+                onClick={fetchAntiReplayData}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingAntiReplay ? 'animate-spin' : ''}`} />
+                Sincronizar Shield
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Nonces Avaliados
+              </span>
+              <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                {antiReplayOverview?.metrics.totalVerificationsCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Fluxos inspecionados</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Replays Bloqueados
+              </span>
+              <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                {antiReplayOverview?.metrics.replaysBlockedCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Tentativas neutralizadas</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                IVs Reutilizados Prevenidos
+              </span>
+              <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                {antiReplayOverview?.metrics.nonceReusesBlockedCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Proteção GHASH 800-38D</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Janelas Ativas
+              </span>
+              <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Radio className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                {antiReplayOverview?.metrics.activeSlidingWindowsCount ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Canais WebRTC / DTLS</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Modo de Operação
+              </span>
+              <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
+                <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                {antiReplayOverview?.activeMode === ReplayDefenseMode.HYBRID_DEFENSE_WINDOW_PLUS_BLOOM
+                  ? 'HÍBRIDO (RFC+BLOOM)'
+                  : antiReplayOverview?.activeMode ?? 'STRICT'}
+              </div>
+              <span className="text-[10px] text-slate-500">Enclave Ativo</span>
+            </div>
+          </div>
+
+          {/* Abas Internas */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
+            <button
+              type="button"
+              onClick={() => setAntiReplayActiveTab('verify')}
+              className={`pb-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                antiReplayActiveTab === 'verify'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              1. Verificador de Nonce & Unicidade de IV
+            </button>
+            <button
+              type="button"
+              onClick={() => setAntiReplayActiveTab('sliding_window')}
+              className={`pb-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                antiReplayActiveTab === 'sliding_window'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              2. Telemetria da Janela Deslizante (RFC 6479) & Bitmap
+            </button>
+            <button
+              type="button"
+              onClick={() => setAntiReplayActiveTab('bloom_mitm')}
+              className={`pb-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                antiReplayActiveTab === 'bloom_mitm'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              3. Filtro de Bloom Rotativo & Simulador de Replay / MITM
+            </button>
+          </div>
+
+          {/* ABA 1: VERIFICADOR DE NONCE & UNICIDADE DE IV */}
+          {antiReplayActiveTab === 'verify' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-950 dark:text-indigo-200 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  Inspeção Estrita de Unicidade e Linearidade Monotônica
+                </div>
+                <p className="text-[11px] leading-relaxed text-indigo-900/80 dark:text-indigo-300/80">
+                  Valide a integridade temporal de números de sequência WebRTC DTLS-SRTP (RFC 9147 §4.2), vetores de inicialização (IV de 96 bits) em AES-GCM (NIST SP 800-38D §8) ou nonces de tokens DPoP/HTTP. Duplicatas ou retrocessos além do limite da janela são sumariamente descartados.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Form de Verificação */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Parâmetros do Fluxo Criptográfico
+                  </h4>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Protocolo / Vetor de Comunicação
+                    </label>
+                    <select
+                      value={verifyReplayProtocol}
+                      onChange={(e) => setVerifyReplayProtocol(e.target.value as ReplayTargetProtocol)}
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value={ReplayTargetProtocol.WEBRTC_DTLS_SRTP}>WebRTC DTLS-SRTP (RFC 6479 Sliding Window)</option>
+                      <option value={ReplayTargetProtocol.AES_GCM_ENVELOPE_IV}>Envelope Criptográfico AES-256-GCM (NIST SP 800-38D IV)</option>
+                      <option value={ReplayTargetProtocol.DPOP_HTTP_TOKEN}>Token de Posse DPoP HTTP (RFC 9449 Nonce)</option>
+                      <option value={ReplayTargetProtocol.CHAUMIAN_VOUCHER_NULLIFIER}>Nullifier de Voucher Chaumiano (Zero-Knowledge)</option>
+                      <option value={ReplayTargetProtocol.REST_API_REQUEST}>Assinatura HMAC de Requisição REST</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      {verifyReplayProtocol === ReplayTargetProtocol.WEBRTC_DTLS_SRTP
+                        ? 'Número de Sequência DTLS/SRTP (Uint64)'
+                        : 'Nonce / Hexadecimal IV'}
+                    </label>
+                    <input
+                      type="text"
+                      value={verifyNonceInput}
+                      onChange={(e) => setVerifyNonceInput(e.target.value)}
+                      placeholder={verifyReplayProtocol === ReplayTargetProtocol.WEBRTC_DTLS_SRTP ? 'Ex: 45' : 'Ex: 0102030405060708090a0b0c'}
+                      className="w-full text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
+
+                  {verifyReplayProtocol === ReplayTargetProtocol.WEBRTC_DTLS_SRTP && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        ID da Sala / Canal DTLS
+                      </label>
+                      <input
+                        type="text"
+                        value={verifyChannelInput}
+                        onChange={(e) => setVerifyChannelInput(e.target.value)}
+                        placeholder="Ex: room_telemedicina_crp06_1"
+                        className="w-full text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      />
+                    </div>
+                  )}
+
+                  {verifyReplayProtocol === ReplayTargetProtocol.AES_GCM_ENVELOPE_IV && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        ID da Chave Mestre (KEK / Key ID)
+                      </label>
+                      <input
+                        type="text"
+                        value={verifyKeyIdInput}
+                        onChange={(e) => setVerifyKeyIdInput(e.target.value)}
+                        placeholder="Ex: master_kek_v1"
+                        className="w-full text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={verifyingNonce}
+                    onClick={handleVerifyNonceSubmit}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    {verifyingNonce ? 'Inspecionando no Enclave...' : 'Avaliar Nonce em Tempo Real'}
+                  </button>
+                </div>
+
+                {/* Resultado da Avaliação */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                      Diagnóstico Probatório do Enclave
+                    </h4>
+
+                    {lastReplayVerification ? (
+                      <div className="space-y-3">
+                        <div className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+                          lastReplayVerification.allowed
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {lastReplayVerification.allowed ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                            )}
+                            <span>{lastReplayVerification.allowed ? 'PACOTE VÁLIDO E ACEITO' : 'REPLAY / DUPLICATA DETECTADA'}</span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/60 dark:bg-slate-900/60">
+                            {lastReplayVerification.severity}
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Fundamento Criptográfico</span>
+                            <p className="text-slate-800 dark:text-slate-200 font-medium text-[11px]">
+                              {lastReplayVerification.reason}
+                            </p>
+                          </div>
+
+                          {lastReplayVerification.slidingWindowPosition && (
+                            <div>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">Janela Deslizante RFC 6479</span>
+                              <p className="text-slate-600 dark:text-slate-400 text-[11px] font-mono">
+                                Seq: {lastReplayVerification.slidingWindowPosition.sequenceNumber} • Máx: {lastReplayVerification.slidingWindowPosition.highestSequence} • Na Janela: {lastReplayVerification.slidingWindowPosition.inWindow ? 'SIM' : 'NÃO'}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+                            <div>
+                              <span className="text-slate-400">Nonce / Sequência:</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300 block truncate">
+                                {lastReplayVerification.nonceOrSeq}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Data / Timestamp:</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300 block truncate">
+                                {new Date(lastReplayVerification.evaluatedAt).toLocaleTimeString('pt-BR')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {lastReplayVerification.proofSeal && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAntiReplaySealForModal(lastReplayVerification.proofSeal!);
+                              setAntiReplayModalIncidentItem(null);
+                            }}
+                            className="w-full py-2 rounded-xl bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
+                          >
+                            <FileCheck2 className="w-3.5 h-3.5 text-indigo-400" />
+                            Exibir Selo Probatório WORM (HMAC-SHA256)
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-slate-400 text-xs">
+                        Insira os parâmetros ao lado e acione a avaliação para inspecionar os bitmaps da janela deslizante e filtros de Bloom.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ABA 2: TELEMETRIA DA JANELA DESLIZANTE (RFC 6479) & BITMAP */}
+          {antiReplayActiveTab === 'sliding_window' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 text-xs text-teal-950 dark:text-teal-200 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Radio className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  Mapeamento de Bits da Janela de 64 Bits (RFC 6479 & RFC 4303)
+                </div>
+                <p className="text-[11px] leading-relaxed text-teal-900/80 dark:text-teal-300/80">
+                  Em redes UDP/WebRTC, pacotes de áudio e vídeo podem chegar fora de ordem por variação de rota (jitter). A janela deslizante armazena os últimos 64 pacotes num bitmap em memória: pacotes mais novos avançam a janela com deslocamento aritmético de bits; pacotes dentro do raio de 64 são checados e marcados; pacotes já vistos ou mais antigos que a janela são sumariamente descartados sem quebrar o fluxo.
+                </p>
+              </div>
+
+              {/* Seletor de Canal */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Canal DTLS Monitorado:
+                  </span>
+                  <select
+                    value={selectedChannelForWindow}
+                    onChange={(e) => {
+                      setSelectedChannelForWindow(e.target.value);
+                      handleFetchWindowStatus(e.target.value);
+                    }}
+                    className="text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-slate-800 dark:text-slate-200 w-full sm:w-64"
+                  >
+                    {(antiReplayOverview?.activeWindows || []).map((w) => (
+                      <option key={w.channelId} value={w.channelId}>
+                        {w.channelId} (MaxSeq: {w.highestSequenceNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={loadingWindowDetail}
+                  onClick={() => handleFetchWindowStatus(selectedChannelForWindow)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingWindowDetail ? 'animate-spin' : ''}`} />
+                  Recarregar Bitmap
+                </button>
+              </div>
+
+              {/* Cards de Métricas da Janela */}
+              {windowDetailData && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Maior Sequência (M)
+                    </span>
+                    <div className="text-lg font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      {windowDetailData.highestSequenceNumber}
+                    </div>
+                    <span className="text-[10px] text-slate-500">Topo da janela móvel</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Pacotes Aceitos
+                    </span>
+                    <div className="text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      {windowDetailData.packetsAccepted}
+                    </div>
+                    <span className="text-[10px] text-slate-500">Sequência & Jitter OK</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Replays Bloqueados
+                    </span>
+                    <div className="text-lg font-mono font-bold text-rose-600 dark:text-rose-400">
+                      {windowDetailData.packetsReplayed}
+                    </div>
+                    <span className="text-[10px] text-slate-500">Bits duplicados</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Expirados (Too Old)
+                    </span>
+                    <div className="text-lg font-mono font-bold text-amber-600 dark:text-amber-400">
+                      {windowDetailData.packetsOutOfWindow}
+                    </div>
+                    <span className="text-[10px] text-slate-500">Atraso &gt; 64 pacotes</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Visualizador Hexadecimal e Mapa de Bits */}
+              {windowDetailData && (
+                <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-slate-300 flex items-center gap-2">
+                      <Binary className="w-4 h-4 text-teal-400" />
+                      Bitmap da Janela RFC 6479: {windowDetailData.bitmapHex}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Janela: 64 bits • Limite Inferior: {Math.max(0, windowDetailData.highestSequenceNumber - 63)}
+                    </span>
+                  </div>
+
+                  {/* Representação Gráfica dos 64 Bits */}
+                  <div>
+                    <div className="grid grid-cols-16 sm:grid-cols-32 gap-1 py-1">
+                      {Array.from({ length: 64 }).map((_, idx) => {
+                        const bitVal = (() => {
+                          try {
+                            const b = BigInt(windowDetailData.bitmapHex);
+                            return (b & (BigInt(1) << BigInt(idx))) !== BigInt(0);
+                          } catch {
+                            return false;
+                          }
+                        })();
+                        return (
+                          <div
+                            key={idx}
+                            title={`Offset -${idx} (Seq: ${windowDetailData.highestSequenceNumber - idx}): ${bitVal ? 'Recebido (1)' : 'Aguardando / Não recebido (0)'}`}
+                            className={`h-4 rounded-sm text-[8px] font-mono flex items-center justify-center font-bold transition-colors ${
+                              bitVal
+                                ? 'bg-emerald-500 text-slate-950 shadow-xs'
+                                : 'bg-slate-800 text-slate-500 border border-slate-700/50'
+                            }`}
+                          >
+                            {bitVal ? '1' : '0'}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+                      <span>Bit 0 (Seq Max: {windowDetailData.highestSequenceNumber})</span>
+                      <span>Bit 63 (Seq Min: {Math.max(0, windowDetailData.highestSequenceNumber - 63)})</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Configuração da Política Operacional */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Política Operacional de Defesa Anti-Replay
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Modo Operacional do Enclave Criptográfico
+                    </label>
+                    <select
+                      value={replayPolicySelect}
+                      onChange={(e) => setReplayPolicySelect(e.target.value as ReplayDefenseMode)}
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200 font-medium"
+                    >
+                      <option value={ReplayDefenseMode.HYBRID_DEFENSE_WINDOW_PLUS_BLOOM}>
+                        HYBRID: Janela Deslizante 64-bit + Filtro de Bloom Rotativo (Recomendado)
+                      </option>
+                      <option value={ReplayDefenseMode.STRICT_SLIDING_WINDOW}>
+                        STRICT: Janela Deslizante Estrita RFC 6479 (Descarte imediato de atraso &gt; 64)
+                      </option>
+                      <option value={ReplayDefenseMode.BLOOM_FILTER_EXPIRING}>
+                        BLOOM ONLY: Filtro de Bloom Rotativo com Expiração Temporal
+                      </option>
+                      <option value={ReplayDefenseMode.MONITORING_ONLY}>
+                        MONITORING ONLY: Apenas Telemetria e Alertas (Sem descarte de pacotes)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      disabled={updatingReplayDefensePolicy}
+                      onClick={handleUpdateReplayPolicySubmit}
+                      className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      {updatingReplayDefensePolicy ? 'Aplicando...' : 'Atualizar Política'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ABA 3: FILTRO DE BLOOM ROTATIVO & SIMULADOR DE REPLAY / MITM */}
+          {antiReplayActiveTab === 'bloom_mitm' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 text-xs text-amber-950 dark:text-amber-200 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Filter className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  Filtro de Bloom Rotativo de 2 Gerações (Kirsch-Mitzenmacher Double Hashing)
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-900/80 dark:text-amber-300/80">
+                  Para tokens de API (DPoP) e Nullifiers Chaumianos onde não há canal sequencial fixo, o Filtro de Bloom rotativo armazena nonces vistos com complexidade O(1) e taxa teórica de falso positivo Pfp &lt; 0.1%. A cada janela de tempo, o filtro anterior é descartado e o atual vira legado, garantindo rotação perpétua de memória sem vazamentos.
+                </p>
+              </div>
+
+              {/* Métricas do Filtro de Bloom */}
+              {antiReplayOverview && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Capacidade Máxima
+                    </span>
+                    <div className="text-base font-bold text-slate-900 dark:text-white">
+                      {antiReplayOverview.bloomMetrics.capacity.toLocaleString('pt-BR')} itens
+                    </div>
+                    <span className="text-[10px] text-slate-500">Tamanho do bitset</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Elementos Armazenados
+                    </span>
+                    <div className="text-base font-bold text-indigo-600 dark:text-indigo-400">
+                      {antiReplayOverview.bloomMetrics.elementCount} nonces
+                    </div>
+                    <span className="text-[10px] text-slate-500">Geração {antiReplayOverview.bloomMetrics.activeGeneration}</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Falso Positivo Teórico
+                    </span>
+                    <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                      {(antiReplayOverview.bloomMetrics.falsePositiveProbability * 100).toFixed(4)}%
+                    </div>
+                    <span className="text-[10px] text-slate-500">Pfp &lt; 0.001</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                      Saturação do Bitset
+                    </span>
+                    <div className="text-base font-bold text-teal-600 dark:text-teal-400">
+                      {antiReplayOverview.bloomMetrics.saturationPercentage.toFixed(2)}%
+                    </div>
+                    <span className="text-[10px] text-slate-500">Taxa de preenchimento</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Botão de Rotação Manual */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={rotatingBloomFilter}
+                  onClick={handleRotateBloomFilterSubmit}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${rotatingBloomFilter ? 'animate-spin' : ''}`} />
+                  {rotatingBloomFilter ? 'Rotacionando...' : 'Rotacionar Filtro de Bloom Manualmente'}
+                </button>
+              </div>
+
+              {/* Simulador de Replay / Pentest MITM */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    Simulador Interativo de Ataque de Replay & MITM
+                  </h4>
+                  <span className="text-[10px] px-2 py-0.5 rounded font-mono bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                    Pentest Automatizado
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Protocolo Simulado
+                    </label>
+                    <select
+                      value={simReplayProtocol}
+                      onChange={(e) => setSimReplayProtocol(e.target.value as ReplayTargetProtocol)}
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value={ReplayTargetProtocol.WEBRTC_DTLS_SRTP}>WebRTC DTLS-SRTP (Janela 64 bits)</option>
+                      <option value={ReplayTargetProtocol.AES_GCM_ENVELOPE_IV}>Envelope AES-GCM (Detecção de IV Reuse)</option>
+                    </select>
+                  </div>
+
+                  {simReplayProtocol === ReplayTargetProtocol.WEBRTC_DTLS_SRTP ? (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        Número de Sequência Alvo
+                      </label>
+                      <input
+                        type="number"
+                        value={simReplaySeq}
+                        onChange={(e) => setSimReplaySeq(Number(e.target.value))}
+                        className="w-full text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                        IV do Envelope (Hexadecimal)
+                      </label>
+                      <input
+                        type="text"
+                        value={simReplayIv}
+                        onChange={(e) => setSimReplayIv(e.target.value)}
+                        className="w-full text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-800 dark:text-slate-200"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 pb-2">
+                      <input
+                        type="checkbox"
+                        checked={simAttemptReplay}
+                        onChange={(e) => setSimAttemptReplay(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600"
+                      />
+                      <span>Injetar Replay Malicioso (Duplicata)</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      disabled={simulatingReplay}
+                      onClick={handleSimulateReplayAttackSubmit}
+                      className="w-full py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      {simulatingReplay ? 'Executando Ataque...' : 'Executar Teste de Injeção'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Relatório de Impacto da Simulação */}
+                {simReplayResult && (
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {simReplayResult.replayDetected ? (
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        )}
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {simReplayResult.replayDetected
+                            ? 'DEFESA ANTI-REPLAY BEM-SUCEDIDA (ATAQUE NEUTRALIZADO)'
+                            : 'PRIMEIRO ENVIO REGISTRADO COM SUCESSO'}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                        simReplayResult.replayDetected
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                          : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      }`}>
+                        {simReplayResult.replayDetected ? 'REPLAY_BLOCKED' : 'PACKET_ACCEPTED'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                      {simReplayResult.message}
+                    </p>
+
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      {simReplayResult.explanation}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TABELA DE AUDITORIA DE INCIDENTES RECENTES (WORM) */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <ScrollText className="w-4 h-4 text-slate-500" />
+                Trilha Forense Imutável de Tentativas de Replay & Detecção de Nonce Reuse
+              </h4>
+              <span className="text-[10px] font-mono text-slate-400">
+                Retenção WORM • RFC 8785 Canonical JCS
+              </span>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3">Data / Hora</th>
+                    <th className="p-3">Protocolo</th>
+                    <th className="p-3">Nonce / Sequência</th>
+                    <th className="p-3">Severidade</th>
+                    <th className="p-3">Ação Tomada</th>
+                    <th className="p-3">Origem</th>
+                    <th className="p-3 text-right">Laudo Pericial</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                  {(antiReplayOverview?.recentIncidents || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                        Nenhum incidente de replay registrado até o momento. Todos os pacotes e nonces mantêm linearidade monotônica estrita.
+                      </td>
+                    </tr>
+                  ) : (
+                    (antiReplayOverview?.recentIncidents || []).map((inc) => (
+                      <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="p-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                          {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {inc.protocol}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
+                          {inc.nonceOrSeq}
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            inc.severity === ReplayThreatSeverity.CRITICAL_NONCE_REUSE
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                              : inc.severity === ReplayThreatSeverity.DUPLICATE_REPLAY_DETECTED
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              : inc.severity === ReplayThreatSeverity.OUT_OF_WINDOW_EXPIRED
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          }`}>
+                            {inc.severity}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[11px]">
+                          {inc.actionTaken === 'BLOCKED' ? (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold">DESCARTE (BLOCKED)</span>
+                          ) : inc.actionTaken === 'ACCEPTED' ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">ACEITO (ACCEPTED)</span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">{inc.actionTaken}</span>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-500">
+                          {inc.sourceIp}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAntiReplayModalIncidentItem(inc);
+                              setSelectedAntiReplaySealForModal(inc.proofSeal);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                          >
+                            Laudo WORM
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -22718,6 +23656,171 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                   onClick={() => {
                     setSelectedSideChannelSealForModal(null);
                     setSideChannelSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 40.A: LAUDO PERICIAL CRIPTOGRÁFICO DE INTEGRIDADE ANTI-REPLAY (RFC 9147 DTLS 1.3 & RFC 6479) */}
+      {selectedAntiReplaySealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header timbrado */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial Criptográfica de Defesa Anti-Replay
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    RFC 9147 DTLS 1.3 §4.2 • RFC 6479 Sliding Window • NIST SP 800-38D
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAntiReplaySealForModal(null);
+                  setAntiReplayModalIncidentItem(null);
+                  setAntiReplaySealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Conteúdo do Laudo */}
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-950 dark:text-indigo-200 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5">
+                  <BadgeCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  Garantia de Unicidade e Inviolabilidade Criptográfica
+                </div>
+                <p className="text-[11px] leading-relaxed text-indigo-900/80 dark:text-indigo-300/80">
+                  Este laudo certifica matematicamente que o pacote ou vetor de inicialização (IV) foi inspecionado em tempo de execução pelo Enclave Anti-Replay. Pacotes legítimos obedecem à progressão monotônica com descarte incondicional de duplicatas e expurgamento em conformidade com o Teorema de Kirsch-Mitzenmacher para Filtros de Bloom de 2 gerações.
+                </p>
+              </div>
+
+              {/* Dados do Incidente / Evento */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Metadados do Evento Auditado
+                </h4>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block">ID da Verificação Probatória:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block">
+                      {selectedAntiReplaySealForModal.verificationId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Protocolo Alvo:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedAntiReplaySealForModal.protocol}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Modo Operacional:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300 truncate block">
+                      {selectedAntiReplaySealForModal.mode}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Data de Emissão (UTC):</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      {new Date(selectedAntiReplaySealForModal.issuedAt).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+
+                {antiReplayModalIncidentItem && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Severidade Registrada:</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">
+                        {antiReplayModalIncidentItem.severity}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Endereço IP de Origem:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {antiReplayModalIncidentItem.sourceIp}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Ação Defensiva:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {antiReplayModalIncidentItem.actionTaken}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hash Canônico JCS (RFC 8785) */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico Determinístico SHA-256 (RFC 8785 JSON Canonicalization Scheme)
+                </span>
+                <p className="font-mono text-[10px] text-teal-400 break-all select-all">
+                  {selectedAntiReplaySealForModal.canonicalDigest}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-indigo-300 break-all select-all">
+                  {selectedAntiReplaySealForModal.sealToken}
+                </p>
+              </div>
+
+              {/* Resultado da Validação em Tempo Real */}
+              {antiReplaySealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  antiReplaySealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {antiReplaySealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {antiReplaySealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedAntiReplaySealForModal.issuedAt).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingAntiReplaySeal}
+                  onClick={() => handleVerifyAntiReplaySealSubmit(selectedAntiReplaySealForModal.sealToken)}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingAntiReplaySeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAntiReplaySealForModal(null);
+                    setAntiReplayModalIncidentItem(null);
+                    setAntiReplaySealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

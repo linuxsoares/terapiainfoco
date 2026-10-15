@@ -1684,6 +1684,51 @@ terapiainfoco/
 
 ---
 
+---
+
+### 58. Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)
+- [x] **Motor Anti-Replay & Validador de Janela Deslizante (`packages/crypto/src/antiReplayShield.ts`):**
+  - **Validador de Janela Deslizante de 64/128 bits (Sliding Window Anti-Replay Bitmap):** Implementação conforme RFC 6479 / RFC 4303 (IPsec/DTLS) para verificação estrita de sequencialidade de pacotes com aritmética modular `BigInt`, aceitando pacotes dentro da janela tolerável de jitter de rede e rejeitando deterministicamente pacotes duplicados (`DUPLICATE_REPLAY_DETECTED`) ou com timestamp retroativo (`OUT_OF_WINDOW_EXPIRED`).
+  - **Filtro Probabilístico de Bloom com Rotação Temporal (Time-Decaying Bloom Filter):** Estrutura de dados compacta de 2 gerações baseada no teorema de Kirsch-Mitzenmacher (duplo hashing via FNV-1a e Murmur3-like) com taxa de falso-positivo $P_{fp} < 0.001\%$, permitindo verificação ultrarrápida em memória ($O(1)$) de expiração de nonces e tokens de autorização DPoP/REST sem vazamento de memória.
+  - **Detecção de Reutilização de IV (GCM Nonce-Reuse Detector):** Bloqueio incondicional caso o mesmo par $(KeyID, IV)$ seja reapresentado, prevenindo o ataque catastrófico de quebra de integridade de GHASH em AES-GCM (NIST SP 800-38D §8).
+  - **Selo Probatório WORM HMAC-SHA256:** Emissão de prova forense de mitigação de replay com canonicalização determinística JCS (RFC 8785) e assinatura criptográfica `anti_replay_proof_v1_<base64url>`.
+  - Suíte com 15 testes unitários rigorosos aprovados em `packages/crypto/test/antiReplayShield.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.ANTI_REPLAY_SHIELD`, 6 ações de auditoria (`REPLAY_ATTACK_BLOCKED`, `NONCE_REUSE_DETECTED`, `SLIDING_WINDOW_EVALUATED`, `BLOOM_FILTER_ROTATED`, `ANTI_REPLAY_SEAL_VERIFIED`, `REPLAY_POLICY_UPDATED`), `ReplayDefenseMode` (`HYBRID_DEFENSE_WINDOW_PLUS_BLOOM`, `STRICT_SLIDING_WINDOW`, `BLOOM_FILTER_EXPIRING`, `MONITORING_ONLY`), `ReplayThreatSeverity`, `ReplayTargetProtocol`.
+  - **Modelos e DTOs:** `ReplayVerificationResult`, `SlidingWindowStatus`, `BloomFilterMetrics`, `ReplayIncidentRecord`, `AntiReplayProofSeal`, `AntiReplayOverview` e DTOs tipados de verificação de nonce, simulação de replay e rotação de filtro.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - **AntiReplayService (`apps/backend/src/services/antiReplayService.ts`):** Enclave de proteção de nonces em memória com janela deslizante, filtro de Bloom rotativo, telemetria de ataques bloqueados e registro compulsório na hash-chain WORM inalterável via `AuditService.log`.
+  - **Rotas REST (`apps/backend/src/routes/antiReplay.ts`):** 7 rotas sob `/api/anti-replay` (`/overview`, `/verify-nonce`, `/sliding-window-status`, `/rotate-bloom-filter`, `/update-policy`, `/simulate-replay-attack`, `/verify-seal`).
+  - Suíte com 10 testes de integração aprovados em `apps/backend/test/antiReplay.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Client de API (`api.ts`):** 7 métodos tipados para consulta e validação em tempo real.
+  - **Módulo de Segurança (`SecurityModule.tsx`):**
+    - **Card 40** com 5 KPIs regulatórios (Nonces Avaliados, Replays Bloqueados, IVs Reutilizados Prevenidos, Janelas Ativas, Modo de Operação) e 3 abas interativas (*Verificador de Nonce & Unicidade de IV*, *Telemetria da Janela Deslizante (RFC 6479) & Bitmap Gráfico*, *Filtro de Bloom Rotativo & Simulador de Replay / MITM*).
+    - **Visualizador Gráfico de Bitmap 64-bit:** Mapeamento visual das 64 células de bits com indicação dinâmica de pacotes recebidos vs ausentes e cálculo de limites inferiores.
+    - **Tabela de Auditoria de Incidentes:** Trilha forense com data/hora, protocolo alvo, severidade, ação tomada e botão de emissão de Laudo Pericial WORM.
+    - **Modal 40.A:** Certidão Notarial Criptográfica de Defesa Anti-Replay com dados do evento, digest canônico JCS (RFC 8785), token WORM e botão de auditoria em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+### 59. Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)
+- [ ] **Motor Criptográfico de Esteganografia Visual & DCT/DWT Invisível (`packages/crypto/src/visualWatermarkShield.ts`):**
+  - **Injeção de Marca d'Água Espectral Invisível em Quadros de Vídeo WebRTC (Spatial / Frequency Domain DCT Watermarking):** Algoritmo de dispersão de ruído imperceptível ao olho humano nos coeficientes de média frequência da Transformada Discreta de Cosseno (DCT), resistente a compressões de vídeo H.264/VP8/VP9 e capturas de tela parciais.
+  - **Semente Esteganográfica Pseudorrandomica (CSPRNG Watermark Seed):** Derivação criptográfica baseada em `(TherapistCRP, PatientBlindIndex, SessionTimestamp, SessionSalt)` gerando matriz ortogonal única de rastreamento.
+  - **Detector & Extrator Forense de Vazamento (Leak Tracer):** Algoritmo de correlação cruzada normalizada que detecta e extrai a identidade do usuário vazador mesmo a partir de printscreens recortados, fotografias de monitor ou vídeos recompactados.
+  - **Selo Probatório WORM HMAC-SHA256:** Certidão de autoria de mídia e rastreabilidade forense com canonicalização JCS (RFC 8785).
+- [ ] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - **Enums e Ações WORM:** `AuditResourceType.VISUAL_WATERMARK_SHIELD`, ações `VISUAL_WATERMARK_EMBEDDED`, `LEAK_EXTRACTION_ATTEMPTED`, `LEAK_SOURCE_IDENTIFIED`, `WATERMARK_PROOF_VERIFIED`.
+  - **Modelos e DTOs:** Interfaces de configuração espectral, laudo de correlação forense e DTOs tipados.
+- [ ] **Backend Service & Rotas REST (`apps/backend`):**
+  - **Serviço Central e Rotas REST (`/api/visual-watermark`):** Rastreamento de sessões, injeção de metadados invisíveis e verificação pericial de prints vazados.
+- [ ] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 41:** Painel de proteção contra exfiltração de tela com simulador forense de detecção de printscreens.
+  - **Modal 41.A:** Laudo Pericial de Traçabilidade de Vazamento.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1753,8 +1798,8 @@ terapiainfoco/
 | `feat/memory-shield-heap-spraying-protection` | Módulo de Blindagem de Memória & Prevenção de Heap Spraying em Sessões Criptográficas com Secure Memory Allocator e Limpeza Imediata de DEKs (NIST SP 800-88 & OWASP ASVS) | [PR #69](https://github.com/linuxsoares/terapiainfoco/pull/69) | Merged |
 | `feat/device-posture-zero-trust-assessment` | Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS) | [PR #71](https://github.com/linuxsoares/terapiainfoco/pull/71) | Merged |
 | `feat/pqc-hybrid-kyber-dilithium-clinical-crypto` | Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204) | [PR #72](https://github.com/linuxsoares/terapiainfoco/pull/72) | Merged |
-| `feat/blind-signatures-chaumian-protocol` | Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protocol) para Prescrições Digitais e Votações de Colegiado Ético Clínico Anônimas com Verificação de Fé Pública (LGPD Art. 13 & Resolução CFP nº 001/2009) | [PR #73](https://github.com/linuxsoares/terapiainfoco/pull/73) | Merged |
-| `feat/side-channel-timing-attack-protection` | Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4) | [PR #74](https://github.com/linuxsoares/terapiainfoco/pull/74) | Em Aberto |
+| `feat/side-channel-timing-attack-protection` | Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4) | [PR #74](https://github.com/linuxsoares/terapiainfoco/pull/74) | Merged |
+| `feat/anti-replay-nonce-sliding-window-bloom-filter` | Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security) | [PR #75](https://github.com/linuxsoares/terapiainfoco/pull/75) | Em Aberto |
 
 ---
 
@@ -1794,7 +1839,8 @@ Com o **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protoc
 - [x] **Módulo de Avaliação Contínua de Postura de Dispositivo (Zero Trust Device Posture Assessment) para Terminais de Atendimento Clínico (NIST SP 800-207 & OWASP MASVS).**
 - [x] **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204).**
 - [x] **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4).**
-- [ ] **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security).**
+- [x] **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security).**
+- [ ] **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4).**
 
 ---
 
@@ -1804,7 +1850,7 @@ Com o **Módulo de Assinatura Cega RSA/ECDSA (Blind Signatures / Chaumian Protoc
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (857 testes)
+# 2. Executar suíte completa de testes (882 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

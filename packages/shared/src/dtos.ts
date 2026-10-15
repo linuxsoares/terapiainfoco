@@ -2931,6 +2931,81 @@ export interface SideChannelOverviewResponse {
   overview: import('./models').SideChannelOverview;
 }
 
+// ============================================================================
+// DTOs e Responses: Proteção contra Ataques de Replay & Reutilização de Nonce (RFC 8446/9147)
+// ============================================================================
+
+export interface VerifyNonceDTO {
+  targetProtocol: import('./enums').ReplayTargetProtocol;
+  nonceOrSeq: string;
+  channelId?: string;
+  keyId?: string;
+  timestamp?: number;
+}
+
+export interface VerifyNonceResponse {
+  success: boolean;
+  result: import('./models').ReplayVerificationResult;
+  message: string;
+}
+
+export interface GetSlidingWindowStatusDTO {
+  channelId: string;
+}
+
+export interface GetSlidingWindowStatusResponse {
+  success: boolean;
+  window: import('./models').SlidingWindowStatus;
+}
+
+export interface RotateBloomFilterResponse {
+  success: boolean;
+  activeGeneration: number;
+  message: string;
+}
+
+export interface UpdateReplayPolicyDTO {
+  mode: import('./enums').ReplayDefenseMode;
+}
+
+export interface UpdateReplayPolicyResponse {
+  success: boolean;
+  mode: import('./enums').ReplayDefenseMode;
+  message: string;
+}
+
+export interface SimulateReplayAttackDTO {
+  targetProtocol: import('./enums').ReplayTargetProtocol;
+  sequenceNumber?: number;
+  nonce?: string;
+  attemptReplay: boolean;
+}
+
+export interface SimulateReplayAttackResponse {
+  success: boolean;
+  replayDetected: boolean;
+  severity: import('./enums').ReplayThreatSeverity;
+  explanation: string;
+  message: string;
+}
+
+export interface VerifyAntiReplaySealDTO {
+  sealToken: string;
+}
+
+export interface VerifyAntiReplaySealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').AntiReplayProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface AntiReplayOverviewResponse {
+  success: boolean;
+  overview: import('./models').AntiReplayOverview;
+}
+
 
 
 

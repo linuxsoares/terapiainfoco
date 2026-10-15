@@ -270,7 +270,14 @@ export enum AuditAction {
   TIMING_LEAK_DETECTED = 'TIMING_LEAK_DETECTED',
   TIMING_JITTER_INJECTED = 'TIMING_JITTER_INJECTED',
   SIDE_CHANNEL_SEAL_VERIFIED = 'SIDE_CHANNEL_SEAL_VERIFIED',
-  SIDE_CHANNEL_POLICY_UPDATED = 'SIDE_CHANNEL_POLICY_UPDATED'
+  SIDE_CHANNEL_POLICY_UPDATED = 'SIDE_CHANNEL_POLICY_UPDATED',
+  // Ações de Proteção contra Ataques de Replay & Reutilização de Nonce (RFC 8446, RFC 9147 & OWASP API Security)
+  REPLAY_ATTACK_BLOCKED = 'REPLAY_ATTACK_BLOCKED',
+  NONCE_REUSE_DETECTED = 'NONCE_REUSE_DETECTED',
+  SLIDING_WINDOW_EVALUATED = 'SLIDING_WINDOW_EVALUATED',
+  BLOOM_FILTER_ROTATED = 'BLOOM_FILTER_ROTATED',
+  ANTI_REPLAY_SEAL_VERIFIED = 'ANTI_REPLAY_SEAL_VERIFIED',
+  REPLAY_POLICY_UPDATED = 'REPLAY_POLICY_UPDATED'
 }
 
 export enum AuditResourceType {
@@ -316,7 +323,8 @@ export enum AuditResourceType {
   DEVICE_POSTURE_ENGINE = 'DEVICE_POSTURE_ENGINE',
   PQC_CRYPTO_ENGINE = 'PQC_CRYPTO_ENGINE',
   BLIND_SIGNATURE_ENGINE = 'BLIND_SIGNATURE_ENGINE',
-  SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD'
+  SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD',
+  ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD'
 }
 
 /**
@@ -1333,6 +1341,37 @@ export enum SideChannelTargetOperation {
   PASSWORD_PBKDF2_COMPARE = 'PASSWORD_PBKDF2_COMPARE',             // Comparação da hash de senha ou passphrase de exportação
   RSA_MODULAR_EXPONENTIATION = 'RSA_MODULAR_EXPONENTIATION',       // Exponenciação modular com blinding para assinaturas e KEM
   JWT_DPOP_SIGNATURE_VERIFY = 'JWT_DPOP_SIGNATURE_VERIFY'          // Validação de token binding e assinaturas digitais ECDSA
+}
+
+/**
+ * Modos Operacionais de Mitigação Anti-Replay (RFC 6479 & RFC 9147 DTLS 1.3)
+ */
+export enum ReplayDefenseMode {
+  STRICT_SLIDING_WINDOW = 'STRICT_SLIDING_WINDOW',                 // Janela deslizante estrita de 64/128 bits (sequencial)
+  BLOOM_FILTER_EXPIRING = 'BLOOM_FILTER_EXPIRING',                 // Filtro de Bloom probabilístico com rotação temporal
+  HYBRID_DEFENSE_WINDOW_PLUS_BLOOM = 'HYBRID_DEFENSE_WINDOW_PLUS_BLOOM', // Modo Híbrido: Janela para pacotes e Bloom para nonces de tokens (Recomendado)
+  MONITORING_ONLY = 'MONITORING_ONLY'                              // Telemetria passiva de replays sem descarte ativo
+}
+
+/**
+ * Gravidade da Ameaça de Replay / Reutilização de Nonce Detectada
+ */
+export enum ReplayThreatSeverity {
+  BENIGN_IN_ORDER = 'BENIGN_IN_ORDER',                             // Pacote válido recebido em sequência ou dentro da janela
+  OUT_OF_WINDOW_EXPIRED = 'OUT_OF_WINDOW_EXPIRED',                 // Pacote descartado por timestamp/sequência retroativa além da janela
+  DUPLICATE_REPLAY_DETECTED = 'DUPLICATE_REPLAY_DETECTED',         // Ataque de Replay: pacote com número de sequência já visto
+  CRITICAL_NONCE_REUSE = 'CRITICAL_NONCE_REUSE'                    // Crítico: Reutilização do mesmo Nonce/IV em AES-GCM (risco de quebra de chave)
+}
+
+/**
+ * Protocolos Alvo de Proteção Anti-Replay
+ */
+export enum ReplayTargetProtocol {
+  WEBRTC_DTLS_SRTP = 'WEBRTC_DTLS_SRTP',                           // Mídia e sinalização de teleconsulta WebRTC
+  AES_GCM_ENVELOPE_IV = 'AES_GCM_ENVELOPE_IV',                     // Vetores de Inicialização de prontuários em repouso
+  DPOP_HTTP_TOKEN = 'DPOP_HTTP_TOKEN',                             // Nonces e JTI de tokens de sessão clínica DPoP
+  CHAUMIAN_VOUCHER_NULLIFIER = 'CHAUMIAN_VOUCHER_NULLIFIER',       // Nullifiers de vouchers psiquiátricos e votos anônimos
+  REST_API_REQUEST = 'REST_API_REQUEST'                            // Requisições REST mutantes com cabeçalho X-Nonce
 }
 
 
