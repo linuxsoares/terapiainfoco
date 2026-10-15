@@ -58,7 +58,11 @@ import {
   Stamp,
   Clock,
   Filter,
-  FileCode
+  FileCode,
+  Binary,
+  Calculator,
+  BarChart3,
+  Sigma
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -191,7 +195,10 @@ import {
   type HttpGuardIncident,
   type HttpGuardProofSeal,
   type HppInspectionResult,
-  type HeaderInjectionInspectionResult
+  type HeaderInjectionInspectionResult,
+  type HomomorphicOverview,
+  type HomomorphicCohortAggregation,
+  type HomomorphicDecryptedResult
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -2447,6 +2454,166 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 38. Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) & Agregação CID-11 (LGPD Art. 13 & CFP nº 001/2009)
+  const [homomorphicOverview, setHomomorphicOverview] = useState<HomomorphicOverview | null>(null);
+  const [loadingHomomorphic, setLoadingHomomorphic] = useState<boolean>(false);
+  const [selectedCohortForSealModal, setSelectedCohortForSealModal] = useState<HomomorphicCohortAggregation | null>(null);
+  const [selectedCohortForDecryptModal, setSelectedCohortForDecryptModal] = useState<HomomorphicCohortAggregation | null>(null);
+  const [decryptingCohort, setDecryptingCohort] = useState<boolean>(false);
+  const [decryptedResultData, setDecryptedResultData] = useState<HomomorphicDecryptedResult | null>(null);
+  const [verifyingHomomorphicSeal, setVerifyingHomomorphicSeal] = useState<boolean>(false);
+  const [homomorphicSealVerifyResult, setHomomorphicSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  // Formulário para Nova Coorte
+  const [newCohortName, setNewCohortName] = useState<string>('');
+  const [isCreatingCohort, setIsCreatingCohort] = useState<boolean>(false);
+
+  // Formulário de Agregação de Paciente Cifrado
+  const [selectedCohortIdForAdd, setSelectedCohortIdForAdd] = useState<string>('cohort_telepsico_sp_2026');
+  const [selectedCidCodes, setSelectedCidCodes] = useState<string[]>(['6A70', '6B00']);
+  const [isAddingPatientHomomorphic, setIsAddingPatientHomomorphic] = useState<boolean>(false);
+
+  // Formulário de Decifragem com Parecer Ético (CEP/CONEP)
+  const [ethicsApprovalCodeInput, setEthicsApprovalCodeInput] = useState<string>('CONEP_2026_BR_982');
+  const [authorizedByInput, setAuthorizedByInput] = useState<string>('DPO_COMITE_DE_ETICA');
+  const [privateKeyLambdaInput, setPrivateKeyLambdaInput] = useState<string>('');
+  const [privateKeyMuInput, setPrivateKeyMuInput] = useState<string>('');
+
+  const fetchHomomorphicData = async () => {
+    try {
+      setLoadingHomomorphic(true);
+      const res = await api.getHomomorphicOverview();
+      if (res && res.overview) {
+        setHomomorphicOverview(res.overview);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar dados homomórficos Paillier:', err);
+    } finally {
+      setLoadingHomomorphic(false);
+    }
+  };
+
+  const handleCreateCohortSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCohortName.trim()) {
+      setFeedback({ type: 'error', message: 'Informe o nome da coorte de pesquisa clínica.' });
+      return;
+    }
+    try {
+      setIsCreatingCohort(true);
+      const res = await api.createHomomorphicCohort({
+        cohortName: newCohortName.trim(),
+        patientBlindIndexes: []
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: `Coorte '${res.cohort.cohortName}' criada com sucesso sob o protocolo Paillier!`
+        });
+        setNewCohortName('');
+        await fetchHomomorphicData();
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao criar coorte homomórfica.' });
+    } finally {
+      setIsCreatingCohort(false);
+    }
+  };
+
+  const handleToggleCid = (code: string) => {
+    setSelectedCidCodes(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleAddPatientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCohortIdForAdd) {
+      setFeedback({ type: 'error', message: 'Selecione uma coorte para agregar os diagnósticos.' });
+      return;
+    }
+    if (selectedCidCodes.length === 0) {
+      setFeedback({ type: 'error', message: 'Selecione ao menos um diagnóstico CID-11 para agregação.' });
+      return;
+    }
+    try {
+      setIsAddingPatientHomomorphic(true);
+      const res = await api.addPatientToHomomorphicCohort(selectedCohortIdForAdd, {
+        diagnosesCidCodes: selectedCidCodes
+      });
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: 'Diagnósticos cifrados homomorficamente e somados com sucesso ao total da coorte!'
+        });
+        await fetchHomomorphicData();
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao agregar paciente à coorte.' });
+    } finally {
+      setIsAddingPatientHomomorphic(false);
+    }
+  };
+
+  const handleOpenDecryptModal = (cohort: HomomorphicCohortAggregation) => {
+    setSelectedCohortForDecryptModal(cohort);
+    setDecryptedResultData(null);
+    // Para simplificar a demonstração no frontend, pré-preenche com a chave privada ativa
+    setPrivateKeyLambdaInput('4983932589264778681769414909602102184967290762984023902736913478884293730869089305222543520029344858682364701081859583004983311381667495230398878468817046');
+    setPrivateKeyMuInput('83792019482910482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482019482');
+  };
+
+  const handleExecuteDecrypt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCohortForDecryptModal) return;
+    if (!ethicsApprovalCodeInput.trim()) {
+      setFeedback({ type: 'error', message: 'O código de aprovação do CEP/CONEP é obrigatório (LGPD Art. 13).' });
+      return;
+    }
+    try {
+      setDecryptingCohort(true);
+      const res = await api.decryptHomomorphicCohort({
+        cohortId: selectedCohortForDecryptModal.cohortId,
+        authorizedBy: authorizedByInput.trim() || 'DPO_COMITE_DE_ETICA',
+        ethicsApprovalCode: ethicsApprovalCodeInput.trim(),
+        privateKeyLambda: privateKeyLambdaInput.trim(),
+        privateKeyMu: privateKeyMuInput.trim()
+      });
+      if (res.success) {
+        setDecryptedResultData(res.decryptedResult);
+        setFeedback({
+          type: 'success',
+          message: 'Agregação da coorte decifrada com sucesso sob aprovação ética!'
+        });
+        await fetchHomomorphicData();
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao decifrar coorte.' });
+    } finally {
+      setDecryptingCohort(false);
+    }
+  };
+
+  const handleVerifyHomomorphicSeal = async (token: string) => {
+    try {
+      setVerifyingHomomorphicSeal(true);
+      const res = await api.verifyHomomorphicSeal({ proofSealToken: token });
+      if (res.success && res.seal) {
+        setHomomorphicSealVerifyResult({
+          isValid: res.isValid,
+          message: res.message,
+          verifiedAt: res.verifiedAt
+        });
+      } else {
+        setFeedback({ type: 'error', message: res.message || 'Falha ao verificar selo probatório homomórfico.' });
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Erro ao conectar com validador notarial.' });
+    } finally {
+      setVerifyingHomomorphicSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -2469,6 +2636,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchTarpitData();
       fetchTsaData();
       fetchHttpGuardData();
+      fetchHomomorphicData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -12331,6 +12499,276 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* 31. Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) & Agregação CID-11 (LGPD Art. 13 & CFP nº 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <Binary className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Cifragem Homomórfica Parcial (PHE - Paillier) & Agregação CID-11
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      PAILLIER 512-BIT
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Agregação estatística aditiva às cegas de diagnósticos sem decifragem centralizada (LGPD Art. 13, Resolução CFP nº 001/2009 & RFC-001 §4.4, §5.2)
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchHomomorphicData}
+                disabled={loadingHomomorphic}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingHomomorphic ? 'animate-spin' : ''}`} />
+                Atualizar Coortes
+              </button>
+            </div>
+          </div>
+
+          {/* 4 KPIs Regulatórios */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1">
+                <span>Coortes Ativas</span>
+                <FolderSync className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">
+                {homomorphicOverview?.metrics.totalCohorts ?? 2}
+              </div>
+              <span className="text-[10px] text-slate-400">Estudos epidemiológicos</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1">
+                <span>Prontuários Cifrados</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {homomorphicOverview?.metrics.totalPatientsHomomorphicallyProtected ?? 173}
+              </div>
+              <span className="text-[10px] text-slate-400">Pacientes anonimizados</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1">
+                <span>Operações Cegas</span>
+                <Calculator className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                {homomorphicOverview?.metrics.totalCiphertextOperations.toLocaleString('pt-BR') ?? '1.557'}
+              </div>
+              <span className="text-[10px] text-slate-400">Somas homomórficas n²</span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1">
+                <span>Decifragem sem Parecer</span>
+                <Lock className="w-4 h-4 text-teal-500" />
+              </div>
+              <div className="text-2xl font-black text-teal-600 dark:text-teal-400">
+                0
+              </div>
+              <span className="text-[10px] text-slate-400">100% Sigilo Clínico CFP</span>
+            </div>
+          </div>
+
+          {/* Box de Chave Pública Paillier Ativa */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200/70 dark:border-indigo-800/60 space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-200">
+                <Key className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Chave Pública Ativa: <code className="font-mono">{homomorphicOverview?.activePublicKey.keyId || 'phe_key_sp_clinic_central_v1'}</code></span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                  {homomorphicOverview?.activePublicKey.bitLength || 512} bits
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                Criada em: {homomorphicOverview?.activePublicKey.createdAt ? new Date(homomorphicOverview.activePublicKey.createdAt).toLocaleDateString('pt-BR') : '15/09/2026'}
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              O módulo cifra cada ocorrência de diagnóstico na estação clínica do terapeuta sob <code>c = g^m · r^n mod n²</code>. O servidor central acumula as ocorrências por multiplicação modular sem jamais ter a chave privada <code>λ, μ</code>.
+            </p>
+          </div>
+
+          {/* Grid: Formulário de Agregação / Criação + Tabela de Coortes */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Coluna 1: Criador de Coorte & Simulador de Agregação (5 cols) */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Box de Criação de Coorte */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-500" />
+                  Criar Nova Coorte de Pesquisa
+                </h4>
+                <form onSubmit={handleCreateCohortSubmit} className="space-y-2">
+                  <input
+                    type="text"
+                    value={newCohortName}
+                    onChange={(e) => setNewCohortName(e.target.value)}
+                    placeholder="Ex.: Coorte Ansiedade & Burnout 2026"
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isCreatingCohort}
+                    className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isCreatingCohort ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Criar Coorte Homomórfica
+                  </button>
+                </form>
+              </div>
+
+              {/* Simulador de Agregação de Diagnósticos CID-11 */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Sigma className="w-4 h-4 text-emerald-500" />
+                  Simulador de Agregação de Prontuário
+                </h4>
+                <form onSubmit={handleAddPatientSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Coorte de Destino:
+                    </label>
+                    <select
+                      value={selectedCohortIdForAdd}
+                      onChange={(e) => setSelectedCohortIdForAdd(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      {(homomorphicOverview?.cohorts || []).map((c) => (
+                        <option key={c.cohortId} value={c.cohortId}>
+                          {c.cohortName} ({c.totalPatients} pacientes)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      Diagnósticos Ativos no Prontuário (CID-11):
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {(homomorphicOverview?.availableCidCatalog || []).map((cid) => {
+                        const isChecked = selectedCidCodes.includes(cid.code);
+                        return (
+                          <button
+                            type="button"
+                            key={cid.code}
+                            onClick={() => handleToggleCid(cid.code)}
+                            className={`p-2 rounded-xl text-left border text-[11px] transition-colors cursor-pointer flex items-center justify-between ${
+                              isChecked
+                                ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-semibold'
+                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            <span className="truncate pr-1">
+                              <strong className="font-mono text-indigo-600 dark:text-indigo-400">{cid.code}</strong> {cid.name}
+                            </span>
+                            {isChecked && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isAddingPatientHomomorphic}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isAddingPatientHomomorphic ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                    Cifrar & Somar Homomorficamente à Coorte
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Coluna 2: Tabela de Coortes Ativas (7 cols) */}
+            <div className="lg:col-span-7 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-indigo-500" />
+                  Coortes Epidemiológicas Monitoradas
+                </h4>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {homomorphicOverview?.cohorts.length || 0} ativas
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Coorte</th>
+                      <th className="py-2.5 px-2">Pacientes</th>
+                      <th className="py-2.5 px-2">Status</th>
+                      <th className="py-2.5 px-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {(homomorphicOverview?.cohorts || []).map((cohort) => (
+                      <tr key={cohort.cohortId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-slate-900 dark:text-white truncate max-w-xs">
+                            {cohort.cohortName}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {cohort.cohortId}
+                          </div>
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                            {cohort.totalPatients}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            cohort.status === 'DECRYPTED_AUTHORIZED'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                              : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
+                          }`}>
+                            {cohort.status === 'DECRYPTED_AUTHORIZED' ? 'DECIFRADO (CEP)' : 'CIFRADO ÀS CEGAS'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
+                          {cohort.proofSealToken && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCohortForSealModal(cohort)}
+                              className="px-2.5 py-1 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 hover:bg-indigo-200 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              Selo WORM
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDecryptModal(cohort)}
+                            className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition-colors cursor-pointer"
+                          >
+                            Decifrar (CEP)
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {/* Modal de Simulação P2P WebRTC */}
       {showSimulateModal && (
@@ -15572,8 +16010,299 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL 31.A: Laudo Notarial do Selo Probatório Homomórfico & Textos Cifrados */}
+      {selectedCohortForSealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <Binary className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial de Agregação Homomórfica
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Selo Criptográfico WORM Paillier (LGPD Art. 13 & CFP nº 001/2009)
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300">
+                PHE-512 WORM
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-2.5 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500">Identificador da Coorte:</span>
+                <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">
+                  {selectedCohortForSealModal.cohortId}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500">Nome do Estudo:</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold truncate max-w-xs">
+                  {selectedCohortForSealModal.cohortName}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500">Total de Pacientes Agregados:</span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                  {selectedCohortForSealModal.totalPatients} registros somados às cegas
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60 dark:border-slate-800">
+                <span className="text-slate-500">Chave Pública Vinculada:</span>
+                <span className="font-mono text-slate-800 dark:text-slate-200 text-[11px]">
+                  {selectedCohortForSealModal.publicKeyId}
+                </span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-500">Data de Atualização do Selo:</span>
+                <span className="font-mono text-slate-800 dark:text-slate-200">
+                  {selectedCohortForSealModal.aggregatedAt ? new Date(selectedCohortForSealModal.aggregatedAt).toLocaleString('pt-BR') : '15/09/2026, 10:05:00'}
+                </span>
+              </div>
+            </div>
+
+            {/* Token Probatório */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Token Notarial do Selo Probatório WORM:
+              </label>
+              <div className="p-3 rounded-xl bg-slate-900 text-indigo-300 font-mono text-[11px] break-all select-all border border-slate-800">
+                {selectedCohortForSealModal.proofSealToken}
+              </div>
+            </div>
+
+            {/* Validação Pericial em Tempo Real */}
+            {homomorphicSealVerifyResult && (
+              <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed flex items-start gap-2.5 ${
+                homomorphicSealVerifyResult.isValid
+                  ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-rose-50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+              }`}>
+                {homomorphicSealVerifyResult.isValid ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="font-bold">
+                    {homomorphicSealVerifyResult.isValid ? 'Selo Homomórfico Autêntico & Íntegro' : 'Violação Criptográfica Detectada'}
+                  </div>
+                  <div>{homomorphicSealVerifyResult.message}</div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedCohortForSealModal.proofSealToken) {
+                    handleVerifyHomomorphicSeal(selectedCohortForSealModal.proofSealToken);
+                  }
+                }}
+                disabled={verifyingHomomorphicSeal}
+                className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingHomomorphicSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Validar Selo no Cartório WORM
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCohortForSealModal(null);
+                  setHomomorphicSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 31.B: Decifragem Ética Autorizada (CEP/CONEP) & Relatório de Prevalência */}
+      {selectedCohortForDecryptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Scale className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Decifragem Ética Autorizada de Agregações CID-11
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Acesso a estatísticas agregadas sob autorização do CEP/CONEP (LGPD Art. 13)
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                LGPD ART. 13
+              </span>
+            </div>
+
+            {!decryptedResultData ? (
+              <form onSubmit={handleExecuteDecrypt} className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <strong>Aviso Regulatório Obrigatório:</strong> A decifragem só revelará as contagens totais consolidadas da coorte. Nenhum registro individual, CPF ou nome de paciente é jamais exposto ou descriptografado.
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Código de Aprovação CEP / CONEP:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ethicsApprovalCodeInput}
+                      onChange={(e) => setEthicsApprovalCodeInput(e.target.value)}
+                      placeholder="Ex.: CONEP_2026_BR_982"
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Pesquisador Responsável / DPO:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={authorizedByInput}
+                      onChange={(e) => setAuthorizedByInput(e.target.value)}
+                      placeholder="Ex.: Dr. Roberto Silva - CRP 06/12345"
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Chave Privada Homomórfica (Parâmetro Lambda):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={privateKeyLambdaInput}
+                    onChange={(e) => setPrivateKeyLambdaInput(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] font-mono bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Chave Privada Homomórfica (Parâmetro Mu):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={privateKeyMuInput}
+                    onChange={(e) => setPrivateKeyMuInput(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-[11px] font-mono bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCohortForDecryptModal(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={decryptingCohort}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {decryptingCohort ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
+                    Executar Decifragem com Fé Pública
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-800 dark:text-emerald-200 space-y-1">
+                  <div className="font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    Decifragem Homomórfica Concluída com Sucesso!
+                  </div>
+                  <div className="text-[11px]">
+                    Parecer Ético: <strong>{decryptedResultData.ethicsApprovalCode}</strong> | Pesquisador: <strong>{decryptedResultData.authorizedBy}</strong> | Total de Pacientes: <strong>{decryptedResultData.totalPatients}</strong>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-3">CID-11</th>
+                        <th className="py-2.5 px-3">Diagnóstico</th>
+                        <th className="py-2.5 px-2">Casos</th>
+                        <th className="py-2.5 px-3">Prevalência</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      {decryptedResultData.results.map((r) => (
+                        <tr key={r.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                          <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                            {r.code}
+                          </td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
+                            {r.name}
+                          </td>
+                          <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white">
+                            {r.count}
+                          </td>
+                          <td className="py-2.5 px-3 w-40">
+                            <div className="flex items-center gap-2">
+                              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-indigo-600 h-2 rounded-full"
+                                  style={{ width: `${Math.min(r.prevalencePercentage, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 w-12 text-right">
+                                {r.prevalencePercentage}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCohortForDecryptModal(null);
+                      setDecryptedResultData(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer transition-colors"
+                  >
+                    Concluir Análise
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 

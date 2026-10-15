@@ -34,6 +34,8 @@ export * from './powChallenge';
 export * from './antiAutomationTarpit';
 export * from './rfc3161TimestampNotary';
 export * from './httpSecurityGuard';
+export * from './homomorphicPaillier';
+
 
 
 

@@ -2273,6 +2273,65 @@ export interface HttpGuardOverviewResponse {
   overview: import('./models').HttpGuardOverview;
 }
 
+/**
+ * 36. PROTOCOLO DE CIFRAGEM HOMOMÓRFICA PARCIAL (PHE - PAILLIER CRYPTOSYSTEM)
+ */
+
+export interface CreateHomomorphicCohortDTO {
+  cohortName: string;
+  patientBlindIndexes: string[];
+  securityLevel?: import('./enums').HomomorphicSecurityLevel;
+}
+
+export interface EncryptPatientCidVectorDTO {
+  patientBlindIndex: string;
+  diagnosesCidCodes: string[];
+}
+
+export interface AddCohortEncryptedPatientDTO {
+  cohortId: string;
+  encryptedVector: import('./models').PatientEncryptedCidVector;
+}
+
+export interface DecryptCohortAggregationDTO {
+  cohortId: string;
+  authorizedBy: string;
+  ethicsApprovalCode: string;
+  privateKeyLambda: string;
+  privateKeyMu: string;
+}
+
+export interface VerifyHomomorphicProofSealDTO {
+  proofSealToken: string;
+}
+
+export interface HomomorphicOverviewResponse {
+  success: boolean;
+  overview: import('./models').HomomorphicOverview;
+}
+
+export interface HomomorphicCohortResponse {
+  success: boolean;
+  cohort: import('./models').HomomorphicCohortAggregation;
+  message: string;
+}
+
+export interface HomomorphicDecryptResponse {
+  success: boolean;
+  decryptedResult: import('./models').HomomorphicDecryptedResult;
+  message: string;
+}
+
+export interface HomomorphicVerifyProofResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').HomomorphicProofSeal;
+  cohort?: import('./models').HomomorphicCohortAggregation;
+  message: string;
+  verifiedAt: string;
+}
+
+
 
 
 
