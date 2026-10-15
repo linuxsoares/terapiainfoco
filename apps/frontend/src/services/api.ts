@@ -340,7 +340,24 @@ import type {
   SimulateQuantumAttackResponse,
   VerifyPqcSealDTO,
   VerifyPqcSealResponse,
-  PqcOverviewResponse
+  PqcOverviewResponse,
+  GenerateBlindAuthorityKeyDTO,
+  GenerateBlindAuthorityKeyResponse,
+  BlindMessageDTO,
+  BlindMessageResponse,
+  SignBlindMessageDTO,
+  SignBlindMessageResponse,
+  UnblindSignatureDTO,
+  UnblindSignatureResponse,
+  RedeemOrCastBallotDTO,
+  RedeemOrCastBallotResponse,
+  VerifyBlindTokenDTO,
+  VerifyBlindTokenResponse,
+  SimulateDoubleSpendDTO,
+  SimulateDoubleSpendResponse,
+  VerifyBlindSealDTO,
+  VerifyBlindSealResponse,
+  BlindSignaturesOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2312,8 +2329,70 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 45. Protocolo Chaumiano de Assinaturas Cegas (Blind Signatures / RFC 9474 & CFP 001/2009)
+  async getBlindSignaturesOverview(): Promise<BlindSignaturesOverviewResponse> {
+    return await request<BlindSignaturesOverviewResponse>('/blind-signatures/overview');
+  },
+
+  async generateBlindAuthorityKey(dto: GenerateBlindAuthorityKeyDTO): Promise<GenerateBlindAuthorityKeyResponse> {
+    return await request<GenerateBlindAuthorityKeyResponse>('/blind-signatures/generate-authority-key', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async blindMessage(dto: BlindMessageDTO): Promise<BlindMessageResponse> {
+    return await request<BlindMessageResponse>('/blind-signatures/blind', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async signBlindMessage(dto: SignBlindMessageDTO): Promise<SignBlindMessageResponse> {
+    return await request<SignBlindMessageResponse>('/blind-signatures/sign-blind', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async unblindSignature(dto: UnblindSignatureDTO): Promise<UnblindSignatureResponse> {
+    return await request<UnblindSignatureResponse>('/blind-signatures/unblind', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async redeemOrCastBallot(dto: RedeemOrCastBallotDTO): Promise<RedeemOrCastBallotResponse> {
+    return await request<RedeemOrCastBallotResponse>('/blind-signatures/redeem-or-vote', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyBlindToken(dto: VerifyBlindTokenDTO): Promise<VerifyBlindTokenResponse> {
+    return await request<VerifyBlindTokenResponse>('/blind-signatures/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateDoubleSpend(dto: SimulateDoubleSpendDTO): Promise<SimulateDoubleSpendResponse> {
+    return await request<SimulateDoubleSpendResponse>('/blind-signatures/simulate-double-spend', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyBlindSeal(dto: VerifyBlindSealDTO): Promise<VerifyBlindSealResponse> {
+    return await request<VerifyBlindSealResponse>('/blind-signatures/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 

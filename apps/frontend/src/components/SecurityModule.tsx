@@ -65,7 +65,9 @@ import {
   Sigma,
   Globe,
   AlertTriangle,
-  Timer
+  Timer,
+  Vote,
+  Ticket
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -235,7 +237,13 @@ import {
   type PqcProtectedClinicalRecord,
   type PqcQuantumAttackSimulationResult,
   type PqcHybridSignatureResult,
-  type PqcSignatureVerificationResult
+  type PqcSignatureVerificationResult,
+  BlindSignatureScheme,
+  BlindSignaturePurpose,
+  BlindBallotDecision,
+  type BlindSignatureOverview,
+  type BlindSignatureVerificationResult,
+  type BlindSignatureProofSeal
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -3435,6 +3443,244 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 45. PROTOCOLO CHAUMIANO DE ASSINATURAS CEGAS & VOTAÇÃO ÉTICA ANÔNIMA
+  const [blindOverview, setBlindOverview] = useState<BlindSignatureOverview | null>(null);
+  const [loadingBlind, setLoadingBlind] = useState<boolean>(false);
+  const [blindActiveTab, setBlindActiveTab] = useState<'ballot' | 'voucher' | 'verifier'>('ballot');
+
+  // Estados da Aba 1 (Cédula de Colegiado Ético)
+  const [selectedBallotCase, setSelectedBallotCase] = useState<string>('PROCESSO-DISCIPLINAR-CFP-2026-089');
+  const [selectedBallotDecision, setSelectedBallotDecision] = useState<BlindBallotDecision>(BlindBallotDecision.FAVORABLE_COMPLIANT);
+  const [voterCrpInput, setVoterCrpInput] = useState<string>('CRP-06/98214');
+  const [processingBallotVote, setProcessingBallotVote] = useState<boolean>(false);
+  const [lastBallotResult, setLastBallotResult] = useState<any | null>(null);
+
+  // Estados da Aba 2 (Prescrição / Voucher Psiquiátrico Desvinculado)
+  const [voucherSpecialty, setVoucherSpecialty] = useState<string>('Psiquiatria da Infância e Adolescência');
+  const [voucherUrgency, setVoucherUrgency] = useState<'NORMAL' | 'URGENTE' | 'EMERGENCIAL_CAPS'>('URGENTE');
+  const [voucherCategory, setVoucherCategory] = useState<string>('Encaminhamento Desvinculado com Voucher Farmacêutico');
+  const [voucherPatientAlias, setVoucherPatientAlias] = useState<string>('PACIENTE-ANON-TEA-LEVEL-2');
+  const [processingVoucher, setProcessingVoucher] = useState<boolean>(false);
+  const [lastVoucherResult, setLastVoucherResult] = useState<any | null>(null);
+
+  // Estados da Aba 3 (Verificador Forense de Fé Pública & Anti-Double-Spend)
+  const [verifyMessageInput, setVerifyMessageInput] = useState<string>('');
+  const [verifySigInput, setVerifySigInput] = useState<string>('');
+  const [verifyPurposeInput, setVerifyPurposeInput] = useState<BlindSignaturePurpose>(BlindSignaturePurpose.ETHICAL_COMMITTEE_BALLOT);
+  const [verifyingBlindToken, setVerifyingBlindToken] = useState<boolean>(false);
+  const [lastBlindVerification, setLastBlindVerification] = useState<BlindSignatureVerificationResult | null>(null);
+  const [simulatingDoubleSpend, setSimulatingDoubleSpend] = useState<boolean>(false);
+  const [doubleSpendSimResult, setDoubleSpendSimResult] = useState<any | null>(null);
+
+  // Modal 38.A (Laudo Chaumiano Timbrado WORM)
+  const [selectedBlindSealForModal, setSelectedBlindSealForModal] = useState<BlindSignatureProofSeal | null>(null);
+  const [blindModalEvidenceItem, setBlindModalEvidenceItem] = useState<any | null>(null);
+  const [verifyingBlindSeal, setVerifyingBlindSeal] = useState<boolean>(false);
+  const [blindSealVerifyResult, setBlindSealVerifyResult] = useState<{ isValid: boolean; message: string; verifiedAt: string } | null>(null);
+
+  const fetchBlindData = async () => {
+    try {
+      setLoadingBlind(true);
+      const res = await api.getBlindSignaturesOverview();
+      setBlindOverview(res.overview);
+    } catch (err: any) {
+      console.error('Erro ao carregar dados de Blind Signatures:', err);
+    } finally {
+      setLoadingBlind(false);
+    }
+  };
+
+  const handleExecuteFullBallotVote = async () => {
+    if (!blindOverview?.activeAuthorityKey?.keyId) return;
+    try {
+      setProcessingBallotVote(true);
+      setLastBallotResult(null);
+
+      const authorityKeyId = blindOverview.activeAuthorityKey.keyId;
+      const originalMessage = `VOTO_COLEGIADO:${selectedBallotCase}:${selectedBallotDecision}`;
+      const purpose = BlindSignaturePurpose.ETHICAL_COMMITTEE_BALLOT;
+
+      // 1. Cegamento no Cliente
+      const blindRes = await api.blindMessage({
+        originalMessage,
+        purpose,
+        authorityKeyId
+      });
+
+      // 2. Assinatura Cega pela Autoridade
+      const signRes = await api.signBlindMessage({
+        blindedMessageHex: blindRes.blindedMessage.blindedMessageHex,
+        authorityKeyId,
+        therapistCrp: voterCrpInput.trim() || undefined,
+        purpose
+      });
+
+      // 3. Descegamento pelo Cliente
+      const unblindRes = await api.unblindSignature({
+        blindSignatureHex: signRes.signedResponse.blindSignatureHex,
+        blindingFactorHex: blindRes.blindedMessage.blindingFactorHex!,
+        originalMessage,
+        authorityKeyId,
+        purpose
+      });
+
+      // 4. Depósito Anônimo na Urna de Votação Ética
+      const redeemRes = await api.redeemOrCastBallot({
+        unblindedToken: unblindRes.unblindedToken,
+        ballotCaseNumber: selectedBallotCase,
+        ballotCaseTitle: `Deliberação Ética Confidencial: ${selectedBallotCase}`,
+        decision: selectedBallotDecision
+      });
+
+      setLastBallotResult({
+        blinded: blindRes.blindedMessage,
+        signed: signRes.signedResponse,
+        unblindedToken: unblindRes.unblindedToken,
+        redemption: redeemRes.redemption
+      });
+
+      // Atualiza campos do verificador para conveniência
+      setVerifyMessageInput(originalMessage);
+      setVerifySigInput(unblindRes.unblindedToken.unblindedSignatureHex);
+      setVerifyPurposeInput(purpose);
+
+      setFeedback({
+        type: 'success',
+        message: 'Voto anônimo apurado com fé pública e garantias matemáticas Chaumianas (100% desvinculado)!'
+      });
+
+      await fetchBlindData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao processar voto cego.' });
+    } finally {
+      setProcessingBallotVote(false);
+    }
+  };
+
+  const handleExecuteFullVoucherEmission = async () => {
+    if (!blindOverview?.activeAuthorityKey?.keyId) return;
+    try {
+      setProcessingVoucher(true);
+      setLastVoucherResult(null);
+
+      const authorityKeyId = blindOverview.activeAuthorityKey.keyId;
+      const originalMessage = `VOUCHER:${voucherSpecialty}:${voucherUrgency}:${voucherPatientAlias}`;
+      const purpose = BlindSignaturePurpose.PSYCHIATRIC_REFERRAL_VOUCHER;
+
+      // 1. Cegamento
+      const blindRes = await api.blindMessage({
+        originalMessage,
+        purpose,
+        authorityKeyId
+      });
+
+      // 2. Assinatura Cega
+      const signRes = await api.signBlindMessage({
+        blindedMessageHex: blindRes.blindedMessage.blindedMessageHex,
+        authorityKeyId,
+        purpose
+      });
+
+      // 3. Descegamento
+      const unblindRes = await api.unblindSignature({
+        blindSignatureHex: signRes.signedResponse.blindSignatureHex,
+        blindingFactorHex: blindRes.blindedMessage.blindingFactorHex!,
+        originalMessage,
+        authorityKeyId,
+        purpose
+      });
+
+      // 4. Resgate / Registro do Voucher
+      const redeemRes = await api.redeemOrCastBallot({
+        unblindedToken: unblindRes.unblindedToken,
+        voucherSpecialty,
+        voucherUrgency,
+        serviceCategory: voucherCategory
+      });
+
+      setLastVoucherResult({
+        blinded: blindRes.blindedMessage,
+        signed: signRes.signedResponse,
+        unblindedToken: unblindRes.unblindedToken,
+        redemption: redeemRes.redemption
+      });
+
+      setFeedback({
+        type: 'success',
+        message: 'Voucher psiquiátrico emitido com fé pública e desvinculação absoluta de prontuário (LGPD Art. 13)!'
+      });
+
+      await fetchBlindData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao emitir voucher desvinculado.' });
+    } finally {
+      setProcessingVoucher(false);
+    }
+  };
+
+  const handleVerifyBlindTokenSubmit = async () => {
+    if (!blindOverview?.activeAuthorityKey?.keyId || !verifyMessageInput.trim() || !verifySigInput.trim()) return;
+    try {
+      setVerifyingBlindToken(true);
+      const res = await api.verifyBlindToken({
+        originalMessage: verifyMessageInput.trim(),
+        unblindedSignatureHex: verifySigInput.trim(),
+        authorityKeyId: blindOverview.activeAuthorityKey.keyId,
+        purpose: verifyPurposeInput
+      });
+      setLastBlindVerification(res.verification);
+      setFeedback({
+        type: res.verification.valid ? 'success' : 'error',
+        message: res.verification.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao verificar assinatura cega.' });
+    } finally {
+      setVerifyingBlindToken(false);
+    }
+  };
+
+  const handleSimulateDoubleSpendSubmit = async () => {
+    const targetToken = lastBallotResult?.unblindedToken || lastVoucherResult?.unblindedToken;
+    if (!targetToken) {
+      setFeedback({ type: 'error', message: 'Nenhum token descegado disponível recentemente. Emita um voto ou voucher primeiro.' });
+      return;
+    }
+
+    try {
+      setSimulatingDoubleSpend(true);
+      setDoubleSpendSimResult(null);
+      const res = await api.simulateDoubleSpend({ unblindedToken: targetToken });
+      setDoubleSpendSimResult(res);
+      setFeedback({
+        type: res.blocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchBlindData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de double-spend.' });
+    } finally {
+      setSimulatingDoubleSpend(false);
+    }
+  };
+
+  const handleVerifyBlindSealSubmit = async (token: string) => {
+    try {
+      setVerifyingBlindSeal(true);
+      setBlindSealVerifyResult(null);
+      const res = await api.verifyBlindSeal({ sealToken: token });
+      setBlindSealVerifyResult({
+        isValid: res.isValid,
+        message: res.message,
+        verifiedAt: res.verifiedAt
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório Chaumiano.' });
+    } finally {
+      setVerifyingBlindSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -3464,6 +3710,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchTlsPinningData();
       fetchDevicePostureData();
       fetchPqcData();
+      fetchBlindData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -16356,6 +16603,573 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* CARD 38: PROTOCOLO CHAUMIANO DE ASSINATURAS CEGAS & VOTAÇÃO ÉTICA ANÔNIMA (RFC 9474 & CFP 001/2009) */}
+      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 flex items-center gap-1.5">
+                  <Vote className="w-3.5 h-3.5 text-violet-600" />
+                  Módulo 38 • Assinaturas Cegas Chaumianas (RFC 9474 & CFP 001/2009)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  LGPD Art. 13 & Resolução CFP nº 001/2009
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Votação Anônima de Colegiado Ético & Prescrições Desvinculadas (Chaumian Protocol)
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Garantia matemática de desvinculação absoluta (*Information-Theoretic Unlinkability*) para voto secreto de psicólogos em processos éticos e vouchers psiquiátricos com fé pública da autoridade emissora.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={loadingBlind}
+                onClick={fetchBlindData}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingBlind ? 'animate-spin' : ''}`} />
+                Sincronizar Urna
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Tokens Emitidos
+              </span>
+              <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <FileCode className="w-4 h-4 text-violet-600" />
+                {blindOverview?.metrics.totalBlindedTokens ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Cegados no cliente</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Apurados na Urna
+              </span>
+              <div className="text-lg font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                <Vote className="w-4 h-4" />
+                {blindOverview?.metrics.totalRedeemedTokens ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Votos e vouchers</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Double-Spend Bloqueado
+              </span>
+              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                {blindOverview?.metrics.totalDoubleSpendBlocked ?? 0}
+              </div>
+              <span className="text-[10px] text-slate-500">Defesa via Nullifier</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Desvinculação
+              </span>
+              <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <EyeOff className="w-4 h-4 text-indigo-500" />
+                100% INCONDICIONAL
+              </div>
+              <span className="text-[10px] text-slate-500">Information-Theoretic</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Fé Pública da Autoridade
+              </span>
+              <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                CRP-06 / COORDENADORIA
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">RSA-2048 / e=65537</span>
+            </div>
+          </div>
+
+          {/* Abas de Navegação */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setBlindActiveTab('ballot')}
+              className={`pb-3 px-4 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                blindActiveTab === 'ballot'
+                  ? 'border-violet-600 text-violet-600 dark:text-violet-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <Vote className="w-4 h-4" />
+              1. Cédula Anônima de Colegiado Ético (Chaumian Ballot)
+            </button>
+            <button
+              type="button"
+              onClick={() => setBlindActiveTab('voucher')}
+              className={`pb-3 px-4 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                blindActiveTab === 'voucher'
+                  ? 'border-violet-600 text-violet-600 dark:text-violet-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <Ticket className="w-4 h-4" />
+              2. Prescrição Digital & Voucher Psiquiátrico Desvinculado
+            </button>
+            <button
+              type="button"
+              onClick={() => setBlindActiveTab('verifier')}
+              className={`pb-3 px-4 text-xs font-bold transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                blindActiveTab === 'verifier'
+                  ? 'border-violet-600 text-violet-600 dark:text-violet-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              3. Verificador Forense & Simulador de Double-Spend
+            </button>
+          </div>
+
+          {/* ABA 1: CÉDULA ANÔNIMA DE COLEGIADO ÉTICO */}
+          {blindActiveTab === 'ballot' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/40 text-xs text-violet-900 dark:text-violet-200">
+                <span className="font-bold flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="w-4 h-4 text-violet-600" />
+                  Protocolo de Votação Secreta com Fé Pública Inquestionável
+                </span>
+                O membro habilitado do colegiado utiliza seu CRP para habilitar 1 voto. O sistema realiza o cegamento algébrico ($m' \equiv h \cdot r^e \pmod N$), a autoridade assina a cédula sem ver o teor do voto, o cliente remove o fator de máscara ($s \equiv s' \cdot r^{-1} \pmod N$) e deposita na urna com prova matemática de fé pública ($s^e \equiv h \pmod N$).
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Processo Disciplinar / Caso Ético (CFP)
+                  </label>
+                  <select
+                    value={selectedBallotCase}
+                    onChange={(e) => setSelectedBallotCase(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="PROCESSO-DISCIPLINAR-CFP-2026-089">PROCESSO-DISCIPLINAR-CFP-2026-089 (Quebra de Sigilo em Telepsicologia)</option>
+                    <option value="PARECER-BIOETICA-2026-112">PARECER-BIOETICA-2026-112 (Dilema de Notificação Compulsória Autolesiva)</option>
+                    <option value="RECURSO-PLENARIO-2026-304">RECURSO-PLENARIO-2026-304 (Captação Indevida em Redes Sociais)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Deliberação / Voto do Relator
+                  </label>
+                  <select
+                    value={selectedBallotDecision}
+                    onChange={(e) => setSelectedBallotDecision(e.target.value as BlindBallotDecision)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value={BlindBallotDecision.FAVORABLE_COMPLIANT}>FAVORÁVEL / EM CONFORMIDADE COM O CÓDIGO</option>
+                    <option value={BlindBallotDecision.UNFAVORABLE_SANCTION}>DESFAVORÁVEL / APLICAÇÃO DE ADVERTÊNCIA OU CENSURA</option>
+                    <option value={BlindBallotDecision.ABSTENTION}>ABSTENÇÃO (IMPEDIMENTO / FORO ÍNTIMO)</option>
+                    <option value={BlindBallotDecision.REVISION_REQUESTED}>PEDIDO DE VISTA / DILIGÊNCIA COMPLEMENTAR</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    CRP do Profissional Votante (Consumo de Cota)
+                  </label>
+                  <input
+                    type="text"
+                    value={voterCrpInput}
+                    onChange={(e) => setVoterCrpInput(e.target.value)}
+                    placeholder="Ex: CRP-06/98214"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                  <span className="text-[10px] text-slate-400">Usado apenas para garantir 1 voto por membro</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  disabled={processingBallotVote}
+                  onClick={handleExecuteFullBallotVote}
+                  className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                >
+                  {processingBallotVote ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Vote className="w-4 h-4" />}
+                  Executar Votação Cega Ponta a Ponta (Chaumian Ballot)
+                </button>
+              </div>
+
+              {/* Resultado do Voto */}
+              {lastBallotResult && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Voto Depositado na Urna com Sucesso & Fé Pública
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBlindSealForModal(lastBallotResult.redemption.proofSeal);
+                        setBlindModalEvidenceItem(lastBallotResult.redemption.recordedItem);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 font-bold text-[10px] hover:bg-violet-200 cursor-pointer"
+                    >
+                      Ver Laudo Chaumiano Timbrado
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                      <span className="font-bold text-[10px] text-slate-400 uppercase">Mensagem Cega (m') Enviada à Autoridade</span>
+                      <p className="font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all">
+                        {lastBallotResult.blinded.blindedMessageHex.slice(0, 64)}...
+                      </p>
+                      <span className="text-[10px] text-emerald-600 font-bold">Autoridade não sabe o teor do voto</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                      <span className="font-bold text-[10px] text-slate-400 uppercase">Nullifier Determinístico (Anti-Double-Spend)</span>
+                      <p className="font-mono text-[10px] text-violet-600 dark:text-violet-400 break-all">
+                        {lastBallotResult.unblindedToken.nullifierHash}
+                      </p>
+                      <span className="text-[10px] text-slate-500">Registrado na urna para impedir voto duplo</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 2: PRESCRIÇÃO DIGITAL & VOUCHER PSIQUIÁTRICO */}
+          {blindActiveTab === 'voucher' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-200">
+                <span className="font-bold flex items-center gap-1.5 mb-1">
+                  <Ticket className="w-4 h-4 text-indigo-600" />
+                  Prescrição e Encaminhamento com Fé Pública Desvinculada de Identidade
+                </span>
+                Conforme o Art. 13 da LGPD, autorizações de medicação controlada e acolhimento emergencial em CAPS podem ser emitidos com assinatura cega. O paciente apresenta o token na rede credenciada sem expor seu prontuário clínico ou identidade real.
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Especialidade Médica de Destino
+                  </label>
+                  <select
+                    value={voucherSpecialty}
+                    onChange={(e) => setVoucherSpecialty(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="Psiquiatria da Infância e Adolescência">Psiquiatria da Infância e Adolescência</option>
+                    <option value="Centro de Atenção Psicossocial (CAPS III - Álcool e Drogas)">Centro de Atenção Psicossocial (CAPS III)</option>
+                    <option value="Neuropsicologia Clínica e Reabilitação Cognitiva">Neuropsicologia Clínica</option>
+                    <option value="Clínica Médica de Suporte Psiquiátrico Geral">Clínica Médica Geral</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nível de Urgência
+                  </label>
+                  <select
+                    value={voucherUrgency}
+                    onChange={(e) => setVoucherUrgency(e.target.value as any)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="NORMAL">NORMAL (Consulta Eletiva)</option>
+                    <option value="URGENTE">URGENTE (Prioridade Clínica)</option>
+                    <option value="EMERGENCIAL_CAPS">EMERGENCIAL CAPS (Acolhimento Imediato)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Categoria do Serviço / Prescrição
+                  </label>
+                  <input
+                    type="text"
+                    value={voucherCategory}
+                    onChange={(e) => setVoucherCategory(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Alias Clínico Desvinculado do Paciente
+                  </label>
+                  <input
+                    type="text"
+                    value={voucherPatientAlias}
+                    onChange={(e) => setVoucherPatientAlias(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  disabled={processingVoucher}
+                  onClick={handleExecuteFullVoucherEmission}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                >
+                  {processingVoucher ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Ticket className="w-4 h-4" />}
+                  Emitir Voucher Desvinculado com Assinatura Cega
+                </button>
+              </div>
+
+              {lastVoucherResult && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                      <Ticket className="w-4 h-4" />
+                      Voucher Emitido com Código de Resgate Seguro
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBlindSealForModal(lastVoucherResult.redemption.proofSeal);
+                        setBlindModalEvidenceItem(lastVoucherResult.redemption.recordedItem);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-bold text-[10px] hover:bg-indigo-200 cursor-pointer"
+                    >
+                      Ver Laudo de Fé Pública
+                    </button>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] text-slate-400 font-bold">CÓDIGO DE RESGATE NA REDE CREDENCIADA</div>
+                      <div className="text-base font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {lastVoucherResult.redemption.recordedItem.voucherCode}
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
+                      FÉ PÚBLICA CONFIRMADA
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ABA 3: VERIFICADOR FORENSE & ANTI-DOUBLE-SPEND */}
+          {blindActiveTab === 'verifier' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Search className="w-4 h-4 text-violet-600" />
+                  Verificação Pericial Universal de Assinatura Cega Descegada
+                </h4>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Mensagem Original (m)
+                    </label>
+                    <input
+                      type="text"
+                      value={verifyMessageInput}
+                      onChange={(e) => setVerifyMessageInput(e.target.value)}
+                      placeholder="Ex: VOTO_COLEGIADO:PROCESSO-DISCIPLINAR-CFP-2026-089:FAVORABLE_COMPLIANT"
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Assinatura Descegada em Hexadecimal (s)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={verifySigInput}
+                      onChange={(e) => setVerifySigInput(e.target.value)}
+                      placeholder="Hexadecimal da assinatura descegada..."
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono break-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={verifyingBlindToken}
+                    onClick={handleVerifyBlindTokenSubmit}
+                    className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    {verifyingBlindToken ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />}
+                    Validar Prova Matemática (s^e mod N === h)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={simulatingDoubleSpend}
+                    onClick={handleSimulateDoubleSpendSubmit}
+                    className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 font-bold text-xs border border-rose-200 dark:border-rose-800 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    {simulatingDoubleSpend ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                    Pentest: Simular Tentativa de Double-Spending
+                  </button>
+                </div>
+
+                {lastBlindVerification && (
+                  <div className={`p-3.5 rounded-xl border text-xs space-y-1 ${
+                    lastBlindVerification.valid
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 text-rose-900 dark:text-rose-200'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1.5">
+                      {lastBlindVerification.valid ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+                      {lastBlindVerification.message}
+                    </div>
+                    <div className="text-[11px] font-mono">{lastBlindVerification.publicFaithAttestation}</div>
+                  </div>
+                )}
+
+                {doubleSpendSimResult && (
+                  <div className={`p-3.5 rounded-xl border text-xs space-y-1 ${
+                    doubleSpendSimResult.blocked
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 text-amber-900 dark:text-amber-200'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      {doubleSpendSimResult.message}
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-500">
+                      Nullifier Bloqueado: {doubleSpendSimResult.nullifierHash}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tabela de Votos e Vouchers Apurados */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <ScrollText className="w-4 h-4 text-violet-600" />
+              Deliberações Éticas e Vouchers Apurados na Urna Digital
+            </h4>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">Identificador / Processo</th>
+                    <th className="py-2.5 px-3">Tipo / Finalidade</th>
+                    <th className="py-2.5 px-3">Decisão / Especialidade</th>
+                    <th className="py-2.5 px-3">Nullifier (Anti-Double-Spend)</th>
+                    <th className="py-2.5 px-3">Fé Pública</th>
+                    <th className="py-2.5 px-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(blindOverview?.recentBallots || []).map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                        <div>{b.caseNumber}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">{b.caseTitle}</div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                          VOTAÇÃO ÉTICA
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                        {b.decision}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
+                        {b.nullifierHash.slice(0, 16)}...
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          CONFIRMADA
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBlindModalEvidenceItem(b);
+                            setSelectedBlindSealForModal({
+                              sealToken: `blind_proof_v1_${b.id}`,
+                              canonicalDigest: b.nullifierHash,
+                              hmacSignature: b.unblindedSignatureHex.slice(0, 64),
+                              issuedAt: b.castAt,
+                              operationId: b.id,
+                              purpose: BlindSignaturePurpose.ETHICAL_COMMITTEE_BALLOT,
+                              scheme: BlindSignatureScheme.RSA_BLIND_2048
+                            });
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Laudo Chaumiano
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {(blindOverview?.recentVouchers || []).map((v) => (
+                    <tr key={v.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                        <div className="font-mono text-indigo-600 dark:text-indigo-400">{v.voucherCode}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">{v.serviceCategory}</div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                          VOUCHER DESVINCULADO
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                        {v.medicalSpecialty} ({v.urgencyLevel})
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
+                        {v.nullifierHash.slice(0, 16)}...
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          RESGATADO
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBlindModalEvidenceItem(v);
+                            setSelectedBlindSealForModal({
+                              sealToken: `blind_proof_v1_${v.id}`,
+                              canonicalDigest: v.nullifierHash,
+                              hmacSignature: v.unblindedSignatureHex.slice(0, 64),
+                              issuedAt: v.issuedAt,
+                              operationId: v.id,
+                              purpose: BlindSignaturePurpose.PSYCHIATRIC_REFERRAL_VOUCHER,
+                              scheme: BlindSignatureScheme.RSA_BLIND_2048
+                            });
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Laudo Chaumiano
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -20826,6 +21640,157 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {verifyingPqcSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Executar Validação Forense Notarial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 38.A: Laudo Pericial Timbrado de Assinatura Cega Chaumiana (RFC 9474 & CFP 001/2009) */}
+      {selectedBlindSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 my-8">
+            {/* Cabeçalho Oficial Timbrado */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-violet-100 dark:bg-violet-950/60 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                  <Vote className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                      RFC 9474 • DAVID CHAUM 1982
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      FÉ PÚBLICA CONFIRMADA
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
+                    Laudo Pericial de Assinatura Cega & Votação Ética Anônima
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Autoridade Emissora: {blindOverview?.activeAuthorityKey.authorityName || 'Comitê de Ética do CRP-06 / TerapiaInFoco'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBlindSealForModal(null);
+                  setBlindSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 text-xs">
+              {/* Prova Matemática de Fé Pública */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                  <Calculator className="w-4 h-4 text-violet-600" />
+                  Rigor Algébrico & Desvinculação Incondicional
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                  A assinatura foi gerada pela autoridade sobre a mensagem cega <span className="font-mono bg-violet-100 dark:bg-violet-950 px-1 rounded text-violet-700">m' = h·r^e mod N</span> sem conhecimento do voto ou identidade do paciente. O descegamento <span className="font-mono bg-violet-100 dark:bg-violet-950 px-1 rounded text-violet-700">s = s'·r^-1 mod N</span> preservou a validade exata da assinatura RSA da instituição (<span className="font-mono bg-emerald-100 dark:bg-emerald-950 px-1 rounded text-emerald-700">s^e ≡ h mod N</span>).
+                </p>
+              </div>
+
+              {/* Informações da Evidência */}
+              {blindModalEvidenceItem && (
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="font-bold text-slate-900 dark:text-white text-xs">
+                    Dados Registrados na Urna Eleitoral / Dispensário
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-slate-400 block">Identificador Oficial:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {blindModalEvidenceItem.caseNumber || blindModalEvidenceItem.voucherCode}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block">Decisão / Especialidade:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {blindModalEvidenceItem.decision || blindModalEvidenceItem.medicalSpecialty}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-400 block">Nullifier Determinístico (Garantia Anti-Double-Spend):</span>
+                      <span className="font-mono text-[10px] text-violet-600 dark:text-violet-400 break-all">
+                        {blindModalEvidenceItem.nullifierHash}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Detalhes do Selo WORM */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Selo Probatório WORM HMAC-SHA256 & JCS RFC 8785
+                </div>
+                <div className="space-y-1.5 font-mono text-[10px] text-slate-600 dark:text-slate-300">
+                  <div>
+                    <span className="text-slate-400">Digest Canônico:</span>
+                    <p className="break-all text-slate-700 dark:text-slate-200">{selectedBlindSealForModal.canonicalDigest}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Assinatura WORM:</span>
+                    <p className="break-all text-violet-600 dark:text-violet-400">{selectedBlindSealForModal.hmacSignature}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Token do Selo:</span>
+                    <p className="break-all text-slate-500">{selectedBlindSealForModal.sealToken}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feedback de Validação Forense */}
+              {blindSealVerifyResult && (
+                <div className={`p-3.5 rounded-2xl border text-xs space-y-1 ${
+                  blindSealVerifyResult.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {blindSealVerifyResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    )}
+                    {blindSealVerifyResult.isValid ? 'Selo Chaumiano Íntegro e Válido' : 'Falha na Validação Pericial'}
+                  </div>
+                  <div className="text-[11px]">{blindSealVerifyResult.message}</div>
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    Verificado em: {new Date(blindSealVerifyResult.verifiedAt).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBlindSealForModal(null);
+                  setBlindSealVerifyResult(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={verifyingBlindSeal}
+                onClick={() => handleVerifyBlindSealSubmit(selectedBlindSealForModal.sealToken)}
+                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {verifyingBlindSeal ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Executar Validação Forense Notarial
               </button>
             </div>
