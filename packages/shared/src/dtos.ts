@@ -2433,6 +2433,72 @@ export interface AdvancedRateLimitOverviewResponse {
   overview: import('./models').AdvancedRateLimitOverview;
 }
 
+/**
+ * 39. BLINDAGEM DE MEMÓRIA & PREVENÇÃO DE HEAP SPRAYING
+ * (NIST SP 800-88 Rev. 1 & OWASP ASVS v4.0 V14.1)
+ */
+
+export interface AllocateSecureBufferDTO {
+  tag: string;
+  sizeBytes: number;
+  ttlMs?: number;
+  initialContentHex?: string;
+}
+
+export interface AllocateSecureBufferResponse {
+  success: boolean;
+  block: import('./models').SecureMemoryBlock;
+  message: string;
+}
+
+export interface ZeroizeSecureBufferDTO {
+  blockId: string;
+  algorithm?: import('./enums').MemorySanitizationAlgorithm;
+}
+
+export interface ZeroizeSecureBufferResponse {
+  success: boolean;
+  proofSeal: import('./models').MemoryZeroizationProofSeal;
+  message: string;
+}
+
+export interface InspectHeapSprayingDTO {
+  payloadHexOrText: string;
+  sampleTag?: string;
+}
+
+export interface InspectHeapSprayingResponse {
+  success: boolean;
+  inspection: import('./models').HeapSprayingInspectionResult;
+  auditLogged: boolean;
+  message: string;
+}
+
+export interface PurgeExpiredDeksResponse {
+  success: boolean;
+  purgedCount: number;
+  purgedBlockIds: string[];
+  message: string;
+}
+
+export interface VerifyZeroizationSealDTO {
+  proofSealToken: string;
+}
+
+export interface VerifyZeroizationSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').MemoryZeroizationProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface SecureMemoryOverviewResponse {
+  success: boolean;
+  overview: import('./models').SecureMemoryOverview;
+}
+
+
 
 
 
