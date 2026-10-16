@@ -419,7 +419,16 @@ import type {
   SimulateThresholdAttackResponse,
   VerifyThresholdSealDTO,
   VerifyThresholdSealResponse,
-  ThresholdVaultOverviewResponse
+  ThresholdVaultOverviewResponse,
+  ScanObjectPayloadDTO,
+  ScanObjectPayloadResponse,
+  UpdatePollutionPolicyDTO,
+  UpdatePollutionPolicyResponse,
+  SimulatePollutionAttackDTO,
+  SimulatePollutionAttackResponse,
+  VerifyPollutionSealDTO,
+  VerifyPollutionSealResponse,
+  PollutionGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2676,6 +2685,39 @@ export const api = {
 
   async verifyThresholdSeal(dto: VerifyThresholdSealDTO): Promise<VerifyThresholdSealResponse> {
     return await request<VerifyThresholdSealResponse>('/court-order-threshold/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 45. Blindagem contra Prototype Pollution & Desserialização Insegura (OWASP ASVS V5.5 & CWE-1321)
+  async getPrototypePollutionOverview(): Promise<PollutionGuardOverviewResponse> {
+    return await request<PollutionGuardOverviewResponse>('/prototype-pollution/overview');
+  },
+
+  async scanObjectPayload(dto: ScanObjectPayloadDTO): Promise<ScanObjectPayloadResponse> {
+    return await request<ScanObjectPayloadResponse>('/prototype-pollution/scan-payload', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updatePollutionPolicy(dto: UpdatePollutionPolicyDTO): Promise<UpdatePollutionPolicyResponse> {
+    return await request<UpdatePollutionPolicyResponse>('/prototype-pollution/update-policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulatePollutionAttack(dto: SimulatePollutionAttackDTO): Promise<SimulatePollutionAttackResponse> {
+    return await request<SimulatePollutionAttackResponse>('/prototype-pollution/simulate-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPollutionSeal(dto: VerifyPollutionSealDTO): Promise<VerifyPollutionSealResponse> {
+    return await request<VerifyPollutionSealResponse>('/prototype-pollution/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

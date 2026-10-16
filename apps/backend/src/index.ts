@@ -48,6 +48,7 @@ import { antiReplayRouter } from './routes/antiReplay';
 import { visualWatermarkRoutes } from './routes/visualWatermark';
 import { ephemeralTokenRouter } from './routes/ephemeralToken';
 import { courtOrderThresholdRouter } from './routes/courtOrderThreshold';
+import { prototypePollutionRouter } from './routes/prototypePollution';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -192,6 +193,7 @@ app.route('/api/anti-replay', antiReplayRouter);
 app.route('/api/visual-watermark', visualWatermarkRoutes);
 app.route('/api/ephemeral-tokens', ephemeralTokenRouter);
 app.route('/api/court-order-threshold', courtOrderThresholdRouter);
+app.route('/api/prototype-pollution', prototypePollutionRouter);
 
 
 
