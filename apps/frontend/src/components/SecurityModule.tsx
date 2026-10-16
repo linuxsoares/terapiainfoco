@@ -387,7 +387,16 @@ import {
   type GraphQLSecurityIncident,
   type GraphQLGuardOverview,
   type SimulateGraphQLAttackResponse,
-  type VerifyGraphQLCostSealResponse
+  type VerifyGraphQLCostSealResponse,
+  Http2ThreatCategory,
+  Http2ProtocolTarget,
+  Http2ValidationAction,
+  type Http2GuardOverview,
+  type Http2ProofSeal,
+  type Http2InspectionResult,
+  type Http2SecurityIncident,
+  type SimulateHttp2AttackResponse,
+  type VerifyHttp2SealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -6219,6 +6228,136 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 46. MÓDULO 72: HTTP/2 & GRPC HEADER GUARD & REQUEST SMUGGLING DEFENSE (RFC 9113, CWE-113, CWE-444)
+  const [http2Overview, setHttp2Overview] = useState<Http2GuardOverview | null>(null);
+  const [loadingHttp2Guard, setLoadingHttp2Guard] = useState<boolean>(false);
+  const [activeHttp2Tab, setActiveHttp2Tab] = useState<'inspector' | 'suites' | 'simulator' | 'policy'>('inspector');
+
+  // Aba 1: Inspetor de Cabeçalhos
+  const [http2HeadersInput, setHttp2HeadersInput] = useState<Array<{ name: string; value: string }>>([
+    { name: ':method', value: 'POST' },
+    { name: ':path', value: '/api/clinical-records/draft' },
+    { name: ':authority', value: 'api.terapiainfoco.com.br' },
+    { name: ':scheme', value: 'https' },
+    { name: 'content-type', value: 'application/json' },
+    { name: 'authorization', value: 'Bearer demo-jwt-clinical-token' }
+  ]);
+  const [http2ProtocolTarget, setHttp2ProtocolTarget] = useState<Http2ProtocolTarget>(Http2ProtocolTarget.HTTP2_REST);
+  const [inspectingHttp2, setInspectingHttp2] = useState<boolean>(false);
+  const [lastHttp2Inspection, setLastHttp2Inspection] = useState<Http2InspectionResult | null>(null);
+
+  // Aba 3: Simulador Adversarial
+  const [simulatingHttp2Attack, setSimulatingHttp2Attack] = useState<boolean>(false);
+  const [http2SimulationResult, setHttp2SimulationResult] = useState<SimulateHttp2AttackResponse | null>(null);
+
+  // Aba 4: Políticas de Hardening
+  const [http2PolicyBlockTE, setHttp2PolicyBlockTE] = useState<boolean>(true);
+  const [http2PolicyEnforceLower, setHttp2PolicyEnforceLower] = useState<boolean>(true);
+  const [http2PolicyStripConn, setHttp2PolicyStripConn] = useState<boolean>(true);
+  const [http2PolicyValidateGrpc, setHttp2PolicyValidateGrpc] = useState<boolean>(true);
+  const [http2PolicyMaxTotalHeaders, setHttp2PolicyMaxTotalHeaders] = useState<number>(100);
+  const [updatingHttp2Policy, setUpdatingHttp2Policy] = useState<boolean>(false);
+
+  // Modal 54.A: Certidão Notarial Forense WORM de Desync & Header Guard
+  const [selectedHttp2SealForModal, setSelectedHttp2SealForModal] = useState<Http2ProofSeal | null>(null);
+  const [http2ModalIncidentItem, setHttp2ModalIncidentItem] = useState<Http2SecurityIncident | null>(null);
+  const [verifyingHttp2Seal, setVerifyingHttp2Seal] = useState<boolean>(false);
+  const [http2SealVerifyResult, setHttp2SealVerifyResult] = useState<VerifyHttp2SealResponse | null>(null);
+
+  const fetchHttp2GuardData = async () => {
+    try {
+      setLoadingHttp2Guard(true);
+      const res = await api.getHttp2GuardOverview();
+      setHttp2Overview(res.overview);
+      if (res.overview?.policy) {
+        setHttp2PolicyBlockTE(res.overview.policy.blockTransferEncoding);
+        setHttp2PolicyEnforceLower(res.overview.policy.enforceLowercaseHeaders);
+        setHttp2PolicyStripConn(res.overview.policy.stripConnectionHeaders);
+        setHttp2PolicyValidateGrpc(res.overview.policy.validateGrpcMetadata);
+        setHttp2PolicyMaxTotalHeaders(res.overview.policy.maxTotalHeadersCount);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar visão geral de HTTP/2 Guard:', err);
+    } finally {
+      setLoadingHttp2Guard(false);
+    }
+  };
+
+  const handleInspectHttp2Submit = async () => {
+    try {
+      setInspectingHttp2(true);
+      setLastHttp2Inspection(null);
+      const res = await api.inspectHttp2Headers({
+        headers: http2HeadersInput,
+        protocolTarget: http2ProtocolTarget
+      });
+      setLastHttp2Inspection(res.inspection);
+      setFeedback({
+        type: res.isValid || res.action === Http2ValidationAction.SANITIZE ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchHttp2GuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar cabeçalhos HTTP/2.' });
+    } finally {
+      setInspectingHttp2(false);
+    }
+  };
+
+  const handleSimulateHttp2Attack = async (threatCategory: Http2ThreatCategory) => {
+    try {
+      setSimulatingHttp2Attack(true);
+      setHttp2SimulationResult(null);
+      const res = await api.simulateHttp2Attack({ threatCategory });
+      setHttp2SimulationResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchHttp2GuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque HTTP/2.' });
+    } finally {
+      setSimulatingHttp2Attack(false);
+    }
+  };
+
+  const handleSaveHttp2Policy = async () => {
+    try {
+      setUpdatingHttp2Policy(true);
+      const res = await api.updateHttp2Policy({
+        blockTransferEncoding: http2PolicyBlockTE,
+        enforceLowercaseHeaders: http2PolicyEnforceLower,
+        stripConnectionHeaders: http2PolicyStripConn,
+        validateGrpcMetadata: http2PolicyValidateGrpc,
+        maxTotalHeadersCount: http2PolicyMaxTotalHeaders
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchHttp2GuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política HTTP/2.' });
+    } finally {
+      setUpdatingHttp2Policy(false);
+    }
+  };
+
+  const handleVerifyHttp2SealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingHttp2Seal(true);
+      setHttp2SealVerifyResult(null);
+      const res = await api.verifyHttp2Seal({ sealToken });
+      setHttp2SealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo notarial HTTP/2.' });
+    } finally {
+      setVerifyingHttp2Seal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -6264,6 +6403,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchPathGuardData();
       fetchExprGuardData();
       fetchGqlGuardData();
+      fetchHttp2GuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -29847,6 +29987,704 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* CARD 54: BLINDAGEM CONTRA INJEÇÃO DE CABEÇALHOS E SPLIT HTTP/2 & GRPC (RFC 9113, CWE-113, CWE-444) */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                Módulo 72 • RFC 9113 & OWASP ASVS V5.1
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                WORM Active Shield
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Layers className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+              Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Prevenção ativa de HTTP/2 to HTTP/1.1 Request Smuggling (H2.TE/H2.CL Desync), CRLF Injection (CWE-113), adulteração de metadados gRPC e imposição estrita de framing RFC 9113.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={loadingHttp2Guard}
+            onClick={fetchHttp2GuardData}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingHttp2Guard ? 'animate-spin' : ''}`} />
+            Atualizar
+          </button>
+        </div>
+
+        {/* 5 KPIS DE DESYNC & FRAMING */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+              Total Inspecionado
+            </span>
+            <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+              {http2Overview?.metrics.totalRequestsInspected.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Frames HEADERS analisados</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+              Em Conformidade
+            </span>
+            <span className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+              {http2Overview?.metrics.cleanRequestsAllowed.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 block mt-0.5">RFC 9113 Estrita</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+              H2.TE / Smuggling
+            </span>
+            <span className="font-mono text-xl font-bold text-rose-600 dark:text-rose-400">
+              {http2Overview?.metrics.smugglingAttemptsBlocked.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-rose-600/70 dark:text-rose-400/70 block mt-0.5">Desyncs Bloqueados</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+              CRLF & Split
+            </span>
+            <span className="font-mono text-xl font-bold text-amber-600 dark:text-amber-400">
+              {http2Overview?.metrics.crlfInjectionsBlocked.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-amber-600/70 dark:text-amber-400/70 block mt-0.5">CWE-113 Neutralizados</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
+              Adulterações gRPC
+            </span>
+            <span className="font-mono text-xl font-bold text-purple-600 dark:text-purple-400">
+              {http2Overview?.metrics.grpcTamperingBlocked.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 block mt-0.5">Metadados Anômalos</span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS */}
+        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/60 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => setActiveHttp2Tab('inspector')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeHttp2Tab === 'inspector'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Inspetor de Cabeçalhos & Desync Guard
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveHttp2Tab('suites')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeHttp2Tab === 'suites'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Suítes Homologadas RFC 9113 & gRPC
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveHttp2Tab('simulator')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeHttp2Tab === 'simulator'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Simulador Adversarial de Desincronização
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveHttp2Tab('policy')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeHttp2Tab === 'policy'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Políticas de Governança & Incidentes
+          </button>
+        </div>
+
+        {/* CONTEÚDO DA ABA 1: INSPETOR DE CABEÇALHOS */}
+        {activeHttp2Tab === 'inspector' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Alvo de Protocolo:
+                </label>
+                <select
+                  value={http2ProtocolTarget}
+                  onChange={(e) => setHttp2ProtocolTarget(e.target.value as Http2ProtocolTarget)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold"
+                >
+                  <option value={Http2ProtocolTarget.HTTP2_REST}>HTTP/2 REST (APIs Clínicas)</option>
+                  <option value={Http2ProtocolTarget.GRPC_STREAM}>gRPC Stream (Telemetria & Vitals)</option>
+                  <option value={Http2ProtocolTarget.HTTP2_WEBRTC_SIGNAL}>HTTP/2 WebRTC Signaling</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setHttp2HeadersInput([...http2HeadersInput, { name: '', value: '' }])}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Adicionar Cabeçalho
+              </button>
+            </div>
+
+            {/* TABELA DE CABEÇALHOS PARA INSPEÇÃO */}
+            <div className="space-y-2 max-h-72 overflow-y-auto p-1">
+              {http2HeadersInput.map((header, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={header.name}
+                    onChange={(e) => {
+                      const updated = [...http2HeadersInput];
+                      updated[idx].name = e.target.value;
+                      setHttp2HeadersInput(updated);
+                    }}
+                    placeholder="Nome (ex: :path, authorization)"
+                    className="w-1/3 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-xs text-slate-900 dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    value={header.value}
+                    onChange={(e) => {
+                      const updated = [...http2HeadersInput];
+                      updated[idx].value = e.target.value;
+                      setHttp2HeadersInput(updated);
+                    }}
+                    placeholder="Valor do cabeçalho"
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono text-xs text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = http2HeadersInput.filter((_, i) => i !== idx);
+                      setHttp2HeadersInput(updated);
+                    }}
+                    className="p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                    title="Remover cabeçalho"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] text-slate-400">
+                {http2HeadersInput.length} cabeçalhos configurados no frame HEADERS.
+              </span>
+
+              <button
+                type="button"
+                disabled={inspectingHttp2 || http2HeadersInput.length === 0}
+                onClick={handleInspectHttp2Submit}
+                className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                {inspectingHttp2 ? 'Analisando Frame RFC 9113...' : 'Inspecionar Cabeçalhos HTTP/2'}
+              </button>
+            </div>
+
+            {/* RESULTADO DA INSPEÇÃO */}
+            {lastHttp2Inspection && (
+              <div className={`p-4 rounded-2xl border space-y-4 ${
+                lastHttp2Inspection.action === Http2ValidationAction.ALLOW
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                  : lastHttp2Inspection.action === Http2ValidationAction.SANITIZE
+                  ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200 dark:border-sky-800/40'
+                  : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/40'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                      lastHttp2Inspection.action === Http2ValidationAction.ALLOW
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : lastHttp2Inspection.action === Http2ValidationAction.SANITIZE
+                        ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                    }`}>
+                      {lastHttp2Inspection.action === Http2ValidationAction.ALLOW
+                        ? 'Veredito: ALLOW (Conforme RFC 9113)'
+                        : lastHttp2Inspection.action === Http2ValidationAction.SANITIZE
+                        ? 'Veredito: SANITIZE (Normalizado)'
+                        : 'Veredito: BLOCK & ISOLATE (Smuggling/Injection Interceptado)'}
+                    </span>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {lastHttp2Inspection.inspectionDurationUs} μs
+                    </span>
+                  </div>
+
+                  {lastHttp2Inspection.seal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHttp2SealForModal(lastHttp2Inspection.seal || null);
+                        setHttp2ModalIncidentItem(null);
+                        setHttp2SealVerifyResult(null);
+                      }}
+                      className="px-3 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-mono text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    >
+                      Ver Selo WORM
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {lastHttp2Inspection.summary}
+                </p>
+
+                {/* LISTAGEM DE AMEAÇAS */}
+                {lastHttp2Inspection.threats.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">
+                      Ameaças Identificadas ({lastHttp2Inspection.threats.length}):
+                    </span>
+                    <div className="space-y-2">
+                      {lastHttp2Inspection.threats.map((threat) => (
+                        <div key={threat.id} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                              {threat.category}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {threat.severity}
+                            </span>
+                          </div>
+                          <p className="text-slate-600 dark:text-slate-300 text-[11px]">
+                            {threat.description}
+                          </p>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            Campo: <span className="text-rose-600 dark:text-rose-400 font-bold">{threat.offendingHeader}</span> | Remediação: {threat.remediation}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 2: SUÍTES HOMOLOGADAS */}
+        {activeHttp2Tab === 'suites' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  HTTP/2 REST
+                </span>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Prontuário Clínico & Evolução SOAP
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Requisição de rascunho de prontuário com pseudo-cabeçalhos estritos e Content-Length válido.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setHttp2ProtocolTarget(Http2ProtocolTarget.HTTP2_REST);
+                  setHttp2HeadersInput([
+                    { name: ':method', value: 'POST' },
+                    { name: ':path', value: '/api/clinical-records/draft' },
+                    { name: ':authority', value: 'api.terapiainfoco.com.br' },
+                    { name: ':scheme', value: 'https' },
+                    { name: 'content-type', value: 'application/json' },
+                    { name: 'content-length', value: '142' },
+                    { name: 'authorization', value: 'Bearer eyJhbGciOiJIUzI1Ni...' }
+                  ]);
+                  setActiveHttp2Tab('inspector');
+                }}
+                className="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Carregar no Inspetor
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                  gRPC Stream
+                </span>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Telemetria Clínica & Biossinais
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Canal gRPC com cabeçalho TE: trailers obrigatório e grpc-timeout padronizado (10S).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setHttp2ProtocolTarget(Http2ProtocolTarget.GRPC_STREAM);
+                  setHttp2HeadersInput([
+                    { name: ':method', value: 'POST' },
+                    { name: ':path', value: '/terapiainfoco.ClinicalTelemetry/RecordVitals' },
+                    { name: ':authority', value: 'grpc.terapiainfoco.com.br' },
+                    { name: ':scheme', value: 'https' },
+                    { name: 'content-type', value: 'application/grpc' },
+                    { name: 'te', value: 'trailers' },
+                    { name: 'grpc-timeout', value: '10S' },
+                    { name: 'grpc-encoding', value: 'gzip' }
+                  ]);
+                  setActiveHttp2Tab('inspector');
+                }}
+                className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Carregar no Inspetor
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3">
+              <div className="space-y-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  WebRTC Signal
+                </span>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Sinalização de Teleconsulta
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Troca multiplexada de ofertas/respostas SDP e candidatos ICE sob canal seguro HTTP/2.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setHttp2ProtocolTarget(Http2ProtocolTarget.HTTP2_WEBRTC_SIGNAL);
+                  setHttp2HeadersInput([
+                    { name: ':method', value: 'PUT' },
+                    { name: ':path', value: '/api/teleconsultation/signal' },
+                    { name: ':authority', value: 'rtc.terapiainfoco.com.br' },
+                    { name: ':scheme', value: 'https' },
+                    { name: 'content-type', value: 'application/json' },
+                    { name: 'x-session-id', value: 'sess-clinic-2026-992' }
+                  ]);
+                  setActiveHttp2Tab('inspector');
+                }}
+                className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Carregar no Inspetor
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 3: SIMULADOR ADVERSARIAL */}
+        {activeHttp2Tab === 'simulator' && (
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Dispare vetores adversariais de desincronização HTTP/2, injeção de CRLF e corrupção gRPC para avaliar a resposta imediata do guardião criptográfico:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.H2_TE_SMUGGLING)}
+                className="p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/20 text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-rose-700 dark:text-rose-300">H2.TE Request Smuggling</span>
+                  <span className="text-[10px] font-bold uppercase text-rose-600">CRITICAL</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Injeta Transfer-Encoding: chunked violando a RFC 9113 §8.2.2.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.CRLF_HEADER_SPLIT)}
+                className="p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/20 text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-rose-700 dark:text-rose-300">CRLF Injection (CWE-113)</span>
+                  <span className="text-[10px] font-bold uppercase text-rose-600">CRITICAL</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Quebra de linha \r\n no cabeçalho Authorization para forjar novos headers.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.GRPC_HEADER_TAMPERING)}
+                className="p-3.5 rounded-2xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/30 dark:bg-purple-950/20 text-left hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-purple-700 dark:text-purple-300">gRPC Timeout Malicioso</span>
+                  <span className="text-[10px] font-bold uppercase text-purple-600">HIGH</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  grpc-timeout com caracteres anômalos e grpc-status prematuro.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.AMBIGUOUS_CONTENT_LENGTH)}
+                className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/20 text-left hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300">H2.CL Desync (Múltiplos CL)</span>
+                  <span className="text-[10px] font-bold uppercase text-amber-600">CRITICAL</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Múltiplos Content-Length conflitantes (45 e 120 bytes).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.CONNECTION_SPECIFIC_HEADER)}
+                className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Connection Hop-by-Hop</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">HIGH</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Cabeçalhos Connection e Upgrade ilegais em HTTP/2.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingHttp2Attack}
+                onClick={() => handleSimulateHttp2Attack(Http2ThreatCategory.INVALID_CHARACTER_NAME_VALUE)}
+                className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Header Name em Maiúsculas</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">MEDIUM</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  X-Therapist-Crp contendo caracteres maiúsculos (RFC 9113 §8.2.1).
+                </p>
+              </button>
+            </div>
+
+            {/* FEEDBACK DA SIMULAÇÃO */}
+            {http2SimulationResult && (
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    {http2SimulationResult.threatBlocked
+                      ? 'Ataque Adversarial Bloqueado com Sucesso (RST_STREAM)'
+                      : 'Ataque Processado / Sanitizado'}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {http2SimulationResult.inspection.inspectionDurationUs} μs
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-800/80 font-mono text-xs text-rose-300 break-all select-all">
+                  {http2SimulationResult.attackPayloadHeaders.map((h) => `${h.name}: ${h.value}`).join(' | ')}
+                </div>
+
+                {http2SimulationResult.incident?.seal && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Laudo Notarial: {http2SimulationResult.incident.seal.sealToken}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHttp2SealForModal(http2SimulationResult.incident?.seal || null);
+                        setHttp2ModalIncidentItem(http2SimulationResult.incident || null);
+                        setHttp2SealVerifyResult(null);
+                      }}
+                      className="px-3 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Ver Certidão WORM
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 4: POLÍTICAS & INCIDENTES */}
+        {activeHttp2Tab === 'policy' && (
+          <div className="space-y-6">
+            {/* TOGGLES DE POLÍTICA */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Diretrizes de Hardening RFC 9113 & gRPC
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={http2PolicyBlockTE}
+                    onChange={(e) => setHttp2PolicyBlockTE(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    Bloquear Transfer-Encoding (H2.TE Anti-Smuggling)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={http2PolicyEnforceLower}
+                    onChange={(e) => setHttp2PolicyEnforceLower(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    Impor Nomes em Minúsculas (RFC 9113 §8.2.1)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={http2PolicyStripConn}
+                    onChange={(e) => setHttp2PolicyStripConn(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    Remover Cabeçalhos Hop-by-Hop (Connection/Upgrade)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={http2PolicyValidateGrpc}
+                    onChange={(e) => setHttp2PolicyValidateGrpc(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    Validação Estrita de Metadados gRPC (grpc-timeout)
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 text-xs">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    Máximo de Cabeçalhos por Frame:
+                  </label>
+                  <input
+                    type="number"
+                    value={http2PolicyMaxTotalHeaders}
+                    onChange={(e) => setHttp2PolicyMaxTotalHeaders(parseInt(e.target.value, 10) || 100)}
+                    className="w-20 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={updatingHttp2Policy}
+                  onClick={handleSaveHttp2Policy}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  {updatingHttp2Policy ? 'Salvando...' : 'Salvar Diretrizes'}
+                </button>
+              </div>
+            </div>
+
+            {/* TABELA DE INCIDENTES RECENTES */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Incidentes de Desincronização & Injeção Interceptados (WORM Ledger)
+              </h4>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="px-3.5 py-2.5">ID / Horário</th>
+                      <th className="px-3.5 py-2.5">Alvo</th>
+                      <th className="px-3.5 py-2.5">Categoria</th>
+                      <th className="px-3.5 py-2.5">Severidade</th>
+                      <th className="px-3.5 py-2.5">IP de Origem</th>
+                      <th className="px-3.5 py-2.5 text-right">Laudo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(!http2Overview?.recentIncidents || http2Overview.recentIncidents.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400 italic">
+                          Nenhum incidente HTTP/2 interceptado recentemente.
+                        </td>
+                      </tr>
+                    ) : (
+                      http2Overview.recentIncidents.map((inc) => (
+                        <tr key={inc.id || inc.incidentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="px-3.5 py-2.5 font-mono">
+                            <span className="font-bold text-slate-900 dark:text-white block">{inc.id || inc.incidentId}</span>
+                            <span className="text-[10px] text-slate-400">{new Date(inc.timestamp).toLocaleTimeString('pt-BR')}</span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.protocolTarget}</td>
+                          <td className="px-3.5 py-2.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {inc.category}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px] font-bold text-rose-600">
+                            {inc.severity}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.clientIp}</td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (inc.seal) {
+                                  setSelectedHttp2SealForModal(inc.seal);
+                                  setHttp2ModalIncidentItem(inc);
+                                  setHttp2SealVerifyResult(null);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:hover:bg-sky-900 dark:text-sky-300 font-bold text-[11px] transition-colors cursor-pointer"
+                            >
+                              Laudo WORM
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+
 
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -36936,6 +37774,150 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedGqlSealForModal(null);
                     setGqlModalIncidentItem(null);
                     setGqlSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 54.A: CERTIDÃO NOTARIAL FORENSE WORM DE DESYNC & HEADER GUARD HTTP/2 (RFC 8785) */}
+      {selectedHttp2SealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                Certidão Notarial Forense WORM — HTTP/2 & gRPC Framing
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedHttp2SealForModal(null);
+                  setHttp2ModalIncidentItem(null);
+                  setHttp2SealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* STATUS DO LAUDO */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Veredito de Conformidade
+                  </span>
+                  <span className={`text-xs font-black uppercase ${
+                    selectedHttp2SealForModal.actionTaken === 'ALLOW'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : selectedHttp2SealForModal.actionTaken === 'SANITIZE'
+                      ? 'text-sky-600 dark:text-sky-400'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {selectedHttp2SealForModal.actionTaken === 'ALLOW'
+                      ? 'Em Conformidade Estrita com RFC 9113'
+                      : selectedHttp2SealForModal.actionTaken === 'SANITIZE'
+                      ? 'Normalizado / Sanitizado com Sucesso'
+                      : 'Ataque de Desincronização / Smuggling Bloqueado'}
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  {selectedHttp2SealForModal.protocolTarget}
+                </span>
+              </div>
+
+              {/* IDENTIFICADORES DO SELO */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Token Notarial</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white truncate block">
+                    {selectedHttp2SealForModal.sealToken}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Ameaças Detectadas</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white block">
+                    {selectedHttp2SealForModal.threatCount} ameaça(s)
+                  </span>
+                </div>
+              </div>
+
+              {/* DETALHES DO INCIDENTE (SE VINCULADO) */}
+              {http2ModalIncidentItem && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-bold block">Incidente Forense Vinculado</span>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">{http2ModalIncidentItem.id || http2ModalIncidentItem.incidentId}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 uppercase">{http2ModalIncidentItem.category}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                    IP: <span className="font-mono font-semibold">{http2ModalIncidentItem.clientIp}</span> | Severidade: <span className="font-bold">{http2ModalIncidentItem.severity}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* HASH DOS HEADERS */}
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Hash Canônico JCS SHA-256 (RFC 8785)
+                </span>
+                <p className="font-mono text-[10px] text-sky-400 break-all select-all">
+                  {selectedHttp2SealForModal.headersHash}
+                </p>
+              </div>
+
+              {/* ASSINATURA HMAC */}
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Assinatura Notarial HMAC-SHA256 WORM
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedHttp2SealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* RESULTADO DA VALIDAÇÃO NOTARIAL */}
+              {http2SealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  http2SealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {http2SealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {http2SealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedHttp2SealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingHttp2Seal}
+                  onClick={() => handleVerifyHttp2SealSubmit(JSON.stringify(selectedHttp2SealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingHttp2Seal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedHttp2SealForModal(null);
+                    setHttp2ModalIncidentItem(null);
+                    setHttp2SealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

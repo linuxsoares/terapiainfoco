@@ -4613,6 +4613,118 @@ export interface GraphQLGuardOverview {
   recentSealsSample?: GraphQLCostProofSeal[];
 }
 
+/**
+ * Par de Cabeçalho HTTP/2 ou Pseudocabeçalho
+ */
+export interface Http2HeaderPair {
+  name: string;
+  value: string;
+  isPseudo: boolean;
+  isSanitized: boolean;
+  originalValue?: string;
+}
+
+/**
+ * Ameaça Detectada em Cabeçalho HTTP/2 ou Metadado gRPC
+ */
+export interface Http2Threat {
+  id: string;
+  category: import('./enums').Http2ThreatCategory;
+  severity: import('./enums').Http2RiskSeverity;
+  description: string;
+  offendingHeader: string;
+  remediation: string;
+}
+
+/**
+ * Selo Probatório Notarial WORM de Inspeção HTTP/2 & gRPC (RFC 8785)
+ */
+export interface Http2ProofSeal {
+  sealToken: string;
+  timestamp: string;
+  protocolTarget: import('./enums').Http2ProtocolTarget;
+  headersHash: string;
+  actionTaken: import('./enums').Http2ValidationAction;
+  threatCount: number;
+  sanitizedHeaderCount: number;
+  hmacSignature: string;
+}
+
+/**
+ * Resultado da Inspeção de Cabeçalhos HTTP/2 & gRPC
+ */
+export interface Http2InspectionResult {
+  isValid: boolean;
+  action: import('./enums').Http2ValidationAction;
+  threats: Http2Threat[];
+  sanitizedHeaders: Http2HeaderPair[];
+  headersHash: string;
+  inspectionDurationUs: number;
+  seal?: Http2ProofSeal;
+  summary: string;
+}
+
+/**
+ * Política de Governança e Hardening HTTP/2 & gRPC (RFC 9113)
+ */
+export interface Http2GuardPolicy {
+  blockTransferEncoding: boolean;
+  enforceLowercaseHeaders: boolean;
+  stripConnectionHeaders: boolean;
+  validateGrpcMetadata: boolean;
+  maxHeaderNameLength: number;
+  maxHeaderValueLength: number;
+  maxTotalHeadersCount: number;
+  strictContentLengthValidation: boolean;
+  allowedPseudoHeaders: string[];
+}
+
+/**
+ * Métricas em Tempo Real de Proteção HTTP/2 & gRPC
+ */
+export interface Http2GuardMetrics {
+  totalRequestsInspected: number;
+  cleanRequestsAllowed: number;
+  requestsSanitized: number;
+  attacksBlocked: number;
+  smugglingAttemptsBlocked: number;
+  crlfInjectionsBlocked: number;
+  grpcTamperingBlocked: number;
+  avgInspectionDurationUs: number;
+  threatsByCategory: Record<string, number>;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro Forense de Incidente de Segurança HTTP/2 & gRPC
+ */
+export interface Http2SecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  protocolTarget: import('./enums').Http2ProtocolTarget;
+  clientIp: string;
+  userAgent: string;
+  category: import('./enums').Http2ThreatCategory;
+  severity: import('./enums').Http2RiskSeverity;
+  threats: Http2Threat[];
+  blocked: boolean;
+  remediationAction: string;
+  rawHeadersSnippet: string;
+  seal?: Http2ProofSeal;
+}
+
+/**
+ * Visão Geral de Governança HTTP/2 & gRPC Guard
+ */
+export interface Http2GuardOverview {
+  metrics: Http2GuardMetrics;
+  policy: Http2GuardPolicy;
+  recentIncidents: Http2SecurityIncident[];
+  recentSealsSample?: Http2ProofSeal[];
+}
+
+
 
 
 
