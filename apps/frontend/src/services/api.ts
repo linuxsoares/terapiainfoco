@@ -560,7 +560,14 @@ import type {
   SubmitPsychometricAssessmentDTO,
   PsychometricAssessmentResultResponse,
   PsychometricScaleDefinition,
-  PsychometricScaleType
+  PsychometricScaleType,
+  ConsolidatedClinicalReport,
+  GenerateConsolidatedReportDTO,
+  SignConsolidatedReportDTO,
+  ClinicalReferral,
+  CreateClinicalReferralDTO,
+  CounterReferralDTO,
+  ValidateReferralPublicResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3415,6 +3422,67 @@ export const api = {
     const query = scale ? `?scale=${encodeURIComponent(scale)}` : '';
     const res = await request<{ success: boolean; assessments: PsychometricAssessment[] }>(`/psychometrics/patient/${patientId}${query}`);
     return res.assessments;
+  },
+
+  // 11. Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019 & RFC-001 §3.5)
+  async generateConsolidatedReport(dto: GenerateConsolidatedReportDTO): Promise<ConsolidatedClinicalReport> {
+    const res = await request<{ success: boolean; report: ConsolidatedClinicalReport }>('/reports/consolidated/generate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.report;
+  },
+
+  async signConsolidatedReport(reportIdOrDto: string | SignConsolidatedReportDTO, signatureToken?: string): Promise<ConsolidatedClinicalReport> {
+    const payload = typeof reportIdOrDto === 'string'
+      ? { reportId: reportIdOrDto, signatureToken }
+      : reportIdOrDto;
+    const res = await request<{ success: boolean; report: ConsolidatedClinicalReport }>('/reports/consolidated/sign', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    return res.report;
+  },
+
+  async getConsolidatedReport(reportId: string): Promise<ConsolidatedClinicalReport> {
+    const res = await request<{ success: boolean; report: ConsolidatedClinicalReport }>(`/reports/consolidated/${reportId}`);
+    return res.report;
+  },
+
+  async listConsolidatedReportsByPatient(patientId: string): Promise<ConsolidatedClinicalReport[]> {
+    const res = await request<{ success: boolean; reports: ConsolidatedClinicalReport[] }>(`/reports/consolidated/patient/${patientId}`);
+    return res.reports;
+  },
+
+  // 12. Encaminhamentos Multidisciplinares Interoperáveis (Contra-Referência - RFC-001 §3.5)
+  async createClinicalReferral(dto: CreateClinicalReferralDTO): Promise<ClinicalReferral> {
+    const res = await request<{ success: boolean; referral: ClinicalReferral }>('/referrals', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.referral;
+  },
+
+  async registerCounterReferral(dto: CounterReferralDTO): Promise<ClinicalReferral> {
+    const res = await request<{ success: boolean; referral: ClinicalReferral }>('/referrals/counter-reference', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.referral;
+  },
+
+  async getClinicalReferral(referralId: string): Promise<ClinicalReferral> {
+    const res = await request<{ success: boolean; referral: ClinicalReferral }>(`/referrals/${referralId}`);
+    return res.referral;
+  },
+
+  async listClinicalReferralsByPatient(patientId: string): Promise<ClinicalReferral[]> {
+    const res = await request<{ success: boolean; referrals: ClinicalReferral[] }>(`/referrals/patient/${patientId}`);
+    return res.referrals;
+  },
+
+  async validateReferralPublic(token: string): Promise<ValidateReferralPublicResponse> {
+    return await request<ValidateReferralPublicResponse>(`/referrals/validate/${token}`);
   }
 };
 

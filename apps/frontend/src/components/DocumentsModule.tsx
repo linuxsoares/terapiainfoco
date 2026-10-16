@@ -12,13 +12,27 @@ import {
   RefreshCw, 
   Sparkles,
   FileDown,
-  Award
+  Award,
+  Stethoscope,
+  Share2,
+  Copy,
+  Check,
+  Layers,
+  Send
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { 
   DocumentType, 
+  ClinicalReportPurpose,
+  ReferralUrgency,
+  ReferralStatus,
   type DecryptedPsychologicalDocument, 
-  type ValidateDocumentResponse 
+  type ValidateDocumentResponse,
+  type ConsolidatedClinicalReport,
+  type ClinicalReferral,
+  type GenerateConsolidatedReportDTO,
+  type CreateClinicalReferralDTO,
+  type CounterReferralDTO
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
@@ -108,6 +122,59 @@ export function DocumentsModule() {
   const [validationResult, setValidationResult] = useState<ValidateDocumentResponse | null>(null);
   const [validating, setValidating] = useState(false);
 
+  // Navegação entre Abas Clínicas da RFC-001 §3.5 & Resolução CFP nº 006/2019
+  const [activeTab, setActiveTab] = useState<'single_docs' | 'consolidated_reports' | 'referrals'>('single_docs');
+
+  // Relatórios Consolidados Multi-Sessões
+  const [consolidatedReports, setConsolidatedReports] = useState<ConsolidatedClinicalReport[]>([]);
+  const [selectedConsolidated, setSelectedConsolidated] = useState<ConsolidatedClinicalReport | null>(null);
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
+  const [consolidatedLoading, setConsolidatedLoading] = useState(false);
+  const [consolidatedSignLoading, setConsolidatedSignLoading] = useState(false);
+  const [consolidatedFormData, setConsolidatedFormData] = useState<GenerateConsolidatedReportDTO>({
+    patientId: '00000000-0000-0000-0000-000000000002',
+    finalidade: ClinicalReportPurpose.JUDICIAL_EXPERT,
+    solicitante: 'Juízo da 3ª Vara de Família e Sucessões',
+    descricaoDemanda: 'Perícia psicológica solicitada para avaliação de capacidade adaptativa, estabilidade emocional e dinâmica biopsicossocial.',
+    dataInicio: '',
+    dataFim: '',
+    includePsychometrics: true,
+    includeGoals: true,
+    includeTimelineSessions: true,
+    hipoteseDiagnostica: 'CID-11: 6A70 Transtorno Depressivo (Avaliação e Monitoramento Contínuo)',
+    parecerFinal: 'Apresenta estabilidade funcional, juízo crítico preservado e condições favoráveis para o pleno exercício de suas atividades cotidianas.',
+    prognostico: 'Favorável mediante adesão continuada ao plano psicoterapêutico.',
+    encaminhamentosSugeridos: ['Manutenção da psicoterapia em frequência semanal', 'Acompanhamento multiprofissional periódico'],
+    localEmissao: 'São Paulo, SP'
+  });
+
+  // Encaminhamentos Multidisciplinares Interoperáveis
+  const [referrals, setReferrals] = useState<ClinicalReferral[]>([]);
+  const [selectedReferral, setSelectedReferral] = useState<ClinicalReferral | null>(null);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [copiedReferralToken, setCopiedReferralToken] = useState<string | null>(null);
+  const [referralFormData, setReferralFormData] = useState<CreateClinicalReferralDTO>({
+    patientId: '00000000-0000-0000-0000-000000000002',
+    recipientProfessional: 'Dr. Roberto Mendes CRM/SP 123456',
+    recipientSpecialty: 'Psiquiatria Clínica',
+    recipientInstitution: 'Ambulatório Médico Especializado',
+    urgency: ReferralUrgency.PRIORITY,
+    clinicalSummary: 'Paciente em acompanhamento semanal apresentando quadro de humor deprimido e ansiedade antecipatória com prejuízo funcional.',
+    reasonForReferral: 'Avaliação especializada para conduta psicofarmacológica adjuvante e continuidade do cuidado em contra-referência.',
+    diagnosticHypothesis: 'CID-11: 6A70 Transtorno Depressivo / 6B00 Transtorno de Ansiedade Generalizada',
+    currentMedicationReported: 'Nenhum psicofármaco no momento.',
+    includeLatestPsychometric: true
+  });
+
+  // Contra-referência
+  const [showCounterModal, setShowCounterModal] = useState(false);
+  const [counterFormData, setCounterFormData] = useState<CounterReferralDTO>({
+    referralId: '',
+    counterReferenceNotes: 'Paciente avaliado em interconsulta psiquiátrica. Iniciado Escitalopram 10mg/dia com retorno previsto em 30 dias. Recomendada manutenção da psicoterapia semanal.',
+    counterReferredBy: 'Dr. Roberto Mendes - Psiquiatra CRM/SP 123456'
+  });
+
   const fetchDocuments = async () => {
     try {
       setLoading(true);
@@ -124,8 +191,34 @@ export function DocumentsModule() {
     }
   };
 
+  const fetchConsolidatedReports = async () => {
+    try {
+      const data = await api.listConsolidatedReportsByPatient(patientId);
+      setConsolidatedReports(data);
+      if (data.length > 0 && !selectedConsolidated) {
+        setSelectedConsolidated(data[0]);
+      }
+    } catch (err: any) {
+      console.warn('Falha ao listar laudos consolidados:', err);
+    }
+  };
+
+  const fetchReferrals = async () => {
+    try {
+      const data = await api.listClinicalReferralsByPatient(patientId);
+      setReferrals(data);
+      if (data.length > 0 && !selectedReferral) {
+        setSelectedReferral(data[0]);
+      }
+    } catch (err: any) {
+      console.warn('Falha ao listar encaminhamentos:', err);
+    }
+  };
+
   useEffect(() => {
     fetchDocuments();
+    fetchConsolidatedReports();
+    fetchReferrals();
   }, []);
 
   const selectDocument = async (doc: DecryptedPsychologicalDocument) => {
@@ -270,6 +363,79 @@ export function DocumentsModule() {
     }
   };
 
+  const handleGenerateConsolidatedReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setConsolidatedLoading(true);
+      setError(null);
+      const report = await api.generateConsolidatedReport(consolidatedFormData);
+      setSuccessMsg('Laudo Pericial Consolidado gerado com sucesso conforme Resolução CFP nº 006/2019!');
+      setShowConsolidatedModal(false);
+      await fetchConsolidatedReports();
+      setSelectedConsolidated(report);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao gerar laudo consolidado');
+    } finally {
+      setConsolidatedLoading(false);
+    }
+  };
+
+  const handleSignConsolidatedReport = async (reportId: string) => {
+    try {
+      setConsolidatedSignLoading(true);
+      setError(null);
+      const signed = await api.signConsolidatedReport(reportId);
+      setSuccessMsg('Laudo assinado digitalmente com credencial ICP-Brasil e carimbo SHA-256!');
+      setSelectedConsolidated(signed);
+      await fetchConsolidatedReports();
+    } catch (err: any) {
+      setError(err.message || 'Erro ao assinar laudo consolidado');
+    } finally {
+      setConsolidatedSignLoading(false);
+    }
+  };
+
+  const handleCreateReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setReferralLoading(true);
+      setError(null);
+      const ref = await api.createClinicalReferral(referralFormData);
+      setSuccessMsg('Guia de encaminhamento multidisciplinar emitida com sucesso!');
+      setShowReferralModal(false);
+      await fetchReferrals();
+      setSelectedReferral(ref);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao criar encaminhamento');
+    } finally {
+      setReferralLoading(false);
+    }
+  };
+
+  const handleRegisterCounterReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setReferralLoading(true);
+      setError(null);
+      const updated = await api.registerCounterReferral(counterFormData);
+      setSuccessMsg('Contra-referência médica registrada e anexada ao prontuário!');
+      setShowCounterModal(false);
+      setSelectedReferral(updated);
+      await fetchReferrals();
+    } catch (err: any) {
+      setError(err.message || 'Erro ao registrar contra-referência');
+    } finally {
+      setReferralLoading(false);
+    }
+  };
+
+  const copyReferralLink = (token: string) => {
+    const fullUrl = `${window.location.origin}/verify/referral/${token}`;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedReferralToken(token);
+    setTimeout(() => setCopiedReferralToken(null), 3000);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -281,36 +447,99 @@ export function DocumentsModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <FileCheck2 className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-            Módulo 5: Documentos CFP 006/2019 & QR Code
+            Módulo 5: Documentos CFP 006/2019 & Laudos Periciais
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Emissão de Atestados, Declarações e Relatórios com Assinatura Digital e Validação Pública (RFC §5)
+            Laudos Periciais Multi-Sessões, Encaminhamentos Multidisciplinares e Documentos Oficiais com Assinatura Digital e WORM (RFC-001 §3.5)
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => {
-              setShowValidatorModal(true);
-              if (selectedDoc?.isSigned) {
-                setInputToken(selectedDoc.validationToken);
-                handleValidateToken(selectedDoc.validationToken);
-              }
-            }}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-2 shadow-sm dark:shadow-none transition-all cursor-pointer"
-          >
-            <QrCode className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>Validador Público</span>
-          </button>
+          {activeTab === 'single_docs' && (
+            <>
+              <button
+                onClick={() => {
+                  setShowValidatorModal(true);
+                  if (selectedDoc?.isSigned) {
+                    setInputToken(selectedDoc.validationToken);
+                    handleValidateToken(selectedDoc.validationToken);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-2 shadow-sm dark:shadow-none transition-all cursor-pointer"
+              >
+                <QrCode className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span>Validador Público</span>
+              </button>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Documento</span>
-          </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Novo Documento</span>
+              </button>
+            </>
+          )}
+
+          {activeTab === 'consolidated_reports' && (
+            <button
+              onClick={() => setShowConsolidatedModal(true)}
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Gerar Novo Laudo Consolidado</span>
+            </button>
+          )}
+
+          {activeTab === 'referrals' && (
+            <button
+              onClick={() => setShowReferralModal(true)}
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Emitir Encaminhamento</span>
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Seletor de Abas da RFC-001 §3.5 */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          onClick={() => setActiveTab('single_docs')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'single_docs'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Documentos Avulsos CFP ({documents.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('consolidated_reports')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'consolidated_reports'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Laudos Periciais Multi-Sessões ({consolidatedReports.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('referrals')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'referrals'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Stethoscope className="w-4 h-4" />
+          <span>Encaminhamentos & Contra-Referência ({referrals.length})</span>
+        </button>
       </div>
 
       {error && (
@@ -327,7 +556,8 @@ export function DocumentsModule() {
         </div>
       )}
 
-      {/* Grid: Lista de Documentos + Visualizador Formal */}
+      {/* Conteúdo Aba 1: Documentos Avulsos CFP */}
+      {activeTab === 'single_docs' && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Painel Esquerdo: Lista de Documentos */}
         <div className="lg:col-span-4 space-y-3">
@@ -593,6 +823,546 @@ export function DocumentsModule() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Conteúdo Aba 2: Laudos Periciais Multi-Sessões & Relatórios Consolidados (CFP nº 006/2019) */}
+      {activeTab === 'consolidated_reports' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Painel Esquerdo: Lista de Laudos */}
+          <div className="lg:col-span-4 space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
+              <span>Laudos Consolidados ({consolidatedReports.length})</span>
+              <button onClick={fetchConsolidatedReports} title="Atualizar" className="hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {consolidatedReports.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 space-y-2">
+                  <Layers className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p>Nenhum laudo pericial gerado ainda.</p>
+                  <button
+                    onClick={() => setShowConsolidatedModal(true)}
+                    className="text-teal-600 dark:text-teal-400 font-semibold underline cursor-pointer"
+                  >
+                    Gerar primeiro laudo multi-sessões
+                  </button>
+                </div>
+              ) : (
+                consolidatedReports.map((rep) => {
+                  const isSelected = selectedConsolidated?.id === rep.id;
+                  const isSigned = rep.status === 'SIGNED';
+
+                  return (
+                    <div
+                      key={rep.id}
+                      onClick={() => setSelectedConsolidated(rep)}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left space-y-2 ${
+                        isSelected
+                          ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-500/50 dark:border-teal-500/30 shadow-sm'
+                          : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {rep.identificacao.finalidade}
+                        </span>
+                        {isSigned ? (
+                          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Assinado ICP
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <Lock className="w-3 h-3" />
+                            Rascunho
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                        {rep.identificacao.solicitante}
+                      </h4>
+
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        {rep.descricaoDemanda}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                        <span>{rep.procedimento.numeroSessoes} Sessões Integradas</span>
+                        <span>{new Date(rep.createdAt).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Painel Direito: Visualizador Timbrado A4 do Laudo Pericial CFP 006/2019 */}
+          <div className="lg:col-span-8">
+            {selectedConsolidated ? (
+              <div className="space-y-4">
+                {/* Ações do Laudo */}
+                <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Status do Laudo:
+                    </span>
+                    {selectedConsolidated.status === 'SIGNED' ? (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
+                        <Award className="w-3.5 h-3.5" />
+                        Assinado ICP-Brasil ({selectedConsolidated.signedByCrp})
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                        Rascunho Oficial
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {selectedConsolidated.status === 'DRAFT' && (
+                      <button
+                        onClick={() => handleSignConsolidatedReport(selectedConsolidated.id)}
+                        disabled={consolidatedSignLoading}
+                        className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <Award className="w-3.5 h-3.5" />
+                        <span>{consolidatedSignLoading ? 'Assinando...' : 'Assinar Digitalmente (ICP-Brasil)'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handlePrint}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Imprimir / PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Papel Timbrado Oficial A4 */}
+                <div className="bg-white text-slate-900 p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-xl space-y-6 font-serif">
+                  {/* Cabeçalho Oficial */}
+                  <div className="text-center border-b border-slate-200 pb-5 space-y-1">
+                    <p className="text-[11px] font-sans uppercase font-bold tracking-widest text-teal-800">
+                      Conselho Federal de Psicologia — Resolução CFP nº 006/2019
+                    </p>
+                    <h2 className="text-lg sm:text-xl font-bold font-sans tracking-tight text-slate-900">
+                      LAUDO PSICOLÓGICO PERICIAL CONSOLIDADO
+                    </h2>
+                    <p className="text-xs text-slate-500 font-sans">
+                      Documento técnico emitido em estrito cumprimento dos Artigos 9º a 13 da Resolução CFP nº 006/2019
+                    </p>
+                  </div>
+
+                  {/* I. Identificação */}
+                  <div className="space-y-1.5 font-sans text-xs border-b border-slate-100 pb-4">
+                    <h3 className="font-bold uppercase tracking-wider text-teal-800 text-xs">
+                      I. Identificação
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
+                      <div><strong className="text-slate-900">Paciente:</strong> {selectedConsolidated.identificacao.pacienteNome}</div>
+                      <div><strong className="text-slate-900">Documento:</strong> {selectedConsolidated.identificacao.pacienteDocumento || 'Sigilo Resguardado'}</div>
+                      <div><strong className="text-slate-900">Solicitante:</strong> {selectedConsolidated.identificacao.solicitante}</div>
+                      <div><strong className="text-slate-900">Finalidade:</strong> {selectedConsolidated.identificacao.finalidade}</div>
+                      <div><strong className="text-slate-900">Profissional Responsável:</strong> {selectedConsolidated.identificacao.autorNome}</div>
+                      <div><strong className="text-slate-900">Registro Profissional:</strong> {selectedConsolidated.identificacao.autorCrp}</div>
+                    </div>
+                  </div>
+
+                  {/* II. Descrição da Demanda */}
+                  <div className="space-y-1.5 font-sans text-xs border-b border-slate-100 pb-4">
+                    <h3 className="font-bold uppercase tracking-wider text-teal-800 text-xs">
+                      II. Descrição da Demanda
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed font-serif text-sm">
+                      {selectedConsolidated.descricaoDemanda}
+                    </p>
+                  </div>
+
+                  {/* III. Procedimento */}
+                  <div className="space-y-2 font-sans text-xs border-b border-slate-100 pb-4">
+                    <h3 className="font-bold uppercase tracking-wider text-teal-800 text-xs">
+                      III. Procedimento
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed font-serif text-sm">
+                      O processo avaliativo pericial compreendeu o período de <strong>{selectedConsolidated.procedimento.periodoInicial}</strong> a <strong>{selectedConsolidated.procedimento.periodoFinal}</strong>, totalizando <strong>{selectedConsolidated.procedimento.numeroSessoes} sessões clínicas</strong> estruturadas.
+                    </p>
+                    <div className="mt-2 space-y-1 font-sans">
+                      <span className="font-semibold text-slate-800 text-[11px]">Recursos e Instrumentos Empregados:</span>
+                      <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5">
+                        {selectedConsolidated.procedimento.recursosUtilizados.map((rec, i) => (
+                          <li key={i}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {selectedConsolidated.procedimento.escalasAplicadas && selectedConsolidated.procedimento.escalasAplicadas.length > 0 && (
+                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <span className="font-semibold text-slate-800 text-[11px] block mb-1">
+                          Escalas Psicométricas Padronizadas Integradas:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                          {selectedConsolidated.procedimento.escalasAplicadas.map((esc, i) => (
+                            <div key={i} className="p-2 bg-white rounded-lg border border-slate-200">
+                              <span className="font-bold text-teal-800">{esc.tipo}</span> ({esc.data}): Escore <strong>{esc.score}</strong> — {esc.gravidade}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* IV. Análise */}
+                  <div className="space-y-2 font-sans text-xs border-b border-slate-100 pb-4">
+                    <h3 className="font-bold uppercase tracking-wider text-teal-800 text-xs">
+                      IV. Análise
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed font-serif text-sm">
+                      {selectedConsolidated.analise.evolucaoClinica}
+                    </p>
+                    <p className="text-slate-700 leading-relaxed font-serif text-sm mt-2">
+                      {selectedConsolidated.analise.analisePsicologica}
+                    </p>
+
+                    {selectedConsolidated.analise.metasAlcancadas && selectedConsolidated.analise.metasAlcancadas.length > 0 && (
+                      <div className="mt-2 p-3 bg-teal-50/50 rounded-xl border border-teal-200/60 font-sans">
+                        <span className="font-semibold text-teal-900 text-[11px] block mb-1">
+                          Evolução de Metas Terapêuticas SMART:
+                        </span>
+                        <div className="space-y-1.5">
+                          {selectedConsolidated.analise.metasAlcancadas.map((meta, i) => (
+                            <div key={i} className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-700">{meta.meta}</span>
+                              <span className="font-bold text-teal-800">{meta.progresso}% ({meta.status})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* V. Conclusão */}
+                  <div className="space-y-2 font-sans text-xs border-b border-slate-100 pb-4">
+                    <h3 className="font-bold uppercase tracking-wider text-teal-800 text-xs">
+                      V. Conclusão
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed font-serif text-sm">
+                      {selectedConsolidated.conclusao.parecerFinal}
+                    </p>
+                    {selectedConsolidated.conclusao.hipoteseDiagnostica && (
+                      <p className="text-slate-800 font-sans text-xs font-semibold mt-1">
+                        Classificação Diagnóstica Internacional: <span className="text-teal-900 font-bold">{selectedConsolidated.conclusao.hipoteseDiagnostica}</span>
+                      </p>
+                    )}
+                    {selectedConsolidated.conclusao.prognostico && (
+                      <p className="text-slate-700 font-sans text-xs">
+                        <strong>Prognóstico:</strong> {selectedConsolidated.conclusao.prognostico}
+                      </p>
+                    )}
+                    {selectedConsolidated.conclusao.encaminhamentosSugeridos && selectedConsolidated.conclusao.encaminhamentosSugeridos.length > 0 && (
+                      <div className="mt-2 font-sans">
+                        <span className="font-semibold text-slate-800 text-[11px]">Encaminhamentos e Recomendações:</span>
+                        <ul className="list-disc list-inside text-[11px] text-slate-600">
+                          {selectedConsolidated.conclusao.encaminhamentosSugeridos.map((enc, i) => (
+                            <li key={i}>{enc}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="pt-2 text-right text-[11px] text-slate-500 font-sans">
+                      {selectedConsolidated.conclusao.localEmissao}, {new Date(selectedConsolidated.conclusao.dataEncerramento).toLocaleDateString('pt-BR')}.
+                    </div>
+                  </div>
+
+                  {/* Selo Criptográfico & Assinatura ICP-Brasil */}
+                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 font-sans">
+                    <div className="text-[10px] text-slate-500 font-mono space-y-0.5">
+                      <div>Selo de Autenticidade WORM: <span className="font-bold text-slate-700">{selectedConsolidated.wormAuditId}</span></div>
+                      <div className="break-all">Digest SHA-256: {selectedConsolidated.documentHashSha256}</div>
+                    </div>
+
+                    <div className="text-center sm:text-right space-y-0.5">
+                      <p className="text-xs font-bold text-slate-900">{selectedConsolidated.identificacao.autorNome}</p>
+                      <p className="text-[10px] text-slate-600">{selectedConsolidated.identificacao.autorCrp}</p>
+                      {selectedConsolidated.signedAt && (
+                        <p className="text-[9px] text-emerald-700 font-semibold">
+                          Assinado em {new Date(selectedConsolidated.signedAt).toLocaleString('pt-BR')} (ICP-Brasil)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-slate-500">
+                Selecione um laudo ao lado ou clique em "Gerar Novo Laudo Consolidado".
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Conteúdo Aba 3: Encaminhamentos Multidisciplinares & Contra-Referência (RFC-001 §3.5) */}
+      {activeTab === 'referrals' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Painel Esquerdo: Lista de Encaminhamentos */}
+          <div className="lg:col-span-4 space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
+              <span>Encaminhamentos ({referrals.length})</span>
+              <button onClick={fetchReferrals} title="Atualizar" className="hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {referrals.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 space-y-2">
+                  <Stethoscope className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p>Nenhum encaminhamento emitido.</p>
+                  <button
+                    onClick={() => setShowReferralModal(true)}
+                    className="text-teal-600 dark:text-teal-400 font-semibold underline cursor-pointer"
+                  >
+                    Emitir primeiro encaminhamento
+                  </button>
+                </div>
+              ) : (
+                referrals.map((ref) => {
+                  const isSelected = selectedReferral?.id === ref.id;
+                  const isEmergency = ref.urgency === ReferralUrgency.EMERGENCY;
+                  const isPriority = ref.urgency === ReferralUrgency.PRIORITY;
+                  const isCounter = ref.status === ReferralStatus.COUNTER_REFERRED;
+
+                  return (
+                    <div
+                      key={ref.id}
+                      onClick={() => setSelectedReferral(ref)}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left space-y-2 ${
+                        isSelected
+                          ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-500/50 dark:border-teal-500/30 shadow-sm'
+                          : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          isEmergency 
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                            : isPriority
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                        }`}>
+                          {ref.urgency}
+                        </span>
+
+                        {isCounter ? (
+                          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Contra-Referência
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            Aguardando Retorno
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                        {ref.recipientProfessional}
+                      </h4>
+                      <p className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold">
+                        {ref.recipientSpecialty} {ref.recipientInstitution && `• ${ref.recipientInstitution}`}
+                      </p>
+
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        {ref.reasonForReferral}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                        <span>{new Date(ref.createdAt).toLocaleDateString('pt-BR')}</span>
+                        <span className="font-mono">{ref.validationToken.slice(0, 10)}...</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Painel Direito: Guia de Encaminhamento & Contra-Referência */}
+          <div className="lg:col-span-8">
+            {selectedReferral ? (
+              <div className="space-y-4">
+                {/* Header da Guia */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold uppercase px-3 py-1 rounded-full ${
+                      selectedReferral.urgency === ReferralUrgency.EMERGENCY
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                        : selectedReferral.urgency === ReferralUrgency.PRIORITY
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                    }`}>
+                      Urgência: {selectedReferral.urgency}
+                    </span>
+
+                    <button
+                      onClick={() => copyReferralLink(selectedReferral.validationToken)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      {copiedReferralToken === selectedReferral.validationToken ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-600">Link Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copiar Link de Validação</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {selectedReferral.status !== ReferralStatus.COUNTER_REFERRED && (
+                    <button
+                      onClick={() => {
+                        setCounterFormData({
+                          referralId: selectedReferral.id,
+                          counterReferenceNotes: 'Paciente avaliado em interconsulta especializada. Recomendada conduta integrada com psicoterapia.',
+                          counterReferredBy: selectedReferral.recipientProfessional
+                        });
+                        setShowCounterModal(true);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Registrar Contra-Referência Médica</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Guia de Encaminhamento Timbrada */}
+                <div className="bg-white text-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl space-y-5">
+                  <div className="border-b border-slate-200 pb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-teal-800">
+                        Comunicação Interdisciplinar em Saúde Mental
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {selectedReferral.validationToken}
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-900 mt-1">
+                      GUIA DE ENCAMINHAMENTO PSICOLÓGICO CLÍNICO
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Emitido em {new Date(selectedReferral.createdAt).toLocaleString('pt-BR')} por {selectedReferral.therapistName} ({selectedReferral.therapistCrp})
+                    </p>
+                  </div>
+
+                  {/* Alerta de Sigilo Art. 9º CFP */}
+                  <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl text-[11px] text-blue-900 flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      <strong>Resguardo Ético (CFP Art. 9º):</strong> Informações clínicas disponibilizadas de forma estritamente proporcional e necessária para assegurar a continuidade do cuidado biopsicossocial multiprofissional.
+                    </p>
+                  </div>
+
+                  {/* Destinatário & Paciente */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div>
+                      <strong className="text-slate-900 block">Profissional / Serviço Destinatário:</strong>
+                      <span className="text-slate-700">{selectedReferral.recipientProfessional}</span>
+                      <span className="text-slate-500 block text-[11px]">{selectedReferral.recipientSpecialty} {selectedReferral.recipientInstitution && `• ${selectedReferral.recipientInstitution}`}</span>
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 block">Paciente:</strong>
+                      <span className="text-slate-700">{selectedReferral.patientName}</span>
+                      <span className="text-slate-500 block text-[11px]">Identificação clínica e prontuário integrado</span>
+                    </div>
+                  </div>
+
+                  {/* Justificativa & Resumo Clínico Seguro */}
+                  <div className="space-y-3 text-xs text-slate-800">
+                    <div>
+                      <strong className="text-teal-900 block mb-1 uppercase tracking-wider text-[11px]">1. Justificativa do Encaminhamento:</strong>
+                      <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 leading-relaxed font-serif text-sm">
+                        {selectedReferral.reasonForReferral}
+                      </p>
+                    </div>
+
+                    <div>
+                      <strong className="text-teal-900 block mb-1 uppercase tracking-wider text-[11px]">2. Resumo Clínico Seguro & Observações:</strong>
+                      <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 leading-relaxed font-serif text-sm">
+                        {selectedReferral.clinicalSummary}
+                      </p>
+                    </div>
+
+                    {selectedReferral.diagnosticHypothesis && (
+                      <div className="p-3 bg-teal-50/40 rounded-xl border border-teal-200/50">
+                        <strong className="text-teal-950 block text-[11px] mb-0.5">Hipótese Diagnóstica Prévia (CID-11):</strong>
+                        <span className="font-semibold text-teal-800">{selectedReferral.diagnosticHypothesis}</span>
+                      </div>
+                    )}
+
+                    {selectedReferral.psychometricSummary && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <strong className="text-slate-900 block text-[11px] mb-1">Evidência Psicométrica Objetiva Mais Recente:</strong>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="font-bold text-teal-800">{selectedReferral.psychometricSummary.scaleType}</span>
+                          <span>Escore: <strong>{selectedReferral.psychometricSummary.score}</strong></span>
+                          <span>Classificação: <strong>{selectedReferral.psychometricSummary.severity}</strong></span>
+                          <span className="text-slate-500 text-[11px]">({new Date(selectedReferral.psychometricSummary.appliedAt).toLocaleDateString('pt-BR')})</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Seção de Retorno / Contra-Referência Médica */}
+                  <div className="pt-3 border-t border-slate-200">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center gap-1.5">
+                      <Share2 className="w-3.5 h-3.5 text-teal-600" />
+                      Contra-Referência Multidisciplinar
+                    </h3>
+
+                    {selectedReferral.status === ReferralStatus.COUNTER_REFERRED ? (
+                      <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs space-y-2">
+                        <div className="flex items-center justify-between text-emerald-950 font-bold">
+                          <span>Parecer e Conduta Médica Recebida</span>
+                          <span className="text-[10px] text-emerald-700 font-normal">
+                            {selectedReferral.counterReferredAt && new Date(selectedReferral.counterReferredAt).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <p className="text-slate-700 font-serif text-sm leading-relaxed">
+                          {selectedReferral.counterReferenceNotes}
+                        </p>
+                        <p className="text-[11px] text-emerald-800 font-semibold pt-1">
+                          Responsável pela Contra-Referência: {selectedReferral.counterReferredBy}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-500 space-y-1">
+                        <p>Nenhum parecer médico registrado para esta guia ainda.</p>
+                        <p className="text-[11px] text-slate-400">
+                          O especialista pode validar a guia online ou a equipe pode registrar a resposta recebida.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-slate-500">
+                Selecione um encaminhamento ao lado ou clique em "Emitir Encaminhamento".
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de Criação de Documento */}
       {showCreateModal && (
@@ -870,6 +1640,389 @@ export function DocumentsModule() {
                 <span>{icpLoading ? 'Aplicando Assinatura ICP-Brasil...' : 'Confirmar Assinatura Digital ICP-Brasil'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Gerar Laudo Pericial Consolidado Multi-Sessões (CFP nº 006/2019) */}
+      {showConsolidatedModal && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Layers className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                Gerar Laudo Pericial Multi-Sessões (Resolução CFP nº 006/2019)
+              </h3>
+              <button onClick={() => setShowConsolidatedModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Estruturação automática nas 5 seções canônicas: Identificação, Descrição da Demanda, Procedimento, Análise e Conclusão com integração do prontuário, metas SMART e psicometria.
+            </p>
+
+            <form onSubmit={handleGenerateConsolidatedReport} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Finalidade do Documento
+                  </label>
+                  <select
+                    value={consolidatedFormData.finalidade}
+                    onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, finalidade: e.target.value as ClinicalReportPurpose })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  >
+                    <option value={ClinicalReportPurpose.JUDICIAL_EXPERT}>Perícia Judicial / Assistência Técnica</option>
+                    <option value={ClinicalReportPurpose.PSYCHIATRIC_REFERRAL}>Interconsulta / Encaminhamento Psiquiátrico</option>
+                    <option value={ClinicalReportPurpose.CLINICAL_EVOLUTION}>Relatório de Evolução e Síntese Terapêutica</option>
+                    <option value={ClinicalReportPurpose.OCCUPATIONAL}>Avaliação Laboral / Ocupacional</option>
+                    <option value={ClinicalReportPurpose.EDUCATIONAL}>Avaliação Psicopedagógica / Escolar</option>
+                    <option value={ClinicalReportPurpose.DISCHARGE_SUMMARY}>Sumário de Alta Terapêutica</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Solicitante Oficial
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={consolidatedFormData.solicitante}
+                    onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, solicitante: e.target.value })}
+                    placeholder="Ex: Juízo da 1ª Vara de Família, Dr. Psiquiatra, etc."
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  II. Descrição da Demanda (Motivo, queixas e objetivos da avaliação)
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={consolidatedFormData.descricaoDemanda}
+                  onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, descricaoDemanda: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-sans"
+                />
+              </div>
+
+              {/* Toggles de Agregação Automática */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                  Agregação Automatizada da Linha do Tempo Clínica (RFC-001 §3.5):
+                </span>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-700 dark:text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consolidatedFormData.includeTimelineSessions}
+                      onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, includeTimelineSessions: e.target.checked })}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>Histórico de Sessões da Timeline</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consolidatedFormData.includePsychometrics}
+                      onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, includePsychometrics: e.target.checked })}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>Escalas Psicométricas (PHQ-9 & GAD-7)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consolidatedFormData.includeGoals}
+                      onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, includeGoals: e.target.checked })}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>Metas Terapêuticas SMART</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Classificação Diagnóstica (CID-11)
+                  </label>
+                  <input
+                    type="text"
+                    value={consolidatedFormData.hipoteseDiagnostica}
+                    onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, hipoteseDiagnostica: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Local de Emissão
+                  </label>
+                  <input
+                    type="text"
+                    value={consolidatedFormData.localEmissao}
+                    onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, localEmissao: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  V. Parecer Final e Conclusão Técnica
+                </label>
+                <textarea
+                  rows={2}
+                  value={consolidatedFormData.parecerFinal}
+                  onChange={(e) => setConsolidatedFormData({ ...consolidatedFormData, parecerFinal: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-sans"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConsolidatedModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={consolidatedLoading}
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{consolidatedLoading ? 'Compilando Laudo...' : 'Gerar Laudo Pericial Oficial'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Emitir Guia de Encaminhamento Multidisciplinar (RFC-001 §3.5) */}
+      {showReferralModal && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                Emitir Encaminhamento Multidisciplinar Interoperável
+              </h3>
+              <button onClick={() => setShowReferralModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Gera guia médica/psiquiátrica segura com nível de urgência, token público de validação e resguardo do sigilo (Código de Ética do Psicólogo Art. 9º).
+            </p>
+
+            <form onSubmit={handleCreateReferral} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Profissional Destinatário
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={referralFormData.recipientProfessional}
+                    onChange={(e) => setReferralFormData({ ...referralFormData, recipientProfessional: e.target.value })}
+                    placeholder="Ex: Dr. Roberto Mendes CRM/SP 123456"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Especialidade Médica / Área
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={referralFormData.recipientSpecialty}
+                    onChange={(e) => setReferralFormData({ ...referralFormData, recipientSpecialty: e.target.value })}
+                    placeholder="Ex: Psiquiatria Clínica, Neurologia"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Instituição / Hospital (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralFormData.recipientInstitution || ''}
+                    onChange={(e) => setReferralFormData({ ...referralFormData, recipientInstitution: e.target.value })}
+                    placeholder="Ex: Ambulatório Médico Especializado"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nível de Urgência Clínica
+                  </label>
+                  <select
+                    value={referralFormData.urgency}
+                    onChange={(e) => setReferralFormData({ ...referralFormData, urgency: e.target.value as ReferralUrgency })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-semibold"
+                  >
+                    <option value={ReferralUrgency.ROUTINE}>Rotina (Acompanhamento Eletivo)</option>
+                    <option value={ReferralUrgency.PRIORITY}>Prioritário (Prejuízo Funcional / Sintomas Moderados a Graves)</option>
+                    <option value={ReferralUrgency.EMERGENCY}>Emergência (Crise Aguda / Ideação Severa)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Justificativa Clínica do Encaminhamento
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={referralFormData.reasonForReferral}
+                  onChange={(e) => setReferralFormData({ ...referralFormData, reasonForReferral: e.target.value })}
+                  placeholder="Ex: Avaliação farmacológica para sintomas depressivos e insônia resistente"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Resumo Clínico Seguro (Resguardo Ético CFP Art. 9º)
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={referralFormData.clinicalSummary}
+                  onChange={(e) => setReferralFormData({ ...referralFormData, clinicalSummary: e.target.value })}
+                  placeholder="Descreva estritamente os sintomas e dados relevantes para o profissional receptor..."
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Hipótese Diagnóstica (CID-11)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralFormData.diagnosticHypothesis || ''}
+                    onChange={(e) => setReferralFormData({ ...referralFormData, diagnosticHypothesis: e.target.value })}
+                    placeholder="Ex: CID-11: 6A70 Transtorno Depressivo"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={referralFormData.includeLatestPsychometric}
+                      onChange={(e) => setReferralFormData({ ...referralFormData, includeLatestPsychometric: e.target.checked })}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>Anexar última avaliação psicométrica</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReferralModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={referralLoading}
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{referralLoading ? 'Emitindo...' : 'Emitir Guia de Encaminhamento'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Registrar Contra-Referência Médica Recebida */}
+      {showCounterModal && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                Registrar Contra-Referência Médica
+              </h3>
+              <button onClick={() => setShowCounterModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">✕</button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Anexe o retorno diagnóstico e a conduta medicamentosa prescrita pelo médico especialista para integração ao plano terapêutico contínuo.
+            </p>
+
+            <form onSubmit={handleRegisterCounterReferral} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Profissional que respondeu a Contra-Referência
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={counterFormData.counterReferredBy}
+                  onChange={(e) => setCounterFormData({ ...counterFormData, counterReferredBy: e.target.value })}
+                  placeholder="Ex: Dr. Roberto Mendes CRM 123456"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Parecer Médico e Conduta Adotada
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={counterFormData.counterReferenceNotes}
+                  onChange={(e) => setCounterFormData({ ...counterFormData, counterReferenceNotes: e.target.value })}
+                  placeholder="Ex: Paciente avaliado em consulta. Iniciado Escitalopram 10mg/dia. Solicitado retorno em 30 dias..."
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-sans"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCounterModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={referralLoading}
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{referralLoading ? 'Salvando...' : 'Salvar Contra-Referência'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

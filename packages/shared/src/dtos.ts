@@ -4278,3 +4278,95 @@ export interface SupplyChainOverviewResponse {
   overview: import('./models').SupplyChainGuardOverview;
 }
 
+/**
+ * LAUDO PERICIAL MULTI-SESSÕES & RELATÓRIO PSICOLÓGICO CONSOLIDADO (Resolução CFP nº 006/2019 & RFC-001 §3.5)
+ */
+export interface GenerateConsolidatedReportDTO {
+  patientId: string;
+  finalidade: import('./enums').ClinicalReportPurpose;
+  solicitante: string;
+  descricaoDemanda: string;
+  dataInicio?: string;
+  dataFim?: string;
+  includePsychometrics?: boolean;
+  includeGoals?: boolean;
+  includeTimelineSessions?: boolean;
+  hipoteseDiagnostica?: string;
+  parecerFinal?: string;
+  prognostico?: string;
+  encaminhamentosSugeridos?: string[];
+  localEmissao?: string;
+}
+
+export interface ConsolidatedReportResponse {
+  success: boolean;
+  report: import('./models').ConsolidatedClinicalReport;
+  message?: string;
+}
+
+export interface SignConsolidatedReportDTO {
+  reportId: string;
+  signatureToken?: string;
+}
+
+export interface ListConsolidatedReportsResponse {
+  success: boolean;
+  reports: import('./models').ConsolidatedClinicalReport[];
+  total: number;
+}
+
+/**
+ * ENCAMINHAMENTO MULTIDISCIPLINAR INTEROPERÁVEL (Contra-Referência Psiquiátrica / Médica - RFC-001 §3.5)
+ */
+export interface CreateClinicalReferralDTO {
+  patientId: string;
+  recipientProfessional: string;
+  recipientSpecialty: string;
+  recipientInstitution?: string;
+  urgency: import('./enums').ReferralUrgency;
+  clinicalSummary: string;
+  reasonForReferral: string;
+  diagnosticHypothesis?: string;
+  currentMedicationReported?: string;
+  includeLatestPsychometric?: boolean;
+}
+
+export interface ClinicalReferralResponse {
+  success: boolean;
+  referral: import('./models').ClinicalReferral;
+  message?: string;
+}
+
+export interface ListClinicalReferralsResponse {
+  success: boolean;
+  referrals: import('./models').ClinicalReferral[];
+  total: number;
+}
+
+export interface CounterReferralDTO {
+  referralId: string;
+  counterReferenceNotes: string;
+  counterReferredBy: string;
+}
+
+export interface ValidateReferralPublicResponse {
+  success: boolean;
+  valid: boolean;
+  referral?: {
+    id: string;
+    patientInitials: string;
+    therapistName: string;
+    therapistCrp: string;
+    recipientProfessional: string;
+    recipientSpecialty: string;
+    urgency: import('./enums').ReferralUrgency;
+    status: import('./enums').ReferralStatus;
+    reasonForReferral: string;
+    diagnosticHypothesis?: string;
+    issuedAt: string;
+    wormAuditId?: string;
+  };
+  message: string;
+}
+
+

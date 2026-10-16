@@ -63,6 +63,8 @@ import { supplyChainGuardRoutes } from './routes/supplyChainGuard';
 import { clinicalMarkersRouter } from './routes/clinicalMarkers';
 import { therapeuticGoalsRouter } from './routes/therapeuticGoals';
 import { psychometricsRouter } from './routes/psychometrics';
+import { consolidatedReportsRouter } from './routes/consolidatedReports';
+import { clinicalReferralsRouter } from './routes/clinicalReferrals';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -222,6 +224,8 @@ app.route('/api/supply-chain-guard', supplyChainGuardRoutes);
 app.route('/api/clinical-markers', clinicalMarkersRouter);
 app.route('/api/goals', therapeuticGoalsRouter);
 app.route('/api/psychometrics', psychometricsRouter);
+app.route('/api/reports/consolidated', consolidatedReportsRouter);
+app.route('/api/referrals', clinicalReferralsRouter);
 
 
 

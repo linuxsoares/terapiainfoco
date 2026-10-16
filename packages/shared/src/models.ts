@@ -13,6 +13,9 @@ import {
   TranscriptionStatus,
   SpeakerRole,
   DocumentType,
+  ClinicalReportPurpose,
+  ReferralUrgency,
+  ReferralStatus,
   UserRole,
   AuditAction,
   AuditResourceType,
@@ -5076,6 +5079,129 @@ export interface SupplyChainGuardOverview {
   sampleAttacks?: any[];
   homologatedDependencies?: DependencyNode[];
 }
+
+/**
+ * LAUDO PERICIAL MULTI-SESSÕES & RELATÓRIO PSICOLÓGICO CONSOLIDADO (Resolução CFP nº 006/2019 & RFC-001 §3.5)
+ */
+export interface ConsolidatedReportIdentification {
+  pacienteNome: string;
+  pacienteDocumento?: string; // CPF ou documento com máscara LGPD
+  pacienteDataNascimento?: string;
+  solicitante: string; // Ex: Juízo da 1ª Vara de Família, Médico Assistente, Próprio Paciente
+  finalidade: ClinicalReportPurpose;
+  autorNome: string;
+  autorCrp: string;
+}
+
+export interface ConsolidatedReportProcedure {
+  periodoInicial: string; // YYYY-MM-DD
+  periodoFinal: string;   // YYYY-MM-DD
+  numeroSessoes: number;
+  recursosUtilizados: string[];
+  sessoesResumo?: Array<{
+    data: string;
+    titulo: string;
+    resumoClinico: string;
+  }>;
+  escalasAplicadas?: Array<{
+    tipo: PsychometricScaleType;
+    data: string;
+    score: number;
+    gravidade: PsychometricSeverityLevel;
+  }>;
+}
+
+export interface ConsolidatedReportAnalysis {
+  evolucaoClinica: string;
+  metasAlcancadas?: Array<{
+    meta: string;
+    progresso: number;
+    status: GoalStatus;
+  }>;
+  analisePsicologica: string;
+}
+
+export interface ConsolidatedReportConclusion {
+  parecerFinal: string;
+  hipoteseDiagnostica?: string; // Classificação CID-11
+  prognostico?: string;
+  encaminhamentosSugeridos?: string[];
+  dataEncerramento: string;
+  localEmissao: string;
+}
+
+export interface ConsolidatedClinicalReport {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  identificacao: ConsolidatedReportIdentification;
+  descricaoDemanda: string;
+  procedimento: ConsolidatedReportProcedure;
+  analise: ConsolidatedReportAnalysis;
+  conclusao: ConsolidatedReportConclusion;
+  documentHashSha256: string;
+  wormAuditId?: string;
+  status: 'DRAFT' | 'FINALIZED' | 'SIGNED';
+  signedByCrp?: string;
+  signedAt?: string;
+  signatureIcpBrasilToken?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface StoredConsolidatedClinicalReport extends Omit<ConsolidatedClinicalReport, 'descricaoDemanda' | 'analise' | 'conclusao'> {
+  encryptedDescricaoDemanda: EncryptedPayload;
+  encryptedAnalise: EncryptedPayload;
+  encryptedConclusao: EncryptedPayload;
+}
+
+export type DecryptedConsolidatedClinicalReport = ConsolidatedClinicalReport;
+
+/**
+ * ENCAMINHAMENTO MULTIDISCIPLINAR INTEROPERÁVEL (Contra-Referência Médica/Psiquiátrica - RFC-001 §3.5)
+ */
+export interface ClinicalReferralPsychometricSummary {
+  scaleType: PsychometricScaleType;
+  score: number;
+  severity: PsychometricSeverityLevel;
+  appliedAt: string;
+}
+
+export interface ClinicalReferral {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientBirthDate?: string;
+  therapistId: string;
+  therapistName: string;
+  therapistCrp: string;
+  recipientProfessional: string;
+  recipientSpecialty: string;
+  recipientInstitution?: string;
+  urgency: ReferralUrgency;
+  clinicalSummary: string; // Resumo clínico seguro (Código de Ética CFP Art. 9º)
+  reasonForReferral: string;
+  diagnosticHypothesis?: string;
+  currentMedicationReported?: string;
+  psychometricSummary?: ClinicalReferralPsychometricSummary;
+  status: ReferralStatus;
+  validationToken: string;
+  validationUrl: string;
+  wormAuditId?: string;
+  counterReferenceNotes?: string;
+  counterReferredAt?: string;
+  counterReferredBy?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface StoredClinicalReferral extends Omit<ClinicalReferral, 'clinicalSummary' | 'counterReferenceNotes'> {
+  encryptedClinicalSummary: EncryptedPayload;
+  encryptedCounterReferenceNotes?: EncryptedPayload;
+}
+
+export type DecryptedClinicalReferral = ClinicalReferral;
+
 
 
 
