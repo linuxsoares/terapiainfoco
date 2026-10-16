@@ -2220,6 +2220,29 @@ terapiainfoco/
 
 ---
 
+### 19. Vitrine Pública Sem Login, Autenticação Unificada (Com ou Sem Login Social) & Gestão de Perfis Dedicados (Paciente, Psicólogo e Admin/DPO)
+- [x] **Vitrine Pública Interativa Sem Login (`PublicShowcasePage.tsx` & `GET /api/auth/public-showcase`):**
+  - Página inicial aberta sem necessidade de autenticação prévia, permitindo explorar todos os **18 módulos clínicos RFC-001**, as **74 camadas de segurança em tempo real** e a conformidade normativa (**CFP nº 001/2009**, **011/2018**, **006/2019**, **LGPD Art. 11/18/38** e **ICP-Brasil MP 2.200-2/2001**).
+  - Seletor interativo de experiência por persona (*Jornada do Paciente*, *Jornada do Psicólogo* e *Jornada do Admin / DPO*) e filtro por categoria de módulos.
+  - Botões de entrada rápida 1-Clique Demo para experimentação imediata em cada papel RBAC, além de botões *"Entrar"* e *"Criar Perfil"* e alternância para o Workspace a qualquer momento.
+- [x] **Perfis Dedicados (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`, `SUPERVISOR_CLINICO`, `RECEPCAO_SECRETARIA`):**
+  - Inclusão do papel `UserRole.PACIENTE` e seed padrão de *Mariana Silva de Oliveira* (`paciente@terapiainfoco.com.br`) vinculada ao prontuário cifrado.
+  - Atributos específicos por perfil em `SafeUser`:
+    - **Psicólogo(a):** CRP, UF, Abordagem Clínica (`specialty`), Honorário por Sessão (`sessionFeeCents`), Biografia Clínica e Cadastro e-Psi.
+    - **Paciente:** CPF Mascarado (`cpfMasked`), WhatsApp, Nome e Telefone do Contato de Emergência (Rede de Apoio CFP) e `patientId` com prontuário FLE AES-256-GCM criado automaticamente no registro.
+    - **Admin / DPO:** Departamento e Certificação DPO/Segurança (`CDPO/BR`, `ISO/IEC 27701`).
+  - Experiência dedicada para o perfil `PACIENTE` no painel (`App.tsx`), com acesso focado à Agenda & Teleconsulta e ao Portal de Exercícios Terapêuticos, Recibos e Cofre de Portabilidade LGPD Art. 18 (`.enc`), bloqueando módulos restritos de prontuário e governança administrativa.
+- [x] **Login & Criação de Perfil Com ou Sem Login Social (`AuthModal.tsx`, `POST /api/auth/register`, `POST /api/auth/social`):**
+  - Modal unificado com abas *"Entrar na Conta"* e *"Criar Novo Perfil"*.
+  - Suporte a **Login Social OAuth 2.0 / OIDC** (`GOOGLE`, `GOV_BR` Nível Prata/Ouro ICP-Brasil, `APPLE`) e **Passkey / FIDO2 WebAuthn** (`PASSKEY_FIDO2`), tanto para login rápido quanto para criação automática de perfil ou vinculação a conta existente.
+  - Suporte completo a cadastro tradicional **Sem Login Social** (`EMAIL_PASSWORD` com Argon2id + suporte a 2FA TOTP RFC 6238), com formulário adaptativo conforme o perfil selecionado (*Paciente*, *Psicólogo* ou *Admin*).
+- [x] **Gestão e Edição de Perfil (`UserProfileModal.tsx`, `PUT /api/auth/profile`, `GET /api/auth/profiles`):**
+  - Modal completo de edição cadastral em tempo real, exibição de provedores sociais vinculados, status de 2FA TOTP e trilha de auditoria WORM (`SOCIAL_AUTH_LOGIN`, `USER_PROFILE_UPDATED`, `PUBLIC_SHOWCASE_ACCESSED`).
+- [x] **Suíte de Testes Automatizados (`apps/backend/test/authProfilesAndShowcase.test.ts`):**
+  - 4 testes de integração cobrindo a Vitrine Pública sem login, criação de perfil tradicional (`PSICOLOGO_TITULAR`, `PACIENTE` com FLE automático e `ADMIN`), criação/vinculação via Login Social (`GOOGLE`, `GOV_BR`, `APPLE`) e atualização de perfil autenticado.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -2315,13 +2338,14 @@ terapiainfoco/
 | `feat/patient-portal-and-therapeutic-exercises` | Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos Interativos (TCC/ACT/DBT), Histórico de Recibos para Reembolso e Termos TCLE (RFC-001 §3.6, §3.7) | [PR #98](https://github.com/linuxsoares/terapiainfoco/pull/98) | Merged |
 | `feat/interactive-diagnostic-tree-and-initial-scales` | Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4) | [PR #99](https://github.com/linuxsoares/terapiainfoco/pull/99) | Merged |
 | `feat/psychiatric-referral-and-drug-interactions` | Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5) | [PR #100](https://github.com/linuxsoares/terapiainfoco/pull/100) | Merged |
-| `feat/v0-encrypted-portability-and-websocket-guard` | Fechamento do Marco V0: Cofre de Portabilidade Cifrado `.enc` (Argon2id + AES-256-GCM + Merkle Tree LGPD Art. 18) e Proteção contra Injeção de Objetos & Desserialização WebSocket (RFC 6455 / CWE-502) | [PR #101](https://github.com/linuxsoares/terapiainfoco/pull/101) | Open |
+| `feat/v0-encrypted-portability-and-websocket-guard` | Fechamento do Marco V0: Cofre de Portabilidade Cifrado `.enc` (Argon2id + AES-256-GCM + Merkle Tree LGPD Art. 18) e Proteção contra Injeção de Objetos & Desserialização WebSocket (RFC 6455 / CWE-502) | [PR #101](https://github.com/linuxsoares/terapiainfoco/pull/101) | Merged |
+| `feat/public-showcase-auth-social-and-profiles` | Vitrine Pública Sem Login, Login Unificado (OAuth Social Google/Gov.br/Apple/Passkey + E-mail/Senha 2FA), Criação de Perfil Com/Sem Login Social e Perfis Dedicados (Paciente, Psicólogo e Admin/DPO) | [PR #102](https://github.com/linuxsoares/terapiainfoco/pull/102) | Open |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários — Marco V0 100% Concluído & Evolução V1)
 
-Com o **Marco V0 100% Concluído** — contemplando todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.381 testes automatizados (0 falhas em 141 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
+Com o **Marco V0 100% Concluído + Experiência de Entrada & Perfis V1** — contemplando a Vitrine Pública Sem Login, Login e Criação de Perfil Com/Sem Login Social (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`), todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.385 testes automatizados (0 falhas em 142 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2340,6 +2364,7 @@ Com o **Marco V0 100% Concluído** — contemplando todos os 18 módulos clínic
 - [x] **Módulo de Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4).**
 - [x] **Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5):** Catálogo de 18 psicofármacos comuns no Brasil, motor de regras farmacológicas cruzadas com matriz de severidade (Contraindicada, Maior, Moderada), alertas de Síndrome Serotoninérgica letal e depressão respiratória, guia interoperável timbrada com token notarial de validação pública e FLE AES-256-GCM para anotações do terapeuta.
 - [x] **Módulo de Exportação Segura e Portabilidade de Prontuário Clínico em Pacote Cifrado por Senha do Titular com Verificação de Integridade (RFC-001 §3.3, §4.4 & LGPD Art. 18):** Geração sob demanda de arquivo `.enc` protegido por Argon2id e AES-256-GCM contendo a integralidade dos registros clínicos, sessões, escalas e recibos para cumprimento estrito do direito de portabilidade e autodeterminação informativa.
+- [x] **Vitrine Pública Sem Login, Autenticação Unificada (Com ou Sem Login Social: Google, Gov.br ICP-Brasil, Apple, Passkey FIDO2 e E-mail/Senha) & Criação/Gestão de Perfis Dedicados (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`).**
 - [ ] **[V1] Módulo de Supervisão Clínica Ética & Discussão de Casos Anonimizados com Blindagem k-Anonymity (Resolução CFP nº 010/2005 & LGPD Art. 12):** Compartilhamento controlado de recortes clínicos com supervisor credenciado mediante pseudonimização reversível zero-knowledge e revogação automática pós-supervisão.
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real

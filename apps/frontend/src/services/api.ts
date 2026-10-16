@@ -21,6 +21,10 @@ import type {
   GenerateSoapProposalResponse,
   SanitizeTranscriptionDTO,
   SafeUser,
+  RegisterDTO,
+  SocialAuthLoginDTO,
+  UpdateUserProfileDTO,
+  PublicPlatformShowcaseOverview,
   LoginResponse,
   TwoFactorSetupResponse,
   PrepareIcpSignatureResponse,
@@ -1086,6 +1090,55 @@ export const api = {
   async getMe(): Promise<SafeUser> {
     const res = await request<{ success: boolean; user: SafeUser }>('/auth/me');
     return res.user;
+  },
+
+  async getPublicShowcase(): Promise<PublicPlatformShowcaseOverview> {
+    const res = await request<{ success: boolean; showcase: PublicPlatformShowcaseOverview }>('/auth/public-showcase');
+    return res.showcase;
+  },
+
+  async registerProfile(dto: RegisterDTO): Promise<LoginResponse> {
+    const reg = await request<{ success: boolean; user: SafeUser }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    // Autentica imediatamente após o registro para emitir JWT
+    try {
+      const loginRes = await this.login(dto.email, dto.password);
+      return loginRes;
+    } catch {
+      return {
+        success: true,
+        user: reg.user
+      };
+    }
+  },
+
+  async socialLoginOrRegister(dto: SocialAuthLoginDTO): Promise<LoginResponse> {
+    const res = await request<LoginResponse>('/auth/social', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    if (res.accessToken) {
+      authStorage.setToken(res.accessToken);
+    }
+    if (res.refreshToken) {
+      authStorage.setRefreshToken(res.refreshToken);
+    }
+    return res;
+  },
+
+  async updateProfile(dto: UpdateUserProfileDTO): Promise<SafeUser> {
+    const res = await request<{ success: boolean; user: SafeUser }>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+    return res.user;
+  },
+
+  async listProfiles(): Promise<SafeUser[]> {
+    const res = await request<{ success: boolean; profiles: SafeUser[] }>('/auth/profiles');
+    return res.profiles;
   },
 
   async logout(): Promise<void> {
