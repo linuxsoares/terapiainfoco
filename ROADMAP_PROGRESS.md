@@ -2150,13 +2150,13 @@ terapiainfoco/
 | `feat/recurrent-booking-reminders-clinical-timeline` | Agendamento Recorrente & Séries Clínicas, Notificações & Lembretes Multicanal WhatsApp/Email (CFP nº 011/2018) e Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.1, §3.4) | [PR #91](https://github.com/linuxsoares/terapiainfoco/pull/91) | Merged |
 | `feat/clinical-session-markers-and-smart-plans` | Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3), Metas Terapêuticas SMART & Escalas Psicométricas Padronizadas PHQ-9 e GAD-7 (RFC-001 §3.4 / CFP) | [PR #92](https://github.com/linuxsoares/terapiainfoco/pull/92) | Merged |
 | `feat/consolidated-clinical-reports-and-referrals` | Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019) e Encaminhamentos Multidisciplinares Interoperáveis com Contra-Referência Médica (RFC-001 §3.5) | [PR #93](https://github.com/linuxsoares/terapiainfoco/pull/93) | Merged |
-| `feat/clinical-billing-receipts-and-fee-terms` | Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários Psicológicos (RFC-001 §3.6) | PR #94 | Em Aberto |
+| `feat/clinical-billing-receipts-and-fee-terms` | Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários Psicológicos (RFC-001 §3.6) | [PR #94](https://github.com/linuxsoares/terapiainfoco/pull/94) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.296 testes automatizados (0 falhas em 130 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.305 testes automatizados (0 falhas em 131 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
