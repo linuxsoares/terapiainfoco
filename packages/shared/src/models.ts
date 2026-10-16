@@ -4166,6 +4166,140 @@ export interface CommandGuardOverview {
   recentSealsSample?: CommandProofSeal[];
 }
 
+/**
+ * Ameaça detectada na inspeção de caminho de arquivo (CWE-22, CWE-23, CWE-73)
+ */
+export interface PathThreat {
+  vector: import('./enums').PathThreatVector;
+  severity: import('./enums').PathRiskSeverity;
+  description: string;
+  matchedSegment?: string;
+}
+
+/**
+ * Selo Notarial Probatório WORM RFC 8785 de Resolução e Sanitização de Caminho
+ */
+export interface PathProofSeal {
+  sealId: string;
+  timestamp: string;
+  canonicalPath: string;
+  sha256Digest: string;
+  signature: string;
+  action: import('./enums').PathValidationAction;
+  safeJailRoot: string;
+}
+
+/**
+ * Resultado da Inspeção Léxica e Canônica de Caminho
+ */
+export interface PathInspectionResult {
+  rawPath: string;
+  normalizedPath: string;
+  resolvedAbsolutePath: string;
+  safeJailRoot: string;
+  isWithinJail: boolean;
+  severity: import('./enums').PathRiskSeverity;
+  threats: PathThreat[];
+  sanitizedFileName: string;
+  allowedExtension: boolean;
+  fileExtension: string;
+  inspectionLatencyUs: number;
+  recommendedAction: import('./enums').PathValidationAction;
+  seal?: PathProofSeal;
+}
+
+/**
+ * Resultado da Resolução Segura de Armazenamento de Anexo em Jail
+ */
+export interface SafePathResolutionResult {
+  success: boolean;
+  originalPath: string;
+  canonicalStoragePath: string;
+  safeJailRoot: string;
+  safeFileName: string;
+  fileExtension: string;
+  category: import('./enums').ClinicalAttachmentCategory;
+  actionTaken: import('./enums').PathValidationAction;
+  proofSeal: PathProofSeal;
+  quarantined: boolean;
+  errorReason?: string;
+}
+
+/**
+ * Política Ativa de Blindagem contra Path Traversal e LFI
+ */
+export interface PathGuardPolicy {
+  strictJailEnforcement: boolean;
+  disallowRelativeTraversal: boolean;
+  disallowNullBytes: boolean;
+  disallowUriWrappers: boolean;
+  disallowDoubleEncoding: boolean;
+  disallowAlternateDataStreams: boolean;
+  allowedExtensions: string[];
+  maxFileNameLength: number;
+  maxPathLength: number;
+  safeJailRoots: Record<string, string>;
+  updatedAt: string;
+}
+
+/**
+ * Preset de Repositório Homologado para Anexos Clínicos (CFP / LGPD)
+ */
+export interface ClinicalAttachmentPreset {
+  category: import('./enums').ClinicalAttachmentCategory;
+  label: string;
+  description: string;
+  jailDirectory: string;
+  allowedExtensions: string[];
+  maxFileSizeMb: number;
+  sampleSafePath: string;
+}
+
+/**
+ * Métricas do Módulo de Proteção contra Path Traversal & LFI
+ */
+export interface PathGuardMetrics {
+  totalPathsEvaluated: number;
+  safePathsResolved: number;
+  traversalsBlocked: number;
+  fileNamesSanitized: number;
+  avgResolutionDurationUs: number;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente de Fuga de Diretório / Path Traversal
+ */
+export interface PathSecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  vector: import('./enums').PathThreatVector;
+  threatVector?: import('./enums').PathThreatVector;
+  severity: import('./enums').PathRiskSeverity;
+  riskSeverity?: import('./enums').PathRiskSeverity;
+  attemptedPath: string;
+  rawPath?: string;
+  targetJailRoot: string;
+  clientIp: string;
+  userAgent: string;
+  blocked: boolean;
+  remediationAction: string;
+  seal?: PathProofSeal;
+}
+
+/**
+ * Visão Geral Operacional e Telemetria de Path Traversal Guard
+ */
+export interface PathGuardOverview {
+  metrics: PathGuardMetrics;
+  policy: PathGuardPolicy;
+  recentIncidents: PathSecurityIncident[];
+  attachmentPresets: ClinicalAttachmentPreset[];
+  recentSealsSample?: PathProofSeal[];
+}
+
+
 
 
 

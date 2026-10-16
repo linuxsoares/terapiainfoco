@@ -345,7 +345,13 @@ export enum AuditAction {
   COMMAND_ARGUMENTS_SANITIZED = 'COMMAND_ARGUMENTS_SANITIZED',
   SANDBOX_PROCESS_EXECUTED = 'SANDBOX_PROCESS_EXECUTED',
   COMMAND_GUARD_POLICY_UPDATED = 'COMMAND_GUARD_POLICY_UPDATED',
-  COMMAND_GUARD_SEAL_VERIFIED = 'COMMAND_GUARD_SEAL_VERIFIED'
+  COMMAND_GUARD_SEAL_VERIFIED = 'COMMAND_GUARD_SEAL_VERIFIED',
+  // Ações de Sanitização e Prevenção de Path Traversal / LFI (OWASP ASVS V5.5 & CWE-22/CWE-23)
+  PATH_TRAVERSAL_ATTEMPT_BLOCKED = 'PATH_TRAVERSAL_ATTEMPT_BLOCKED',
+  FILE_PATH_SANITIZED = 'FILE_PATH_SANITIZED',
+  SAFE_STORAGE_RESOLVED = 'SAFE_STORAGE_RESOLVED',
+  PATH_GUARD_POLICY_UPDATED = 'PATH_GUARD_POLICY_UPDATED',
+  PATH_GUARD_SEAL_VERIFIED = 'PATH_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -402,7 +408,8 @@ export enum AuditResourceType {
   SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD',
   REDOS_GUARD = 'REDOS_GUARD',
   SSTI_GUARD = 'SSTI_GUARD',
-  OS_COMMAND_GUARD = 'OS_COMMAND_GUARD'
+  OS_COMMAND_GUARD = 'OS_COMMAND_GUARD',
+  PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD'
 }
 
 /**
@@ -1877,6 +1884,50 @@ export enum ClinicalConverterJobType {
   ANAMNESIS_REPORT_COMPILATION = 'ANAMNESIS_REPORT_COMPILATION',   // Compilação de Relatório Biopsicossocial de Anamnese
   WATERMARKED_PAGES_MERGE = 'WATERMARKED_PAGES_MERGE'              // Mesclagem de páginas com marca d'água forense esteganográfica
 }
+
+/**
+ * Níveis de Gravidade de Risco de Caminhos de Arquivos (CWE-22, CWE-23 & OWASP ASVS V5.5)
+ */
+export enum PathRiskSeverity {
+  SAFE_CANONICAL = 'SAFE_CANONICAL',                               // Caminho seguro resolvido estritamente dentro da raiz do sandbox/jail
+  SUSPICIOUS_NORMALIZATION = 'SUSPICIOUS_NORMALIZATION',           // Caminho requereu normalização de separadores ou remoção de caracteres estranhos
+  POTENTIAL_TRAVERSAL = 'POTENTIAL_TRAVERSAL',                     // Contém sequências relativas de escape ou wrappers que foram desarmados
+  CRITICAL_PATH_TRAVERSAL = 'CRITICAL_PATH_TRAVERSAL'              // Tentativa explícita de fuga de diretório, acesso a arquivos de sistema ou LFI
+}
+
+/**
+ * Vetor de Ameaça de Fuga de Diretório (Path Traversal) & Inclusão Local de Arquivo (LFI)
+ */
+export enum PathThreatVector {
+  RELATIVE_DOT_DOT_TRAVERSAL = 'RELATIVE_DOT_DOT_TRAVERSAL',       // Uso de sequências ../ ou ..\ para escapar da raiz de armazenamento
+  ABSOLUTE_SYSTEM_ROOT = 'ABSOLUTE_SYSTEM_ROOT',                   // Tentativa de acessar caminhos absolutos de sistema (/etc/passwd, C:\Windows, /proc)
+  NULL_BYTE_TERMINATION = 'NULL_BYTE_TERMINATION',                 // Injeção de byte nulo (%00 ou \0) para truncar extensão ou enganar o SO
+  DOUBLE_PERCENT_ENCODING = 'DOUBLE_PERCENT_ENCODING',             // Encodings múltiplos/duplos (%252e%252e%252f) para evasão de WAF
+  URI_SCHEME_WRAPPER = 'URI_SCHEME_WRAPPER',                       // Esquemas de URI maliciosos (file://, data://, php://, gopher://)
+  WINDOWS_ALTERNATE_STREAM = 'WINDOWS_ALTERNATE_STREAM',           // Streams alternativos do NTFS (::$DATA) para bypass de restrições
+  DANGEROUS_FILE_EXTENSION = 'DANGEROUS_FILE_EXTENSION'            // Extensões executáveis ou perigosas fora da allowlist clínica (.sh, .exe, .php)
+}
+
+/**
+ * Ação de Validação e Confinamento de Caminho em Safe Jail
+ */
+export enum PathValidationAction {
+  CANONICALLY_RESOLVED = 'CANONICALLY_RESOLVED',                   // Caminho resolvido deterministicamente dentro da jail autorizada
+  SANITIZED_AND_JAIL_BOUND = 'SANITIZED_AND_JAIL_BOUND',           // Nome de arquivo sanitizado e confinado à raiz segura
+  BLOCKED_TRAVERSAL_ATTEMPT = 'BLOCKED_TRAVERSAL_ATTEMPT'          // Operação bloqueada por violação de fronteira ou ameaça crítica
+}
+
+/**
+ * Categorias Clínicas de Anexos e Documentos de Pacientes
+ */
+export enum ClinicalAttachmentCategory {
+  ANAMNESIS_DOC = 'ANAMNESIS_DOC',                                 // Documento comprobatório de anamnese biopsicossocial
+  NEUROPSYCH_REPORT = 'NEUROPSYCH_REPORT',                         // Laudo de bateria de testes neuropsicológicos
+  MEDICAL_EXAM = 'MEDICAL_EXAM',                                   // Exame médico complementar ou neuroimagem
+  COURT_ORDER_CFP = 'COURT_ORDER_CFP',                             // Requisito ou ofício judicial de desarquivamento ético
+  CLINICAL_SUMMARY = 'CLINICAL_SUMMARY'                            // Resumo de prontuário de transferência ou encaminhamento
+}
+
 
 
 
