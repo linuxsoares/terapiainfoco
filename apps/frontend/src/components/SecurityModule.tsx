@@ -323,7 +323,15 @@ import {
   type XmlSecurityIncident,
   type XmlGuardOverview,
   type SimulateXmlAttackResponse,
-  type VerifyXmlSealResponse
+  type VerifyXmlSealResponse,
+  SessionAnomalyType,
+  SessionSecurityLevel,
+  type SessionProofSeal,
+  type SessionEvaluationResult,
+  type SessionGuardIncident,
+  type SessionGuardOverview,
+  type SimulateSessionAttackResponse,
+  type VerifySessionSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -5031,6 +5039,177 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 65. DETECÇÃO E PREVENÇÃO DE FIXAÇÃO E SEQUESTRO DE SESSÃO (OWASP ASVS V3.3 & NIST SP 800-63B)
+  const [sessionGuardOverview, setSessionGuardOverview] = useState<SessionGuardOverview | null>(null);
+  const [loadingSessionGuard, setLoadingSessionGuard] = useState<boolean>(false);
+  const [sessionActiveTab, setSessionActiveTab] = useState<'evaluate' | 'simulate' | 'policy'>('evaluate');
+
+  // Aba 1: Avaliador & Rotação
+  const [evalSessionId, setEvalSessionId] = useState<string>('sess_sec_psi_active_session_demo');
+  const [evalClientIp, setEvalClientIp] = useState<string>('198.51.100.45');
+  const [evalUserAgent, setEvalUserAgent] = useState<string>('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0');
+  const [evalTlsFingerprint, setEvalTlsFingerprint] = useState<string>('t13d1516h2_8daaf6152771_b186095e22b6');
+  const [evalCountryCode, setEvalCountryCode] = useState<string>('BR');
+  const [evalIsElevation, setEvalIsElevation] = useState<boolean>(false);
+  const [evaluatingSession, setEvaluatingSession] = useState<boolean>(false);
+  const [lastSessionEvaluation, setLastSessionEvaluation] = useState<SessionEvaluationResult | null>(null);
+
+  // Aba 2: Simulador Adversarial
+  const [simSessionAttackType, setSimSessionAttackType] = useState<SessionAnomalyType>(SessionAnomalyType.USER_AGENT_MUTATION);
+  const [simulatingSessionAttack, setSimulatingSessionAttack] = useState<boolean>(false);
+  const [simSessionAttackResult, setSimSessionAttackResult] = useState<SimulateSessionAttackResponse | null>(null);
+
+  // Aba 3: Políticas
+  const [policyEnforceRotationOnElevation, setPolicyEnforceRotationOnElevation] = useState<boolean>(true);
+  const [policyBindIpSubnet, setPolicyBindIpSubnet] = useState<boolean>(true);
+  const [policyBindUserAgent, setPolicyBindUserAgent] = useState<boolean>(true);
+  const [policyBindTlsFingerprint, setPolicyBindTlsFingerprint] = useState<boolean>(true);
+  const [policyAllowSubnetShift, setPolicyAllowSubnetShift] = useState<boolean>(false);
+  const [policyMaxSessionAgeMinutes, setPolicyMaxSessionAgeMinutes] = useState<number>(480);
+  const [policyIdleTimeoutMinutes, setPolicyIdleTimeoutMinutes] = useState<number>(30);
+  const [updatingSessionPolicy, setUpdatingSessionPolicy] = useState<boolean>(false);
+
+  // Modal 47.A: Certidão Notarial Forense WORM
+  const [selectedSessionSealForModal, setSelectedSessionSealForModal] = useState<SessionProofSeal | null>(null);
+  const [sessionModalIncidentItem, setSessionModalIncidentItem] = useState<SessionGuardIncident | null>(null);
+  const [verifyingSessionSeal, setVerifyingSessionSeal] = useState<boolean>(false);
+  const [sessionSealVerifyResult, setSessionSealVerifyResult] = useState<VerifySessionSealResponse | null>(null);
+
+  const fetchSessionGuardData = async () => {
+    try {
+      setLoadingSessionGuard(true);
+      const res = await api.getSessionGuardOverview();
+      setSessionGuardOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyEnforceRotationOnElevation(res.overview.policy.enforceRotationOnElevation);
+        setPolicyBindIpSubnet(res.overview.policy.bindIpSubnet);
+        setPolicyBindUserAgent(res.overview.policy.bindUserAgent);
+        setPolicyBindTlsFingerprint(res.overview.policy.bindTlsFingerprint);
+        setPolicyAllowSubnetShift(res.overview.policy.allowSubnetShift);
+        setPolicyMaxSessionAgeMinutes(res.overview.policy.maxSessionAgeMinutes);
+        setPolicyIdleTimeoutMinutes(res.overview.policy.idleTimeoutMinutes);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de Session Guard:', err);
+    } finally {
+      setLoadingSessionGuard(false);
+    }
+  };
+
+  const handleEvaluateSessionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setEvaluatingSession(true);
+      setLastSessionEvaluation(null);
+      const res = await api.evaluateSessionContext({
+        sessionId: evalSessionId,
+        clientIp: evalClientIp,
+        userAgent: evalUserAgent,
+        tlsFingerprint: evalTlsFingerprint || undefined,
+        countryCode: evalCountryCode,
+        isPrivilegeElevation: evalIsElevation
+      });
+      setLastSessionEvaluation(res.evaluation);
+      setFeedback({
+        type: res.evaluation.isAllowed ? 'success' : 'error',
+        message: res.message
+      });
+      if (res.evaluation.newSessionId) {
+        setEvalSessionId(res.evaluation.newSessionId);
+      }
+      await fetchSessionGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao avaliar contexto da sessão.' });
+    } finally {
+      setEvaluatingSession(false);
+    }
+  };
+
+  const handleRotateSessionSubmit = async () => {
+    try {
+      setEvaluatingSession(true);
+      const res = await api.rotateSession({
+        oldSessionId: evalSessionId,
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        clientIp: evalClientIp,
+        userAgent: evalUserAgent,
+        tlsFingerprint: evalTlsFingerprint || undefined,
+        securityLevel: SessionSecurityLevel.STRICT_CLINICAL
+      });
+      setEvalSessionId(res.newSessionId);
+      setFeedback({ type: 'success', message: res.message });
+      await fetchSessionGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao rotacionar sessão.' });
+    } finally {
+      setEvaluatingSession(false);
+    }
+  };
+
+  const handleSimulateSessionAttackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingSessionAttack(true);
+      setSimSessionAttackResult(null);
+      const res = await api.simulateSessionAttack({
+        anomalyType: simSessionAttackType,
+        targetSessionId: evalSessionId
+      });
+      setSimSessionAttackResult(res);
+      setFeedback({
+        type: res.threatDetected ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSessionGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de sessão.' });
+    } finally {
+      setSimulatingSessionAttack(false);
+    }
+  };
+
+  const handleUpdateSessionPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingSessionPolicy(true);
+      const res = await api.updateSessionGuardPolicy({
+        policy: {
+          enforceRotationOnElevation: policyEnforceRotationOnElevation,
+          bindIpSubnet: policyBindIpSubnet,
+          bindUserAgent: policyBindUserAgent,
+          bindTlsFingerprint: policyBindTlsFingerprint,
+          allowSubnetShift: policyAllowSubnetShift,
+          maxSessionAgeMinutes: policyMaxSessionAgeMinutes,
+          idleTimeoutMinutes: policyIdleTimeoutMinutes
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchSessionGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de sessão.' });
+    } finally {
+      setUpdatingSessionPolicy(false);
+    }
+  };
+
+  const handleVerifySessionSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingSessionSeal(true);
+      setSessionSealVerifyResult(null);
+      const res = await api.verifySessionGuardSeal({ sealToken });
+      setSessionSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de sessão WORM.' });
+    } finally {
+      setVerifyingSessionSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -5069,6 +5248,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchPrototypePollutionData();
       fetchCacheGuardData();
       fetchXmlGuardData();
+      fetchSessionGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -24172,6 +24352,688 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* ============================================================================
+          65. CARD 47: BLINDAGEM CONTRA FIXAÇÃO E SEQUESTRO DE SESSÃO CLÍNICA
+          ============================================================================ */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Blindagem contra Fixação & Sequestro de Sessão (Session Fixation & Hijacking Guard)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  OWASP ASVS V3.3 & NIST SP 800-63B
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Rotação criptográfica compulsória de Session IDs pós-login, invalidação imediata de tokens pré-autenticação e dynamic binding contínuo de sub-rede IP, User-Agent e TLS JA4.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchSessionGuardData()}
+              disabled={loadingSessionGuard}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Atualizar Telemetria de Sessões"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingSessionGuard ? 'animate-spin text-indigo-500' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs Operacionais */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Avaliações de Contexto
+            </span>
+            <p className="text-lg font-black text-slate-900 dark:text-white">
+              {sessionGuardOverview?.metrics?.totalEvaluations ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Dynamic Binding Contínuo
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 block">
+              Fixações Bloqueadas
+            </span>
+            <p className="text-lg font-black text-rose-600 dark:text-rose-400">
+              {sessionGuardOverview?.metrics?.fixationAttemptsBlocked ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              CWE-384 Pre-Auth Invalidadas
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 block">
+              Sequestros Bloqueados
+            </span>
+            <p className="text-lg font-black text-rose-600 dark:text-rose-400">
+              {sessionGuardOverview?.metrics?.hijackAttemptsBlocked ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              CWE-287 Mutação de UA/IP
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 block">
+              Rotações Realizadas
+            </span>
+            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+              {sessionGuardOverview?.metrics?.legitimateRotations ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Elevação de Privilégio
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block">
+              Sessões Ativas
+            </span>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+              {sessionGuardOverview?.metrics?.activeProtectedSessions ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Enclave Clínico Blindado
+            </span>
+          </div>
+        </div>
+
+        {/* Abas Operacionais */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl w-fit">
+          <button
+            type="button"
+            onClick={() => setSessionActiveTab('evaluate')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              sessionActiveTab === 'evaluate'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Avaliador & Rotação de Sessão
+          </button>
+          <button
+            type="button"
+            onClick={() => setSessionActiveTab('simulate')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              sessionActiveTab === 'simulate'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Simulador Adversarial de Sequestro
+          </button>
+          <button
+            type="button"
+            onClick={() => setSessionActiveTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              sessionActiveTab === 'policy'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Políticas de Dynamic Binding
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Avaliador & Rotação */}
+        {sessionActiveTab === 'evaluate' && (
+          <form onSubmit={handleEvaluateSessionSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Identificador da Sessão (Session ID):
+                </label>
+                <input
+                  type="text"
+                  value={evalSessionId}
+                  onChange={(e) => setEvalSessionId(e.target.value)}
+                  placeholder="sess_sec_..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Endereço IP do Cliente:
+                </label>
+                <input
+                  type="text"
+                  value={evalClientIp}
+                  onChange={(e) => setEvalClientIp(e.target.value)}
+                  placeholder="198.51.100.45"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  User-Agent do Navegador:
+                </label>
+                <input
+                  type="text"
+                  value={evalUserAgent}
+                  onChange={(e) => setEvalUserAgent(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    TLS Fingerprint (JA4/JA3):
+                  </label>
+                  <input
+                    type="text"
+                    value={evalTlsFingerprint}
+                    onChange={(e) => setEvalTlsFingerprint(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    País de Origem:
+                  </label>
+                  <input
+                    type="text"
+                    value={evalCountryCode}
+                    onChange={(e) => setEvalCountryCode(e.target.value.toUpperCase())}
+                    maxLength={2}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+              <input
+                type="checkbox"
+                id="evalElevationCheck"
+                checked={evalIsElevation}
+                onChange={(e) => setEvalIsElevation(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+              <label htmlFor="evalElevationCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                Simular Evento de Elevação de Privilégio (Login / 2FA / Transição de Papel - Rotação Compulsória CWE-384)
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleRotateSessionSubmit}
+                disabled={evaluatingSession}
+                className="px-3.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Rotacionar Sessão Imediatamente
+              </button>
+
+              <button
+                type="submit"
+                disabled={evaluatingSession}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5" />
+                {evaluatingSession ? 'Avaliando Contexto...' : 'Avaliar Integridade de Contexto'}
+              </button>
+            </div>
+
+            {/* Resultado da Avaliação */}
+            {lastSessionEvaluation && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      lastSessionEvaluation.isAllowed
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    }`}>
+                      {lastSessionEvaluation.isAllowed ? '✅ Sessão Válida & Permitida' : `🚫 Sessão Bloqueada (${lastSessionEvaluation.action})`}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      Ação: {lastSessionEvaluation.action}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSessionSealForModal(lastSessionEvaluation.seal);
+                      setSessionModalIncidentItem(null);
+                      setSessionSealVerifyResult(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                    Certidão Notarial WORM
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Sub-Rede Vinculada
+                    </span>
+                    <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {lastSessionEvaluation.contextFingerprint.subnetPrefix}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Rotação Pós-Elevação
+                    </span>
+                    <p className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      {lastSessionEvaluation.requiresRotation ? 'SIM (Novo ID Gerado)' : 'NÃO (Sessão Mantida)'}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      ID do Selo Probatório
+                    </span>
+                    <p className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                      {lastSessionEvaluation.seal.sealId}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Anomalias Identificadas */}
+                {lastSessionEvaluation.anomalies.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                      Anomalias Detectadas:
+                    </span>
+                    {lastSessionEvaluation.anomalies.map((an, idx) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono">
+                            {an.type}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            Severidade: {an.severity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          {an.description}
+                        </p>
+                        <p className="text-[10px] font-mono text-slate-500 break-all">
+                          {an.evidence}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 2: Simulador Adversarial */}
+        {sessionActiveTab === 'simulate' && (
+          <form onSubmit={handleSimulateSessionAttackSubmit} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 text-xs text-indigo-800 dark:text-indigo-300 space-y-1">
+              <span className="font-bold block">Laboratório de Testes Adversariais de Sessão (OWASP ASVS V3.3):</span>
+              <p className="text-[11px] text-indigo-700 dark:text-indigo-400">
+                Dispara probes de sequestro de sessão simulando roubo de token por navegador diferente, mudança não autorizada de sub-rede, reutilização de identificador pré-autenticação e salto geográfico.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Vetor de Ataque a Simular:
+              </label>
+              <select
+                value={simSessionAttackType}
+                onChange={(e) => setSimSessionAttackType(e.target.value as SessionAnomalyType)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                <option value={SessionAnomalyType.USER_AGENT_MUTATION}>USER_AGENT_MUTATION (Token Exfiltrado Usado por Navegador / Scanner Diferente)</option>
+                <option value={SessionAnomalyType.IP_SUBNET_MISMATCH}>IP_SUBNET_MISMATCH (Sessão Disparada de Sub-Rede Externa Não Reconhecida)</option>
+                <option value={SessionAnomalyType.PRE_AUTH_SESSION_REUSE}>PRE_AUTH_SESSION_REUSE (Ataque de Fixação de Sessão CWE-384 Pré-Login)</option>
+                <option value={SessionAnomalyType.GEOGRAPHIC_IMPOSSIBLE_TRAVEL}>GEOGRAPHIC_IMPOSSIBLE_TRAVEL (Salto de País em Janela Temporal Impossível)</option>
+                <option value={SessionAnomalyType.TLS_FINGERPRINT_MISMATCH}>TLS_FINGERPRINT_MISMATCH (Divergência de TLS Client Fingerprint JA4/JA3)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                A simulação intercepta o vetor, invalida a sessão se crítico e registra incidente no WORM.
+              </span>
+              <button
+                type="submit"
+                disabled={simulatingSessionAttack}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {simulatingSessionAttack ? 'Simulando Ataque...' : 'Disparar Probe Adversarial Controlado'}
+              </button>
+            </div>
+
+            {/* Resultado da Simulação */}
+            {simSessionAttackResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      simSessionAttackResult.threatDetected
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    }`}>
+                      {simSessionAttackResult.threatDetected ? '⚠️ Ameaça Interceptada & Mitigada' : 'ℹ️ Nenhuma violação disparada'}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      {simSessionAttackResult.message}
+                    </span>
+                  </div>
+
+                  {simSessionAttackResult.incident && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionModalIncidentItem(simSessionAttackResult.incident!);
+                        setSelectedSessionSealForModal(simSessionAttackResult.incident!.seal);
+                        setSessionSealVerifyResult(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <BadgeCheck className="w-3.5 h-3.5" />
+                      Certidão Notarial WORM
+                    </button>
+                  )}
+                </div>
+
+                {simSessionAttackResult.incident && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold font-mono text-rose-600 dark:text-rose-400">
+                        {simSessionAttackResult.incident.anomalyType}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        ID: {simSessionAttackResult.incident.id}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Evidência: {simSessionAttackResult.incident.evidence}
+                    </p>
+                    <p className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                      Ação Aplicada: {simSessionAttackResult.incident.mitigationAction}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 3: Políticas de Dynamic Binding */}
+        {sessionActiveTab === 'policy' && (
+          <form onSubmit={handleUpdateSessionPolicySubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyEnforceRotationOnElevation}
+                    onChange={(e) => setPolicyEnforceRotationOnElevation(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Rotação Compulsória pós-Login & 2FA (OWASP ASVS V3.3.1)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Elimina Session Fixation (CWE-384) invalidando o identificador prévio
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyBindIpSubnet}
+                    onChange={(e) => setPolicyBindIpSubnet(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Dynamic Subnet Binding (/24 IPv4 e /48 IPv6)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Vincula a sessão à sub-rede de rede do terapeuta
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyBindUserAgent}
+                    onChange={(e) => setPolicyBindUserAgent(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Validação de Integridade do User-Agent
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Detecta sequestro se o token for usado por outro aplicativo
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyBindTlsFingerprint}
+                    onChange={(e) => setPolicyBindTlsFingerprint(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Validação de TLS Client Fingerprint (JA4/JA3)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Garante que a pilha de cifras TLS pertença ao navegador legítimo
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyAllowSubnetShift}
+                    onChange={(e) => setPolicyAllowSubnetShift(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Tolerância de Roaming Móvel (Subnet Shift)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Permite variação de rede sob desafio 2FA se o User-Agent for idêntico
+                    </span>
+                  </div>
+                </label>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tempo Máximo de Vida da Sessão (Minutos):
+                  </label>
+                  <input
+                    type="number"
+                    min={30}
+                    max={1440}
+                    value={policyMaxSessionAgeMinutes}
+                    onChange={(e) => setPolicyMaxSessionAgeMinutes(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Timeout de Inatividade (Minutos):
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={policyIdleTimeoutMinutes}
+                    onChange={(e) => setPolicyIdleTimeoutMinutes(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={updatingSessionPolicy}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {updatingSessionPolicy ? 'Salvando...' : 'Salvar Políticas de Sessão'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tabela de Incidentes Forenses Recentes */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              Histórico Forense de Tentativas de Sequestro / Fixação Neutralizadas
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Trilha WORM com Selo RFC 8785
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <th className="p-3">Data/Hora</th>
+                  <th className="p-3">Tipo de Anomalia</th>
+                  <th className="p-3">Sub-Rede Esperada</th>
+                  <th className="p-3">IP da Requisição</th>
+                  <th className="p-3">Mitigação do Enclave</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {!sessionGuardOverview?.recentIncidents || sessionGuardOverview.recentIncidents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-slate-400 font-medium">
+                      Nenhum incidente de sequestro ou fixação de sessão registrado.
+                    </td>
+                  </tr>
+                ) : (
+                  sessionGuardOverview.recentIncidents.map((inc) => (
+                    <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono">
+                        {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          {inc.anomalyType}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.expectedSubnet}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.actualIp}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-indigo-600 dark:text-indigo-400 truncate max-w-xs">
+                        {inc.mitigationAction}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSessionModalIncidentItem(inc);
+                            setSelectedSessionSealForModal(inc.seal);
+                            setSessionSealVerifyResult(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Certidão WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Amostra de Sessões Ativas Protegidas */}
+        {sessionGuardOverview?.activeSessionsSample && sessionGuardOverview.activeSessionsSample.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 block">
+              Sessões Clínicas Ativas com Dynamic Binding de Sub-Rede:
+            </span>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                    <th className="p-3">Session ID (Mascarado)</th>
+                    <th className="p-3">Papel</th>
+                    <th className="p-3">Sub-Rede Vinculada</th>
+                    <th className="p-3">Nível de Rigor</th>
+                    <th className="p-3">Última Atividade</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {sessionGuardOverview.activeSessionsSample.map((s, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 font-mono text-[11px] text-slate-900 dark:text-white font-bold">
+                        {s.sessionIdMasked}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                          {s.role}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {s.subnet}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-slate-500">
+                        {s.securityLevel}
+                      </td>
+                      <td className="p-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono">
+                        {new Date(s.lastSeenAt).toLocaleTimeString('pt-BR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -30028,6 +30890,171 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedXmlSealForModal(null);
                     setXmlModalIncidentItem(null);
                     setXmlSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 47.A: Certidão Notarial Forense WORM - Session Fixation & Hijacking Guard */}
+      {selectedSessionSealForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                    Certidão Notarial Forense WORM — Blindagem de Sessão
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    OWASP ASVS v4.0 V3.3 & NIST SP 800-63B • Fé Pública RFC 8785
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSessionSealForModal(null);
+                  setSessionModalIncidentItem(null);
+                  setSessionSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Veredito */}
+              <div className="p-3.5 rounded-2xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/40 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase tracking-wider block">
+                    Veredito Notarial Forense:
+                  </span>
+                  <p className="font-bold text-xs text-orange-950 dark:text-orange-200">
+                    {selectedSessionSealForModal.anomalyCount === 0
+                      ? 'Sessão Criptograficamente Vinculada & Íntegra'
+                      : `${selectedSessionSealForModal.anomalyCount} Anomalia(s) Neutralizada(s)`}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-200 dark:bg-orange-900/60 text-orange-800 dark:text-orange-300">
+                  {selectedSessionSealForModal.mitigationAction}
+                </span>
+              </div>
+
+              {/* Grid de Identificadores */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID Notarial do Selo
+                  </span>
+                  <p className="text-xs font-mono font-bold text-orange-600 dark:text-orange-400 truncate">
+                    {selectedSessionSealForModal.sealId}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Versão do Padrão WORM
+                  </span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    v{selectedSessionSealForModal.version} (Deterministic RFC 8785)
+                  </p>
+                </div>
+
+                <div className="col-span-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Digest SHA-256 do Session ID (Pseudonimizado)
+                  </span>
+                  <p className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 break-all select-all">
+                    {selectedSessionSealForModal.sessionIdHash}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes do Incidente Forense Associado se houver */}
+              {sessionModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 block">
+                    Incidente Forense Associado:
+                  </span>
+                  <p className="font-mono text-xs text-rose-900 dark:text-rose-200 font-bold">
+                    {sessionModalIncidentItem.anomalyType}
+                  </p>
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300">
+                    Evidência: {sessionModalIncidentItem.evidence}
+                  </p>
+                  <div className="text-[10px] font-mono text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
+                    <p>Ação: {sessionModalIncidentItem.mitigationAction} | IP Atual: {sessionModalIncidentItem.actualIp}</p>
+                    <p>Sub-rede Esperada: {sessionModalIncidentItem.expectedSubnet} | Usuário: {sessionModalIncidentItem.userId}</p>
+                    <p>UA Esperado: {sessionModalIncidentItem.expectedUserAgentHash.slice(0, 16)}... | UA Atual: {sessionModalIncidentItem.actualUserAgentHash.slice(0, 16)}...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hash Canônico de Contexto SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do Contexto Canônico (Subnet + User-Agent + TLS)
+                </span>
+                <p className="font-mono text-[10px] text-orange-400 break-all select-all">
+                  {selectedSessionSealForModal.contextHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-amber-300 break-all select-all">
+                  {selectedSessionSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {sessionSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  sessionSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {sessionSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {sessionSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedSessionSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingSessionSeal}
+                  onClick={() => handleVerifySessionSealSubmit(JSON.stringify(selectedSessionSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingSessionSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSessionSealForModal(null);
+                    setSessionModalIncidentItem(null);
+                    setSessionSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

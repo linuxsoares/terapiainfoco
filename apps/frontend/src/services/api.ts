@@ -446,7 +446,18 @@ import type {
   UpdateXmlPolicyResponse,
   VerifyXmlSealDTO,
   VerifyXmlSealResponse,
-  XmlGuardOverviewResponse
+  XmlGuardOverviewResponse,
+  EvaluateSessionDTO,
+  EvaluateSessionResponse,
+  RotateSessionDTO,
+  RotateSessionResponse,
+  UpdateSessionGuardPolicyDTO,
+  UpdateSessionGuardPolicyResponse,
+  SimulateSessionAttackDTO,
+  SimulateSessionAttackResponse,
+  VerifySessionSealDTO,
+  VerifySessionSealResponse,
+  SessionGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2802,6 +2813,46 @@ export const api = {
 
   async verifyXmlSeal(dto: VerifyXmlSealDTO): Promise<VerifyXmlSealResponse> {
     return await request<VerifyXmlSealResponse>('/xml-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 65. Proteção contra Fixação e Sequestro de Sessão (OWASP ASVS V3.3 & NIST SP 800-63B)
+  async getSessionGuardOverview(): Promise<SessionGuardOverviewResponse> {
+    return await request<SessionGuardOverviewResponse>('/session-guard/overview');
+  },
+
+  async evaluateSessionContext(dto: EvaluateSessionDTO): Promise<EvaluateSessionResponse> {
+    return await request<EvaluateSessionResponse>('/session-guard/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async rotateSession(dto: RotateSessionDTO): Promise<RotateSessionResponse> {
+    return await request<RotateSessionResponse>('/session-guard/rotate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateSessionGuardPolicy(dto: UpdateSessionGuardPolicyDTO): Promise<UpdateSessionGuardPolicyResponse> {
+    return await request<UpdateSessionGuardPolicyResponse>('/session-guard/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateSessionAttack(dto: SimulateSessionAttackDTO): Promise<SimulateSessionAttackResponse> {
+    return await request<SimulateSessionAttackResponse>('/session-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySessionGuardSeal(dto: VerifySessionSealDTO): Promise<VerifySessionSealResponse> {
+    return await request<VerifySessionSealResponse>('/session-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

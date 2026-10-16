@@ -3453,6 +3453,89 @@ export interface XmlGuardOverviewResponse {
   overview: import('./models').XmlGuardOverview;
 }
 
+/**
+ * 65. PROTEÇÃO CONTRA FIXAÇÃO E SEQUESTRO DE SESSÃO (OWASP ASVS V3.3 & NIST SP 800-63B)
+ */
+
+export interface EvaluateSessionDTO {
+  sessionId: string;
+  clientIp: string;
+  userAgent: string;
+  tlsFingerprint?: string;
+  countryCode?: string;
+  currentRoute?: string;
+  isPrivilegeElevation?: boolean;
+}
+
+export interface EvaluateSessionResponse {
+  success: boolean;
+  evaluation: import('./models').SessionEvaluationResult;
+  message: string;
+}
+
+export interface RotateSessionDTO {
+  oldSessionId: string;
+  userId: string;
+  userRole: string;
+  clientIp: string;
+  userAgent: string;
+  tlsFingerprint?: string;
+  securityLevel?: import('./enums').SessionSecurityLevel;
+}
+
+export interface RotateSessionResponse {
+  success: boolean;
+  newSessionId: string;
+  oldSessionInvalidated: boolean;
+  seal: import('./models').SessionProofSeal;
+  message: string;
+}
+
+export interface UpdateSessionGuardPolicyDTO {
+  policy: Partial<import('./models').SessionGuardPolicy>;
+}
+
+export interface UpdateSessionGuardPolicyResponse {
+  success: boolean;
+  policy: import('./models').SessionGuardPolicy;
+  message: string;
+}
+
+export interface SimulateSessionAttackDTO {
+  anomalyType: import('./enums').SessionAnomalyType;
+  targetSessionId?: string;
+  customIp?: string;
+  customUserAgent?: string;
+  customTlsFingerprint?: string;
+}
+
+export interface SimulateSessionAttackResponse {
+  success: boolean;
+  threatDetected: boolean;
+  evaluation: import('./models').SessionEvaluationResult;
+  incident?: import('./models').SessionGuardIncident;
+  message: string;
+  timestamp: string;
+}
+
+export interface VerifySessionSealDTO {
+  sealToken: string | import('./models').SessionProofSeal;
+}
+
+export interface VerifySessionSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').SessionProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface SessionGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').SessionGuardOverview;
+}
+
+
 
 
 

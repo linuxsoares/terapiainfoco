@@ -51,6 +51,7 @@ import { courtOrderThresholdRouter } from './routes/courtOrderThreshold';
 import { prototypePollutionRouter } from './routes/prototypePollution';
 import webCacheGuardRouter from './routes/webCacheGuard';
 import xmlSecurityGuardRouter from './routes/xmlSecurityGuard';
+import sessionFixationGuardRouter from './routes/sessionFixationGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -198,6 +199,7 @@ app.route('/api/court-order-threshold', courtOrderThresholdRouter);
 app.route('/api/prototype-pollution', prototypePollutionRouter);
 app.route('/api/cache-guard', webCacheGuardRouter);
 app.route('/api/xml-guard', xmlSecurityGuardRouter);
+app.route('/api/session-guard', sessionFixationGuardRouter);
 
 
 

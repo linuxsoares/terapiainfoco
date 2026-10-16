@@ -3702,6 +3702,140 @@ export interface XmlGuardOverview {
   supportedSchemas: import('./enums').XmlClinicalSchemaType[];
 }
 
+/**
+ * 65. PROTEÇÃO CONTRA FIXAÇÃO E SEQUESTRO DE SESSÃO (OWASP ASVS V3.3 & NIST SP 800-63B)
+ */
+
+/**
+ * Fingerprint de Contexto do Cliente para Dynamic Session Binding
+ */
+export interface ClientContextFingerprint {
+  clientIp: string;
+  subnetPrefix: string; // Ex: 198.51.100.0/24 ou 2001:db8:abcd::/48
+  userAgent: string;
+  userAgentHash: string; // SHA-256 canônico do User-Agent
+  tlsFingerprint?: string; // JA4 ou JA3 fingerprint TLS
+  countryCode?: string;
+  asn?: string;
+}
+
+/**
+ * Token Seguro de Sessão com Metadados Criptográficos
+ */
+export interface SessionSecurityToken {
+  sessionId: string;
+  userId: string;
+  userRole: string;
+  createdAt: string;
+  lastRotatedAt: string;
+  securityLevel: import('./enums').SessionSecurityLevel;
+  contextHash: string;
+  preAuthSessionIdInvalidated?: string;
+  isActive: boolean;
+}
+
+/**
+ * Selo Probatório Notarial WORM RFC 8785 de Sessão Clínica
+ */
+export interface SessionProofSeal {
+  version: '1.0.0';
+  sealId: string; // session_guard_v1_<base64url>
+  timestamp: string;
+  sessionIdHash: string;
+  contextHash: string;
+  anomalyCount: number;
+  mitigationAction: import('./enums').SessionMitigationAction;
+  hmacSignature: string;
+}
+
+/**
+ * Anomalia Específica Detectada na Sessão
+ */
+export interface SessionEvaluationAnomaly {
+  type: import('./enums').SessionAnomalyType;
+  description: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  evidence: string;
+}
+
+/**
+ * Resultado da Avaliação Contínua de Sessão
+ */
+export interface SessionEvaluationResult {
+  isAllowed: boolean;
+  sessionId: string;
+  action: import('./enums').SessionMitigationAction;
+  anomalies: SessionEvaluationAnomaly[];
+  requiresRotation: boolean;
+  newSessionId?: string;
+  contextFingerprint: ClientContextFingerprint;
+  seal: SessionProofSeal;
+}
+
+/**
+ * Registro de Incidente Forense de Sessão
+ */
+export interface SessionGuardIncident {
+  id: string;
+  timestamp: string;
+  anomalyType: import('./enums').SessionAnomalyType;
+  sessionId: string;
+  userId: string;
+  expectedSubnet: string;
+  actualIp: string;
+  expectedUserAgentHash: string;
+  actualUserAgentHash: string;
+  mitigationAction: import('./enums').SessionMitigationAction;
+  evidence: string;
+  seal: SessionProofSeal;
+}
+
+/**
+ * Política de Segurança e Dynamic Binding de Sessões
+ */
+export interface SessionGuardPolicy {
+  enforceRotationOnElevation: boolean;
+  bindIpSubnet: boolean;
+  bindUserAgent: boolean;
+  bindTlsFingerprint: boolean;
+  allowSubnetShift: boolean; // Permite shift em roaming se User-Agent for idêntico
+  maxSessionAgeMinutes: number;
+  idleTimeoutMinutes: number;
+  enableWormSeal: boolean;
+}
+
+/**
+ * Métricas e Telemetria de Segurança de Sessões
+ */
+export interface SessionGuardMetrics {
+  totalEvaluations: number;
+  fixationAttemptsBlocked: number;
+  hijackAttemptsBlocked: number;
+  legitimateRotations: number;
+  activeProtectedSessions: number;
+  lastIncidentTimestamp: string | null;
+  activePolicy: SessionGuardPolicy;
+}
+
+/**
+ * Visão Geral de Governança de Sessão
+ */
+export interface SessionGuardOverview {
+  metrics: SessionGuardMetrics;
+  policy: SessionGuardPolicy;
+  recentIncidents: SessionGuardIncident[];
+  activeSessionsSample: Array<{
+    sessionIdMasked: string;
+    userId: string;
+    role: string;
+    securityLevel: import('./enums').SessionSecurityLevel;
+    createdAt: string;
+    lastSeenAt: string;
+    subnet: string;
+  }>;
+}
+
+
 
 
 
