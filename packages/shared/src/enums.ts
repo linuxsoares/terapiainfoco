@@ -319,7 +319,14 @@ export enum AuditAction {
   XINCLUDE_INJECTION_BLOCKED = 'XINCLUDE_INJECTION_BLOCKED',
   SAFE_XML_NORMALIZED = 'SAFE_XML_NORMALIZED',
   XML_GUARD_POLICY_UPDATED = 'XML_GUARD_POLICY_UPDATED',
-  XML_GUARD_SEAL_VERIFIED = 'XML_GUARD_SEAL_VERIFIED'
+  XML_GUARD_SEAL_VERIFIED = 'XML_GUARD_SEAL_VERIFIED',
+  // Ações de Proteção contra Fixação e Sequestro de Sessão (OWASP ASVS V3.3 & NIST SP 800-63B)
+  SESSION_FIXATION_ATTEMPT_BLOCKED = 'SESSION_FIXATION_ATTEMPT_BLOCKED',
+  SESSION_HIJACKING_DETECTED = 'SESSION_HIJACKING_DETECTED',
+  SESSION_ROTATED_ON_PRIVILEGE_ELEVATION = 'SESSION_ROTATED_ON_PRIVILEGE_ELEVATION',
+  SESSION_CONTEXT_BOUND = 'SESSION_CONTEXT_BOUND',
+  SESSION_GUARD_POLICY_UPDATED = 'SESSION_GUARD_POLICY_UPDATED',
+  SESSION_GUARD_SEAL_VERIFIED = 'SESSION_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -372,7 +379,8 @@ export enum AuditResourceType {
   COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT',
   PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD',
   CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD',
-  XML_SECURITY_GUARD = 'XML_SECURITY_GUARD'
+  XML_SECURITY_GUARD = 'XML_SECURITY_GUARD',
+  SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD'
 }
 
 /**
@@ -1679,6 +1687,39 @@ export enum XmlClinicalSchemaType {
   TISS_CLINICAL_GUIDE = 'TISS_CLINICAL_GUIDE', // Guia de Consulta / Solicitação TISS ANS Brasil
   CUSTOM_EMR_EXPORT = 'CUSTOM_EMR_EXPORT'    // Exportação interoperável de prontuário eletrônico
 }
+
+/**
+ * Tipos de Anomalia de Sessão e Vetores de Ataque (OWASP ASVS V3.3 & NIST SP 800-63B)
+ */
+export enum SessionAnomalyType {
+  PRE_AUTH_SESSION_REUSE = 'PRE_AUTH_SESSION_REUSE',         // Tentativa de reutilizar sessionId pré-login (Session Fixation CWE-384)
+  IP_SUBNET_MISMATCH = 'IP_SUBNET_MISMATCH',                 // Requisição originada fora da sub-rede /24 ou /48 vinculada à sessão
+  USER_AGENT_MUTATION = 'USER_AGENT_MUTATION',               // Mutação brusca no fingerprint/User-Agent do cliente
+  TLS_FINGERPRINT_MISMATCH = 'TLS_FINGERPRINT_MISMATCH',     // Divergência de JA4/JA3 TLS Client Fingerprint na conexão
+  GEOGRAPHIC_IMPOSSIBLE_TRAVEL = 'GEOGRAPHIC_IMPOSSIBLE_TRAVEL', // Salto de país/cidade em janela temporal impossível
+  CONCURRENT_SESSION_ANOMALY = 'CONCURRENT_SESSION_ANOMALY'  // Dois clientes ativos com o mesmo token em sub-redes divergentes simultaneamente
+}
+
+/**
+ * Ações de Mitigação Automática do Enclave de Sessão
+ */
+export enum SessionMitigationAction {
+  IMMEDIATE_REVOCATION = 'IMMEDIATE_REVOCATION',       // Destruição instantânea da sessão e bloqueio do token
+  FORCE_REAUTHENTICATION = 'FORCE_REAUTHENTICATION',   // Exigência de novo login limpo com credenciais primárias
+  STEP_UP_CHALLENGE = 'STEP_UP_CHALLENGE',             // Desafio adicional WebAuthn / TOTP 2FA
+  ALLOW_WITH_ROTATION = 'ALLOW_WITH_ROTATION',         // Concede acesso rotacionando criptograficamente o ID
+  ALLOW_WITH_TELEMETRY = 'ALLOW_WITH_TELEMETRY'        // Permite se flutuação estiver na margem de tolerância
+}
+
+/**
+ * Nível de Rigor e Sensibilidade da Sessão Clínica
+ */
+export enum SessionSecurityLevel {
+  STANDARD_WEB = 'STANDARD_WEB',                       // Navegação padrão no painel
+  STRICT_CLINICAL = 'STRICT_CLINICAL',                 // Acesso autenticado a prontuários e notas SOAP (bind rígido de subnet)
+  TELEMEDICINE_ENCLAVE = 'TELEMEDICINE_ENCLAVE'        // Teleconsulta WebRTC em tempo real com bind de TLS JA4/JA3 e rede
+}
+
 
 
 
