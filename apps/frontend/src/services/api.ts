@@ -428,7 +428,16 @@ import type {
   SimulatePollutionAttackResponse,
   VerifyPollutionSealDTO,
   VerifyPollutionSealResponse,
-  PollutionGuardOverviewResponse
+  PollutionGuardOverviewResponse,
+  InspectCacheRequestDTO,
+  InspectCacheResponseDTO,
+  UpdateCachePolicyDTO,
+  UpdateCachePolicyResponseDTO,
+  SimulateCacheAttackDTO,
+  SimulateCacheAttackResponseDTO,
+  VerifyCacheSealDTO,
+  VerifyCacheSealResponseDTO,
+  CacheGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2718,6 +2727,39 @@ export const api = {
 
   async verifyPollutionSeal(dto: VerifyPollutionSealDTO): Promise<VerifyPollutionSealResponse> {
     return await request<VerifyPollutionSealResponse>('/prototype-pollution/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 63. Proteção contra Web Cache Poisoning & Cache Deception (RFC 7234, RFC 9111 & OWASP ASVS v4.0)
+  async getCacheGuardOverview(): Promise<CacheGuardOverviewResponse> {
+    return await request<CacheGuardOverviewResponse>('/cache-guard/overview');
+  },
+
+  async inspectCacheRequest(dto: InspectCacheRequestDTO): Promise<InspectCacheResponseDTO> {
+    return await request<InspectCacheResponseDTO>('/cache-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateCachePolicy(dto: UpdateCachePolicyDTO): Promise<UpdateCachePolicyResponseDTO> {
+    return await request<UpdateCachePolicyResponseDTO>('/cache-guard/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateCacheAttack(dto: SimulateCacheAttackDTO): Promise<SimulateCacheAttackResponseDTO> {
+    return await request<SimulateCacheAttackResponseDTO>('/cache-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyCacheSeal(dto: VerifyCacheSealDTO): Promise<VerifyCacheSealResponseDTO> {
+    return await request<VerifyCacheSealResponseDTO>('/cache-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

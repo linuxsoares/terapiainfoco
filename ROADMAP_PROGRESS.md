@@ -1787,6 +1787,28 @@ terapiainfoco/
 - [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
   - **Card 44:** Painel de Blindagem contra Prototype Pollution & Desserialização Insegura com 5 KPIs, 3 abas interativas (*Scanner & Normalizador Seguro*, *Simulador Adversarial CWE-1321*, *Políticas de Quarentena & Hardening*) e tabela WORM de incidentes bloqueados.
   - **Modal 44.A:** Certidão Notarial Forense de Varredura WORM com validação do selo criptográfico em tempo real.
+---
+
+### 63. Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)
+- [x] **Motor Criptográfico e Sanitizador Seguro (`packages/crypto/src/webCacheGuard.ts`):**
+  - **Normalização Canônica de Cache Key (RFC 7234 & RFC 9111):** Resolução determinística de dot-segments (`../`, `./`), normalização de múltiplos slashes (`//`), remoção de semicolons de path-confusion e ordenação alfabética estrita de parâmetros de query string.
+  - **Keyed Headers Hashing:** Incorporação controlada de cabeçalhos sensíveis de negociação (`Authorization`, `Accept`, `Accept-Language`, `Host`) no hash canônico da Cache Key, prevenindo contaminação cruzada entre representações.
+  - **Mitigação Ativa de Web Cache Poisoning:** Detecção e stripping de cabeçalhos não-chaveados malévolos (`X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix`, `X-Original-URL`, `X-Rewrite-URL`, `X-Host`), injeções de CRLF / Split-Request nos cabeçalhos, requisições Fat-GET e `X-HTTP-Method-Override`.
+  - **Blindagem contra Web Cache Deception:** Verificação e bloqueio de sufixos estáticos (`.css`, `.js`, `.png`, `.jpg`, `.ico`, `.woff2`) acoplados maliciosamente a rotas dinâmicas de prontuários clínicos privados (`/api/patients/`, `/api/soap-notes/`), impedindo armazenamento em caches/CDNs públicos intermediários.
+  - **Imposição Compulsória de NO-STORE:** Geração automática de cabeçalhos anti-caching estritos (`Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0, s-maxage=0`, `Pragma: no-cache`, `Expires: 0`, `Vary: Authorization, Accept, Accept-Encoding, Cookie`) para dados clínicos confidenciais ou requisições sob ameaça.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica JCS com prefixo `cache_guard_v1_<base64url>` assinada via HMAC-SHA256 atestando integridade e diretiva de cache.
+  - Suíte com 17 testes unitários aprovados em `packages/crypto/test/webCacheGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `CacheThreatType`, `CacheThreatSeverity`, `CacheDirectiveAction`, `ResourceSensitivityLevel`.
+  - Ações WORM `CACHE_POISONING_ATTEMPT_BLOCKED`, `CACHE_DECEPTION_ATTEMPT_BLOCKED`, `CANONICAL_CACHE_KEY_GENERATED`, `CACHE_GUARD_POLICY_UPDATED`, `CACHE_GUARD_SEAL_VERIFIED`.
+  - Modelos `CacheKeyCanonicalComponents`, `CacheThreatDetection`, `CacheProofSeal`, `CacheInspectionResult`, `CacheGuardPolicy`, `CacheGuardMetrics`, `CacheSecurityIncident`, `CacheGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `WebCacheGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de envenenamento e auditoria WORM mandatória via `AuditService.log`.
+  - 5 rotas REST sob `/api/cache-guard` (`/overview`, `/inspect`, `/policy`, `/simulate`, `/verify-seal`).
+  - Suíte com 7 testes de integração aprovados em `apps/backend/test/webCacheGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 45:** Painel de Blindagem contra Web Cache Poisoning & Cache Deception com 5 KPIs, 4 abas interativas (*Inspetor & Normalizador de Cache Key*, *Simulador Adversarial de Cache*, *Políticas de Cache & Sanitização*, *Rotas Protegidas*) e tabela WORM de incidentes bloqueados.
+  - **Modal 45.A:** Certidão Notarial Forense de Integridade de Cache WORM com validação do selo criptográfico em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
 ---
@@ -1866,12 +1888,13 @@ terapiainfoco/
 | `feat/ephemeral-teleconsult-tokens-auto-revocation` | Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46) | [PR #77](https://github.com/linuxsoares/terapiainfoco/pull/77) | Merged |
 | `feat/threshold-shamir-secret-sharing-court-order` | Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2) | [PR #78](https://github.com/linuxsoares/terapiainfoco/pull/78) | Merged |
 | `feat/prototype-pollution-insecure-deserialization-guard` | Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices) | [PR #79](https://github.com/linuxsoares/terapiainfoco/pull/79) | Merged |
+| `feat/web-cache-poisoning-deception-guard` | Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0) | [PR #80](https://github.com/linuxsoares/terapiainfoco/pull/80) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)**, o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, e a suíte completa de **966 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)**, o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, e a suíte completa de **990 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1910,7 +1933,8 @@ Com o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Pr
 - [x] **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46).**
 - [x] **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2).**
 - [x] **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices).**
-- [ ] **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0).**
+- [x] **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0).**
+- [ ] **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE - XML External Entity Injection) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Dados em Saúde Mental (OWASP Top 10 API Security, CWE-611 & HL7/FHIR XML Best Practices).**
 
 ---
 
@@ -1920,7 +1944,7 @@ Com o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Pr
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (966 testes)
+# 2. Executar suíte completa de testes (990 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

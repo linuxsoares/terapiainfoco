@@ -3487,6 +3487,123 @@ export interface PollutionGuardOverview {
   supportedCategories: import('./enums').PayloadCategory[];
 }
 
+/**
+ * ============================================================================
+ * 63. PROTEÇÃO CONTRA WEB CACHE POISONING & CACHE DECEPTION (RFC 7234, RFC 9111)
+ * ============================================================================
+ */
+
+/**
+ * Componentes Canônicos da Cache Key Normalizada
+ */
+export interface CacheKeyCanonicalComponents {
+  method: string;
+  normalizedPath: string;
+  canonicalQuery: string;
+  keyedHeadersHash: string;
+  sensitivityLevel: import('./enums').ResourceSensitivityLevel;
+  rawKeyString: string;
+}
+
+/**
+ * Detecção de Ameaça de Poluição ou Deception de Cache
+ */
+export interface CacheThreatDetection {
+  threatType: import('./enums').CacheThreatType;
+  severity: import('./enums').CacheThreatSeverity;
+  description: string;
+  triggerHeaderOrParam: string;
+  evidence: string;
+  mitigationAction: import('./enums').CacheDirectiveAction;
+}
+
+/**
+ * Selo Probatório de Normalização e Integridade de Cache (RFC 8785 / JCS)
+ */
+export interface CacheProofSeal {
+  version: '1.0.0';
+  sealId: string; // cache_guard_v1_<base64url>
+  timestamp: string;
+  resourceUri: string;
+  canonicalCacheKeyHash: string;
+  threatsCount: number;
+  directive: string;
+  hmacSignature: string;
+}
+
+/**
+ * Resultado de Inspeção de Requisição e Validação de Cache
+ */
+export interface CacheInspectionResult {
+  isSafe: boolean;
+  canonicalCacheKey: string;
+  canonicalCacheKeyHash: string;
+  components: CacheKeyCanonicalComponents;
+  threats: CacheThreatDetection[];
+  recommendedCacheControl: string;
+  recommendedPragma: string;
+  recommendedVary: string[];
+  headersToStrip: string[];
+  seal: CacheProofSeal;
+}
+
+/**
+ * Política de Blindagem e Regras de Cache HTTP
+ */
+export interface CacheGuardPolicy {
+  blockUnkeyedHeaders: boolean;
+  enforceNoStoreOnClinical: boolean;
+  blockStaticExtensionOnDynamicRoutes: boolean;
+  allowedExtensionsOnDynamicRoutes: string[];
+  unkeyedHeadersBlacklist: string[];
+  enableCacheSignatureProof: boolean;
+  maxQueryParameters: number;
+}
+
+/**
+ * Métricas e Telemetria de Proteção de Cache HTTP
+ */
+export interface CacheGuardMetrics {
+  totalRequestsInspected: number;
+  poisoningAttemptsBlocked: number;
+  deceptionAttemptsBlocked: number;
+  cleanRequestsAllowed: number;
+  strictNoStoreEnforced: number;
+  activePolicy: CacheGuardPolicy;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente Forense de Cache Poisoning / Deception
+ */
+export interface CacheSecurityIncident {
+  id: string;
+  timestamp: string;
+  threatType: import('./enums').CacheThreatType;
+  severity: import('./enums').CacheThreatSeverity;
+  targetUri: string;
+  clientIp: string;
+  actorId: string;
+  evidence: string;
+  actionTaken: import('./enums').CacheDirectiveAction;
+  seal: CacheProofSeal;
+}
+
+/**
+ * Visão Geral de Governança e Métricas de Cache Guard
+ */
+export interface CacheGuardOverview {
+  metrics: CacheGuardMetrics;
+  policy: CacheGuardPolicy;
+  recentIncidents: CacheSecurityIncident[];
+  sampleProtectedRoutes: Array<{
+    path: string;
+    sensitivity: import('./enums').ResourceSensitivityLevel;
+    cacheControl: string;
+  }>;
+}
+
+
 
 
 

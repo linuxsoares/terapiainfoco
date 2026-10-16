@@ -49,6 +49,7 @@ import { visualWatermarkRoutes } from './routes/visualWatermark';
 import { ephemeralTokenRouter } from './routes/ephemeralToken';
 import { courtOrderThresholdRouter } from './routes/courtOrderThreshold';
 import { prototypePollutionRouter } from './routes/prototypePollution';
+import webCacheGuardRouter from './routes/webCacheGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -194,6 +195,7 @@ app.route('/api/visual-watermark', visualWatermarkRoutes);
 app.route('/api/ephemeral-tokens', ephemeralTokenRouter);
 app.route('/api/court-order-threshold', courtOrderThresholdRouter);
 app.route('/api/prototype-pollution', prototypePollutionRouter);
+app.route('/api/cache-guard', webCacheGuardRouter);
 
 
 

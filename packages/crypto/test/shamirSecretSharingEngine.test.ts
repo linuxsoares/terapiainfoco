@@ -170,9 +170,11 @@ describe('Shamir Secret Sharing & Threshold Cryptography Engine (CFP nº 001/200
     it('deve rejeitar decifragem se uma das cotas estiver corrompida ou falsificada', () => {
       const sealed = sealClinicalRecord(recordContent, 3, 5, custodians);
 
+      const orig = sealed.generatedShares[0].shareData;
+      const corruptedData = (orig.startsWith('ff') ? '00' : 'ff') + orig.slice(2);
       const corruptedShare = {
         ...sealed.generatedShares[0],
-        shareData: sealed.generatedShares[0].shareData.replace('a', 'b') // Altera 1 char
+        shareData: corruptedData
       };
 
       const quorumWithCorrupted = [

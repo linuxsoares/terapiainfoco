@@ -3328,6 +3328,72 @@ export interface PollutionGuardOverviewResponse {
   overview: import('./models').PollutionGuardOverview;
 }
 
+/**
+ * ============================================================================
+ * 63. DTOs DE PROTEÇÃO CONTRA WEB CACHE POISONING & CACHE DECEPTION
+ * ============================================================================
+ */
+
+export interface InspectCacheRequestDTO {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  sensitivity: import('./enums').ResourceSensitivityLevel;
+  expectedContentType?: string;
+  bodyPayload?: string;
+}
+
+export interface InspectCacheResponseDTO {
+  success: boolean;
+  inspection: import('./models').CacheInspectionResult;
+  message: string;
+}
+
+export interface SimulateCacheAttackDTO {
+  attackType: import('./enums').CacheThreatType;
+  customHeaders?: Record<string, string>;
+  targetPath?: string;
+  method?: string;
+  sensitivity?: import('./enums').ResourceSensitivityLevel;
+}
+
+export interface SimulateCacheAttackResponseDTO {
+  success: boolean;
+  threatDetected: boolean;
+  incident?: import('./models').CacheSecurityIncident;
+  inspection: import('./models').CacheInspectionResult;
+  message: string;
+  timestamp: string;
+}
+
+export interface UpdateCachePolicyDTO {
+  policy: Partial<import('./models').CacheGuardPolicy>;
+}
+
+export interface UpdateCachePolicyResponseDTO {
+  success: boolean;
+  policy: import('./models').CacheGuardPolicy;
+  message: string;
+}
+
+export interface VerifyCacheSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyCacheSealResponseDTO {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').CacheProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface CacheGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').CacheGuardOverview;
+}
+
+
 
 
 

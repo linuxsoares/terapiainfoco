@@ -48,6 +48,8 @@ export * from './visualWatermarkShield';
 export * from './ephemeralTokenEngine';
 export * from './shamirSecretSharingEngine';
 export * from './prototypePollutionGuard';
+export * from './webCacheGuard';
+
 
 
 

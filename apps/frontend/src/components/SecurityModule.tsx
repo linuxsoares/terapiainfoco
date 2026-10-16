@@ -306,7 +306,15 @@ import {
   type PollutionSecurityIncident,
   type PollutionGuardOverview,
   type SimulatePollutionAttackResponse,
-  type VerifyPollutionSealResponse
+  type VerifyPollutionSealResponse,
+  CacheThreatType,
+  ResourceSensitivityLevel,
+  type CacheProofSeal,
+  type CacheInspectionResult,
+  type CacheSecurityIncident,
+  type CacheGuardOverview,
+  type SimulateCacheAttackResponseDTO,
+  type VerifyCacheSealResponseDTO
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4725,6 +4733,145 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ESTADOS DO MÓDULO 45: WEB CACHE POISONING & CACHE DECEPTION GUARD (OWASP ASVS v4.0, RFC 7234, RFC 9111)
+  const [cacheOverview, setCacheOverview] = useState<CacheGuardOverview | null>(null);
+  const [loadingCacheGuard, setLoadingCacheGuard] = useState<boolean>(false);
+  const [cacheActiveTab, setCacheActiveTab] = useState<'inspect' | 'simulate' | 'policy' | 'routes'>('inspect');
+
+  // Aba 1: Inspetor de Requisições
+  const [inspectMethod, setInspectMethod] = useState<string>('GET');
+  const [inspectUrl, setInspectUrl] = useState<string>('/api/patients/123/records?filter=active');
+  const [inspectHeaders, setInspectHeaders] = useState<string>('{\n  "Host": "app.terapiainfoco.com.br",\n  "Accept": "application/json",\n  "Authorization": "Bearer sample_jwt_token"\n}');
+  const [inspectSensitivity, setInspectSensitivity] = useState<ResourceSensitivityLevel>(ResourceSensitivityLevel.CLINICAL_AUTHENTICATED);
+  const [inspectingCache, setInspectingCache] = useState<boolean>(false);
+  const [lastCacheInspection, setLastCacheInspection] = useState<CacheInspectionResult | null>(null);
+
+  // Aba 2: Simulador Adversarial
+  const [simCacheAttackType, setSimCacheAttackType] = useState<CacheThreatType>(CacheThreatType.UNKEYED_HEADER_INJECTION);
+  const [simCacheTargetPath, setSimCacheTargetPath] = useState<string>('/api/patients/123/soap-notes.css');
+  const [simulatingCacheAttack, setSimulatingCacheAttack] = useState<boolean>(false);
+  const [simCacheAttackResult, setSimCacheAttackResult] = useState<SimulateCacheAttackResponseDTO | null>(null);
+
+  // Aba 3: Políticas
+  const [policyBlockUnkeyed, setPolicyBlockUnkeyed] = useState<boolean>(true);
+  const [policyEnforceNoStore, setPolicyEnforceNoStore] = useState<boolean>(true);
+  const [policyBlockStaticExtensions, setPolicyBlockStaticExtensions] = useState<boolean>(true);
+  const [policyMaxQueryParams, setPolicyMaxQueryParams] = useState<number>(20);
+  const [updatingCachePolicy, setUpdatingCachePolicy] = useState<boolean>(false);
+
+  // Modal 45.A: Certidão Notarial Forense
+  const [selectedCacheSealForModal, setSelectedCacheSealForModal] = useState<CacheProofSeal | null>(null);
+  const [cacheModalIncidentItem, setCacheModalIncidentItem] = useState<CacheSecurityIncident | null>(null);
+  const [verifyingCacheSeal, setVerifyingCacheSeal] = useState<boolean>(false);
+  const [cacheSealVerifyResult, setCacheSealVerifyResult] = useState<VerifyCacheSealResponseDTO | null>(null);
+
+  const fetchCacheGuardData = async () => {
+    try {
+      setLoadingCacheGuard(true);
+      const res = await api.getCacheGuardOverview();
+      setCacheOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyBlockUnkeyed(res.overview.policy.blockUnkeyedHeaders);
+        setPolicyEnforceNoStore(res.overview.policy.enforceNoStoreOnClinical);
+        setPolicyBlockStaticExtensions(res.overview.policy.blockStaticExtensionOnDynamicRoutes);
+        setPolicyMaxQueryParams(res.overview.policy.maxQueryParameters);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de Cache Guard:', err);
+    } finally {
+      setLoadingCacheGuard(false);
+    }
+  };
+
+  const handleInspectCacheSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      let parsedHeaders: Record<string, string> = {};
+      try {
+        parsedHeaders = JSON.parse(inspectHeaders);
+      } catch {
+        setFeedback({ type: 'error', message: 'Os cabeçalhos HTTP precisam ser um objeto JSON válido.' });
+        return;
+      }
+
+      setInspectingCache(true);
+      setLastCacheInspection(null);
+      const res = await api.inspectCacheRequest({
+        method: inspectMethod,
+        url: inspectUrl,
+        headers: parsedHeaders,
+        sensitivity: inspectSensitivity
+      });
+
+      setLastCacheInspection(res.inspection);
+      setFeedback({
+        type: res.inspection.isSafe ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchCacheGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar requisição de cache.' });
+    } finally {
+      setInspectingCache(false);
+    }
+  };
+
+  const handleSimulateCacheAttackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingCacheAttack(true);
+      setSimCacheAttackResult(null);
+      const res = await api.simulateCacheAttack({
+        attackType: simCacheAttackType,
+        targetPath: simCacheTargetPath
+      });
+      setSimCacheAttackResult(res);
+      setFeedback({
+        type: res.threatDetected ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchCacheGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de cache.' });
+    } finally {
+      setSimulatingCacheAttack(false);
+    }
+  };
+
+  const handleUpdateCachePolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingCachePolicy(true);
+      const res = await api.updateCachePolicy({
+        policy: {
+          blockUnkeyedHeaders: policyBlockUnkeyed,
+          enforceNoStoreOnClinical: policyEnforceNoStore,
+          blockStaticExtensionOnDynamicRoutes: policyBlockStaticExtensions,
+          maxQueryParameters: policyMaxQueryParams
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchCacheGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política de cache.' });
+    } finally {
+      setUpdatingCachePolicy(false);
+    }
+  };
+
+  const handleVerifyCacheSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingCacheSeal(true);
+      setCacheSealVerifyResult(null);
+      const res = await api.verifyCacheSeal({ sealToken });
+      setCacheSealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório de cache.' });
+    } finally {
+      setVerifyingCacheSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4761,6 +4908,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchEphemeralTokensData();
       fetchCourtOrderThresholdData();
       fetchPrototypePollutionData();
+      fetchCacheGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -22619,6 +22767,636 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* CARD 45: WEB CACHE POISONING & CACHE DECEPTION GUARD (RFC 7234, RFC 9111 & OWASP ASVS v4.0) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        {/* Cabeçalho do Card */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+              <GlobeLock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Blindagem contra Web Cache Poisoning & Cache Deception
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  RFC 7234 / RFC 9111 & OWASP
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Normalização Canônica de Cache Key, Stripping de Cabeçalhos Não-Chaveados e Imposição Estrita de NO-STORE em Rotas Clínicas
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchCacheGuardData()}
+              disabled={loadingCacheGuard}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              title="Recarregar Métricas de Cache"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingCacheGuard ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs de Governança de Cache */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Inspecionadas
+            </span>
+            <p className="text-lg font-black text-slate-900 dark:text-white font-mono">
+              {cacheOverview?.metrics.totalRequestsInspected ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Requisições HTTP
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              Poisoning Bloqueados
+            </span>
+            <p className="text-lg font-black text-rose-700 dark:text-rose-300 font-mono">
+              {cacheOverview?.metrics.poisoningAttemptsBlocked ?? 0}
+            </p>
+            <span className="text-[10px] text-rose-600/80 dark:text-rose-400/80 font-medium block">
+              Injeções Não-Chaveadas
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              Deception Bloqueados
+            </span>
+            <p className="text-lg font-black text-amber-700 dark:text-amber-300 font-mono">
+              {cacheOverview?.metrics.deceptionAttemptsBlocked ?? 0}
+            </p>
+            <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium block">
+              Extensões Confusas
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              Aprovadas & Limpas
+            </span>
+            <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 font-mono">
+              {cacheOverview?.metrics.cleanRequestsAllowed ?? 0}
+            </p>
+            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-medium block">
+              Sem Ameaças
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+              Strict No-Store
+            </span>
+            <p className="text-lg font-black text-purple-700 dark:text-purple-300 font-mono">
+              {cacheOverview?.metrics.strictNoStoreEnforced ?? 0}
+            </p>
+            <span className="text-[10px] text-purple-600/80 dark:text-purple-400/80 font-medium block">
+              Dados Clínicos
+            </span>
+          </div>
+        </div>
+
+        {/* Abas Operacionais */}
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setCacheActiveTab('inspect')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              cacheActiveTab === 'inspect'
+                ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            Inspetor & Normalizador de Cache Key
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCacheActiveTab('simulate')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              cacheActiveTab === 'simulate'
+                ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Simulador Adversarial de Cache
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCacheActiveTab('policy')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              cacheActiveTab === 'policy'
+                ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Políticas de Cache & Sanitização
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCacheActiveTab('routes')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              cacheActiveTab === 'routes'
+                ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Rotas Protegidas
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Inspetor de Requisições & Normalizador */}
+        {cacheActiveTab === 'inspect' && (
+          <form onSubmit={handleInspectCacheSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Método HTTP:
+                </label>
+                <select
+                  value={inspectMethod}
+                  onChange={(e) => setInspectMethod(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="GET">GET (Padrão para Cache)</option>
+                  <option value="HEAD">HEAD</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  URL da Requisição:
+                </label>
+                <input
+                  type="text"
+                  value={inspectUrl}
+                  onChange={(e) => setInspectUrl(e.target.value)}
+                  placeholder="/api/patients/123/records?filter=active"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Sensibilidade do Recurso:
+                </label>
+                <select
+                  value={inspectSensitivity}
+                  onChange={(e) => setInspectSensitivity(e.target.value as ResourceSensitivityLevel)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value={ResourceSensitivityLevel.CLINICAL_AUTHENTICATED}>CLINICAL_AUTHENTICATED (Prontuário)</option>
+                  <option value={ResourceSensitivityLevel.TELECONSULT_EPHEMERAL}>TELECONSULT_EPHEMERAL (Teleconsulta)</option>
+                  <option value={ResourceSensitivityLevel.ADMIN_GOVERNANCE}>ADMIN_GOVERNANCE (Governança)</option>
+                  <option value={ResourceSensitivityLevel.PUBLIC_STATIC}>PUBLIC_STATIC (Ativo Estático Público)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Cabeçalhos HTTP (JSON):
+              </label>
+              <textarea
+                rows={4}
+                value={inspectHeaders}
+                onChange={(e) => setInspectHeaders(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Inspeciona injeção de cabeçalhos não-chaveados, sufixos estáticos em rotas privadas e gera chave canônica RFC 7234.
+              </span>
+              <button
+                type="submit"
+                disabled={inspectingCache}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5" />
+                {inspectingCache ? 'Inspecionando...' : 'Inspecionar & Normalizar Cache'}
+              </button>
+            </div>
+
+            {/* Resultado da Inspeção de Cache */}
+            {lastCacheInspection && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      lastCacheInspection.isSafe
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    }`}>
+                      {lastCacheInspection.isSafe ? '✅ Requisição 100% Segura' : `⚠️ ${lastCacheInspection.threats.length} Ameaça(s) Interceptada(s)`}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      Hash Canônico: {lastCacheInspection.canonicalCacheKeyHash.substring(0, 16)}...
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCacheSealForModal(lastCacheInspection.seal);
+                      setCacheModalIncidentItem(null);
+                      setCacheSealVerifyResult(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                    Certidão Notarial WORM
+                  </button>
+                </div>
+
+                {/* Diretivas de Cache Recomendadas */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Cache-Control Recomendado
+                    </span>
+                    <p className="font-mono text-xs font-bold text-amber-700 dark:text-amber-400 break-all">
+                      {lastCacheInspection.recommendedCacheControl}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Pragma / Expires
+                    </span>
+                    <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {lastCacheInspection.recommendedPragma}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Vary Headers
+                    </span>
+                    <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {lastCacheInspection.recommendedVary.join(', ')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cabeçalhos a Remover (Stripped) */}
+                {lastCacheInspection.headersToStrip.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 block mb-1">
+                      Cabeçalhos Não-Chaveados Removidos pelo Enclave (Stripped):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {lastCacheInspection.headersToStrip.map((h, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-md bg-rose-200 dark:bg-rose-900/60 font-mono text-[11px] text-rose-900 dark:text-rose-200">
+                          {h}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de Ameaças Detectadas */}
+                {lastCacheInspection.threats.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                      Ameaças Identificadas & Mitigadas:
+                    </span>
+                    {lastCacheInspection.threats.map((th, idx) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono">
+                            {th.threatType}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            Severidade: {th.severity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          {th.description}
+                        </p>
+                        <p className="text-[10px] font-mono text-slate-500 break-all">
+                          Gatilho: {th.triggerHeaderOrParam} | Evidência: {th.evidence}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 2: Simulador Adversarial */}
+        {cacheActiveTab === 'simulate' && (
+          <form onSubmit={handleSimulateCacheAttackSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Vetor Adversarial de Simulação:
+                </label>
+                <select
+                  value={simCacheAttackType}
+                  onChange={(e) => setSimCacheAttackType(e.target.value as CacheThreatType)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value={CacheThreatType.UNKEYED_HEADER_INJECTION}>UNKEYED_HEADER_INJECTION (X-Forwarded-Host Injection)</option>
+                  <option value={CacheThreatType.EXTENSION_CONFUSION_DECEPTION}>EXTENSION_CONFUSION_DECEPTION (Sufixo .css em Rota de Prontuário)</option>
+                  <option value={CacheThreatType.SPLIT_REQUEST_POISONING}>SPLIT_REQUEST_POISONING (CRLF Injection em Cabeçalho)</option>
+                  <option value={CacheThreatType.FAT_GET_POISONING}>FAT_GET_POISONING (GET com Content-Length e Payload)</option>
+                  <option value={CacheThreatType.METHOD_OVERRIDE_POISONING}>METHOD_OVERRIDE_POISONING (X-HTTP-Method-Override)</option>
+                  <option value={CacheThreatType.PATH_TRAVERSAL_DECEPTION}>PATH_TRAVERSAL_DECEPTION (Dot-segments na URL)</option>
+                  <option value={CacheThreatType.UNKEYED_PARAM_POISONING}>UNKEYED_PARAM_POISONING (Flooding de Query String)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Caminho Alvo de Teste:
+                </label>
+                <input
+                  type="text"
+                  value={simCacheTargetPath}
+                  onChange={(e) => setSimCacheTargetPath(e.target.value)}
+                  placeholder="/api/patients/123/soap-notes.css"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Dispara teste adversarial contra o enclave e audita o bloqueio na hash-chain WORM.
+              </span>
+              <button
+                type="submit"
+                disabled={simulatingCacheAttack}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Flame className="w-3.5 h-3.5" />
+                {simulatingCacheAttack ? 'Simulando...' : 'Disparar Simulação Adversarial'}
+              </button>
+            </div>
+
+            {simCacheAttackResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    simCacheAttackResult.threatDetected
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                  }`}>
+                    {simCacheAttackResult.threatDetected ? '🛡️ Ataque Interceptado e Bloqueado com Sucesso' : 'Aviso: Nenhuma ameaça detectada'}
+                  </span>
+                  <span className="text-xs font-mono text-slate-500">
+                    Auditado na Hash-Chain WORM
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  {simCacheAttackResult.message}
+                </p>
+
+                {simCacheAttackResult.incident && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Registro Forense do Incidente
+                      </span>
+                      <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold">
+                        {simCacheAttackResult.incident.actionTaken}
+                      </span>
+                    </div>
+                    <p className="text-xs font-mono text-slate-600 dark:text-slate-400 break-all">
+                      Evidência: {simCacheAttackResult.incident.evidence}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 text-[10px] font-mono text-slate-500">
+                      <span>Alvo: {simCacheAttackResult.incident.targetUri}</span>
+                      <span>IP: {simCacheAttackResult.incident.clientIp}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 3: Políticas de Cache */}
+        {cacheActiveTab === 'policy' && (
+          <form onSubmit={handleUpdateCachePolicySubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyBlockUnkeyed}
+                    onChange={(e) => setPolicyBlockUnkeyed(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Bloquear / Strip Cabeçalhos Não-Chaveados (Unkeyed Headers)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Remove X-Forwarded-Host, X-Original-URL, X-Rewrite-URL e variantes antes do upstream
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyEnforceNoStore}
+                    onChange={(e) => setPolicyEnforceNoStore(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Impor No-Store Compulsório em Recursos Clínicos Privados
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Cache-Control: no-store, no-cache, private para prontuários, notas SOAP e teleconsulta
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyBlockStaticExtensions}
+                    onChange={(e) => setPolicyBlockStaticExtensions(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Prevenção Ativa de Cache Deception (.css, .js em Rotas Dinâmicas)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Neutraliza tentativas de induzir proxies/CDNs a armazenar respostas JSON privadas
+                    </span>
+                  </div>
+                </label>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Limite Máximo de Parâmetros de Query (Query Flooding Defense):
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={100}
+                    value={policyMaxQueryParams}
+                    onChange={(e) => setPolicyMaxQueryParams(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={updatingCachePolicy}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {updatingCachePolicy ? 'Salvando...' : 'Salvar Políticas de Cache'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Conteúdo Aba 4: Rotas Protegidas */}
+        {cacheActiveTab === 'routes' && (
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-2">
+              Diretivas de Cache e Níveis de Sensibilidade Aplicados às Rotas da Plataforma:
+            </span>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                    <th className="p-3">Padrão da Rota</th>
+                    <th className="p-3">Sensibilidade</th>
+                    <th className="p-3">Diretiva Cache-Control</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {cacheOverview?.sampleProtectedRoutes.map((rt, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 font-mono text-[11px] text-slate-900 dark:text-white font-bold">
+                        {rt.path}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                          {rt.sensitivity}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                        {rt.cacheControl}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tabela de Incidentes Bloqueados & Trilha WORM */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              Histórico Forense de Incidentes de Cache Bloqueados
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Trilha WORM com Selo RFC 8785
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <th className="p-3">Data/Hora</th>
+                  <th className="p-3">Vetor de Ameaça</th>
+                  <th className="p-3">Rota Alvo</th>
+                  <th className="p-3">IP Origem</th>
+                  <th className="p-3">Ação do Enclave</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {!cacheOverview?.recentIncidents || cacheOverview.recentIncidents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-slate-400 font-medium">
+                      Nenhum incidente de envenenamento ou engano de cache registrado.
+                    </td>
+                  </tr>
+                ) : (
+                  cacheOverview.recentIncidents.map((inc) => (
+                    <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono">
+                        {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          {inc.threatType}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-xs">
+                        {inc.targetUri}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.clientIp}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                        {inc.actionTaken}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCacheModalIncidentItem(inc);
+                            setSelectedCacheSealForModal(inc.seal);
+                            setCacheSealVerifyResult(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Certidão WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -28167,6 +28945,157 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedProtoSealForModal(null);
                     setProtoModalIncidentItem(null);
                     setProtoSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 45.A: CERTIDÃO NOTARIAL FORENSE DE PROTEÇÃO DE CACHE WORM (RFC 8785 & RFC 7234/9111) */}
+      {selectedCacheSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <BadgeCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial Forense de Integridade de Cache WORM
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    RFC 8785 (JCS) & RFC 7234 / RFC 9111 Anti-Poisoning Seal
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCacheSealForModal(null);
+                  setCacheModalIncidentItem(null);
+                  setCacheSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Status do Recurso e Integridade */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Veredito de Integridade
+                  </span>
+                  <p className="text-xs font-black text-slate-900 dark:text-white">
+                    {selectedCacheSealForModal.threatsCount === 0 ? 'Limpo & Sem Vetores' : `${selectedCacheSealForModal.threatsCount} Ameaça(s) Interceptada(s)`}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID Notarial do Selo
+                  </span>
+                  <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 truncate">
+                    {selectedCacheSealForModal.sealId}
+                  </p>
+                </div>
+              </div>
+
+              {/* Rota do Recurso e Diretiva */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  URI do Recurso Monitorado:
+                </span>
+                <p className="font-mono text-xs text-slate-800 dark:text-slate-200 break-all select-all font-bold">
+                  {selectedCacheSealForModal.resourceUri}
+                </p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block pt-1">
+                  Diretiva Cache-Control Selada:
+                </span>
+                <p className="font-mono text-[11px] text-amber-700 dark:text-amber-300 break-all select-all">
+                  {selectedCacheSealForModal.directive}
+                </p>
+              </div>
+
+              {/* Detalhes do Incidente se houver */}
+              {cacheModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 space-y-1">
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+                    Detalhes do Bloqueio de Cache:
+                  </span>
+                  <p className="text-xs text-rose-800 dark:text-rose-200 font-medium">
+                    {cacheModalIncidentItem.evidence}
+                  </p>
+                  <p className="text-[10px] font-mono text-rose-600 dark:text-rose-400">
+                    Origem IP: {cacheModalIncidentItem.clientIp} | Ação: {cacheModalIncidentItem.actionTaken}
+                  </p>
+                </div>
+              )}
+
+              {/* Hash Canônico SHA-256 da Cache Key */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Hash Canônico SHA-256 da Cache Key (RFC 7234 Deterministic Key)
+                </span>
+                <p className="font-mono text-[10px] text-amber-400 break-all select-all">
+                  {selectedCacheSealForModal.canonicalCacheKeyHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-orange-300 break-all select-all">
+                  {selectedCacheSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {cacheSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  cacheSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {cacheSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {cacheSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedCacheSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingCacheSeal}
+                  onClick={() => handleVerifyCacheSealSubmit(JSON.stringify(selectedCacheSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingCacheSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCacheSealForModal(null);
+                    setCacheModalIncidentItem(null);
+                    setCacheSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
