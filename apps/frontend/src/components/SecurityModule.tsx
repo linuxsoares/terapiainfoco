@@ -71,7 +71,8 @@ import {
   FileText,
   Link,
   QrCode,
-  ExternalLink
+  ExternalLink,
+  Gavel
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -286,7 +287,17 @@ import {
   type EphemeralTokenOverview,
   type ConsumeEphemeralTokenResponse,
   type SimulateTokenIntrusionResponse,
-  type VerifyEphemeralTokenSealResponse
+  type VerifyEphemeralTokenSealResponse,
+  CourtOrderVaultStatus,
+  CustodianRole,
+  LegalJustificationType,
+  type CourtOrderVault,
+  type ThresholdProofSeal,
+  type ThresholdVaultOverview,
+  type ThresholdReconstructionResult,
+  type CreateCourtOrderVaultResponse,
+  type SimulateThresholdAttackResponse,
+  type VerifyThresholdSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4396,6 +4407,167 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ==========================================
+  // ESTADOS DO MÓDULO 43: THRESHOLD CRYPTOGRAPHY & QUEBRA COLEGIADA DE SIGILO (CFP 001/2009 & LGPD ART. 11)
+  // ==========================================
+  const [thresholdOverview, setThresholdOverview] = useState<ThresholdVaultOverview | null>(null);
+  const [loadingThreshold, setLoadingThreshold] = useState<boolean>(false);
+  const [thresholdActiveTab, setThresholdActiveTab] = useState<'vaults' | 'assemble' | 'simulator'>('vaults');
+
+  // Formulário de Criação de Cofre
+  const [vaultPatientId, setVaultPatientId] = useState<string>('paciente_mariana_vasconcelos_101');
+  const [vaultPatientMasked, setVaultPatientMasked] = useState<string>('M*** V*** (Sigilo Judicial)');
+  const [vaultCaseNumber, setVaultCaseNumber] = useState<string>('0005432-11.2026.8.26.0100');
+  const [vaultJustification, setVaultJustification] = useState<LegalJustificationType>(LegalJustificationType.COURT_ORDER_SUBPOENA);
+  const [vaultThresholdReq, setVaultThresholdReq] = useState<number>(3);
+  const [vaultTotalShares, setVaultTotalShares] = useState<number>(5);
+  const [vaultRecordText, setVaultRecordText] = useState<string>('PRONTUÁRIO CONFIDENCIAL: Paciente em acompanhamento psicoterápico. Histórico de trauma familiar preservado. Manifestação técnica pericial restrita aos limites estritos do mandado judicial.');
+  const [creatingThresholdVault, setCreatingThresholdVault] = useState<boolean>(false);
+  const [lastCreatedVaultResponse, setLastCreatedVaultResponse] = useState<CreateCourtOrderVaultResponse | null>(null);
+
+  // Submissão de Cota de Custodiante
+  const [submittingShareVaultId, setSubmittingShareVaultId] = useState<string>('');
+  const [inputShareIndex, setInputShareIndex] = useState<number>(1);
+  const [inputShareData, setInputShareData] = useState<string>('');
+  const [inputCustodianRole, setInputCustodianRole] = useState<CustodianRole>(CustodianRole.LEAD_PSYCHOLOGIST);
+  const [submittingShare, setSubmittingShare] = useState<boolean>(false);
+
+  // Reconstrução e Decifragem
+  const [reconstructingVaultId, setReconstructingVaultId] = useState<string | null>(null);
+  const [lastReconstructionResult, setLastReconstructionResult] = useState<ThresholdReconstructionResult | null>(null);
+
+  // Simulador Adversarial
+  const [simThresholdScenario, setSimThresholdScenario] = useState<'INSUFFICIENT_SHARES_1_OF_3' | 'CORRUPTED_SHARE_DATA' | 'DUPLICATE_CUSTODIAN_REPLAY' | 'EXPIRED_COURT_ORDER_VAULT'>('INSUFFICIENT_SHARES_1_OF_3');
+  const [simulatingThresholdAttack, setSimulatingThresholdAttack] = useState<boolean>(false);
+  const [simThresholdResult, setSimThresholdResult] = useState<SimulateThresholdAttackResponse | null>(null);
+
+  // Modal 43.A
+  const [selectedThresholdSealForModal, setSelectedThresholdSealForModal] = useState<ThresholdProofSeal | null>(null);
+  const [thresholdModalVaultItem, setThresholdModalVaultItem] = useState<CourtOrderVault | null>(null);
+  const [verifyingThresholdSeal, setVerifyingThresholdSeal] = useState<boolean>(false);
+  const [thresholdSealVerifyResult, setThresholdSealVerifyResult] = useState<VerifyThresholdSealResponse | null>(null);
+
+  const fetchCourtOrderThresholdData = async () => {
+    try {
+      setLoadingThreshold(true);
+      const res = await api.getCourtOrderThresholdOverview();
+      setThresholdOverview(res.overview);
+      if (res.overview?.activeVaults?.length && !submittingShareVaultId) {
+        setSubmittingShareVaultId(res.overview.activeVaults[0].vaultId);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar telemetria de cofres judiciais:', err);
+    } finally {
+      setLoadingThreshold(false);
+    }
+  };
+
+  const handleCreateThresholdVaultSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setCreatingThresholdVault(true);
+      setLastCreatedVaultResponse(null);
+      const res = await api.createCourtOrderVault({
+        patientId: vaultPatientId.trim(),
+        patientMaskedName: vaultPatientMasked.trim(),
+        legalCaseNumber: vaultCaseNumber.trim(),
+        legalJustification: vaultJustification,
+        thresholdRequired: vaultThresholdReq,
+        totalShares: vaultTotalShares,
+        secretRecordText: vaultRecordText.trim(),
+        custodians: [
+          { role: CustodianRole.LEAD_PSYCHOLOGIST, name: 'Dra. Daniela Silva - CRP 06/12345' },
+          { role: CustodianRole.DPO_OFFICER, name: 'Carlos Mendes - Encarregado DPO' },
+          { role: CustodianRole.ETHICS_COMMITTEE_CHAIR, name: 'Dra. Beatriz Santos - Comissão Ética CRP' },
+          { role: CustodianRole.LEGAL_COUNSEL, name: 'Dr. Roberto Prado - Assessor Jurídico' },
+          { role: CustodianRole.JUDICIAL_OFFICER, name: 'Oficial João Ferreira - Tribunal de Justiça' }
+        ].slice(0, vaultTotalShares)
+      });
+      setLastCreatedVaultResponse(res);
+      setSubmittingShareVaultId(res.vault.vaultId);
+      setFeedback({ type: 'success', message: res.message });
+      await fetchCourtOrderThresholdData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao criar cofre judicial.' });
+    } finally {
+      setCreatingThresholdVault(false);
+    }
+  };
+
+  const handleSubmitCustodianShareSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!submittingShareVaultId || !inputShareData.trim()) {
+      setFeedback({ type: 'error', message: 'Selecione o cofre e forneça a cota hexadecimal de custodiante.' });
+      return;
+    }
+    try {
+      setSubmittingShare(true);
+      const res = await api.submitCustodianShare({
+        vaultId: submittingShareVaultId,
+        shareIndex: inputShareIndex,
+        shareData: inputShareData.trim(),
+        custodianRole: inputCustodianRole
+      });
+      setFeedback({ type: 'success', message: res.message });
+      setInputShareData('');
+      await fetchCourtOrderThresholdData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao submeter cota de custodiante.' });
+    } finally {
+      setSubmittingShare(false);
+    }
+  };
+
+  const handleReconstructAndDecryptSubmit = async (vaultId: string) => {
+    try {
+      setReconstructingVaultId(vaultId);
+      setLastReconstructionResult(null);
+      const res = await api.reconstructAndDecrypt({ vaultId });
+      setLastReconstructionResult(res.result);
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchCourtOrderThresholdData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao reconstruir e decifrar prontuário.' });
+    } finally {
+      setReconstructingVaultId(null);
+    }
+  };
+
+  const handleSimulateThresholdAttackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingThresholdAttack(true);
+      setSimThresholdResult(null);
+      const res = await api.simulateThresholdAttack({ scenario: simThresholdScenario });
+      setSimThresholdResult(res);
+      setFeedback({
+        type: res.blocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchCourtOrderThresholdData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha na simulação de ataque.' });
+    } finally {
+      setSimulatingThresholdAttack(false);
+    }
+  };
+
+  const handleVerifyThresholdSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingThresholdSeal(true);
+      setThresholdSealVerifyResult(null);
+      const res = await api.verifyThresholdSeal({ sealToken });
+      setThresholdSealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao verificar selo probatório.' });
+    } finally {
+      setVerifyingThresholdSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4430,6 +4602,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchAntiReplayData();
       fetchVisualWatermarkData();
       fetchEphemeralTokensData();
+      fetchCourtOrderThresholdData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -20834,6 +21007,794 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* CARD 43: LIBERAÇÃO COLEGIADA DE PRONTUÁRIOS SOB ORDEM JUDICIAL (THRESHOLD CRYPTOGRAPHY & SHAMIR'S SECRET SHARING T-OF-N) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+        {/* Header do Card */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-2xl">
+              <Gavel className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Módulo 43 • Liberação Colegiada de Prontuários Sob Ordem Judicial
+                <span className="text-[10px] bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-mono px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Shamir SSS (t-of-n) • CFP nº 001/2009 • LGPD Art. 11
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Quebra excepcional de sigilo ético-legal estritamente condicionada a quorum multipartidário com interpolação polinomial em GF(256) e auditoria notarial WORM.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <button
+              type="button"
+              onClick={fetchCourtOrderThresholdData}
+              disabled={loadingThreshold}
+              className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              title="Recarregar Telemetria de Cofres Judiciais"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingThreshold ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Cofres Judiciais</span>
+              <FileLock2 className="w-3.5 h-3.5 text-purple-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+              {thresholdOverview?.metrics.totalVaultsCreated ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Processos Autuados</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Aguardando Quorum</span>
+              <Timer className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+              {thresholdOverview?.metrics.pendingQuorumVaults ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Cotas Incompletas</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Desbloqueados</span>
+              <Unlock className="w-3.5 h-3.5 text-emerald-500" />
+            </div>
+            <div className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              {thresholdOverview?.metrics.successfullyUnlockedVaults ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Perícias Liberadas</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Quorums Bloqueados</span>
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400">
+              {thresholdOverview?.metrics.rejectedQuorumAttempts ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400">Tentativas Irregulares</span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-medium">Quorum Padrão</span>
+              <Scale className="w-3.5 h-3.5 text-indigo-500" />
+            </div>
+            <div className="text-xl font-mono font-bold text-slate-800 dark:text-slate-200">
+              {thresholdOverview?.defaultThreshold ?? 3} de {thresholdOverview?.defaultTotalShares ?? 5}
+            </div>
+            <span className="text-[10px] text-slate-400">Regra Multipartidária</span>
+          </div>
+        </div>
+
+        {/* Abas */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setThresholdActiveTab('vaults')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              thresholdActiveTab === 'vaults'
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FileLock2 className="w-3.5 h-3.5" />
+            Cofre de Ordem Judicial & Geração de Cotas
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setThresholdActiveTab('assemble')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              thresholdActiveTab === 'assemble'
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            Assembleia Colegiada & Reconstrução de Quorum
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setThresholdActiveTab('simulator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              thresholdActiveTab === 'simulator'
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Simulador Adversarial & Testes de Quorum
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Cofre & Cotas */}
+        {thresholdActiveTab === 'vaults' && (
+          <div className="space-y-4">
+            <form onSubmit={handleCreateThresholdVaultSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Gavel className="w-4 h-4 text-purple-500" />
+                  Lacrar Prontuário sob Ordem Judicial com Particionamento de Shamir (t-of-n)
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  AES-256-GCM • Lagrange GF(256)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    ID do Paciente:
+                  </label>
+                  <input
+                    type="text"
+                    value={vaultPatientId}
+                    onChange={(e) => setVaultPatientId(e.target.value)}
+                    required
+                    placeholder="paciente_..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Identificação Mascarada:
+                  </label>
+                  <input
+                    type="text"
+                    value={vaultPatientMasked}
+                    onChange={(e) => setVaultPatientMasked(e.target.value)}
+                    required
+                    placeholder="M*** V*** (Sigilo)"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Número do Processo Judicial (CNJ):
+                  </label>
+                  <input
+                    type="text"
+                    value={vaultCaseNumber}
+                    onChange={(e) => setVaultCaseNumber(e.target.value)}
+                    required
+                    placeholder="0001234-56.2026.8.26.0100"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Justificativa Ético-Legal:
+                  </label>
+                  <select
+                    value={vaultJustification}
+                    onChange={(e) => setVaultJustification(e.target.value as LegalJustificationType)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    <option value={LegalJustificationType.COURT_ORDER_SUBPOENA}>Determinação Judicial Formal (Mandado/Segredo)</option>
+                    <option value={LegalJustificationType.CFP_ETHICS_INQUIRY}>Sindicância Ético-Disciplinar do CFP/CRP</option>
+                    <option value={LegalJustificationType.GRAVE_LIFE_THREAT_EMERGENCY}>Risco Iminente e Grave à Vida / Integridade</option>
+                    <option value={LegalJustificationType.PATIENT_DECEASED_INVENTORY}>Inventário Judicial com Herdeiros Legítimos</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Quorum Mínimo Exigido (t): {vaultThresholdReq} cotas
+                  </label>
+                  <input
+                    type="range"
+                    min={2}
+                    max={5}
+                    value={vaultThresholdReq}
+                    onChange={(e) => setVaultThresholdReq(Number(e.target.value))}
+                    className="w-full accent-purple-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>2 cotas</span>
+                    <span>3 cotas</span>
+                    <span>5 cotas</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Total de Cotas Distribuídas (n): {vaultTotalShares}
+                  </label>
+                  <input
+                    type="range"
+                    min={vaultThresholdReq}
+                    max={5}
+                    value={vaultTotalShares}
+                    onChange={(e) => setVaultTotalShares(Number(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>{vaultThresholdReq} cotas</span>
+                    <span>5 cotas</span>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Prontuário Confidencial a ser Lacrado:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={vaultRecordText}
+                    onChange={(e) => setVaultRecordText(e.target.value)}
+                    required
+                    placeholder="Texto confidencial do prontuário psicológico..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-purple-500 outline-none resize-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={creatingThresholdVault}
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FileLock2 className="w-3.5 h-3.5" />
+                  {creatingThresholdVault ? 'Cifrando & Particionando...' : 'Lacrar Prontuário & Gerar Cotas de Shamir'}
+                </button>
+              </div>
+            </form>
+
+            {/* Exibição das Cotas Geradas */}
+            {lastCreatedVaultResponse && (
+              <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-950 dark:text-purple-200 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    Prontuário Lacrado e Cotas Geradas com Sucesso (Cofre: {lastCreatedVaultResponse.vault.vaultId})
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 uppercase">
+                    QUORUM REQUERIDO: {lastCreatedVaultResponse.vault.thresholdRequired} DE {lastCreatedVaultResponse.vault.totalShares}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Distribua individualmente as cotas polinomiais secretas abaixo aos custodiantes legais designados. Cada cota isolada não possui qualquer capacidade de decifragem.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+                  {lastCreatedVaultResponse.generatedShares.map((share) => (
+                    <div key={share.shareIndex} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-purple-700 dark:text-purple-300">
+                          Cota #{share.shareIndex} • {share.custodianRole}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(share.shareData);
+                            setFeedback({ type: 'success', message: `Cota #${share.shareIndex} copiada para o clipboard!` });
+                          }}
+                          className="p-1 text-slate-400 hover:text-purple-600 rounded transition-colors cursor-pointer"
+                          title="Copiar Cota"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        Custodiante: {share.custodianName}
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 font-mono text-[10px] text-purple-600 dark:text-purple-400 truncate">
+                        {share.shareData.slice(0, 24)}...
+                      </div>
+                      <div className="text-[9px] text-slate-400 font-mono">
+                        Checksum: {share.checksum}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conteúdo Aba 2: Assembleia Colegiada & Reconstrução */}
+        {thresholdActiveTab === 'assemble' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-500" />
+                    Painel de Assembleia de Custodiantes & Quorum Multipartidário
+                  </h3>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Selecione o processo judicial para submeter cotas e acompanhar a formação do quorum
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Cofre Ativo:</label>
+                  <select
+                    value={submittingShareVaultId}
+                    onChange={(e) => setSubmittingShareVaultId(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    {(thresholdOverview?.activeVaults || []).map((v) => (
+                      <option key={v.vaultId} value={v.vaultId}>
+                        {v.legalCaseNumber} ({v.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status do Quorum do Cofre Selecionado */}
+              {(() => {
+                const activeVault = (thresholdOverview?.activeVaults || []).find((v) => v.vaultId === submittingShareVaultId);
+                if (!activeVault) return null;
+                const submittedCount = activeVault.submittedShares.length;
+                const threshold = activeVault.thresholdRequired;
+                const progressPct = Math.min(100, Math.round((submittedCount / threshold) * 100));
+
+                return (
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        {submittedCount >= threshold ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <Timer className="w-4 h-4 text-amber-500" />
+                        )}
+                        Status do Quorum: {submittedCount} de {threshold} cotas necessárias
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        activeVault.status === CourtOrderVaultStatus.DECRYPTED_FOR_INSPECTION
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                          : submittedCount >= threshold
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                      }`}>
+                        {activeVault.status}
+                      </span>
+                    </div>
+
+                    {/* Barra de Progresso */}
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h-2.5 rounded-full transition-all duration-500 ${
+                          submittedCount >= threshold ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+
+                    {/* Badges de Custodiantes que já votaram */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {activeVault.submittedShares.map((s) => (
+                        <span key={s.shareIndex} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          Cota #{s.shareIndex} ({s.custodianRole})
+                        </span>
+                      ))}
+                      {submittedCount < threshold && (
+                        <span className="px-2 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-[10px] font-medium text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          Aguardando mais {threshold - submittedCount} cota(s)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Botão de Desbloqueio e Reconstrução */}
+                    <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        disabled={reconstructingVaultId === activeVault.vaultId || submittedCount < threshold}
+                        onClick={() => handleReconstructAndDecryptSubmit(activeVault.vaultId)}
+                        className={`px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          submittedCount >= threshold
+                            ? 'bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20'
+                            : 'bg-slate-300 dark:bg-slate-800 cursor-not-allowed text-slate-500'
+                        }`}
+                      >
+                        <Unlock className="w-3.5 h-3.5" />
+                        {reconstructingVaultId === activeVault.vaultId ? 'Interpolar Lagrange...' : 'Reconstruir Chave & Decifrar Prontuário'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Formulário de Submissão de Cota */}
+              <form onSubmit={handleSubmitCustodianShareSubmit} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                    <KeyRound className="w-3.5 h-3.5 text-purple-500" />
+                    Submissão de Cota Criptográfica de Custodiante
+                  </h4>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Validação em Tempo Constante
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Papel do Custodiante Legal:
+                    </label>
+                    <select
+                      value={inputCustodianRole}
+                      onChange={(e) => setInputCustodianRole(e.target.value as CustodianRole)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                    >
+                      <option value={CustodianRole.LEAD_PSYCHOLOGIST}>Psicólogo Responsável Técnico</option>
+                      <option value={CustodianRole.DPO_OFFICER}>Encarregado de Dados (DPO LGPD)</option>
+                      <option value={CustodianRole.ETHICS_COMMITTEE_CHAIR}>Comissão de Ética do CRP/CFP</option>
+                      <option value={CustodianRole.LEGAL_COUNSEL}>Assessor Jurídico Institucional</option>
+                      <option value={CustodianRole.JUDICIAL_OFFICER}>Oficial de Justiça / Perito Judicial</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Índice da Cota (x: 1 a 5):
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={inputShareIndex}
+                      onChange={(e) => setInputShareIndex(Number(e.target.value))}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Cota Secreta f(x) (Hexadecimal):
+                    </label>
+                    <input
+                      type="text"
+                      value={inputShareData}
+                      onChange={(e) => setInputShareData(e.target.value)}
+                      required
+                      placeholder="Cole a cota hex..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    type="submit"
+                    disabled={submittingShare}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    {submittingShare ? 'Validando Cota...' : 'Submeter Cota à Assembleia'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Resultado da Decifragem */}
+              {lastReconstructionResult && (
+                <div className={`p-4 rounded-2xl border shadow-sm space-y-3 text-xs ${
+                  lastReconstructionResult.success
+                    ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
+                    : 'bg-rose-50/60 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-2">
+                      {lastReconstructionResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                      )}
+                      Veredito: {lastReconstructionResult.verdict}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      lastReconstructionResult.success
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                    }`}>
+                      {lastReconstructionResult.success ? 'QUORUM AUTENTICADO' : 'QUORUM REJEITADO'}
+                    </span>
+                  </div>
+
+                  <p className="text-slate-600 dark:text-slate-300">
+                    {lastReconstructionResult.message}
+                  </p>
+
+                  {lastReconstructionResult.decryptedPayload && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400 text-xs block">
+                        Conteúdo Descriptografado com Fé Pública:
+                      </span>
+                      <p className="font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap select-all bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                        {lastReconstructionResult.decryptedPayload}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Conteúdo Aba 3: Simulador Adversarial */}
+        {thresholdActiveTab === 'simulator' && (
+          <div className="space-y-4">
+            <form onSubmit={handleSimulateThresholdAttackSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-rose-500" />
+                  Simulador de Ataques Adversariais a Esquemas de Threshold & Quorum
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Segurança Teórica de Informação
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Selecione o Vetor de Ataque a Simular:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSimThresholdScenario('INSUFFICIENT_SHARES_1_OF_3')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simThresholdScenario === 'INSUFFICIENT_SHARES_1_OF_3'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Quorum Insuficiente (1 de 3)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tentativa de quebra de sigilo unilateral com apenas 1 cota.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimThresholdScenario('CORRUPTED_SHARE_DATA')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simThresholdScenario === 'CORRUPTED_SHARE_DATA'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Cota Forjada / Adulterada</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Injeção de valor polinomial corrompido com checksum inválido.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimThresholdScenario('DUPLICATE_CUSTODIAN_REPLAY')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simThresholdScenario === 'DUPLICATE_CUSTODIAN_REPLAY'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Replay de Cota do Mesmo Custodiante</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tentativa de votar 2 vezes com a mesma cota para inflar quorum.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimThresholdScenario('EXPIRED_COURT_ORDER_VAULT')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simThresholdScenario === 'EXPIRED_COURT_ORDER_VAULT'
+                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Cofre Judicial Expirado</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tentativa de acesso após expiração do prazo legal determinado pelo juiz.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={simulatingThresholdAttack}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  {simulatingThresholdAttack ? 'Executando Ataque...' : 'Executar Ataque Simulado & Validar Bloqueio'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado do Teste Adversarial */}
+            {simThresholdResult && (
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    {simThresholdResult.blocked ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                    )}
+                    Resposta do Enclave de Threshold
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    simThresholdResult.blocked
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  }`}>
+                    {simThresholdResult.blocked ? 'INTRUSÃO BLOQUEADA COM SUCESSO' : 'INTRUSÃO NÃO DETECTADA'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {simThresholdResult.message}
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Veredito:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {simThresholdResult.verdict}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Cenário Testado:</span>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                      {simThresholdResult.scenario}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Data do Bloqueio:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      {new Date(simThresholdResult.timestamp).toLocaleTimeString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tabela de Processos Judiciais e Cofres */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Scale className="w-3.5 h-3.5 text-slate-500" />
+              Livro Razão de Ordens Judiciais & Cofres Lacrados
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              WORM Ledger Conforme CFP nº 001/2009 & LGPD Art. 11
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="p-3">Autuação</th>
+                  <th className="p-3">Processo Judicial (CNJ)</th>
+                  <th className="p-3">Paciente (Sigilo)</th>
+                  <th className="p-3">Justificativa Legal</th>
+                  <th className="p-3">Quorum Atual</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Ações & Selo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                {(thresholdOverview?.activeVaults || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                      Nenhum cofre de quebra de sigilo judicial autuado no momento.
+                    </td>
+                  </tr>
+                ) : (
+                  (thresholdOverview?.activeVaults || []).map((vault) => (
+                    <tr key={vault.vaultId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(vault.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                        {vault.legalCaseNumber}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {vault.patientMaskedName}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-purple-600 dark:text-purple-400">
+                        {vault.legalJustification}
+                      </td>
+                      <td className="p-3 font-mono text-[11px]">
+                        <span className="font-bold text-purple-600 dark:text-purple-400">
+                          {vault.submittedShares.length}
+                        </span>
+                        /{vault.thresholdRequired} cotas
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          vault.status === CourtOrderVaultStatus.DECRYPTED_FOR_INSPECTION
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                            : vault.status === CourtOrderVaultStatus.QUORUM_REACHED
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                        }`}>
+                          {vault.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSubmittingShareVaultId(vault.vaultId);
+                              setThresholdActiveTab('assemble');
+                            }}
+                            className="px-2 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 font-bold text-[10px] cursor-pointer"
+                          >
+                            Assembleia
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setThresholdModalVaultItem(vault);
+                              setSelectedThresholdSealForModal(vault.proofSeal);
+                              setThresholdSealVerifyResult(null);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                          >
+                            Certidão WORM
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -26082,6 +27043,151 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedEphemeralSealForModal(null);
                     setEphemeralModalTokenItem(null);
                     setEphemeralSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 43.A: CERTIDÃO NOTARIAL FORENSE DE QUEBRA COLEGIADA DE SIGILO WORM (CFP 001/2009 & LGPD ART. 11) */}
+      {selectedThresholdSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Gavel className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Certidão Notarial Forense de Quebra Colegiada de Sigilo WORM
+              </h3>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                CFP nº 001/2009 • LGPD Art. 11
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block">ID do Cofre Judicial:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedThresholdSealForModal.vaultId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Ação Notarial Registrada:</span>
+                    <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">
+                      {selectedThresholdSealForModal.action}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Data de Emissão (UTC):</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
+                      {new Date(selectedThresholdSealForModal.issuedAt).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Selo Probatório Formatado:</span>
+                    <span className="font-mono text-[10px] text-purple-600 dark:text-purple-400 truncate block">
+                      {selectedThresholdSealForModal.sealToken.slice(0, 24)}...
+                    </span>
+                  </div>
+                </div>
+
+                {thresholdModalVaultItem && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Processo Judicial (CNJ):</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {thresholdModalVaultItem.legalCaseNumber}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Identificação do Paciente:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                        {thresholdModalVaultItem.patientMaskedName}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Justificativa Ético-Legal:</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">
+                        {thresholdModalVaultItem.legalJustification}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Quorum Multipartidário:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {thresholdModalVaultItem.submittedShares.length} de {thresholdModalVaultItem.thresholdRequired} cotas necessárias
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Status no Enclave Forense:</span>
+                      <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
+                        {thresholdModalVaultItem.status}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hash Canônico JCS (RFC 8785) */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico Determinístico SHA-256 (RFC 8785 JSON Canonicalization Scheme)
+                </span>
+                <p className="font-mono text-[10px] text-teal-400 break-all select-all">
+                  {selectedThresholdSealForModal.canonicalDigest}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-purple-300 break-all select-all">
+                  {selectedThresholdSealForModal.sealToken}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {thresholdSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  thresholdSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {thresholdSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {thresholdSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedThresholdSealForModal.issuedAt).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingThresholdSeal}
+                  onClick={() => handleVerifyThresholdSealSubmit(selectedThresholdSealForModal.sealToken)}
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingThresholdSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedThresholdSealForModal(null);
+                    setThresholdModalVaultItem(null);
+                    setThresholdSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

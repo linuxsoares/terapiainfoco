@@ -3186,6 +3186,87 @@ export interface EphemeralTokenOverviewResponse {
   overview: import('./models').EphemeralTokenOverview;
 }
 
+/**
+ * DTOs para Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography (CFP nº 001/2009 Art. 9º, LGPD Art. 11 & RFC §4.2)
+ */
+export interface CreateCourtOrderVaultDTO {
+  patientId: string;
+  patientMaskedName: string;
+  legalCaseNumber: string;
+  legalJustification: import('./enums').LegalJustificationType;
+  thresholdRequired: number;     // t (2..5)
+  totalShares: number;           // n (3..7)
+  secretRecordText: string;      // Prontuário confidencial a ser lacrado
+  custodians: Array<{
+    role: import('./enums').CustodianRole;
+    name: string;
+  }>;
+}
+
+export interface CreateCourtOrderVaultResponse {
+  success: boolean;
+  vault: import('./models').CourtOrderVault;
+  generatedShares: import('./models').ShamirKeyShare[];
+  message: string;
+}
+
+export interface SubmitCustodianShareDTO {
+  vaultId: string;
+  shareIndex: number;
+  shareData: string;
+  custodianRole: import('./enums').CustodianRole;
+}
+
+export interface SubmitCustodianShareResponse {
+  success: boolean;
+  vault: import('./models').CourtOrderVault;
+  currentSharesCount: number;
+  thresholdRequired: number;
+  isQuorumReached: boolean;
+  message: string;
+}
+
+export interface ReconstructAndDecryptDTO {
+  vaultId: string;
+}
+
+export interface ReconstructAndDecryptResponse {
+  success: boolean;
+  result: import('./models').ThresholdReconstructionResult;
+  message: string;
+}
+
+export interface SimulateThresholdAttackDTO {
+  scenario: 'INSUFFICIENT_SHARES_1_OF_3' | 'CORRUPTED_SHARE_DATA' | 'DUPLICATE_CUSTODIAN_REPLAY' | 'EXPIRED_COURT_ORDER_VAULT';
+  vaultId?: string;
+}
+
+export interface SimulateThresholdAttackResponse {
+  success: boolean;
+  blocked: boolean;
+  verdict: import('./enums').ThresholdReconstructionVerdict;
+  scenario: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface VerifyThresholdSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyThresholdSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').ThresholdProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface ThresholdVaultOverviewResponse {
+  success: boolean;
+  overview: import('./models').ThresholdVaultOverview;
+}
+
 
 
 
