@@ -3267,6 +3267,67 @@ export interface ThresholdVaultOverviewResponse {
   overview: import('./models').ThresholdVaultOverview;
 }
 
+/**
+ * 44. PROTOTYPE POLLUTION GUARD & DESSERIALIZAÇÃO SEGURA
+ * (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)
+ */
+export interface ScanObjectPayloadDTO {
+  payload: any;
+  category: import('./enums').PayloadCategory;
+  strategy?: import('./enums').SanitizationStrategy;
+  customAllowlist?: string[];
+  maxDepth?: number;
+}
+
+export interface ScanObjectPayloadResponse {
+  success: boolean;
+  result: import('./models').PollutionScanResult;
+  message: string;
+}
+
+export interface UpdatePollutionPolicyDTO {
+  policy: Partial<import('./models').PollutionGuardPolicy>;
+}
+
+export interface UpdatePollutionPolicyResponse {
+  success: boolean;
+  policy: import('./models').PollutionGuardPolicy;
+  message: string;
+}
+
+export interface SimulatePollutionAttackDTO {
+  scenario: 'PROTO_INJECTION_IS_ADMIN' | 'CONSTRUCTOR_PROTOTYPE_POLLUTION' | 'CIRCULAR_REFERENCE_BOMB' | 'NESTED_DEPTH_OVERFLOW_20' | 'GETTER_SETTER_RCE_ATTEMPT';
+  customPayload?: any;
+}
+
+export interface SimulatePollutionAttackResponse {
+  success: boolean;
+  blocked: boolean;
+  vector: import('./enums').PollutionAttackVector;
+  scenario: string;
+  threatDetected?: import('./models').PollutionThreat;
+  result: import('./models').PollutionScanResult;
+  message: string;
+  timestamp: string;
+}
+
+export interface VerifyPollutionSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyPollutionSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').PollutionProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface PollutionGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').PollutionGuardOverview;
+}
+
 
 
 

@@ -300,7 +300,13 @@ export enum AuditAction {
   QUORUM_RECONSTRUCTION_FAILED = 'QUORUM_RECONSTRUCTION_FAILED',
   COURT_ORDER_RECORD_DECRYPTED = 'COURT_ORDER_RECORD_DECRYPTED',
   COURT_ORDER_VAULT_PURGED = 'COURT_ORDER_VAULT_PURGED',
-  THRESHOLD_PROOF_SEAL_VERIFIED = 'THRESHOLD_PROOF_SEAL_VERIFIED'
+  THRESHOLD_PROOF_SEAL_VERIFIED = 'THRESHOLD_PROOF_SEAL_VERIFIED',
+  // Ações de Blindagem contra Prototype Pollution & Desserialização Insegura (OWASP ASVS V5.5 & CWE-1321)
+  PROTOTYPE_POLLUTION_ATTEMPT_BLOCKED = 'PROTOTYPE_POLLUTION_ATTEMPT_BLOCKED',
+  INSECURE_DESERIALIZATION_BLOCKED = 'INSECURE_DESERIALIZATION_BLOCKED',
+  SAFE_OBJECT_NORMALIZED = 'SAFE_OBJECT_NORMALIZED',
+  POLLUTION_GUARD_POLICY_UPDATED = 'POLLUTION_GUARD_POLICY_UPDATED',
+  PROTOTYPE_GUARD_SEAL_VERIFIED = 'PROTOTYPE_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -350,7 +356,8 @@ export enum AuditResourceType {
   ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD',
   VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD',
   EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD',
-  COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT'
+  COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT',
+  PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD'
 }
 
 /**
@@ -1527,6 +1534,48 @@ export enum LegalJustificationType {
   CFP_ETHICS_INQUIRY = 'CFP_ETHICS_INQUIRY',             // Sindicância formal de processo ético-disciplinar no Conselho
   GRAVE_LIFE_THREAT_EMERGENCY = 'GRAVE_LIFE_THREAT_EMERGENCY', // Risco iminente e concreto de violência ou suicídio
   PATIENT_DECEASED_INVENTORY = 'PATIENT_DECEASED_INVENTORY'    // Inventário judicial com herdeiros legítimos e autorização
+}
+
+/**
+ * Níveis de Severidade de Ameaça de Poluição de Protótipo e Desserialização (CWE-1321 & OWASP ASVS V5.5)
+ */
+export enum PollutionThreatSeverity {
+  LOW = 'LOW',         // Propriedade atípica ou profundidade elevada sem risco direto de execução
+  MEDIUM = 'MEDIUM',   // Tentativa de injeção de propriedades não reconhecidas em schemas rígidos
+  HIGH = 'HIGH',       // Injeção de constructor ou __defineGetter__ com potencial DoS
+  CRITICAL = 'CRITICAL' // Tentativa de injeção direta de __proto__ ou prototype visando RCE/Privilege Escalation
+}
+
+/**
+ * Vetores de Ataque de Poluição e Desserialização Insegura
+ */
+export enum PollutionAttackVector {
+  PROTO_POLLUTION = 'PROTO_POLLUTION',                   // Injeção de __proto__ em objetos aninhados
+  CONSTRUCTOR_PROTOTYPE = 'CONSTRUCTOR_PROTOTYPE',       // Injeção de constructor.prototype
+  GETTER_SETTER_INJECTION = 'GETTER_SETTER_INJECTION',   // Injeção de __defineGetter__, __defineSetter__
+  CIRCULAR_REFERENCE_BOMB = 'CIRCULAR_REFERENCE_BOMB',   // Referência circular proposital para causar Stack Overflow / DoS
+  NESTED_DEPTH_OVERFLOW = 'NESTED_DEPTH_OVERFLOW',       // Profundidade excessiva (> 15 níveis) para estouro de pilha
+  INSECURE_DESERIALIZATION = 'INSECURE_DESERIALIZATION'  // Desserialização de classes/funções arbitrárias não autorizadas
+}
+
+/**
+ * Estratégia de Sanitização de Objetos Clínicos
+ */
+export enum SanitizationStrategy {
+  STRIP_DANGEROUS_KEYS = 'STRIP_DANGEROUS_KEYS', // Remove chaves perigosas silenciosamente e continua processamento
+  FAIL_FAST_REJECT = 'FAIL_FAST_REJECT',         // Rejeita a requisição imediatamente emitindo alerta de segurança
+  NULL_PROTOTYPE_FREEZE = 'NULL_PROTOTYPE_FREEZE' // Remove chaves perigosas, recria com Object.create(null) e congela
+}
+
+/**
+ * Categoria do Payload Clínico Dinâmico
+ */
+export enum PayloadCategory {
+  CLINICAL_ANAMNESIS = 'CLINICAL_ANAMNESIS',     // Ficha de Anamnese Biopsicossocial dinâmica
+  SOAP_EVOLUTION = 'SOAP_EVOLUTION',             // Evolução Clínica SOAP estruturada
+  TELECONSULT_CONFIG = 'TELECONSULT_CONFIG',     // Parâmetros de sala e codecs WebRTC
+  CONSENT_RECORD = 'CONSENT_RECORD',             // Termo e escopos de consentimento do paciente
+  USER_PROFILE_EXT = 'USER_PROFILE_EXT'          // Metadados estendidos de perfil de usuário/terapeuta
 }
 
 

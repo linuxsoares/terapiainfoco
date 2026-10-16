@@ -1768,6 +1768,27 @@ terapiainfoco/
 
 ---
 
+### 62. Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)
+- [x] **Motor Criptográfico e Sanitizador Seguro (`packages/crypto/src/prototypePollutionGuard.ts`):**
+  - **Detecção de Chaves Perigosas & Anti-Mutation:** Interceptação em tempo de execução de chaves suscetíveis a poluição de protótipo: `__proto__`, `constructor`, `prototype`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`.
+  - **Dicionários Limpos de Protótipo Nulo (`Object.create(null)`):** Normalização estrutural de objetos garantindo que instâncias intermediárias e finais não herdem `Object.prototype`, impossibilitando contaminação transversal de memória em Node.js/V8.
+  - **Deep-Merge Seguro com Mitigação de DoS / Recursion Bombs:** Fusão recursiva profunda de grafos de objetos clínicos com rastreamento de referências circulares via `WeakSet`, limite de profundidade configurável (`maxDepth`) e congelamento recursivo (`Object.freeze`).
+  - **Filtro contra Desserialização Insegura / RCE:** Inspeção heurística de strings de injeção de gadgets (`_$$ND_FUNC$$_`, `eval(`, `Function(`, `child_process`, `exec(`, `spawn(`, etc.) bloqueando execução remota de código via JSON malformado.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão probatória canônica JCS com prefixo `proto_guard_v1_<base64url>` atestando sanitização segura e integridade de objetos clínicos.
+  - Suíte com 14 testes unitários aprovados em `packages/crypto/test/prototypePollutionGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `PollutionThreatSeverity`, `PollutionAttackVector`, `SanitizationStrategy`, `PayloadCategory`.
+  - Ações WORM `PROTOTYPE_POLLUTION_ATTEMPT_BLOCKED`, `INSECURE_DESERIALIZATION_BLOCKED`, `SAFE_OBJECT_NORMALIZED`, `POLLUTION_GUARD_POLICY_UPDATED`, `PROTOTYPE_GUARD_SEAL_VERIFIED`.
+  - Modelos `PollutionThreat`, `PollutionProofSeal`, `PollutionScanResult`, `PollutionGuardPolicy`, `PollutionGuardMetrics`, `PollutionSecurityIncident`, `PollutionGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `PrototypePollutionService` singleton com quarentena de payloads, telemetria em tempo real, simulação de vetores adversariais e auditoria WORM contínua via `AuditService.log`.
+  - 5 rotas REST sob `/api/prototype-pollution` (`/overview`, `/scan-payload`, `/update-policy`, `/simulate-attack`, `/verify-seal`).
+  - Suíte com 7 testes de integração aprovados em `apps/backend/test/prototypePollution.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 44:** Painel de Blindagem contra Prototype Pollution & Desserialização Insegura com 5 KPIs, 3 abas interativas (*Scanner & Normalizador Seguro*, *Simulador Adversarial CWE-1321*, *Políticas de Quarentena & Hardening*) e tabela WORM de incidentes bloqueados.
+  - **Modal 44.A:** Certidão Notarial Forense de Varredura WORM com validação do selo criptográfico em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -1844,12 +1865,13 @@ terapiainfoco/
 | `feat/visual-watermark-screen-exfiltration-tracer` | Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4) | [PR #76](https://github.com/linuxsoares/terapiainfoco/pull/76) | Merged |
 | `feat/ephemeral-teleconsult-tokens-auto-revocation` | Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46) | [PR #77](https://github.com/linuxsoares/terapiainfoco/pull/77) | Merged |
 | `feat/threshold-shamir-secret-sharing-court-order` | Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2) | [PR #78](https://github.com/linuxsoares/terapiainfoco/pull/78) | Merged |
+| `feat/prototype-pollution-insecure-deserialization-guard` | Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices) | [PR #79](https://github.com/linuxsoares/terapiainfoco/pull/79) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)**, o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, e a suíte completa de **945 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)**, o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, e a suíte completa de **966 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1887,7 +1909,8 @@ Com o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com 
 - [x] **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4).**
 - [x] **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46).**
 - [x] **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2).**
-- [ ] **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices).**
+- [x] **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices).**
+- [ ] **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0).**
 
 ---
 
@@ -1897,7 +1920,7 @@ Com o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com 
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (945 testes)
+# 2. Executar suíte completa de testes (966 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

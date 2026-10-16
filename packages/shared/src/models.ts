@@ -3392,6 +3392,101 @@ export interface ThresholdVaultOverview {
   defaultTotalShares: number;
 }
 
+/**
+ * Detalhes de Ameaça de Poluição de Protótipo ou Desserialização Detectada
+ */
+export interface PollutionThreat {
+  vector: import('./enums').PollutionAttackVector;
+  path: string;
+  maliciousKey: string;
+  sampleValue: string;
+  severity: import('./enums').PollutionThreatSeverity;
+  description: string;
+}
+
+/**
+ * Selo Probatório Forense WORM de Escaneamento e Sanitização de Objetos (RFC 8785)
+ */
+export interface PollutionProofSeal {
+  version: string;
+  scanId: string;
+  category: import('./enums').PayloadCategory;
+  threatsCount: number;
+  isClean: boolean;
+  timestamp: string;
+  canonicalHash: string;
+  signature: string;
+}
+
+/**
+ * Resultado da Varredura e Sanitização de Payload Clínico Dinâmico
+ */
+export interface PollutionScanResult {
+  scanId: string;
+  isClean: boolean;
+  category: import('./enums').PayloadCategory;
+  strategyApplied: import('./enums').SanitizationStrategy;
+  threatsDetected: PollutionThreat[];
+  sanitizedObject: any;
+  processingTimeMs: number;
+  maxDepthReached: number;
+  totalKeysEvaluated: number;
+  proofSeal: PollutionProofSeal;
+  message: string;
+}
+
+/**
+ * Política de Proteção Ativa contra Poluição de Protótipo e Injeção de Objetos
+ */
+export interface PollutionGuardPolicy {
+  defaultStrategy: import('./enums').SanitizationStrategy;
+  maxAllowedDepth: number;
+  maxKeyCount: number;
+  blockOnCriticalThreat: boolean;
+  freezeSanitizedObjects: boolean;
+  stripGettersSetters: boolean;
+  allowedKeysAllowlist: string[];
+}
+
+/**
+ * Métricas e Telemetria de Defesa de Prototype Pollution
+ */
+export interface PollutionGuardMetrics {
+  totalScannedPayloads: number;
+  totalThreatsBlocked: number;
+  protoPollutionBlocked: number;
+  circularBombsBlocked: number;
+  depthOverflowBlocked: number;
+  averageScanLatencyMs: number;
+  lastAttackBlockedTimestamp?: string;
+  guardHealthScore: number;
+}
+
+/**
+ * Registro de Incidente de Segurança de Injeção de Protótipo
+ */
+export interface PollutionSecurityIncident {
+  incidentId: string;
+  timestamp: string;
+  category: import('./enums').PayloadCategory;
+  threats: PollutionThreat[];
+  clientIp: string;
+  userAgent: string;
+  strategyApplied: import('./enums').SanitizationStrategy;
+  actionTaken: string;
+  proofSeal: PollutionProofSeal;
+}
+
+/**
+ * Visão Geral de Governança do Guard de Poluição de Protótipo
+ */
+export interface PollutionGuardOverview {
+  metrics: PollutionGuardMetrics;
+  policy: PollutionGuardPolicy;
+  recentIncidents: PollutionSecurityIncident[];
+  supportedCategories: import('./enums').PayloadCategory[];
+}
+
 
 
 

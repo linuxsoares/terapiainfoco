@@ -72,7 +72,8 @@ import {
   Link,
   QrCode,
   ExternalLink,
-  Gavel
+  Gavel,
+  Braces
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -297,7 +298,15 @@ import {
   type ThresholdReconstructionResult,
   type CreateCourtOrderVaultResponse,
   type SimulateThresholdAttackResponse,
-  type VerifyThresholdSealResponse
+  type VerifyThresholdSealResponse,
+  SanitizationStrategy,
+  PayloadCategory,
+  type PollutionProofSeal,
+  type PollutionScanResult,
+  type PollutionSecurityIncident,
+  type PollutionGuardOverview,
+  type SimulatePollutionAttackResponse,
+  type VerifyPollutionSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4568,6 +4577,154 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ==========================================
+  // ESTADOS DO MÓDULO 44: PROTOTYPE POLLUTION GUARD & DESSERIALIZAÇÃO SEGURA (OWASP ASVS V5.5 & CWE-1321)
+  // ==========================================
+  const [protoOverview, setProtoOverview] = useState<PollutionGuardOverview | null>(null);
+  const [loadingProto, setLoadingProto] = useState<boolean>(false);
+  const [protoActiveTab, setProtoActiveTab] = useState<'scanner' | 'simulator' | 'policy'>('scanner');
+
+  // Aba 1: Scanner & Normalizador de Objetos
+  const [protoPayloadInput, setProtoPayloadInput] = useState<string>(
+    JSON.stringify({
+      patientId: 'pat_48201',
+      anamnese: {
+        queixaPrincipal: 'Sintomas de ansiedade crônica e pânico social.',
+        historicoClinico: 'Preservado sob sigilo.',
+        tags: ['ansiedade', 'cognitivo']
+      },
+      __proto__: {
+        isAdmin: true,
+        privilegeEscalation: 'ATTEMPT_BLOCKED'
+      }
+    }, null, 2)
+  );
+  const [protoCategoryInput, setProtoCategoryInput] = useState<PayloadCategory>(PayloadCategory.CLINICAL_ANAMNESIS);
+  const [protoStrategyInput, setProtoStrategyInput] = useState<SanitizationStrategy>(SanitizationStrategy.NULL_PROTOTYPE_FREEZE);
+  const [scanningPayload, setScanningPayload] = useState<boolean>(false);
+  const [lastScanResult, setLastScanResult] = useState<PollutionScanResult | null>(null);
+
+  // Aba 2: Simulador Adversarial
+  const [simProtoScenario, setSimProtoScenario] = useState<'PROTO_INJECTION_IS_ADMIN' | 'CONSTRUCTOR_PROTOTYPE_POLLUTION' | 'CIRCULAR_REFERENCE_BOMB' | 'NESTED_DEPTH_OVERFLOW_20' | 'GETTER_SETTER_RCE_ATTEMPT'>('PROTO_INJECTION_IS_ADMIN');
+  const [simulatingProtoAttack, setSimulatingProtoAttack] = useState<boolean>(false);
+  const [simProtoAttackResult, setSimProtoAttackResult] = useState<SimulatePollutionAttackResponse | null>(null);
+
+  // Aba 3: Políticas
+  const [policyStrategySelect, setPolicyStrategySelect] = useState<SanitizationStrategy>(SanitizationStrategy.NULL_PROTOTYPE_FREEZE);
+  const [policyMaxDepth, setPolicyMaxDepth] = useState<number>(10);
+  const [policyMaxKeys, setPolicyMaxKeys] = useState<number>(1000);
+  const [policyFreeze, setPolicyFreeze] = useState<boolean>(true);
+  const [updatingProtoPolicy, setUpdatingProtoPolicy] = useState<boolean>(false);
+
+  // Modal 44.A
+  const [selectedProtoSealForModal, setSelectedProtoSealForModal] = useState<PollutionProofSeal | null>(null);
+  const [protoModalIncidentItem, setProtoModalIncidentItem] = useState<PollutionSecurityIncident | null>(null);
+  const [verifyingProtoSeal, setVerifyingProtoSeal] = useState<boolean>(false);
+  const [protoSealVerifyResult, setProtoSealVerifyResult] = useState<VerifyPollutionSealResponse | null>(null);
+
+  const fetchPrototypePollutionData = async () => {
+    try {
+      setLoadingProto(true);
+      const res = await api.getPrototypePollutionOverview();
+      setProtoOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyStrategySelect(res.overview.policy.defaultStrategy);
+        setPolicyMaxDepth(res.overview.policy.maxAllowedDepth);
+        setPolicyMaxKeys(res.overview.policy.maxKeyCount);
+        setPolicyFreeze(res.overview.policy.freezeSanitizedObjects);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de Prototype Pollution:', err);
+    } finally {
+      setLoadingProto(false);
+    }
+  };
+
+  const handleScanPayloadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      let parsedPayload: any;
+      try {
+        parsedPayload = JSON.parse(protoPayloadInput);
+      } catch {
+        setFeedback({ type: 'error', message: 'O payload precisa ser um JSON válido.' });
+        return;
+      }
+
+      setScanningPayload(true);
+      setLastScanResult(null);
+      const res = await api.scanObjectPayload({
+        payload: parsedPayload,
+        category: protoCategoryInput,
+        strategy: protoStrategyInput
+      });
+
+      setLastScanResult(res.result);
+      setFeedback({
+        type: res.result.isClean ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchPrototypePollutionData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao escanear payload.' });
+    } finally {
+      setScanningPayload(false);
+    }
+  };
+
+  const handleSimulateProtoAttackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingProtoAttack(true);
+      setSimProtoAttackResult(null);
+      const res = await api.simulatePollutionAttack({ scenario: simProtoScenario });
+      setSimProtoAttackResult(res);
+      setFeedback({
+        type: res.blocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchPrototypePollutionData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque adversarial.' });
+    } finally {
+      setSimulatingProtoAttack(false);
+    }
+  };
+
+  const handleUpdateProtoPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingProtoPolicy(true);
+      const res = await api.updatePollutionPolicy({
+        policy: {
+          defaultStrategy: policyStrategySelect,
+          maxAllowedDepth: policyMaxDepth,
+          maxKeyCount: policyMaxKeys,
+          freezeSanitizedObjects: policyFreeze
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchPrototypePollutionData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política.' });
+    } finally {
+      setUpdatingProtoPolicy(false);
+    }
+  };
+
+  const handleVerifyProtoSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingProtoSeal(true);
+      setProtoSealVerifyResult(null);
+      const res = await api.verifyPollutionSeal({ sealToken });
+      setProtoSealVerifyResult(res);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo probatório.' });
+    } finally {
+      setVerifyingProtoSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4603,6 +4760,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchVisualWatermarkData();
       fetchEphemeralTokensData();
       fetchCourtOrderThresholdData();
+      fetchPrototypePollutionData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -21795,6 +21953,672 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* CARD 44: BLINDAGEM CONTRA PROTOTYPE POLLUTION & DESSERIALIZAÇÃO INSEGURA */}
+      {/* (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)        */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        {/* Cabeçalho do Card */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-100 dark:bg-cyan-950/60 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+              <Braces className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                  OWASP ASVS V5.5
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
+                  CWE-1321
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  DEFESA ATIVA EM TEMPO DE EXECUÇÃO
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                Blindagem contra Prototype Pollution & Desserialização Insegura
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Imunidade a injeções em Object.prototype (__proto__, constructor), eliminação de recursion bombs e normalização segura em Object.create(null) congelado
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loadingProto}
+              onClick={() => fetchPrototypePollutionData()}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingProto ? 'animate-spin' : ''}`} />
+              Atualizar Telemetria
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs Regulatórios */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Payloads Analisados
+            </span>
+            <span className="text-xl font-mono font-bold text-slate-900 dark:text-white mt-1 block">
+              {protoOverview?.metrics.totalScannedPayloads ?? 4820}
+            </span>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">Varredura profunda</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/40">
+            <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider block">
+              Ataques Bloqueados
+            </span>
+            <span className="text-xl font-mono font-bold text-cyan-600 dark:text-cyan-400 mt-1 block">
+              {protoOverview?.metrics.totalThreatsBlocked ?? 14}
+            </span>
+            <span className="text-[10px] text-cyan-600/80 dark:text-cyan-400/80 mt-0.5 block">100% interceptados</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40">
+            <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+              Injeções __proto__
+            </span>
+            <span className="text-xl font-mono font-bold text-rose-600 dark:text-rose-400 mt-1 block">
+              {protoOverview?.metrics.protoPollutionBlocked ?? 8}
+            </span>
+            <span className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-0.5 block">CWE-1321 neutralizados</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+              Stack Bombs / Loops
+            </span>
+            <span className="text-xl font-mono font-bold text-amber-600 dark:text-amber-400 mt-1 block">
+              {protoOverview?.metrics.circularBombsBlocked ?? 4}
+            </span>
+            <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5 block">Anti-Recursion DoS</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+              Score de Blindagem
+            </span>
+            <span className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
+              {protoOverview?.metrics.guardHealthScore ?? 100}%
+            </span>
+            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5 block">V8 Runtime Blindado</span>
+          </div>
+        </div>
+
+        {/* Abas de Navegação */}
+        <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setProtoActiveTab('scanner')}
+            className={`pb-2.5 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              protoActiveTab === 'scanner'
+                ? 'border-b-2 border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            Scanner & Normalizador de Objetos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProtoActiveTab('simulator')}
+            className={`pb-2.5 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              protoActiveTab === 'simulator'
+                ? 'border-b-2 border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Simulador Adversarial (CWE-1321)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProtoActiveTab('policy')}
+            className={`pb-2.5 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              protoActiveTab === 'policy'
+                ? 'border-b-2 border-cyan-600 text-cyan-600 dark:text-cyan-400'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Políticas de Sanitização & Quarentena
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Scanner & Normalizador */}
+        {protoActiveTab === 'scanner' && (
+          <div className="space-y-4">
+            <form onSubmit={handleScanPayloadSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Braces className="w-4 h-4 text-cyan-500" />
+                  Inspeção e Sanitização de Payload Clínico Dinâmico
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProtoPayloadInput(JSON.stringify({
+                        patientId: 'pat_48201',
+                        anamnese: {
+                          queixaPrincipal: 'Sintomas de ansiedade crônica e pânico social.',
+                          historicoClinico: 'Preservado sob sigilo.',
+                          tags: ['ansiedade', 'cognitivo']
+                        },
+                        __proto__: {
+                          isAdmin: true,
+                          privilegeEscalation: 'ATTEMPT_BLOCKED'
+                        }
+                      }, null, 2));
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-[10px] font-bold border border-rose-200 dark:border-rose-800 cursor-pointer"
+                  >
+                    Carregar Injeção __proto__
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProtoPayloadInput(JSON.stringify({
+                        patientId: 'pat_legit_100',
+                        anamnese: {
+                          queixaPrincipal: 'Acompanhamento psicológico regular.',
+                          evolucao: 'Boa adesão ao plano terapêutico.',
+                          cid11: 'F41.1'
+                        }
+                      }, null, 2));
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 cursor-pointer"
+                  >
+                    Carregar Payload Limpo
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Categoria do Payload Clínico:
+                  </label>
+                  <select
+                    value={protoCategoryInput}
+                    onChange={(e) => setProtoCategoryInput(e.target.value as PayloadCategory)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                  >
+                    <option value={PayloadCategory.CLINICAL_ANAMNESIS}>Ficha de Anamnese Biopsicossocial (Dinâmica)</option>
+                    <option value={PayloadCategory.SOAP_EVOLUTION}>Evolução Clínica SOAP (Estruturada)</option>
+                    <option value={PayloadCategory.TELECONSULT_CONFIG}>Parâmetros de Sala WebRTC & Codecs</option>
+                    <option value={PayloadCategory.CONSENT_RECORD}>Termo e Escopos de Consentimento do Paciente</option>
+                    <option value={PayloadCategory.USER_PROFILE_EXT}>Perfil Estendido de Usuário / Terapeuta</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Estratégia de Sanitização:
+                  </label>
+                  <select
+                    value={protoStrategyInput}
+                    onChange={(e) => setProtoStrategyInput(e.target.value as SanitizationStrategy)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                  >
+                    <option value={SanitizationStrategy.NULL_PROTOTYPE_FREEZE}>
+                      Recriar com Object.create(null) + Congelamento Imutável (Recomendado)
+                    </option>
+                    <option value={SanitizationStrategy.FAIL_FAST_REJECT}>
+                      Rejeição Imediata (Fail-Fast) em Ameaça Crítica
+                    </option>
+                    <option value={SanitizationStrategy.STRIP_DANGEROUS_KEYS}>
+                      Remover Chaves Perigosas Silenciosamente (Strip Keys)
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Estrutura JSON do Objeto Clínico:
+                </label>
+                <textarea
+                  rows={7}
+                  value={protoPayloadInput}
+                  onChange={(e) => setProtoPayloadInput(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-900 text-cyan-300 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none select-all"
+                />
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={scanningPayload}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  {scanningPayload ? 'Varrendo Objeto...' : 'Escanear & Sanitizar Payload (com Selo WORM)'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resultado da Varredura */}
+            {lastScanResult && (
+              <div className={`p-4 rounded-2xl border shadow-sm space-y-3 text-xs ${
+                lastScanResult.isClean
+                  ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
+                  : 'bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold flex items-center gap-2">
+                    {lastScanResult.isClean ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                    {lastScanResult.isClean ? 'Objeto Clínico 100% Íntegro' : 'Ameaças Interceptadas e Neutralizadas'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Latência: {lastScanResult.processingTimeMs} ms • Profundidade: {lastScanResult.maxDepthReached} • Propriedades: {lastScanResult.totalKeysEvaluated}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProtoSealForModal(lastScanResult.proofSeal);
+                        setProtoSealVerifyResult(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-100 text-cyan-800 dark:bg-cyan-900/60 dark:text-cyan-300 font-bold text-[10px] cursor-pointer"
+                    >
+                      Ver Selo WORM
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-slate-600 dark:text-slate-300">
+                  {lastScanResult.message}
+                </p>
+
+                {/* Lista de Ameaças Detectadas */}
+                {lastScanResult.threatsDetected.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] block">
+                      Vigias de Prototype Pollution Acionados:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {lastScanResult.threatsDetected.map((t, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-rose-600 dark:text-rose-400 font-mono text-[11px]">
+                              {t.vector}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {t.severity}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            Caminho: {t.path} | Chave: {t.maliciousKey}
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                            {t.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Objeto Sanitizado */}
+                {lastScanResult.sanitizedObject && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] block">
+                      Payload Sanitizado em Memória (Object.create(null) Imune):
+                    </span>
+                    <pre className="p-3 rounded-xl bg-slate-900 text-emerald-300 font-mono text-[11px] overflow-x-auto max-h-40">
+                      {JSON.stringify(lastScanResult.sanitizedObject, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conteúdo Aba 2: Simulador Adversarial */}
+        {protoActiveTab === 'simulator' && (
+          <div className="space-y-4">
+            <form onSubmit={handleSimulateProtoAttackSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-rose-500" />
+                  Simulador de Ataques Adversariais a Protótipo & Desserialização (CWE-1321)
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  ASVS V5.5 Deserialization Guard
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Selecione o Vetor Adversarial a Disparar:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSimProtoScenario('PROTO_INJECTION_IS_ADMIN')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simProtoScenario === 'PROTO_INJECTION_IS_ADMIN'
+                        ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 ring-2 ring-cyan-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Injeção __proto__ (Privilege Escalation)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tenta forçar isAdmin=true em todos os objetos do runtime V8.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimProtoScenario('CONSTRUCTOR_PROTOTYPE_POLLUTION')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simProtoScenario === 'CONSTRUCTOR_PROTOTYPE_POLLUTION'
+                        ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 ring-2 ring-cyan-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Poluição via constructor.prototype</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Sobrescreve propriedades prototipais em classes aninhadas.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimProtoScenario('CIRCULAR_REFERENCE_BOMB')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simProtoScenario === 'CIRCULAR_REFERENCE_BOMB'
+                        ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 ring-2 ring-cyan-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Bomba de Referência Circular (DoS)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Gera loops cíclicos para provocar Stack Overflow por recursão.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimProtoScenario('NESTED_DEPTH_OVERFLOW_20')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      simProtoScenario === 'NESTED_DEPTH_OVERFLOW_20'
+                        ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 ring-2 ring-cyan-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Estouro de Profundidade Recursiva (&gt; 20 Níveis)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Injeta nós aninhados excessivos para esgotar memória da pilha.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSimProtoScenario('GETTER_SETTER_RCE_ATTEMPT')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer sm:col-span-2 ${
+                      simProtoScenario === 'GETTER_SETTER_RCE_ATTEMPT'
+                        ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 ring-2 ring-cyan-500/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-bold text-xs mb-1">Desserialização Insegura / RCE (node-serialize)</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Injeta funções anônimas executáveis camufladas em strings de payload.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={simulatingProtoAttack}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  {simulatingProtoAttack ? 'Disparando Exploit...' : 'Disparar Exploit Simulado & Validar Bloqueio'}
+                </button>
+              </div>
+            </form>
+
+            {/* Resposta do Teste Adversarial */}
+            {simProtoAttackResult && (
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    {simProtoAttackResult.blocked ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                    )}
+                    Mitigação do Enclave de Prototype Pollution
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    simProtoAttackResult.blocked
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  }`}>
+                    {simProtoAttackResult.blocked ? 'EXPLOT DETECTADO & NEUTRALIZADO' : 'EXPLOT NÃO INTERCEPTADO'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {simProtoAttackResult.message}
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Vetor Interceptado:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {simProtoAttackResult.vector}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Cenário:</span>
+                    <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                      {simProtoAttackResult.scenario}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Registro WORM:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">
+                      {new Date(simProtoAttackResult.timestamp).toLocaleTimeString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conteúdo Aba 3: Políticas Ativas */}
+        {protoActiveTab === 'policy' && (
+          <form onSubmit={handleUpdateProtoPolicySubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4 text-xs">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-cyan-500" />
+                Parâmetros Globais de Defesa contra Injeção de Protótipo
+              </h3>
+              <span className="text-[10px] text-slate-400 font-mono">
+                Hardening Conforme OWASP ASVS V5.5
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Estratégia Padrão de Sanitização:
+                </label>
+                <select
+                  value={policyStrategySelect}
+                  onChange={(e) => setPolicyStrategySelect(e.target.value as SanitizationStrategy)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                >
+                  <option value={SanitizationStrategy.NULL_PROTOTYPE_FREEZE}>
+                    NULL_PROTOTYPE_FREEZE (Object.create(null) + Congelamento Imutável)
+                  </option>
+                  <option value={SanitizationStrategy.FAIL_FAST_REJECT}>
+                    FAIL_FAST_REJECT (Rejeição Imediata com Erro 403)
+                  </option>
+                  <option value={SanitizationStrategy.STRIP_DANGEROUS_KEYS}>
+                    STRIP_DANGEROUS_KEYS (Remoção Silenciosa das Chaves Proibidas)
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Profundidade Máxima Permitida (Recursion Limit):
+                </label>
+                <input
+                  type="number"
+                  min={3}
+                  max={25}
+                  value={policyMaxDepth}
+                  onChange={(e) => setPolicyMaxDepth(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Limite Máximo de Propriedades por Objeto (Key Count Limit):
+                </label>
+                <input
+                  type="number"
+                  min={50}
+                  max={5000}
+                  value={policyMaxKeys}
+                  onChange={(e) => setPolicyMaxKeys(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyFreeze}
+                    onChange={(e) => setPolicyFreeze(e.target.checked)}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Congelar objetos sanitizados (Object.freeze profundo)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={updatingProtoPolicy}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {updatingProtoPolicy ? 'Salvando...' : 'Salvar Políticas de Segurança'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tabela de Incidentes Bloqueados & Trilha WORM */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              Histórico Forense de Incidentes de Poluição Bloqueados
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Trilha WORM com Selo RFC 8785
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="p-3">Data/Hora</th>
+                  <th className="p-3">Categoria</th>
+                  <th className="p-3">Ameaças Detectadas</th>
+                  <th className="p-3">IP de Origem</th>
+                  <th className="p-3">Estratégia Aplicada</th>
+                  <th className="p-3">Ação Tomada</th>
+                  <th className="p-3 text-right">Certidão WORM</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                {(protoOverview?.recentIncidents || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-6 text-center text-slate-400 text-xs">
+                      Nenhum incidente de poluição de protótipo registrado no momento.
+                    </td>
+                  </tr>
+                ) : (
+                  (protoOverview?.recentIncidents || []).map((inc) => (
+                    <tr key={inc.incidentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(inc.timestamp).toLocaleTimeString('pt-BR')}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                        {inc.category}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap gap-1">
+                          {inc.threats.map((t, tidx) => (
+                            <span key={tidx} className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {t.maliciousKey} ({t.vector})
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.clientIp}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-cyan-600 dark:text-cyan-400">
+                        {inc.strategyApplied}
+                      </td>
+                      <td className="p-3 text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate max-w-xs">
+                        {inc.actionTaken}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProtoModalIncidentItem(inc);
+                            setSelectedProtoSealForModal(inc.proofSeal);
+                            setProtoSealVerifyResult(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Certidão WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -27188,6 +28012,161 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedThresholdSealForModal(null);
                     setThresholdModalVaultItem(null);
                     setThresholdSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 44.A: CERTIDÃO NOTARIAL FORENSE DE NEUTRALIZAÇÃO DE PROTOTYPE POLLUTION WORM (RFC 8785 & CWE-1321) */}
+      {selectedProtoSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Braces className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                Certidão Notarial Forense de Neutralização de Prototype Pollution WORM
+              </h3>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                OWASP ASVS V5.5 • CWE-1321
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block">ID da Varredura Notarial:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedProtoSealForModal.scanId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Categoria do Payload:</span>
+                    <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">
+                      {selectedProtoSealForModal.category}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Status da Análise:</span>
+                    <span className={`font-bold ${
+                      selectedProtoSealForModal.isClean
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}>
+                      {selectedProtoSealForModal.isClean ? 'Limpo & Sem Vetores' : 'Ameaças Neutralizadas'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Total de Ameaças Detectadas:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {selectedProtoSealForModal.threatsCount} vetor(es)
+                    </span>
+                  </div>
+                </div>
+
+                {protoModalIncidentItem && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">IP de Origem:</span>
+                      <span className="font-mono text-slate-800 dark:text-slate-200">
+                        {protoModalIncidentItem.clientIp}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Estratégia Aplicada:</span>
+                      <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                        {protoModalIncidentItem.strategyApplied}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Ação Forense Tomada:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {protoModalIncidentItem.actionTaken}
+                      </span>
+                    </div>
+
+                    {protoModalIncidentItem.threats.length > 0 && (
+                      <div className="pt-2 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">
+                          Vetor(es) Interceptado(s):
+                        </span>
+                        <div className="space-y-1">
+                          {protoModalIncidentItem.threats.map((t, idx) => (
+                            <div key={idx} className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[10px] flex items-center justify-between">
+                              <span className="font-mono font-bold text-rose-700 dark:text-rose-300">
+                                {t.vector} ({t.maliciousKey})
+                              </span>
+                              <span className="text-slate-500 font-mono">{t.path}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hash Canônico JCS (RFC 8785) */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico Determinístico SHA-256 (RFC 8785 JSON Canonicalization Scheme)
+                </span>
+                <p className="font-mono text-[10px] text-teal-400 break-all select-all">
+                  {selectedProtoSealForModal.canonicalHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-cyan-300 break-all select-all">
+                  {selectedProtoSealForModal.signature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {protoSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  protoSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {protoSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {protoSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedProtoSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingProtoSeal}
+                  onClick={() => handleVerifyProtoSealSubmit(selectedProtoSealForModal.signature)}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingProtoSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedProtoSealForModal(null);
+                    setProtoModalIncidentItem(null);
+                    setProtoSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

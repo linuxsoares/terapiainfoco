@@ -47,6 +47,7 @@ export * from './antiReplayShield';
 export * from './visualWatermarkShield';
 export * from './ephemeralTokenEngine';
 export * from './shamirSecretSharingEngine';
+export * from './prototypePollutionGuard';
 
 
 
