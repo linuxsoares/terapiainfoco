@@ -19,7 +19,8 @@ import type {
   StoredConsolidatedClinicalReport,
   StoredClinicalReferral,
   StoredClinicalReceipt,
-  StoredFeeContract
+  StoredFeeContract,
+  StoredTeleconsultationRoom
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -45,6 +46,7 @@ export class MemoryDatabase {
   public clinicalReferrals: Map<string, StoredClinicalReferral> = new Map();
   public receipts: Map<string, StoredClinicalReceipt> = new Map();
   public feeContracts: Map<string, StoredFeeContract> = new Map();
+  public teleconsultationRooms: Map<string, StoredTeleconsultationRoom> = new Map();
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];
@@ -182,6 +184,7 @@ export class MemoryDatabase {
     this.clinicalReferrals.clear();
     this.receipts.clear();
     this.feeContracts.clear();
+    this.teleconsultationRooms.clear();
     this.auditLogs = [];
     this.revokedTokens.clear();
     this.passkeys.clear();

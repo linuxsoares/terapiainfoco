@@ -31,12 +31,16 @@ import {
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
+import { TeleconsultationRoomModal } from './TeleconsultationRoomModal';
 
 export function AgendaModule() {
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Teleconsulta Nativa WebRTC P2P (RFC-001 §3.2)
+  const [selectedTeleconsultationApp, setSelectedTeleconsultationApp] = useState<DecryptedAppointment | null>(null);
 
   // Form de novo agendamento
   const [showModal, setShowModal] = useState(false);
@@ -529,6 +533,15 @@ export function AgendaModule() {
 
                   {/* Ações de Estado */}
                   <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-slate-800">
+                    <button
+                      onClick={() => setSelectedTeleconsultationApp(app)}
+                      className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title="Abrir Sala de Teleconsulta Nativa WebRTC P2P com Sala de Espera Ética (RFC-001 §3.2)"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Teleconsulta Nativa</span>
+                    </button>
+
                     <button
                       onClick={() => handleOpenReminderModal(app)}
                       className="px-3 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-500/10 hover:bg-teal-100 dark:hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -1192,6 +1205,19 @@ export function AgendaModule() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Teleconsulta Nativa WebRTC & Sala de Espera (RFC-001 §3.2, §3.3) */}
+      {selectedTeleconsultationApp && (
+        <TeleconsultationRoomModal
+          appointmentId={selectedTeleconsultationApp.id}
+          patientName="Mariana Silva de Oliveira"
+          onClose={() => setSelectedTeleconsultationApp(null)}
+          onProceedToSoap={() => {
+            setSelectedTeleconsultationApp(null);
+            setSuccessMsg('Teleconsulta concluída! Navegue para a aba Prontuário & SOAP para conferir a evolução clínica.');
+          }}
+        />
       )}
     </div>
   );
