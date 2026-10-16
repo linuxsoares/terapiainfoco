@@ -633,7 +633,11 @@ export enum AuditAction {
   // Ações de Anamnese Digital Interativa & Árvore Diagnóstica (RFC-001 §3.4)
   DIAGNOSTIC_ASSESSMENT_STARTED = 'DIAGNOSTIC_ASSESSMENT_STARTED',
   DIAGNOSTIC_ASSESSMENT_COMPLETED = 'DIAGNOSTIC_ASSESSMENT_COMPLETED',
-  DIAGNOSTIC_RED_FLAG_TRIGGERED = 'DIAGNOSTIC_RED_FLAG_TRIGGERED'
+  DIAGNOSTIC_RED_FLAG_TRIGGERED = 'DIAGNOSTIC_RED_FLAG_TRIGGERED',
+  // Ações de Prescrição & Encaminhamento Psiquiátrico com Validação Farmacológica (RFC-001 §3.5)
+  PSYCHIATRIC_REFERRAL_CREATED = 'PSYCHIATRIC_REFERRAL_CREATED',
+  DRUG_INTERACTIONS_EVALUATED = 'DRUG_INTERACTIONS_EVALUATED',
+  CRITICAL_DRUG_ALERT_TRIGGERED = 'CRITICAL_DRUG_ALERT_TRIGGERED'
 }
 
 export enum AuditResourceType {
@@ -711,7 +715,9 @@ export enum AuditResourceType {
   ICP_BATCH_CLOSING = 'ICP_BATCH_CLOSING',
   PATIENT_PORTAL = 'PATIENT_PORTAL',
   THERAPEUTIC_EXERCISE = 'THERAPEUTIC_EXERCISE',
-  DIAGNOSTIC_DECISION_TREE = 'DIAGNOSTIC_DECISION_TREE'
+  DIAGNOSTIC_DECISION_TREE = 'DIAGNOSTIC_DECISION_TREE',
+  PSYCHIATRIC_REFERRAL = 'PSYCHIATRIC_REFERRAL',
+  DRUG_INTERACTION_CHECKER = 'DRUG_INTERACTION_CHECKER'
 }
 
 /**
@@ -2537,6 +2543,30 @@ export enum InitialScreenerType {
   PHQ_4 = 'PHQ_4',         // Patient Health Questionnaire-4 (Ansiedade & Depressão ultrarrápida)
   PSS_10 = 'PSS_10',       // Perceived Stress Scale-10 (Escala de Estresse Percebido)
   ASRS_V1_1 = 'ASRS_V1_1'  // Adult ADHD Self-Report Scale v1.1 (Triagem TDAH 6 itens)
+}
+
+/**
+ * Classes Farmacológicas de Psicofármacos (RFC-001 §3.5)
+ */
+export enum PsychopharmacologyCategory {
+  ANTIDEPRESSANT_SSRI = 'ANTIDEPRESSANT_SSRI',           // ISRS: Fluoxetina, Sertralina, Escitalopram
+  ANTIDEPRESSANT_SNRI = 'ANTIDEPRESSANT_SNRI',           // IRSN: Venlafaxina, Desvenlafaxina, Duloxetina
+  ANTIDEPRESSANT_ATYPICAL = 'ANTIDEPRESSANT_ATYPICAL',   // Atípicos: Bupropiona, Mirtazapina, Vortioxetina
+  ANXIOLYTIC_BENZODIAZEPINE = 'ANXIOLYTIC_BENZODIAZEPINE', // Benzodiazepínicos: Clonazepam, Alprazolam, Diazepam
+  HYPNOTIC_NON_BENZO = 'HYPNOTIC_NON_BENZO',             // Hipnóticos Z: Zolpidem, Eszopiclona
+  MOOD_STABILIZER = 'MOOD_STABILIZER',                   // Estabilizadores: Carbonato de Lítio, Ácido Valproico, Lamotrigina
+  ANTIPSYCHOTIC_ATYPICAL = 'ANTIPSYCHOTIC_ATYPICAL',     // Antipsicóticos Segunda Geração: Quetiapina, Risperidona, Aripiprazol, Olanzapina
+  PSYCHOSTIMULANT = 'PSYCHOSTIMULANT'                    // Psicoestimulantes: Metilfenidato, Lisdexanfetamina
+}
+
+/**
+ * Severidade de Risco da Interação Medicamentosa
+ */
+export enum DrugInteractionSeverity {
+  MINOR = 'MINOR',                     // Leve, efeito clínico modesto, monitorar
+  MODERATE = 'MODERATE',               // Moderada, requer cautela ou ajuste de horário/dose
+  MAJOR = 'MAJOR',                     // Severa, risco significativo de toxicidade clínica ou síndrome aguda
+  CONTRAINDICATED = 'CONTRAINDICATED'  // Contraindicada, combinação de alto risco de letalidade
 }
 
 

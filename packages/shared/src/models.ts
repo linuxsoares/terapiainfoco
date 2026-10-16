@@ -5603,6 +5603,68 @@ export interface DiagnosticAssessmentReport {
   encryptedConfidentialNotes?: any;
 }
 
+/**
+ * Ficha de Informação Farmacológica de Psicofármacos (RFC-001 §3.5)
+ */
+export interface Psychopharmaceutical {
+  id: string;
+  tradeName: string;
+  genericName: string;
+  category: import('./enums').PsychopharmacologyCategory;
+  commonDosages: string[];
+  primaryIndications: string[];
+  commonSideEffects: string[];
+  clinicalPearls: string;
+}
+
+/**
+ * Registro de Interação Medicamentosa Cruzada
+ */
+export interface DrugInteractionRecord {
+  drugsInvolved: [string, string];
+  drugNames: [string, string];
+  severity: import('./enums').DrugInteractionSeverity;
+  mechanism: string;
+  clinicalRisk: string;
+  psychologistManagementTip: string;
+}
+
+/**
+ * Medicamento de Uso Contínuo Relatado pelo Paciente
+ */
+export interface PatientCurrentMedication {
+  drugId: string;
+  drugName: string;
+  dosage: string;
+  frequency: string;
+  startDate?: string;
+  prescribingDoctor?: string;
+  patientReportedAdherence: 'FULL' | 'PARTIAL' | 'NON_ADHERENT';
+  reportedSideEffects?: string;
+}
+
+/**
+ * Guia de Encaminhamento Psiquiátrico Interoperável (RFC-001 §3.5 & CFP nº 006/2019)
+ */
+export interface PsychiatricReferralGuide {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  therapistName: string;
+  therapistCrp: string;
+  urgencyLevel: import('./enums').DiagnosticUrgencyLevel;
+  reasonForReferral: string;
+  clinicalHypothesesCid11: string[];
+  currentMedications: PatientCurrentMedication[];
+  detectedInteractions: DrugInteractionRecord[];
+  psychometricSummary?: { scale: string; score: number; severity: string };
+  confidentialNotes?: string;
+  validationToken: string;
+  integrityChecksumSha256: string;
+  createdAt: Date | string;
+  encryptedContent?: any;
+}
+
 
 
 

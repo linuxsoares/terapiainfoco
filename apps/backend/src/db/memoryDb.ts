@@ -25,7 +25,8 @@ import type {
   AiSoapDraft,
   IcpBatchClosingManifest,
   TherapeuticExercise,
-  DiagnosticAssessmentReport
+  DiagnosticAssessmentReport,
+  PsychiatricReferralGuide
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -57,6 +58,7 @@ export class MemoryDatabase {
   public batchClosingManifests: Map<string, IcpBatchClosingManifest> = new Map();
   public therapeuticExercises: Map<string, TherapeuticExercise> = new Map();
   public diagnosticReports: Map<string, DiagnosticAssessmentReport> = new Map();
+  public psychiatricReferrals: Map<string, PsychiatricReferralGuide> = new Map();
   public patientAccessCodes: Map<string, { code: string; patientId: string; expiresAt: Date }> = new Map();
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
@@ -201,6 +203,7 @@ export class MemoryDatabase {
     this.batchClosingManifests.clear();
     this.therapeuticExercises.clear();
     this.diagnosticReports.clear();
+    this.psychiatricReferrals.clear();
     this.patientAccessCodes.clear();
     this.auditLogs = [];
     this.revokedTokens.clear();

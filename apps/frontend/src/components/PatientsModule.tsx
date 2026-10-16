@@ -31,7 +31,8 @@ import {
   Calendar,
   AlertTriangle,
   HeartHandshake,
-  GitBranch
+  GitBranch,
+  Pill
 } from 'lucide-react';
 import type { 
   DecryptedPatient, 
@@ -57,6 +58,7 @@ import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
 import { PatientPortalModal } from './PatientPortalModal';
 import { DiagnosticDecisionTreeModal } from './DiagnosticDecisionTreeModal';
+import { PsychiatricReferralModal } from './PsychiatricReferralModal';
 
 export function PatientsModule() {
   const [searchCpf, setSearchCpf] = useState('');
@@ -170,6 +172,11 @@ export function PatientsModule() {
   const [showDiagnosticTreeModal, setShowDiagnosticTreeModal] = useState(false);
   const [selectedDiagnosticPatientId, setSelectedDiagnosticPatientId] = useState<string | undefined>(undefined);
   const [selectedDiagnosticPatientName, setSelectedDiagnosticPatientName] = useState<string | undefined>(undefined);
+
+  // Modal de Prescrição & Encaminhamento Psiquiátrico (RFC §3.5)
+  const [showPsychiatricReferralModal, setShowPsychiatricReferralModal] = useState(false);
+  const [selectedPsychiatricPatientId, setSelectedPsychiatricPatientId] = useState<string | undefined>(undefined);
+  const [selectedPsychiatricPatientName, setSelectedPsychiatricPatientName] = useState<string | undefined>(undefined);
 
   const handleOpenGoals = async (patientId: string) => {
     setShowGoalsModal(true);
@@ -817,6 +824,18 @@ export function PatientsModule() {
               >
                 <GitBranch className="w-3.5 h-3.5" />
                 Árvore Diagnóstica (RFC §3.4)
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedPsychiatricPatientId(searchResult.id);
+                  setSelectedPsychiatricPatientName(searchResult.name);
+                  setShowPsychiatricReferralModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Pill className="w-3.5 h-3.5" />
+                Encaminhamento Psiquiátrico (RFC §3.5)
               </button>
 
               <button
@@ -2780,6 +2799,16 @@ export function PatientsModule() {
           onClose={() => setShowDiagnosticTreeModal(false)}
           patientId={selectedDiagnosticPatientId}
           patientName={selectedDiagnosticPatientName}
+        />
+      )}
+
+      {/* Modal de Prescrição & Encaminhamento Psiquiátrico (RFC §3.5) */}
+      {selectedPsychiatricPatientId && (
+        <PsychiatricReferralModal
+          isOpen={showPsychiatricReferralModal}
+          onClose={() => setShowPsychiatricReferralModal(false)}
+          patientId={selectedPsychiatricPatientId}
+          patientName={selectedPsychiatricPatientName}
         />
       )}
     </div>
