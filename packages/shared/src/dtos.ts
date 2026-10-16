@@ -4753,6 +4753,125 @@ export interface PsychopharmaceuticalCatalogResponse {
   total: number;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 42. EXPORTAÇÃO SEGURA E PORTABILIDADE DE PRONTUÁRIO EM PACOTE CIFRADO .ENC (RFC-001 §3.3, §4.4 & LGPD Art. 18)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface GeneratePortabilityEncVaultDTO {
+  patientId: string;
+  holderPassphrase: string;
+  kdfAlgorithm?: import('./enums').PortabilityKdfAlgorithm;
+  requestReason?: string;
+}
+
+export interface GeneratePortabilityEncVaultResponse {
+  success: boolean;
+  vaultFile: import('./models').EncryptedPortabilityEncFile;
+  fileName: string;
+  merkleRootSha256: string;
+  notarySeal: import('./models').PortabilityNotarySeal;
+  message: string;
+}
+
+export interface VerifyPortabilityEncVaultDTO {
+  vaultFile: import('./models').EncryptedPortabilityEncFile;
+  holderPassphrase?: string;
+}
+
+export interface VerifyPortabilityEncVaultResponse {
+  success: boolean;
+  verification: import('./models').PortabilityVaultVerificationResult;
+  message: string;
+}
+
+export interface DecryptPortabilityEncVaultDTO {
+  vaultFile: import('./models').EncryptedPortabilityEncFile;
+  holderPassphrase: string;
+}
+
+export interface DecryptPortabilityEncVaultResponse {
+  success: boolean;
+  payload: import('./models').ConsolidatedPortabilityPayload;
+  verification: import('./models').PortabilityVaultVerificationResult;
+  message: string;
+}
+
+export interface PortabilityVaultHistoryResponse {
+  success: boolean;
+  vaults: Array<{
+    vaultId: string;
+    patientId: string;
+    patientInitials: string;
+    kdfAlgorithm: import('./enums').PortabilityKdfAlgorithm;
+    merkleRootSha256: string;
+    sealToken: string;
+    totalRecordsCount: number;
+    exportedAt: string;
+  }>;
+  total: number;
+}
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 43. PROTEÇÃO CONTRA INJEÇÃO DE OBJETOS E DESSERIALIZAÇÃO NÃO SEGURA EM WEBSOCKET (RFC 6455 & CWE-502)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface InspectWebSocketFrameDTO {
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  opcode?: import('./enums').WebSocketFrameOpcode;
+  rawFramePayload: string;
+  sessionId?: string;
+}
+
+export interface InspectWebSocketFrameResponse {
+  success: boolean;
+  result: import('./models').WebSocketFrameInspectionResult;
+  incident?: import('./models').WebSocketSecurityIncident;
+  seal: import('./models').WebSocketProofSeal;
+  message: string;
+}
+
+export interface UpdateWebSocketGuardPolicyDTO {
+  policy: Partial<import('./models').WebSocketGuardPolicy>;
+}
+
+export interface UpdateWebSocketGuardPolicyResponse {
+  success: boolean;
+  policy: import('./models').WebSocketGuardPolicy;
+  message: string;
+}
+
+export interface SimulateWebSocketAttackDTO {
+  sampleId?: string;
+  attackCategory?: import('./enums').WebSocketThreatCategory;
+}
+
+export interface SimulateWebSocketAttackResponse {
+  success: boolean;
+  sampleUsed: import('./models').WebSocketAdversarialSample;
+  result: import('./models').WebSocketFrameInspectionResult;
+  incident: import('./models').WebSocketSecurityIncident;
+  seal: import('./models').WebSocketProofSeal;
+  message: string;
+}
+
+export interface VerifyWebSocketSealDTO {
+  sealId: string;
+  seal?: import('./models').WebSocketProofSeal;
+}
+
+export interface VerifyWebSocketSealResponse {
+  success: boolean;
+  isValid: boolean;
+  sealId: string;
+  verifiedAt: string;
+  details: string;
+}
+
+
 
 
 

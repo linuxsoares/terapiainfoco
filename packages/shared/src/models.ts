@@ -5665,6 +5665,230 @@ export interface PsychiatricReferralGuide {
   encryptedContent?: any;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 42. EXPORTAÇÃO SEGURA E PORTABILIDADE DE PRONTUÁRIO EM PACOTE CIFRADO .ENC (RFC-001 §3.3, §4.4 & LGPD Art. 18)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface PortabilitySectionDigest {
+  section: import('./enums').PortabilitySectionType;
+  label: string;
+  recordsCount: number;
+  sha256Digest: string;
+}
+
+export interface PortabilityNotarySeal {
+  sealToken: string; // port_enc_seal_v1_<base64url>
+  patientId: string;
+  therapistCrp: string;
+  merkleRootSha256: string;
+  plaintextCanonicalSha256: string;
+  ciphertextSha256: string;
+  kdfAlgorithm: import('./enums').PortabilityKdfAlgorithm;
+  issuedAt: string;
+  hmacSignature: string;
+}
+
+export interface ConsolidatedPortabilityPayload {
+  schemaVersion: '2.0.0-RFC001';
+  exportedAt: string;
+  requestReason: string;
+  regulationCompliance: {
+    lgpdArticles: string[];
+    cfpResolutions: string[];
+    retentionGuaranteeYears: number;
+    holderAutonomyStatement: string;
+  };
+  therapist: {
+    id: string;
+    name: string;
+    crp: string;
+    crpRegion: string;
+  };
+  patientDemographics: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    cpf?: string;
+    consentTranscriptionSigned: boolean;
+    createdAt: string;
+  };
+  anamnesisRecords: any[];
+  appointments: any[];
+  clinicalRecordsSoap: any[];
+  psychometricAssessments: any[];
+  diagnosticDecisionReports: any[];
+  therapeuticGoalsSmart: any[];
+  portalExercises: any[];
+  psychologicalDocuments: any[];
+  psychiatricReferrals: any[];
+  billingReceiptsDmed: any[];
+  sectionDigests: PortabilitySectionDigest[];
+  merkleRootSha256: string;
+  canonicalSha256: string;
+}
+
+export interface EncryptedPortabilityEncFile {
+  fileHeader: 'TERAPIAINFOCO-PORTABILITY-VAULT-V2';
+  fileExtension: '.enc';
+  vaultId: string;
+  patientId: string;
+  patientInitials: string;
+  therapistCrp: string;
+  cipherAlgorithm: 'aes-256-gcm';
+  kdfAlgorithm: import('./enums').PortabilityKdfAlgorithm;
+  kdfParams: {
+    memoryCostKiB: number;
+    timeCostIterations: number;
+    parallelism: number;
+    saltHex: string;
+    argon2EncodedVerifier?: string;
+  };
+  ivBase64: string;
+  authTagBase64: string;
+  aadHex: string;
+  ciphertextBase64: string;
+  sectionDigests: PortabilitySectionDigest[];
+  merkleRootSha256: string;
+  plaintextCanonicalSha256: string;
+  ciphertextSha256: string;
+  notarySeal: PortabilityNotarySeal;
+  exportedAt: string;
+}
+
+export interface PortabilityVaultVerificationResult {
+  isValid: boolean;
+  headerValid: boolean;
+  ciphertextHashMatch: boolean;
+  merkleRootMatch: boolean;
+  notarySealValid: boolean;
+  passphraseVerified?: boolean;
+  vaultId: string;
+  patientId: string;
+  merkleRootSha256: string;
+  totalRecordsCount: number;
+  verifiedAt: string;
+  details: string;
+}
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 43. PROTEÇÃO CONTRA INJEÇÃO DE OBJETOS E DESSERIALIZAÇÃO NÃO SEGURA EM WEBSOCKET (RFC 6455 & CWE-502)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface WebSocketThreat {
+  id: string;
+  category: import('./enums').WebSocketThreatCategory;
+  severity: import('./enums').WebSocketRiskSeverity;
+  cwe: string;
+  description: string;
+  matchedPattern: string;
+  remediation: string;
+}
+
+export interface WebSocketProofSeal {
+  sealId: string; // ws_guard_seal_<hash>
+  timestamp: string;
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  opcode: import('./enums').WebSocketFrameOpcode;
+  payloadSha256: string;
+  action: import('./enums').WebSocketValidationAction;
+  severity: import('./enums').WebSocketRiskSeverity;
+  hmacSignature: string;
+}
+
+export interface WebSocketFrameInspectionResult {
+  isValid: boolean;
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  opcode: import('./enums').WebSocketFrameOpcode;
+  severity: import('./enums').WebSocketRiskSeverity;
+  action: import('./enums').WebSocketValidationAction;
+  frameSizeBytes: number;
+  nestingDepth: number;
+  keyCount: number;
+  eventTypeDetected: string;
+  threats: WebSocketThreat[];
+  sanitizedPayload: Record<string, any> | null;
+  inspectionDurationUs: number;
+  seal: WebSocketProofSeal;
+}
+
+export interface ClinicalWebSocketChannelSchema {
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  label: string;
+  description: string;
+  allowedOpcodes: import('./enums').WebSocketFrameOpcode[];
+  allowedEventTypes: string[];
+  maxPayloadBytes: number;
+  maxNestingDepth: number;
+  sampleSafeFrame: string;
+}
+
+export interface WebSocketGuardPolicy {
+  blockPolymorphicGadgets: boolean;       // Bloqueia $type, @class, java.lang.*, !!python/object, rO0AB
+  blockPrototypePollution: boolean;       // Bloqueia __proto__, constructor, prototype
+  blockBinaryFramesOnJsonChannels: boolean; // Bloqueia 0x2_BINARY e opcodes reservados
+  enforceChannelEventSchema: boolean;     // Exige eventos explicitamente registrados por canal
+  blockExecutablePayloads: boolean;       // Bloqueia funções serializadas e eval
+  maxFrameSizeBytes: number;              // Limite por frame (ex: 65536 bytes)
+  maxJsonNestingDepth: number;            // Profundidade máxima JSON (ex: 8 níveis)
+  maxObjectKeysCount: number;             // Máximo de chaves por objeto (ex: 100 chaves)
+  updatedAt: string;
+}
+
+export interface WebSocketGuardMetrics {
+  totalFramesInspected: number;
+  cleanFramesAllowed: number;
+  framesSanitized: number;
+  deserializationGadgetsBlocked: number;
+  prototypePollutionBlocked: number;
+  binarySmugglingBlocked: number;
+  depthOrSizeFloodsBlocked: number;
+  connectionsTerminated1008: number;
+  avgInspectionLatencyUs: number;
+  lastIncidentTimestamp: string | null;
+}
+
+export interface WebSocketSecurityIncident {
+  id: string;
+  incidentId: string;
+  timestamp: string;
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  opcode: import('./enums').WebSocketFrameOpcode;
+  category: import('./enums').WebSocketThreatCategory;
+  severity: import('./enums').WebSocketRiskSeverity;
+  threats: WebSocketThreat[];
+  actionTaken: import('./enums').WebSocketValidationAction;
+  rawFrameSnippet: string;
+  clientIp: string;
+  sessionId?: string;
+  seal: WebSocketProofSeal;
+}
+
+export interface WebSocketAdversarialSample {
+  id: string;
+  name: string;
+  category: import('./enums').WebSocketThreatCategory;
+  cwe: string;
+  channel: import('./enums').ClinicalWebSocketChannelType;
+  opcode: import('./enums').WebSocketFrameOpcode;
+  rawFramePayload: string;
+  description: string;
+}
+
+export interface WebSocketGuardOverview {
+  policy: WebSocketGuardPolicy;
+  metrics: WebSocketGuardMetrics;
+  recentIncidents: WebSocketSecurityIncident[];
+  recentSeals: WebSocketProofSeal[];
+  channelSchemas: ClinicalWebSocketChannelSchema[];
+  adversarialSamples: WebSocketAdversarialSample[];
+}
+
+
 
 
 

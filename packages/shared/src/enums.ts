@@ -637,7 +637,18 @@ export enum AuditAction {
   // Ações de Prescrição & Encaminhamento Psiquiátrico com Validação Farmacológica (RFC-001 §3.5)
   PSYCHIATRIC_REFERRAL_CREATED = 'PSYCHIATRIC_REFERRAL_CREATED',
   DRUG_INTERACTIONS_EVALUATED = 'DRUG_INTERACTIONS_EVALUATED',
-  CRITICAL_DRUG_ALERT_TRIGGERED = 'CRITICAL_DRUG_ALERT_TRIGGERED'
+  CRITICAL_DRUG_ALERT_TRIGGERED = 'CRITICAL_DRUG_ALERT_TRIGGERED',
+  // Ações de Exportação Segura e Portabilidade Consolidada em Pacote .enc (RFC-001 §3.3, §4.4 & LGPD Art. 18)
+  PORTABILITY_ENC_VAULT_GENERATED = 'PORTABILITY_ENC_VAULT_GENERATED',
+  PORTABILITY_ENC_VAULT_VERIFIED = 'PORTABILITY_ENC_VAULT_VERIFIED',
+  PORTABILITY_ENC_VAULT_DECRYPTED = 'PORTABILITY_ENC_VAULT_DECRYPTED',
+  // Ações de Proteção contra Injeção de Objetos e Desserialização Não Segura em WebSocket (RFC 6455 & CWE-502)
+  WEBSOCKET_FRAME_INSPECTED = 'WEBSOCKET_FRAME_INSPECTED',
+  WEBSOCKET_DESERIALIZATION_ATTACK_BLOCKED = 'WEBSOCKET_DESERIALIZATION_ATTACK_BLOCKED',
+  WEBSOCKET_OBJECT_INJECTION_BLOCKED = 'WEBSOCKET_OBJECT_INJECTION_BLOCKED',
+  WEBSOCKET_PROTOCOL_VIOLATION_BLOCKED = 'WEBSOCKET_PROTOCOL_VIOLATION_BLOCKED',
+  WEBSOCKET_GUARD_POLICY_UPDATED = 'WEBSOCKET_GUARD_POLICY_UPDATED',
+  WEBSOCKET_SEAL_VERIFIED = 'WEBSOCKET_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -700,6 +711,7 @@ export enum AuditResourceType {
   GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD',
   HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD',
   SUPPLY_CHAIN_GUARD = 'SUPPLY_CHAIN_GUARD',
+  WEBSOCKET_DESERIALIZATION_GUARD = 'WEBSOCKET_DESERIALIZATION_GUARD',
   APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
   PATIENT_TIMELINE = 'PATIENT_TIMELINE',
   CLINICAL_MARKER = 'CLINICAL_MARKER',
@@ -717,7 +729,8 @@ export enum AuditResourceType {
   THERAPEUTIC_EXERCISE = 'THERAPEUTIC_EXERCISE',
   DIAGNOSTIC_DECISION_TREE = 'DIAGNOSTIC_DECISION_TREE',
   PSYCHIATRIC_REFERRAL = 'PSYCHIATRIC_REFERRAL',
-  DRUG_INTERACTION_CHECKER = 'DRUG_INTERACTION_CHECKER'
+  DRUG_INTERACTION_CHECKER = 'DRUG_INTERACTION_CHECKER',
+  PORTABILITY_ENC_VAULT = 'PORTABILITY_ENC_VAULT'
 }
 
 /**
@@ -2568,6 +2581,83 @@ export enum DrugInteractionSeverity {
   MAJOR = 'MAJOR',                     // Severa, risco significativo de toxicidade clínica ou síndrome aguda
   CONTRAINDICATED = 'CONTRAINDICATED'  // Contraindicada, combinação de alto risco de letalidade
 }
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 42. EXPORTAÇÃO SEGURA E PORTABILIDADE DE PRONTUÁRIO EM PACOTE CIFRADO .ENC (RFC-001 §3.3, §4.4 & LGPD Art. 18)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export enum PortabilityKdfAlgorithm {
+  ARGON2ID = 'ARGON2ID',               // Argon2id RFC 9106 (Memory-hard KDF resistente a GPU/ASIC)
+  PBKDF2_SHA512 = 'PBKDF2_SHA512'      // PBKDF2-HMAC-SHA512 100.000 iterações (compatibilidade FIPS)
+}
+
+export enum PortabilitySectionType {
+  PATIENT_DEMOGRAPHICS = 'PATIENT_DEMOGRAPHICS',
+  ANAMNESIS_BIOPSYCHOSOCIAL = 'ANAMNESIS_BIOPSYCHOSOCIAL',
+  APPOINTMENTS_SERIES = 'APPOINTMENTS_SERIES',
+  CLINICAL_RECORDS_SOAP = 'CLINICAL_RECORDS_SOAP',
+  PSYCHOMETRIC_SCALES = 'PSYCHOMETRIC_SCALES',
+  DIAGNOSTIC_DECISION_REPORTS = 'DIAGNOSTIC_DECISION_REPORTS',
+  THERAPEUTIC_GOALS_SMART = 'THERAPEUTIC_GOALS_SMART',
+  PORTAL_EXERCISES = 'PORTAL_EXERCISES',
+  PSYCHOLOGICAL_DOCUMENTS = 'PSYCHOLOGICAL_DOCUMENTS',
+  PSYCHIATRIC_REFERRALS = 'PSYCHIATRIC_REFERRALS',
+  BILLING_RECEIPTS_DMED = 'BILLING_RECEIPTS_DMED',
+  CONSENT_TCLE_LEDGER = 'CONSENT_TCLE_LEDGER'
+}
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 43. PROTEÇÃO CONTRA INJEÇÃO DE OBJETOS E DESSERIALIZAÇÃO NÃO SEGURA EM WEBSOCKET (RFC 6455 & CWE-502)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export enum WebSocketRiskSeverity {
+  CLEAN = 'CLEAN',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+export enum WebSocketThreatCategory {
+  NONE = 'NONE',
+  INSECURE_DESERIALIZATION_GADGET = 'INSECURE_DESERIALIZATION_GADGET', // CWE-502: $type, @class, java.lang.Runtime, !!python/object, rO0AB
+  PROTOTYPE_POLLUTION_INJECTION = 'PROTOTYPE_POLLUTION_INJECTION',     // CWE-1321: __proto__, constructor.prototype
+  BINARY_OPCODE_SMUGGLING = 'BINARY_OPCODE_SMUGGLING',                 // RFC 6455: Opcode reservado ou binário não autorizado em canal JSON
+  DEEP_NESTING_DOS = 'DEEP_NESTING_DOS',                               // JSON Depth Bomb / Stack Exhaustion
+  OVERSIZED_FRAME_FLOOD = 'OVERSIZED_FRAME_FLOOD',                     // Frame acima do limite máximo de bytes
+  UNREGISTERED_CHANNEL_EVENT = 'UNREGISTERED_CHANNEL_EVENT',           // Evento fora do schema estrito de teleconsulta
+  EXECUTABLE_CODE_PAYLOAD = 'EXECUTABLE_CODE_PAYLOAD'                  // Function serialization / eval / script injection em frame WS
+}
+
+export enum WebSocketValidationAction {
+  ALLOW_FRAME = 'ALLOW_FRAME',
+  SANITIZE_PAYLOAD = 'SANITIZE_PAYLOAD',
+  DROP_FRAME = 'DROP_FRAME',
+  TERMINATE_CONNECTION_1008 = 'TERMINATE_CONNECTION_1008' // RFC 6455 Status 1008 (Policy Violation) / 1007 (Invalid Payload)
+}
+
+export enum WebSocketFrameOpcode {
+  CONTINUATION = '0x0_CONTINUATION',
+  TEXT = '0x1_TEXT',
+  BINARY = '0x2_BINARY',
+  CLOSE = '0x8_CLOSE',
+  PING = '0x9_PING',
+  PONG = '0xA_PONG',
+  RESERVED_ILLEGAL = '0x3_RESERVED_ILLEGAL'
+}
+
+export enum ClinicalWebSocketChannelType {
+  WEBRTC_SIGNALING = 'WEBRTC_SIGNALING',                 // SDP Offer/Answer e ICE Candidates (RFC-001 §3.2)
+  LIVE_TRANSCRIPTION_STREAM = 'LIVE_TRANSCRIPTION_STREAM', // Utterances diarizadas em tempo real (RFC-001 §3.3)
+  CLINICAL_MARKERS_SYNC = 'CLINICAL_MARKERS_SYNC',       // Marcadores clínicos do psicólogo em tempo real
+  WAITING_ROOM_PRESENCE = 'WAITING_ROOM_PRESENCE',       // Sala de espera ética CFP nº 011/2018 (Knocking)
+  TELEMETRY_HEARTBEAT = 'TELEMETRY_HEARTBEAT'            // Heartbeat de sessão e qualidade MOS ITU-T G.107
+}
+
 
 
 

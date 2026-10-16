@@ -3821,8 +3821,68 @@ export const api = {
 
   async validatePsychiatricReferral(token: string): Promise<{ success: boolean; isValid: boolean; referral?: Partial<PsychiatricReferralGuide>; message: string }> {
     return await request<{ success: boolean; isValid: boolean; referral?: Partial<PsychiatricReferralGuide>; message: string }>(`/psychiatric-referrals/validate/${token}`);
+  },
+
+  // Exportação Segura e Portabilidade Consolidada em Pacote .enc (Argon2id + AES-256-GCM + Merkle Root - RFC-001 §3.3, §4.4 & LGPD Art. 18)
+  async generatePortabilityEncVault(dto: import('@terapiainfoco/shared').GeneratePortabilityEncVaultDTO): Promise<import('@terapiainfoco/shared').GeneratePortabilityEncVaultResponse> {
+    return await request<import('@terapiainfoco/shared').GeneratePortabilityEncVaultResponse>('/portability-vault/generate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPortabilityEncVault(dto: import('@terapiainfoco/shared').VerifyPortabilityEncVaultDTO): Promise<import('@terapiainfoco/shared').VerifyPortabilityEncVaultResponse> {
+    return await request<import('@terapiainfoco/shared').VerifyPortabilityEncVaultResponse>('/portability-vault/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async decryptPortabilityEncVault(dto: import('@terapiainfoco/shared').DecryptPortabilityEncVaultDTO): Promise<import('@terapiainfoco/shared').DecryptPortabilityEncVaultResponse> {
+    return await request<import('@terapiainfoco/shared').DecryptPortabilityEncVaultResponse>('/portability-vault/decrypt', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientPortabilityVaultHistory(patientId: string): Promise<import('@terapiainfoco/shared').PortabilityVaultHistoryResponse> {
+    return await request<import('@terapiainfoco/shared').PortabilityVaultHistoryResponse>(`/portability-vault/patients/${encodeURIComponent(patientId)}/history`);
+  },
+
+  // Proteção contra Injeção de Objetos e Desserialização Não Segura em WebSocket (RFC 6455 & CWE-502)
+  async getWebSocketGuardOverview(): Promise<{ success: boolean; overview: import('@terapiainfoco/shared').WebSocketGuardOverview }> {
+    return await request<{ success: boolean; overview: import('@terapiainfoco/shared').WebSocketGuardOverview }>('/websocket-guard/overview');
+  },
+
+  async inspectWebSocketFrame(dto: import('@terapiainfoco/shared').InspectWebSocketFrameDTO): Promise<import('@terapiainfoco/shared').InspectWebSocketFrameResponse> {
+    return await request<import('@terapiainfoco/shared').InspectWebSocketFrameResponse>('/websocket-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateWebSocketGuardPolicy(dto: import('@terapiainfoco/shared').UpdateWebSocketGuardPolicyDTO): Promise<import('@terapiainfoco/shared').UpdateWebSocketGuardPolicyResponse> {
+    return await request<import('@terapiainfoco/shared').UpdateWebSocketGuardPolicyResponse>('/websocket-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateWebSocketAttack(dto: import('@terapiainfoco/shared').SimulateWebSocketAttackDTO): Promise<import('@terapiainfoco/shared').SimulateWebSocketAttackResponse> {
+    return await request<import('@terapiainfoco/shared').SimulateWebSocketAttackResponse>('/websocket-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyWebSocketSeal(dto: import('@terapiainfoco/shared').VerifyWebSocketSealDTO): Promise<import('@terapiainfoco/shared').VerifyWebSocketSealResponse> {
+    return await request<import('@terapiainfoco/shared').VerifyWebSocketSealResponse>('/websocket-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 
