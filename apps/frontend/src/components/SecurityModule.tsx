@@ -378,7 +378,16 @@ import {
   type ExpressionSecurityIncident,
   type ExpressionGuardOverview,
   type SimulateExpressionAttackResponse,
-  type VerifyExpressionSealResponse
+  type VerifyExpressionSealResponse,
+  GraphQLThreatCategory,
+  type GraphQLCostProofSeal,
+  type GraphQLInspectionResult,
+  type GraphQLSchemaDefinition,
+  type GraphQLCostNode,
+  type GraphQLSecurityIncident,
+  type GraphQLGuardOverview,
+  type SimulateGraphQLAttackResponse,
+  type VerifyGraphQLCostSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -6078,6 +6087,138 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 45. MÓDULO 71: GRAPHQL QUERY GUARD & COST LIMITING (OWASP ASVS v4.0 V5.1)
+  const [gqlOverview, setGqlOverview] = useState<GraphQLGuardOverview | null>(null);
+  const [loadingGqlGuard, setLoadingGqlGuard] = useState<boolean>(false);
+  const [activeGqlTab, setActiveGqlTab] = useState<'inspector' | 'schemas' | 'simulator' | 'policy'>('inspector');
+
+  // Aba 1: Inspetor & Calculadora de Custo
+  const [gqlQueryInput, setGqlQueryInput] = useState<string>(
+    'query PatientConsultation {\n  patient(id: "pat_01") {\n    id\n    nameMasked\n    clinicalRecords(limit: 5) {\n      sessionDate\n      cid11\n      assessment\n    }\n    appointments(limit: 3) {\n      scheduledAt\n      status\n    }\n  }\n}'
+  );
+  const [inspectingGql, setInspectingGql] = useState<boolean>(false);
+  const [lastGqlInspection, setLastGqlInspection] = useState<GraphQLInspectionResult | null>(null);
+
+  // Aba 3: Simulador Adversarial
+  const [simGqlCategory, setSimGqlCategory] = useState<GraphQLThreatCategory>(GraphQLThreatCategory.SCHEMA_INTROSPECTION);
+  const [simulatingGql, setSimulatingGql] = useState<boolean>(false);
+  const [simGqlResult, setSimGqlResult] = useState<SimulateGraphQLAttackResponse | null>(null);
+
+  // Aba 4: Políticas de Governança
+  const [gqlPolicyMaxCost, setGqlPolicyMaxCost] = useState<number>(250);
+  const [gqlPolicyMaxDepth, setGqlPolicyMaxDepth] = useState<number>(6);
+  const [gqlPolicyMaxAliases, setGqlPolicyMaxAliases] = useState<number>(10);
+  const [gqlPolicyMaxBatch, setGqlPolicyMaxBatch] = useState<number>(3);
+  const [gqlPolicyBlockIntrospection, setGqlPolicyBlockIntrospection] = useState<boolean>(true);
+  const [gqlPolicyBlockCircularFrag, setGqlPolicyBlockCircularFrag] = useState<boolean>(true);
+  const [updatingGqlPolicy, setUpdatingGqlPolicy] = useState<boolean>(false);
+
+  // Modal 53.A: Certidão Notarial Forense WORM de Custo GraphQL
+  const [selectedGqlSealForModal, setSelectedGqlSealForModal] = useState<GraphQLCostProofSeal | null>(null);
+  const [gqlModalIncidentItem, setGqlModalIncidentItem] = useState<GraphQLSecurityIncident | null>(null);
+  const [verifyingGqlSeal, setVerifyingGqlSeal] = useState<boolean>(false);
+  const [gqlSealVerifyResult, setGqlSealVerifyResult] = useState<VerifyGraphQLCostSealResponse | null>(null);
+
+  const fetchGqlGuardData = async () => {
+    try {
+      setLoadingGqlGuard(true);
+      const res = await api.getGraphQLGuardOverview();
+      setGqlOverview(res.overview);
+      if (res.overview?.policy) {
+        setGqlPolicyMaxCost(res.overview.policy.maxAllowedCost);
+        setGqlPolicyMaxDepth(res.overview.policy.maxAllowedDepth);
+        setGqlPolicyMaxAliases(res.overview.policy.maxAllowedAliases);
+        setGqlPolicyMaxBatch(res.overview.policy.maxBatchOperations);
+        setGqlPolicyBlockIntrospection(res.overview.policy.blockIntrospection);
+        setGqlPolicyBlockCircularFrag(res.overview.policy.blockCircularFragments);
+      }
+    } catch (err: any) {
+      console.error('Erro ao buscar dados do GraphQL Query Guard:', err);
+    } finally {
+      setLoadingGqlGuard(false);
+    }
+  };
+
+  const handleInspectGqlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setInspectingGql(true);
+      setLastGqlInspection(null);
+      const res = await api.inspectGraphQLQuery({
+        query: gqlQueryInput.trim(),
+        userRole: currentUser.role,
+      });
+      setLastGqlInspection(res.inspection);
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message,
+      });
+      await fetchGqlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar consulta GraphQL.' });
+    } finally {
+      setInspectingGql(false);
+    }
+  };
+
+  const handleSimulateGqlSubmit = async (threatCategory: GraphQLThreatCategory) => {
+    try {
+      setSimulatingGql(true);
+      setSimGqlResult(null);
+      const res = await api.simulateGraphQLAttack({ threatCategory });
+      setSimGqlResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message,
+      });
+      await fetchGqlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque GraphQL.' });
+    } finally {
+      setSimulatingGql(false);
+    }
+  };
+
+  const handleUpdateGqlPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingGqlPolicy(true);
+      const res = await api.updateGraphQLPolicy({
+        policy: {
+          maxAllowedCost: Number(gqlPolicyMaxCost),
+          maxAllowedDepth: Number(gqlPolicyMaxDepth),
+          maxAllowedAliases: Number(gqlPolicyMaxAliases),
+          maxBatchOperations: Number(gqlPolicyMaxBatch),
+          blockIntrospection: gqlPolicyBlockIntrospection,
+          blockCircularFragments: gqlPolicyBlockCircularFrag,
+        },
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchGqlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de GraphQL.' });
+    } finally {
+      setUpdatingGqlPolicy(false);
+    }
+  };
+
+  const handleVerifyGqlSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingGqlSeal(true);
+      setGqlSealVerifyResult(null);
+      const res = await api.verifyGraphQLCostSeal({ sealToken });
+      setGqlSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message,
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de custo GraphQL.' });
+    } finally {
+      setVerifyingGqlSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -6122,6 +6263,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchOsCommandData();
       fetchPathGuardData();
       fetchExprGuardData();
+      fetchGqlGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -29039,6 +29181,672 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* CARD 53: BLINDAGEM CONTRA INJEÇÃO DE CONSULTAS GRAPHQL, INTROSPECÇÃO & QUERY COST LIMITING (OWASP ASVS v4.0 V5.1) */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <Braces className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  53. Blindagem contra Injeção de Consultas GraphQL, Introspecção e Limitação de Custo
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  OWASP ASVS V5.1
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Análise estática de complexidade de consulta (Query Cost Analysis), restrição estrita de profundidade da AST (Anti-Depth DoS), mitigação de colheita de schema não autorizada (__schema/__type) e selagem WORM RFC 8785.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchGqlGuardData}
+              disabled={loadingGqlGuard}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingGqlGuard ? 'animate-spin' : ''}`} />
+              Atualizar Telemetria
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIS DE TELEMETRIA GRAPHQL */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Consultas Inspecionadas
+            </span>
+            <span className="text-lg font-black text-slate-900 dark:text-white">
+              {gqlOverview?.metrics.totalQueriesInspected.toLocaleString('pt-BR') || '0'}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+              Custo Médio da Query
+            </span>
+            <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+              {gqlOverview?.metrics.avgQueryCost || 0} pts
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+              Profundidade Média AST
+            </span>
+            <span className="text-lg font-black text-blue-600 dark:text-blue-400">
+              {gqlOverview?.metrics.avgQueryDepth || 0} níveis
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+              Introspecções Barradas
+            </span>
+            <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+              {gqlOverview?.metrics.introspectionAttemptsBlocked.toLocaleString('pt-BR') || '0'}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+              Violações de Custo / DoS
+            </span>
+            <span className="text-lg font-black text-rose-600 dark:text-rose-400">
+              {((gqlOverview?.metrics.costExceededBlocked || 0) + (gqlOverview?.metrics.depthViolationsBlocked || 0)).toLocaleString('pt-BR')}
+            </span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS */}
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveGqlTab('inspector')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              activeGqlTab === 'inspector'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Inspetor & Calculadora de Custo
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveGqlTab('schemas')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              activeGqlTab === 'schemas'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Schemas Clínicos Homologados
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveGqlTab('simulator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              activeGqlTab === 'simulator'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Simulador Adversarial (OWASP ASVS V5.1)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveGqlTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              activeGqlTab === 'policy'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Diretrizes de Governança & Incidentes
+          </button>
+        </div>
+
+        {/* ABA 1: INSPETOR & CALCULADORA DE CUSTO */}
+        {activeGqlTab === 'inspector' && (
+          <div className="space-y-4">
+            <form onSubmit={handleInspectGqlSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Consulta GraphQL a Ser Inspecionada (Query / Mutation / Subscription):
+                </label>
+                <textarea
+                  rows={6}
+                  value={gqlQueryInput}
+                  onChange={(e) => setGqlQueryInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 text-indigo-300 border border-slate-700 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Cole aqui a query GraphQL para análise de complexidade e profundidade..."
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Regras Ativas: Cota Máx = {gqlPolicyMaxCost} pts | Profundidade Máx = {gqlPolicyMaxDepth} níveis | Anti-Introspecção = {gqlPolicyBlockIntrospection ? 'Ativa' : 'Inativa'}
+                </span>
+
+                <button
+                  type="submit"
+                  disabled={inspectingGql}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  {inspectingGql ? 'Analisando Custo...' : 'Calcular Custo & Profundidade'}
+                </button>
+              </div>
+            </form>
+
+            {/* RESULTADO DA INSPEÇÃO */}
+            {lastGqlInspection && (
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
+                      lastGqlInspection.allowed
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    }`}>
+                      {lastGqlInspection.allowed ? 'CONSULTA AUTORIZADA' : 'CONSULTA BLOQUEADA'}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Operação: {lastGqlInspection.operationType} ({lastGqlInspection.operationName || 'Anônima'})
+                    </span>
+                  </div>
+
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Latência AST: {lastGqlInspection.inspectionDurationUs} µs
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Custo Computacional</span>
+                    <span className={`text-base font-black ${
+                      lastGqlInspection.computedCost > lastGqlInspection.maxAllowedCost ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      {lastGqlInspection.computedCost} / {lastGqlInspection.maxAllowedCost} pts
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Profundidade AST</span>
+                    <span className={`text-base font-black ${
+                      lastGqlInspection.computedDepth > lastGqlInspection.maxAllowedDepth ? 'text-rose-500' : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {lastGqlInspection.computedDepth} / {lastGqlInspection.maxAllowedDepth} níveis
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Total de Nós</span>
+                    <span className="text-base font-black text-slate-900 dark:text-white">
+                      {lastGqlInspection.nodeCount} nós
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Aliases Definidos</span>
+                    <span className="text-base font-black text-slate-900 dark:text-white">
+                      {lastGqlInspection.aliasCount} aliases
+                    </span>
+                  </div>
+                </div>
+
+                {/* TABELA DE TOP NÓS MAIS CAROS */}
+                {lastGqlInspection.topCostNodes && lastGqlInspection.topCostNodes.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h5 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Nós com Maior Impacto no Custo Computacional
+                    </h5>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase">
+                          <tr>
+                            <th className="px-3 py-1.5">Campo / Alias</th>
+                            <th className="px-3 py-1.5">Profundidade</th>
+                            <th className="px-3 py-1.5">Multiplicador</th>
+                            <th className="px-3 py-1.5 text-right">Custo Pontuado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {lastGqlInspection.topCostNodes.map((node: GraphQLCostNode, idx: number) => (
+                            <tr key={idx} className="font-mono text-[11px]">
+                              <td className="px-3 py-1.5 font-bold text-slate-900 dark:text-white">
+                                {node.alias ? `${node.alias}: ` : ''}{node.name}
+                              </td>
+                              <td className="px-3 py-1.5 text-slate-500">Nível {node.depth}</td>
+                              <td className="px-3 py-1.5 text-slate-500">{node.multiplier ? `×${node.multiplier}` : '1'}</td>
+                              <td className="px-3 py-1.5 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                                {node.cost} pts
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* AMEAÇAS DETECTADAS */}
+                {lastGqlInspection.threats.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                      Vulnerabilidades & Vetores de Abuso Interceptados ({lastGqlInspection.threats.length})
+                    </h5>
+                    <div className="space-y-1.5">
+                      {lastGqlInspection.threats.map((threat, idx) => (
+                        <div key={idx} className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-300 space-y-1">
+                          <div className="flex items-center justify-between font-bold">
+                            <span>{threat.category}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-100 uppercase">
+                              {threat.severity}
+                            </span>
+                          </div>
+                          <p>{threat.message}</p>
+                          <p className="text-[11px] text-rose-600 dark:text-rose-400 italic">
+                            Mitigação: {threat.mitigation}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* BOTÃO PARA VISUALIZAR CERTIDÃO FORENSE */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGqlSealForModal(lastGqlInspection.seal);
+                      setGqlModalIncidentItem(null);
+                      setGqlSealVerifyResult(null);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Ver Certidão Notarial Forense WORM (RFC 8785)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA 2: SCHEMAS CLÍNICOS HOMOLOGADOS */}
+        {activeGqlTab === 'schemas' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(gqlOverview?.schemasSample || []).map((sch: GraphQLSchemaDefinition) => (
+                <div key={sch.id} className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                        {sch.id}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {sch.typesCount} tipos | {sch.fieldsCount} campos
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {sch.name}
+                    </h4>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {sch.description}
+                    </p>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Entidades Confidenciais Blindadas:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {sch.confidentialEntities.map((ent: string) => (
+                          <span key={ent} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                            {ent}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      SDL Preview:
+                    </span>
+                    <pre className="p-2.5 rounded-xl bg-slate-900 text-indigo-300 font-mono text-[10px] overflow-x-auto max-h-32">
+                      {sch.sdlPreview}
+                    </pre>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ABA 3: SIMULADOR ADVERSARIAL */}
+        {activeGqlTab === 'simulator' && (() => {
+          const GRAPHQL_ATTACK_PRESETS = [
+            {
+              category: GraphQLThreatCategory.SCHEMA_INTROSPECTION,
+              name: 'Varredura e Introspecção de Schema (__schema)',
+              description: 'Exploração de metadados internos para colher tipos confidenciais de saúde mental.',
+            },
+            {
+              category: GraphQLThreatCategory.CIRCULAR_DEPTH_DOS,
+              name: 'Ataque DoS por Profundidade Circular Aninhada (Depth DoS)',
+              description: 'Query cíclica recursiva visando exaurir a pilha de chamadas e memória do servidor.',
+            },
+            {
+              category: GraphQLThreatCategory.COMPLEXITY_COST_EXHAUSTION,
+              name: 'Bomba de Complexidade e Custo (Query Cost Bomb)',
+              description: 'Coleções massivas não paginadas excedendo o teto de pontos de custo computacional.',
+            },
+            {
+              category: GraphQLThreatCategory.CIRCULAR_FRAGMENT_LOOP,
+              name: 'Ciclo Recursivo Infinito entre Fragmentos (Fragment Loop)',
+              description: 'Fragmentos que se auto-referenciam provocando estouro da pilha de execução.',
+            },
+            {
+              category: GraphQLThreatCategory.FIELD_ALIAS_OVERLOADING,
+              name: 'Sobrecarga de Aliases (Alias Overloading)',
+              description: 'Multiplicação de aliases de campos caros para forçar execução concorrente.',
+            },
+            {
+              category: GraphQLThreatCategory.BATCH_MUTATION_FLOODING,
+              name: 'Injeção de Mutações em Lote (Batch Flooding)',
+              description: 'Tentativa de disparar múltiplas mutações em um único payload para evadir rate-limiting.',
+            },
+            {
+              category: GraphQLThreatCategory.UNAUTHORIZED_DIRECTIVE_INJECTION,
+              name: 'Injeção de Diretivas Não Autorizadas (@defer, @exec)',
+              description: 'Injeção de diretivas maliciosas para explorar streaming ou bypass de pipeline.',
+            },
+            {
+              category: GraphQLThreatCategory.UNKNOWN_FIELD_ENUMERATION,
+              name: 'Enumeração Heurística de Campos Confidenciais Ocultos',
+              description: 'Adivinhação de campos de credenciais ou chaves criptográficas em entidades clínicas.',
+            },
+          ];
+
+          return (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Catálogo de Vetores Adversariais para Penetration Testing (OWASP ASVS V5.1)
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Selecione um cenário adversarial para injetar payloads maliciosos de introspecção, circular DoS ou bombas de custo contra a sandbox AST.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  {GRAPHQL_ATTACK_PRESETS.map((atk) => (
+                    <button
+                      key={atk.category}
+                      type="button"
+                      onClick={() => {
+                        setSimGqlCategory(atk.category);
+                        handleSimulateGqlSubmit(atk.category);
+                      }}
+                      disabled={simulatingGql}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        simGqlCategory === atk.category
+                          ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-950/40 dark:border-indigo-700'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {atk.name}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {atk.category}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {atk.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PAINEL DE DEFESA DO SIMULADOR */}
+              {simGqlResult && (
+                <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500 text-white">
+                        ATAQUE GRAPHQL INTERCEPTADO
+                      </span>
+                      <span className="text-xs font-bold text-slate-300">
+                        Laudo Pericial de Defesa OWASP ASVS V5.1
+                      </span>
+                    </div>
+                    <span className="font-mono text-[10px] text-slate-400">
+                      Incidente: {simGqlResult.incident?.id}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs font-mono">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Payload Injetado:</span>
+                      <pre className="text-rose-400 break-all bg-slate-950 p-2.5 rounded-xl border border-rose-900/40 text-[11px] overflow-x-auto max-h-36">
+                        {simGqlResult.attackPayload}
+                      </pre>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Mitigação Automática:</span>
+                      <p className="text-emerald-400 font-bold">
+                        {simGqlResult.incident?.remediationAction}
+                      </p>
+                    </div>
+                  </div>
+
+                  {simGqlResult.inspection.seal && (
+                    <div className="pt-2 border-t border-slate-800 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedGqlSealForModal(simGqlResult.inspection.seal);
+                          setGqlModalIncidentItem(simGqlResult.incident || null);
+                          setGqlSealVerifyResult(null);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Ver Certidão Notarial Forense WORM
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ABA 4: DIRETRIZES DE GOVERNANÇA & INCIDENTES */}
+        {activeGqlTab === 'policy' && (
+          <div className="space-y-4">
+            <form onSubmit={handleUpdateGqlPolicySubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Diretrizes de Limitação de Custo e Confinamento de Queries
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={gqlPolicyBlockIntrospection}
+                      onChange={(e) => setGqlPolicyBlockIntrospection(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Bloquear Introspecção Pública (__schema e __type)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={gqlPolicyBlockCircularFrag}
+                      onChange={(e) => setGqlPolicyBlockCircularFrag(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Bloquear Loops Circulares de Fragmentos (Anti-Infinite Recursion)
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Cota Máx. de Custo (Pontos):
+                    </label>
+                    <input
+                      type="number"
+                      min={50}
+                      max={2000}
+                      value={gqlPolicyMaxCost}
+                      onChange={(e) => setGqlPolicyMaxCost(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Profundidade Máx. AST:
+                    </label>
+                    <input
+                      type="number"
+                      min={3}
+                      max={15}
+                      value={gqlPolicyMaxDepth}
+                      onChange={(e) => setGqlPolicyMaxDepth(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Máx. de Aliases Permitidos:
+                    </label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={50}
+                      value={gqlPolicyMaxAliases}
+                      onChange={(e) => setGqlPolicyMaxAliases(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Máx. Mutações em Lote:
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={gqlPolicyMaxBatch}
+                      onChange={(e) => setGqlPolicyMaxBatch(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={updatingGqlPolicy}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {updatingGqlPolicy ? 'Salvando...' : 'Salvar Diretrizes de Governança'}
+                </button>
+              </div>
+            </form>
+
+            {/* TABELA DE INCIDENTES RECENTES */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Trilha Forense de Incidentes GraphQL Interceptados
+              </h4>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-3.5 py-2.5">ID / Data</th>
+                      <th className="px-3.5 py-2.5">Operação</th>
+                      <th className="px-3.5 py-2.5">Categoria da Ameaça</th>
+                      <th className="px-3.5 py-2.5">Custo / Profundidade</th>
+                      <th className="px-3.5 py-2.5">IP Origem</th>
+                      <th className="px-3.5 py-2.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(!gqlOverview?.recentIncidents || gqlOverview.recentIncidents.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400 italic">
+                          Nenhum incidente GraphQL interceptado recentemente.
+                        </td>
+                      </tr>
+                    ) : (
+                      gqlOverview.recentIncidents.map((inc) => (
+                        <tr key={inc.id || inc.incidentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="px-3.5 py-2.5 font-mono">
+                            <span className="font-bold text-slate-900 dark:text-white block">{inc.id || inc.incidentId}</span>
+                            <span className="text-[10px] text-slate-400">{new Date(inc.timestamp).toLocaleTimeString('pt-BR')}</span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.operationType}</td>
+                          <td className="px-3.5 py-2.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {inc.category}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">
+                            {inc.computedCost} pts | Nível {inc.computedDepth}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.clientIp}</td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (inc.seal) {
+                                  setSelectedGqlSealForModal(inc.seal);
+                                  setGqlModalIncidentItem(inc);
+                                  setGqlSealVerifyResult(null);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 font-bold text-[11px] transition-colors cursor-pointer"
+                            >
+                              Laudo WORM
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -35972,6 +36780,162 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedExprSealForModal(null);
                     setExprModalIncidentItem(null);
                     setExprSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 53.A: CERTIDÃO NOTARIAL FORENSE WORM DE CUSTO GRAPHQL (RFC 8785) */}
+      {selectedGqlSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Certidão Notarial Forense WORM — Custo GraphQL
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedGqlSealForModal(null);
+                  setGqlModalIncidentItem(null);
+                  setGqlSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* STATUS DO LAUDO */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Veredito de Conformidade
+                  </span>
+                  <span className={`text-xs font-black uppercase ${
+                    selectedGqlSealForModal.actionTaken === 'ALLOW'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {selectedGqlSealForModal.actionTaken === 'ALLOW'
+                      ? 'Em Conformidade com a Política de Custo'
+                      : 'Ataque Interceptado / Cota Excedida'}
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                  {selectedGqlSealForModal.operationType}
+                </span>
+              </div>
+
+              {/* IDENTIFICADORES DO SELO */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Token Notarial</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white truncate block">
+                    {selectedGqlSealForModal.sealToken}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Operação</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white truncate block">
+                    {selectedGqlSealForModal.operationName || 'Anonymous'}
+                  </span>
+                </div>
+              </div>
+
+              {/* DETALHES DO INCIDENTE (SE VINCULADO) */}
+              {gqlModalIncidentItem && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 uppercase font-bold block">Incidente Forense Vinculado</span>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">{gqlModalIncidentItem.id || gqlModalIncidentItem.incidentId}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 uppercase">{gqlModalIncidentItem.category}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                    IP: <span className="font-mono font-semibold">{gqlModalIncidentItem.clientIp}</span> | Severidade: <span className="font-bold">{gqlModalIncidentItem.severity}</span> | Ameaças: {gqlModalIncidentItem.threats?.length || 0}
+                  </div>
+                </div>
+              )}
+
+              {/* MÉTRICAS DE CUSTO E PROFUNDIDADE */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase font-bold block">Custo Ponderado</span>
+                  <span className="font-mono text-sm font-black text-indigo-600 dark:text-indigo-400">
+                    {selectedGqlSealForModal.computedCost} / {selectedGqlSealForModal.maxAllowedCost} pts
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-bold block">Profundidade da AST</span>
+                  <span className="font-mono text-sm font-black text-blue-600 dark:text-blue-400">
+                    {selectedGqlSealForModal.computedDepth} / {selectedGqlSealForModal.maxAllowedDepth} níveis
+                  </span>
+                </div>
+              </div>
+
+              {/* HASH DA QUERY */}
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Hash Canônico da Query SHA-256 (RFC 8785)
+                </span>
+                <p className="font-mono text-[10px] text-indigo-400 break-all select-all">
+                  {selectedGqlSealForModal.queryHash}
+                </p>
+              </div>
+
+              {/* ASSINATURA HMAC */}
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Assinatura Notarial HMAC-SHA256 WORM
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedGqlSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* RESULTADO DA VALIDAÇÃO NOTARIAL */}
+              {gqlSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  gqlSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {gqlSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {gqlSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedGqlSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingGqlSeal}
+                  onClick={() => handleVerifyGqlSealSubmit(JSON.stringify(selectedGqlSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingGqlSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGqlSealForModal(null);
+                    setGqlModalIncidentItem(null);
+                    setGqlSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

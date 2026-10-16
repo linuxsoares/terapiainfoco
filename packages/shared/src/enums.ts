@@ -357,7 +357,14 @@ export enum AuditAction {
   QUERY_EXPRESSION_SANITIZED = 'QUERY_EXPRESSION_SANITIZED',
   SAFE_AST_FILTER_EVALUATED = 'SAFE_AST_FILTER_EVALUATED',
   EXPRESSION_POLICY_UPDATED = 'EXPRESSION_POLICY_UPDATED',
-  EXPRESSION_SEAL_VERIFIED = 'EXPRESSION_SEAL_VERIFIED'
+  EXPRESSION_SEAL_VERIFIED = 'EXPRESSION_SEAL_VERIFIED',
+  // Ações de Proteção contra Injeção de Consultas GraphQL, Introspecção e Limitação de Custo (OWASP ASVS V5.1)
+  GRAPHQL_INTROSPECTION_BLOCKED = 'GRAPHQL_INTROSPECTION_BLOCKED',
+  GRAPHQL_COMPLEXITY_EXCEEDED = 'GRAPHQL_COMPLEXITY_EXCEEDED',
+  GRAPHQL_DEPTH_VIOLATION_BLOCKED = 'GRAPHQL_DEPTH_VIOLATION_BLOCKED',
+  GRAPHQL_QUERY_ANALYZED = 'GRAPHQL_QUERY_ANALYZED',
+  GRAPHQL_GUARD_POLICY_UPDATED = 'GRAPHQL_GUARD_POLICY_UPDATED',
+  GRAPHQL_COST_SEAL_VERIFIED = 'GRAPHQL_COST_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -416,7 +423,8 @@ export enum AuditResourceType {
   SSTI_GUARD = 'SSTI_GUARD',
   OS_COMMAND_GUARD = 'OS_COMMAND_GUARD',
   PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD',
-  CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD'
+  CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD',
+  GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD'
 }
 
 /**
@@ -1977,6 +1985,49 @@ export enum ExpressionFilterDialect {
   CLINICAL_AST_DSL = 'CLINICAL_AST_DSL',                           // DSL Nativa Segura TerapiaInFoco para Prontuários (Zero eval)
   SAFE_MONGO_PREDICATE = 'SAFE_MONGO_PREDICATE',                   // Predicado JSON estilo NoSQL sem operadores de código arbitrário
   JSONPATH_RESTRICTED = 'JSONPATH_RESTRICTED'                      // Expressão de caminho JSONPath estritamente restrita
+}
+
+/**
+ * Severidade de Risco de Consulta GraphQL (OWASP ASVS v4.0 V5.1)
+ */
+export enum GraphQLRiskSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Categorias de Ameaças em Consultas GraphQL (OWASP API & ASVS V5.1)
+ */
+export enum GraphQLThreatCategory {
+  SCHEMA_INTROSPECTION = 'SCHEMA_INTROSPECTION',                       // Extração de schema/metadados com __schema ou __type
+  CIRCULAR_DEPTH_DOS = 'CIRCULAR_DEPTH_DOS',                           // Profundidade excessiva com nós cíclicos recursivos
+  COMPLEXITY_COST_EXHAUSTION = 'COMPLEXITY_COST_EXHAUSTION',           // Custo computacional total da query excede cota máxima
+  BATCH_MUTATION_FLOODING = 'BATCH_MUTATION_FLOODING',                 // Múltiplas mutações em um único payload (bypass de rate-limit)
+  CIRCULAR_FRAGMENT_LOOP = 'CIRCULAR_FRAGMENT_LOOP',                   // Ciclo infinito entre fragmentos nomeados (estouro de pilha)
+  FIELD_ALIAS_OVERLOADING = 'FIELD_ALIAS_OVERLOADING',                 // Multiplicação massiva de aliases para execução concorrente cara
+  UNAUTHORIZED_DIRECTIVE_INJECTION = 'UNAUTHORIZED_DIRECTIVE_INJECTION', // Diretivas proibidas ou suspeitas (@defer, custom, etc)
+  UNKNOWN_FIELD_ENUMERATION = 'UNKNOWN_FIELD_ENUMERATION'             // Tentativa de adivinhação de campos não expostos no schema
+}
+
+/**
+ * Ações de Validação de Consulta GraphQL
+ */
+export enum GraphQLValidationAction {
+  ALLOW = 'ALLOW',                                                     // Consulta permitida sem restrições
+  MASK_INTROSPECTION = 'MASK_INTROSPECTION',                           // Introspecção mascarada/bloqueada amigavelmente
+  TRUNCATE_COST = 'TRUNCATE_COST',                                     // Limitação/paginação compulsória forçada
+  BLOCK_ATTEMPT = 'BLOCK_ATTEMPT'                                      // Bloqueio imediato da requisição com registro WORM
+}
+
+/**
+ * Tipos de Operação GraphQL Homologadas
+ */
+export enum GraphQLOperationType {
+  QUERY = 'QUERY',
+  MUTATION = 'MUTATION',
+  SUBSCRIPTION = 'SUBSCRIPTION'
 }
 
 

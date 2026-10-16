@@ -4456,6 +4456,163 @@ export interface ExpressionGuardOverview {
   recentSealsSample?: ExpressionProofSeal[];
 }
 
+/**
+ * Nó na Árvore de Custo e Complexidade de Consulta GraphQL (OWASP ASVS V5.1)
+ */
+export interface GraphQLCostNode {
+  name: string;
+  alias?: string;
+  type: 'field' | 'inlineFragment' | 'fragmentSpread' | 'operation';
+  depth: number;
+  cost: number;
+  multiplier?: number;
+  children?: GraphQLCostNode[];
+}
+
+/**
+ * Ameaça Detectada em Consulta GraphQL
+ */
+export interface GraphQLThreat {
+  category: import('./enums').GraphQLThreatCategory;
+  severity: import('./enums').GraphQLRiskSeverity;
+  message: string;
+  location?: { line?: number; column?: number; field?: string };
+  mitigation: string;
+}
+
+/**
+ * Selo Probatório Notarial WORM de Custo e Integridade de Consulta GraphQL (RFC 8785)
+ */
+export interface GraphQLCostProofSeal {
+  sealToken: string;
+  timestamp: string;
+  operationName?: string;
+  operationType: import('./enums').GraphQLOperationType;
+  queryHash: string;
+  computedCost: number;
+  maxAllowedCost: number;
+  computedDepth: number;
+  maxAllowedDepth: number;
+  introspectionDetected: boolean;
+  actionTaken: import('./enums').GraphQLValidationAction;
+  hmacSignature: string;
+}
+
+/**
+ * Resultado da Inspeção Estática de Custo, Profundidade e Segurança GraphQL
+ */
+export interface GraphQLInspectionResult {
+  allowed: boolean;
+  action: import('./enums').GraphQLValidationAction;
+  operationType: import('./enums').GraphQLOperationType;
+  operationName?: string;
+  computedCost: number;
+  maxAllowedCost: number;
+  computedDepth: number;
+  maxAllowedDepth: number;
+  nodeCount: number;
+  aliasCount: number;
+  introspectionDetected: boolean;
+  circularFragmentDetected: boolean;
+  threats: GraphQLThreat[];
+  topCostNodes: GraphQLCostNode[];
+  costTree?: GraphQLCostNode;
+  seal: GraphQLCostProofSeal;
+  inspectionDurationUs: number;
+}
+
+/**
+ * Definição de Schema Clínico Homologado
+ */
+export interface GraphQLSchemaDefinition {
+  id: string;
+  name: string;
+  description: string;
+  typesCount: number;
+  fieldsCount: number;
+  sdlPreview: string;
+  confidentialEntities: string[];
+}
+
+/**
+ * Configuração de Custo por Campo Clínico
+ */
+export interface GraphQLFieldCostConfig {
+  fieldName: string;
+  baseCost: number;
+  isList: boolean;
+  defaultMultiplier: number;
+  requiresAuth: boolean;
+  piiSensitivity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+/**
+ * Política Ativa de Blindagem de Consultas GraphQL e Query Cost Limiting
+ */
+export interface GraphQLGuardPolicy {
+  enableCostLimiting: boolean;
+  maxAllowedCost: number;
+  maxAllowedDepth: number;
+  maxAllowedAliases: number;
+  maxBatchOperations: number;
+  blockIntrospection: boolean;
+  allowIntrospectionForRoles: import('./enums').UserRole[];
+  blockCircularFragments: boolean;
+  fieldCostOverrides: Record<string, number>;
+  updatedAt: string;
+}
+
+/**
+ * Métricas Operacionais de Telemetria GraphQL Guard
+ */
+export interface GraphQLGuardMetrics {
+  totalQueriesInspected: number;
+  allowedQueries: number;
+  blockedQueries: number;
+  introspectionAttemptsBlocked: number;
+  depthViolationsBlocked: number;
+  costExceededBlocked: number;
+  batchFloodingBlocked: number;
+  avgQueryCost: number;
+  avgQueryDepth: number;
+  avgInspectionDurationUs: number;
+  threatsByCategory: Record<string, number>;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente de Segurança em Consulta GraphQL
+ */
+export interface GraphQLSecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  operationType: import('./enums').GraphQLOperationType;
+  operationName?: string;
+  rawQuerySnippet: string;
+  category: import('./enums').GraphQLThreatCategory;
+  severity: import('./enums').GraphQLRiskSeverity;
+  computedCost: number;
+  computedDepth: number;
+  clientIp: string;
+  userAgent: string;
+  blocked: boolean;
+  remediationAction: string;
+  threats: GraphQLThreat[];
+  seal?: GraphQLCostProofSeal;
+}
+
+/**
+ * Visão Geral de Governança de GraphQL Query Guard
+ */
+export interface GraphQLGuardOverview {
+  metrics: GraphQLGuardMetrics;
+  policy: GraphQLGuardPolicy;
+  recentIncidents: GraphQLSecurityIncident[];
+  schemasSample: GraphQLSchemaDefinition[];
+  recentSealsSample?: GraphQLCostProofSeal[];
+}
+
 
 
 

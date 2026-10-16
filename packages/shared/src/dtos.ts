@@ -3893,6 +3893,68 @@ export interface ExpressionGuardOverviewResponse {
   overview: import('./models').ExpressionGuardOverview;
 }
 
+/**
+ * 45. PROTEÇÃO CONTRA INJEÇÃO DE CONSULTAS GRAPHQL, INTROSPECÇÃO & QUERY COST LIMITING
+ * (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices)
+ */
+export interface InspectGraphQLQueryDTO {
+  query: string;
+  operationName?: string;
+  variables?: Record<string, any>;
+  userRole?: import('./enums').UserRole;
+}
+
+export interface InspectGraphQLQueryResponse {
+  success: boolean;
+  inspection: import('./models').GraphQLInspectionResult;
+  message: string;
+}
+
+export interface UpdateGraphQLPolicyDTO {
+  policy: Partial<import('./models').GraphQLGuardPolicy>;
+}
+
+export interface UpdateGraphQLPolicyResponse {
+  success: boolean;
+  policy: import('./models').GraphQLGuardPolicy;
+  message: string;
+}
+
+export interface SimulateGraphQLAttackDTO {
+  threatCategory: import('./enums').GraphQLThreatCategory;
+}
+
+export interface SimulateGraphQLAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayload: string;
+  inspection: import('./models').GraphQLInspectionResult;
+  incident?: import('./models').GraphQLSecurityIncident;
+  message: string;
+}
+
+export interface VerifyGraphQLCostSealDTO {
+  sealToken: string | import('./models').GraphQLCostProofSeal;
+}
+
+export interface VerifyGraphQLCostSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').GraphQLCostProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface GraphQLGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').GraphQLGuardOverview;
+}
+
+export interface GetGraphQLSchemasResponse {
+  success: boolean;
+  schemas: import('./models').GraphQLSchemaDefinition[];
+}
+
 
 
 
