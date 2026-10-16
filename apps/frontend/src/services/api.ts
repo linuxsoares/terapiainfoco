@@ -457,7 +457,18 @@ import type {
   SimulateSessionAttackResponse,
   VerifySessionSealDTO,
   VerifySessionSealResponse,
-  SessionGuardOverviewResponse
+  SessionGuardOverviewResponse,
+  AnalyzeRegexDTO,
+  AnalyzeRegexResponse,
+  ExecuteSafeRegexDTO,
+  ExecuteSafeRegexResponse,
+  UpdateRedosPolicyDTO,
+  UpdateRedosPolicyResponse,
+  SimulateRedosAttackDTO,
+  SimulateRedosAttackResponse,
+  VerifyRedosSealDTO,
+  VerifyRedosSealResponse,
+  RedosGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2853,6 +2864,46 @@ export const api = {
 
   async verifySessionGuardSeal(dto: VerifySessionSealDTO): Promise<VerifySessionSealResponse> {
     return await request<VerifySessionSealResponse>('/session-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 66. RE-DOS GUARD & SAFE REGEX ENGINE (OWASP ASVS V5.5 & CWE-1333)
+  async getRedosGuardOverview(): Promise<RedosGuardOverviewResponse> {
+    return await request<RedosGuardOverviewResponse>('/redos-guard/overview');
+  },
+
+  async analyzeRegex(dto: AnalyzeRegexDTO): Promise<AnalyzeRegexResponse> {
+    return await request<AnalyzeRegexResponse>('/redos-guard/analyze', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async executeSafeRegex(dto: ExecuteSafeRegexDTO): Promise<ExecuteSafeRegexResponse> {
+    return await request<ExecuteSafeRegexResponse>('/redos-guard/execute', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateRedosPolicy(dto: UpdateRedosPolicyDTO): Promise<UpdateRedosPolicyResponse> {
+    return await request<UpdateRedosPolicyResponse>('/redos-guard/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateRedosAttack(dto: SimulateRedosAttackDTO): Promise<SimulateRedosAttackResponse> {
+    return await request<SimulateRedosAttackResponse>('/redos-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyRedosSeal(dto: VerifyRedosSealDTO): Promise<VerifyRedosSealResponse> {
+    return await request<VerifyRedosSealResponse>('/redos-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
