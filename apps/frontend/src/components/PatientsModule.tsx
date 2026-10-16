@@ -29,7 +29,8 @@ import {
   PlusCircle,
   Sparkles,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  HeartHandshake
 } from 'lucide-react';
 import type { 
   DecryptedPatient, 
@@ -53,6 +54,7 @@ import {
 } from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
+import { PatientPortalModal } from './PatientPortalModal';
 
 export function PatientsModule() {
   const [searchCpf, setSearchCpf] = useState('');
@@ -157,6 +159,10 @@ export function PatientsModule() {
   const [submittingScale, setSubmittingScale] = useState(false);
   const [psychometricsTab, setPsychometricsTab] = useState<'history' | 'apply'>('history');
   const [psychometricFeedback, setPsychometricFeedback] = useState<string | null>(null);
+
+  // Modal do Portal do Paciente & Exercícios Terapêuticos (RFC §3.6, §3.7)
+  const [showPatientPortalModal, setShowPatientPortalModal] = useState(false);
+  const [selectedPortalPatientId, setSelectedPortalPatientId] = useState<string | undefined>(undefined);
 
   const handleOpenGoals = async (patientId: string) => {
     setShowGoalsModal(true);
@@ -781,6 +787,17 @@ export function PatientsModule() {
               >
                 <Target className="w-3.5 h-3.5" />
                 Metas SMART (RFC §3.4)
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedPortalPatientId(searchResult.id);
+                  setShowPatientPortalModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <HeartHandshake className="w-3.5 h-3.5" />
+                Portal do Paciente & Exercícios (RFC §3.6, §3.7)
               </button>
 
               <button
@@ -2729,6 +2746,13 @@ export function PatientsModule() {
           </div>
         </div>
       )}
+
+      {/* Modal do Portal do Paciente & Exercícios Terapêuticos (RFC §3.6, §3.7) */}
+      <PatientPortalModal
+        isOpen={showPatientPortalModal}
+        onClose={() => setShowPatientPortalModal(false)}
+        initialPatientId={selectedPortalPatientId}
+      />
     </div>
   );
 }

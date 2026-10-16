@@ -4597,6 +4597,67 @@ export interface BatchVerificationResponse {
   details: string;
 }
 
+/**
+ * DTOs para o Portal do Paciente e Exercícios Terapêuticos (RFC-001 §3.6, §3.7)
+ */
+export interface RequestPatientAccessCodeDTO {
+  email: string;
+}
+
+export interface VerifyPatientAccessCodeDTO {
+  email: string;
+  code: string;
+}
+
+export interface PatientAuthResponse {
+  success: boolean;
+  token?: string;
+  profile?: import('./models').PatientPortalProfile;
+  message: string;
+}
+
+export interface PatientPortalOverviewResponse {
+  success: boolean;
+  data: import('./models').PatientPortalOverview;
+}
+
+export interface AssignExerciseDTO {
+  patientId: string;
+  title: string;
+  description: string;
+  type: import('./enums').ExerciseType;
+  dueAt?: string;
+  templateData?: Record<string, any>;
+}
+
+export interface SubmitExerciseResponseDTO {
+  exerciseId: string;
+  answers: Record<string, any>;
+  notes?: string;
+}
+
+export interface ReviewExerciseDTO {
+  exerciseId: string;
+  feedback: string;
+}
+
+export interface AcknowledgeConsentDTO {
+  consentType: string;
+}
+
+export interface ExerciseResponse {
+  success: boolean;
+  exercise: import('./models').TherapeuticExercise;
+  message: string;
+}
+
+export interface ExerciseListResponse {
+  success: boolean;
+  exercises: import('./models').TherapeuticExercise[];
+  total: number;
+}
+
+
 
 
 
