@@ -629,7 +629,11 @@ export enum AuditAction {
   THERAPEUTIC_EXERCISE_SUBMITTED = 'THERAPEUTIC_EXERCISE_SUBMITTED',
   THERAPEUTIC_EXERCISE_REVIEWED = 'THERAPEUTIC_EXERCISE_REVIEWED',
   PATIENT_RECEIPT_ACCESSED = 'PATIENT_RECEIPT_ACCESSED',
-  PATIENT_CONSENT_ACKNOWLEDGED = 'PATIENT_CONSENT_ACKNOWLEDGED'
+  PATIENT_CONSENT_ACKNOWLEDGED = 'PATIENT_CONSENT_ACKNOWLEDGED',
+  // Ações de Anamnese Digital Interativa & Árvore Diagnóstica (RFC-001 §3.4)
+  DIAGNOSTIC_ASSESSMENT_STARTED = 'DIAGNOSTIC_ASSESSMENT_STARTED',
+  DIAGNOSTIC_ASSESSMENT_COMPLETED = 'DIAGNOSTIC_ASSESSMENT_COMPLETED',
+  DIAGNOSTIC_RED_FLAG_TRIGGERED = 'DIAGNOSTIC_RED_FLAG_TRIGGERED'
 }
 
 export enum AuditResourceType {
@@ -706,7 +710,8 @@ export enum AuditResourceType {
   AI_SOAP_DRAFT = 'AI_SOAP_DRAFT',
   ICP_BATCH_CLOSING = 'ICP_BATCH_CLOSING',
   PATIENT_PORTAL = 'PATIENT_PORTAL',
-  THERAPEUTIC_EXERCISE = 'THERAPEUTIC_EXERCISE'
+  THERAPEUTIC_EXERCISE = 'THERAPEUTIC_EXERCISE',
+  DIAGNOSTIC_DECISION_TREE = 'DIAGNOSTIC_DECISION_TREE'
 }
 
 /**
@@ -2503,6 +2508,35 @@ export enum PatientPortalTab {
   EXERCISES = 'EXERCISES',
   RECEIPTS = 'RECEIPTS',
   DOCUMENTS_CONSENT = 'DOCUMENTS_CONSENT'
+}
+
+/**
+ * Categorias Clínicas da Árvore de Decisão Diagnóstica (RFC-001 §3.4 / CID-11)
+ */
+export enum DiagnosticTrackCategory {
+  ANXIETY_SPECTRUM = 'ANXIETY_SPECTRUM',           // Transtornos de Ansiedade (TAG 6B00, Pânico 6B01, Fobia Social 6B04)
+  DEPRESSIVE_SPECTRUM = 'DEPRESSIVE_SPECTRUM',     // Transtornos Depressivos (Episódio Depressivo 6A70, Distimia 6A72)
+  NEURODEVELOPMENTAL_ADHD = 'NEURODEVELOPMENTAL_ADHD', // TDAH Adulto / Neurodesenvolvimento (6A05)
+  TRAUMA_AND_STRESSOR = 'TRAUMA_AND_STRESSOR',     // Trauma e Fatores de Estresse (TEPT 6B40, Reação Aguda)
+  SOMATIC_AND_BURNOUT = 'SOMATIC_AND_BURNOUT'      // Síndrome de Burnout (QD85) & Somatização (6C20)
+}
+
+/**
+ * Nível de Urgência e Gravidade Clínica da Triagem Diagnóstica
+ */
+export enum DiagnosticUrgencyLevel {
+  ROUTINE = 'ROUTINE',                     // Atendimento clínico ambulatorial padrão
+  MODERATE = 'MODERATE',                   // Monitoramento próximo e reavaliação precoce
+  CRITICAL_RED_FLAG = 'CRITICAL_RED_FLAG'  // Sinal de alerta severo (ideação, psicose, crise aguda)
+}
+
+/**
+ * Tipo de Escala Psicométrica Inicial Padronizada
+ */
+export enum InitialScreenerType {
+  PHQ_4 = 'PHQ_4',         // Patient Health Questionnaire-4 (Ansiedade & Depressão ultrarrápida)
+  PSS_10 = 'PSS_10',       // Perceived Stress Scale-10 (Escala de Estresse Percebido)
+  ASRS_V1_1 = 'ASRS_V1_1'  // Adult ADHD Self-Report Scale v1.1 (Triagem TDAH 6 itens)
 }
 
 

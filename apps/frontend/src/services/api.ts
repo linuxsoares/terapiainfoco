@@ -608,7 +608,12 @@ import type {
   SubmitExerciseResponseDTO,
   ReviewExerciseDTO,
   ExerciseResponse,
-  ExerciseListResponse
+  ExerciseListResponse,
+  DiagnosticDecisionTreeDefinitionResponse,
+  SaveDiagnosticAssessmentDTO,
+  DiagnosticAssessmentReportResponse,
+  DiagnosticAssessmentReport,
+  DiagnosticAssessmentListResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3758,6 +3763,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais (RFC-001 §3.4)
+  async getDiagnosticTreeDefinition(): Promise<DiagnosticDecisionTreeDefinitionResponse> {
+    return await request<DiagnosticDecisionTreeDefinitionResponse>('/diagnostic-tree/definition');
+  },
+
+  async saveDiagnosticAssessment(dto: SaveDiagnosticAssessmentDTO): Promise<DiagnosticAssessmentReportResponse> {
+    return await request<DiagnosticAssessmentReportResponse>('/diagnostic-tree/assessments', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientDiagnosticAssessments(patientId: string): Promise<DiagnosticAssessmentReport[]> {
+    const res = await request<DiagnosticAssessmentListResponse>(`/diagnostic-tree/patients/${patientId}/assessments`);
+    return res.reports || [];
+  },
+
+  async getDiagnosticAssessment(id: string): Promise<DiagnosticAssessmentReport> {
+    const res = await request<{ success: boolean; report: DiagnosticAssessmentReport }>(`/diagnostic-tree/assessments/${id}`);
+    return res.report;
   }
 };
 

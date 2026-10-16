@@ -5536,6 +5536,73 @@ export interface PatientPortalOverview {
   activeConsentsCount: number;
 }
 
+/**
+ * Opção de Escolha na Árvore de Decisão Diagnóstica
+ */
+export interface DiagnosticDecisionOption {
+  label: string;
+  value: string;
+  nextNodeId?: string;
+  indicativeCid11?: string;
+  triggersRedFlag?: boolean;
+  redFlagReason?: string;
+  weight?: number;
+}
+
+/**
+ * Nó Ramificado da Árvore de Decisão Diagnóstica (RFC-001 §3.4)
+ */
+export interface DiagnosticDecisionNode {
+  id: string;
+  track: import('./enums').DiagnosticTrackCategory;
+  question: string;
+  description?: string;
+  options: DiagnosticDecisionOption[];
+}
+
+/**
+ * Resposta Registrada em um Nó da Árvore
+ */
+export interface DiagnosticAssessmentAnswer {
+  nodeId: string;
+  selectedOptionValue: string;
+  notes?: string;
+}
+
+/**
+ * Resultado da Escala Psicométrica Inicial Padronizada
+ */
+export interface InitialPsychometricResult {
+  screenerType: import('./enums').InitialScreenerType;
+  score: number;
+  maxScore: number;
+  severityLevel: string;
+  answers: Record<string, number>;
+}
+
+/**
+ * Relatório Estruturado de Impressão Diagnóstica & Admissão Clínica (RFC-001 §3.4)
+ */
+export interface DiagnosticAssessmentReport {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  primaryTrack: import('./enums').DiagnosticTrackCategory;
+  provisionalCid11: string[];
+  urgencyLevel: import('./enums').DiagnosticUrgencyLevel;
+  redFlagsIdentified: string[];
+  clinicalHypothesisSummary: string;
+  recommendedInterventions: string[];
+  suggestedSessionFrequency: string;
+  psychometricBaseline?: InitialPsychometricResult;
+  confidentialTherapistNotes?: string;
+  integrityChecksumSha256: string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  encryptedSummary?: any;
+  encryptedConfidentialNotes?: any;
+}
+
 
 
 

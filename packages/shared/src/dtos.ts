@@ -4657,6 +4657,55 @@ export interface ExerciseListResponse {
   total: number;
 }
 
+/**
+ * DTOs para o Módulo de Anamnese Digital Interativa & Árvore Diagnóstica (RFC-001 §3.4)
+ */
+export interface SaveDiagnosticAssessmentDTO {
+  patientId: string;
+  primaryTrack: import('./enums').DiagnosticTrackCategory;
+  answers: import('./models').DiagnosticAssessmentAnswer[];
+  psychometricAnswers?: {
+    screenerType: import('./enums').InitialScreenerType;
+    answers: Record<string, number>;
+  };
+  clinicalNotes?: string;
+  confidentialNotes?: string;
+}
+
+export interface DiagnosticDecisionTreeDefinitionResponse {
+  success: boolean;
+  tracks: {
+    category: import('./enums').DiagnosticTrackCategory;
+    label: string;
+    description: string;
+    entryNodeId: string;
+  }[];
+  nodes: Record<string, import('./models').DiagnosticDecisionNode>;
+  screeners: Record<string, {
+    title: string;
+    instructions: string;
+    items: {
+      id: string;
+      text: string;
+      options: { label: string; score: number }[];
+    }[];
+  }>;
+}
+
+export interface DiagnosticAssessmentReportResponse {
+  success: boolean;
+  report: import('./models').DiagnosticAssessmentReport;
+  isRedFlagAlert: boolean;
+  clinicalActionDirectives: string[];
+  message: string;
+}
+
+export interface DiagnosticAssessmentListResponse {
+  success: boolean;
+  reports: import('./models').DiagnosticAssessmentReport[];
+  total: number;
+}
+
 
 
 

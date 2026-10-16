@@ -70,6 +70,7 @@ import { teleconsultationRoutes } from './routes/teleconsultation';
 import { aiTranscriptionRouter } from './routes/aiTranscription';
 import { icpBatchSigningRouter } from './routes/icpBatchSigning';
 import { patientPortalRouter } from './routes/patientPortal';
+import { diagnosticDecisionTreeRouter } from './routes/diagnosticDecisionTree';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -236,6 +237,7 @@ app.route('/api/teleconsultation/session', teleconsultationRoutes);
 app.route('/api/transcription', aiTranscriptionRouter);
 app.route('/api/icp-batch', icpBatchSigningRouter);
 app.route('/api/patient-portal', patientPortalRouter);
+app.route('/api/diagnostic-tree', diagnosticDecisionTreeRouter);
 
 
 

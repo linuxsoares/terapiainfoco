@@ -30,7 +30,8 @@ import {
   Sparkles,
   Calendar,
   AlertTriangle,
-  HeartHandshake
+  HeartHandshake,
+  GitBranch
 } from 'lucide-react';
 import type { 
   DecryptedPatient, 
@@ -55,6 +56,7 @@ import {
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
 import { PatientPortalModal } from './PatientPortalModal';
+import { DiagnosticDecisionTreeModal } from './DiagnosticDecisionTreeModal';
 
 export function PatientsModule() {
   const [searchCpf, setSearchCpf] = useState('');
@@ -163,6 +165,11 @@ export function PatientsModule() {
   // Modal do Portal do Paciente & Exercícios Terapêuticos (RFC §3.6, §3.7)
   const [showPatientPortalModal, setShowPatientPortalModal] = useState(false);
   const [selectedPortalPatientId, setSelectedPortalPatientId] = useState<string | undefined>(undefined);
+
+  // Modal da Árvore de Decisão Diagnóstica & Triagem Inicial (RFC §3.4)
+  const [showDiagnosticTreeModal, setShowDiagnosticTreeModal] = useState(false);
+  const [selectedDiagnosticPatientId, setSelectedDiagnosticPatientId] = useState<string | undefined>(undefined);
+  const [selectedDiagnosticPatientName, setSelectedDiagnosticPatientName] = useState<string | undefined>(undefined);
 
   const handleOpenGoals = async (patientId: string) => {
     setShowGoalsModal(true);
@@ -798,6 +805,18 @@ export function PatientsModule() {
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
                 Portal do Paciente & Exercícios (RFC §3.6, §3.7)
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedDiagnosticPatientId(searchResult.id);
+                  setSelectedDiagnosticPatientName(searchResult.name);
+                  setShowDiagnosticTreeModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                Árvore Diagnóstica (RFC §3.4)
               </button>
 
               <button
@@ -2753,6 +2772,16 @@ export function PatientsModule() {
         onClose={() => setShowPatientPortalModal(false)}
         initialPatientId={selectedPortalPatientId}
       />
+
+      {/* Modal da Árvore de Decisão Diagnóstica & Triagem Inicial (RFC §3.4) */}
+      {selectedDiagnosticPatientId && (
+        <DiagnosticDecisionTreeModal
+          isOpen={showDiagnosticTreeModal}
+          onClose={() => setShowDiagnosticTreeModal(false)}
+          patientId={selectedDiagnosticPatientId}
+          patientName={selectedDiagnosticPatientName}
+        />
+      )}
     </div>
   );
 }
