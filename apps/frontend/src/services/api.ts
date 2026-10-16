@@ -512,7 +512,17 @@ import type {
   SimulateExpressionAttackResponse,
   VerifyExpressionSealDTO,
   VerifyExpressionSealResponse,
-  ExpressionGuardOverviewResponse
+  ExpressionGuardOverviewResponse,
+  InspectGraphQLQueryDTO,
+  InspectGraphQLQueryResponse,
+  UpdateGraphQLPolicyDTO,
+  UpdateGraphQLPolicyResponse,
+  SimulateGraphQLAttackDTO,
+  SimulateGraphQLAttackResponse,
+  VerifyGraphQLCostSealDTO,
+  VerifyGraphQLCostSealResponse,
+  GraphQLGuardOverviewResponse,
+  GetGraphQLSchemasResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3111,6 +3121,43 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 45. Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção & Query Cost Limiting (OWASP ASVS v4.0 V5.1)
+  async getGraphQLGuardOverview(): Promise<GraphQLGuardOverviewResponse> {
+    return await request<GraphQLGuardOverviewResponse>('/graphql-guard/overview');
+  },
+
+  async inspectGraphQLQuery(dto: InspectGraphQLQueryDTO): Promise<InspectGraphQLQueryResponse> {
+    return await request<InspectGraphQLQueryResponse>('/graphql-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateGraphQLPolicy(dto: UpdateGraphQLPolicyDTO): Promise<UpdateGraphQLPolicyResponse> {
+    return await request<UpdateGraphQLPolicyResponse>('/graphql-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateGraphQLAttack(dto: SimulateGraphQLAttackDTO): Promise<SimulateGraphQLAttackResponse> {
+    return await request<SimulateGraphQLAttackResponse>('/graphql-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyGraphQLCostSeal(dto: VerifyGraphQLCostSealDTO): Promise<VerifyGraphQLCostSealResponse> {
+    return await request<VerifyGraphQLCostSealResponse>('/graphql-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getGraphQLSchemas(): Promise<GetGraphQLSchemasResponse> {
+    return await request<GetGraphQLSchemasResponse>('/graphql-guard/schemas');
   }
 };
 
