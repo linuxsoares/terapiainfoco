@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + 43 Extensões de Segurança + Blindagem contra SSTI em Laudos Multiformato (OWASP ASVS V5.2/CWE-1336/CFP 006/2019) + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.077/1.077 Testes Passando (0 falhas em 114 arquivos)
+> **Status Geral:** 8 Módulos Principais + 43 Extensões de Segurança + Blindagem contra OS Command Injection em Conversores de PDF (OWASP ASVS V5.3/CWE-78/CWE-88) + Blindagem contra SSTI em Laudos Multiformato (OWASP ASVS V5.2/CWE-1336/CFP 006/2019) + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.099/1.099 Testes Passando (0 falhas em 116 arquivos)
 
 
 
@@ -1900,6 +1900,28 @@ terapiainfoco/
   - **Modal 49.A:** Certidão Notarial Forense de Avaliação SSTI WORM (RFC 8785) com fé pública e validação instantânea.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+
+### 68. Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS v4.0 V5.3)
+- [x] **Motor Criptográfico e Enclave Sandboxed (`packages/crypto/src/osCommandGuard.ts`):**
+  - **Inspeção Léxica Rigorosa & Sanitização Segura:** Análise de executáveis e listas de argumentos contra metacaracteres de shell (`;`, `|`, `&`, `$`, '`', `$(...)`, `>`, `<`), flags perigosas de renderizadores (`--eval`, `--exec`, `--shell-escape`, `-shell-escape`, `--run-script`), manipulação de variáveis de ambiente (`LD_PRELOAD`, `PATH`, `PYTHONPATH`) e path traversal (`/etc/passwd`, `../../`).
+  - **Mecanismo de Execução Hermético Sandboxed:** Isolamento de processos sem shell (`shell: false`), variáveis de ambiente restritas e sanitizadas, código de saída de segurança determinístico (126 em tentativa bloqueada) e tempo de execução estritamente controlado.
+  - **Pipelines de Conversores Clínicos Homologados (CFP nº 006/2019):** Presets auditados para Laudo Pericial Psicológico, Atestado Psicológico Digital, Prontuário PAdES para Arquivamento, Relatório de Anamnese Biopsicossocial e Fusão de Páginas com Marca d'Água.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica JCS com prefixo `os_cmd_seal_v1_<base64url>` assinada via HMAC-SHA256 atestando integridade da execução sandboxed e não-repúdio.
+  - Suíte com 13 testes unitários aprovados em `packages/crypto/test/osCommandGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `CommandRiskSeverity`, `CommandThreatVector`, `CommandExecutionPolicyAction`, `ClinicalConverterJobType`, `IncidentSeverity`.
+  - Ações WORM `OS_COMMAND_ATTEMPT_BLOCKED`, `COMMAND_ARGUMENTS_SANITIZED`, `SANDBOX_PROCESS_EXECUTED`, `COMMAND_GUARD_POLICY_UPDATED`, `COMMAND_GUARD_SEAL_VERIFIED`.
+  - Modelos `CommandThreat`, `CommandProofSeal`, `CommandInspectionResult`, `SandboxedExecutionResult`, `CommandGuardPolicy`, `ClinicalConverterPipeline`, `CommandGuardMetrics`, `CommandSecurityIncident`, `CommandGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `OsCommandGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de ataque CWE-78/CWE-88 e auditoria WORM mandatória via `AuditService.log`.
+  - 6 rotas REST sob `/api/os-command-guard` (`/overview`, `/inspect`, `/execute`, `/policy`, `/simulate`, `/verify-seal`).
+  - Atualização do `wafMiddleware.ts` para isenção da rota `/api/os-command-guard` de bloqueio precoce durante testes e simulações.
+  - Suíte com 9 testes de integração aprovados em `apps/backend/test/osCommandGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 50:** Painel de Blindagem contra Injeção de Comandos de SO em Conversores de PDF e Laudos com 5 KPIs dinâmicos, 4 abas operacionais (*Inspetor & Enclave Sandboxed*, *Pipelines Clínicos Homologados*, *Simulador Adversarial CWE-78*, *Políticas de Sandboxing & Incidentes*) e tabela WORM de incidentes bloqueados.
+  - **Modal 50.A:** Certidão Notarial Forense WORM de Execução de Comandos (RFC 8785) com validação criptográfica instantânea.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -1982,12 +2004,13 @@ terapiainfoco/
 | `feat/session-fixation-hijacking-guard` | Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B) | [PR #82](https://github.com/linuxsoares/terapiainfoco/pull/82) | Merged |
 | `feat/redos-safe-regex-engine` | Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333) | [PR #83](https://github.com/linuxsoares/terapiainfoco/pull/83) | Merged |
 | `feat/ssti-secure-template-engine` | Blindagem contra Injeção de Templates no Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019) | [PR #84](https://github.com/linuxsoares/terapiainfoco/pull/84) | Merged |
+| `feat/os-command-injection-pdf-guard` | Detecção e Prevenção de OS Command Injection em Conversores de PDF e Laudos Psicológicos com Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS V5.3) | [PR #85](https://github.com/linuxsoares/terapiainfoco/pull/85) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019)**, a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, o **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, e a suíte completa de **1.077 testes automatizados (0 falhas em 114 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS v4.0 V5.3)**, a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019)**, a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, o **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)**, e a suíte completa de **1.099 testes automatizados (0 falhas em 116 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -2031,7 +2054,7 @@ Com a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servid
 - [x] **Módulo de Proteção contra Ataques de Fixação de Sessão & Hijacking de Sessão Clínica com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B).**
 - [x] **Módulo de Detecção e Prevenção Ativa de Ataques de Negação de Serviço por Expressões Regulares (ReDoS - Regular Expression Denial of Service) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5, CWE-1333 & Safe Regex Engine).**
 - [x] **Módulo de Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI - Server-Side Template Injection) e Execução Remota em Laudos, Pareceres e Relatórios Psicológicos Multiformato (OWASP ASVS v4.0 V5.2, CWE-1336 & Secure Sandboxed Template Engine).**
-- [ ] **Módulo de Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78 & OWASP ASVS v4.0 V5.3).**
+- [x] **Módulo de Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS v4.0 V5.3).**
 - [ ] **Módulo de Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23 & OWASP ASVS v4.0 V5.5).**
 
 ---

@@ -54,6 +54,7 @@ import xmlSecurityGuardRouter from './routes/xmlSecurityGuard';
 import sessionFixationGuardRouter from './routes/sessionFixationGuard';
 import { redosGuardRoutes } from './routes/redosGuard';
 import { sstiGuardRoutes } from './routes/sstiGuard';
+import { osCommandGuardRoutes } from './routes/osCommandGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -204,6 +205,7 @@ app.route('/api/xml-guard', xmlSecurityGuardRouter);
 app.route('/api/session-guard', sessionFixationGuardRouter);
 app.route('/api/redos-guard', redosGuardRoutes);
 app.route('/api/ssti-guard', sstiGuardRoutes);
+app.route('/api/os-command-guard', osCommandGuardRoutes);
 
 
 

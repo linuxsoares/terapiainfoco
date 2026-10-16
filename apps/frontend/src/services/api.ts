@@ -479,7 +479,18 @@ import type {
   VerifySstiSealDTO,
   VerifySstiSealResponse,
   SstiGuardOverviewResponse,
-  RedosGuardOverviewResponse
+  RedosGuardOverviewResponse,
+  InspectCommandInputDTO,
+  InspectCommandInputResponse,
+  ExecuteSandboxedCommandDTO,
+  ExecuteSandboxedCommandResponse,
+  UpdateCommandPolicyDTO,
+  UpdateCommandPolicyResponse,
+  SimulateCommandAttackDTO,
+  SimulateCommandAttackResponse,
+  VerifyCommandSealDTO,
+  VerifyCommandSealResponse,
+  CommandGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2955,6 +2966,46 @@ export const api = {
 
   async verifySstiSeal(dto: VerifySstiSealDTO): Promise<VerifySstiSealResponse> {
     return await request<VerifySstiSealResponse>('/ssti-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 68. Blindagem contra Injeção de Comandos de SO em Conversores de PDF e Laudos (OWASP ASVS V5.3, CWE-78 & CWE-88)
+  async getOsCommandOverview(): Promise<CommandGuardOverviewResponse> {
+    return await request<CommandGuardOverviewResponse>('/os-command-guard/overview');
+  },
+
+  async inspectOsCommand(dto: InspectCommandInputDTO): Promise<InspectCommandInputResponse> {
+    return await request<InspectCommandInputResponse>('/os-command-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async executeSandboxedCommand(dto: ExecuteSandboxedCommandDTO): Promise<ExecuteSandboxedCommandResponse> {
+    return await request<ExecuteSandboxedCommandResponse>('/os-command-guard/execute', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateOsCommandPolicy(dto: UpdateCommandPolicyDTO): Promise<UpdateCommandPolicyResponse> {
+    return await request<UpdateCommandPolicyResponse>('/os-command-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateOsCommandAttack(dto: SimulateCommandAttackDTO): Promise<SimulateCommandAttackResponse> {
+    return await request<SimulateCommandAttackResponse>('/os-command-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyOsCommandSeal(dto: VerifyCommandSealDTO): Promise<VerifyCommandSealResponse> {
+    return await request<VerifyCommandSealResponse>('/os-command-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
