@@ -4447,5 +4447,53 @@ export interface FeeContractResponse {
   message?: string;
 }
 
+/**
+ * TELECONSULTA NATIVA WEBRTC & SALA DE ESPERA (RFC-001 §3.2, §3.3)
+ */
+export interface KnockWaitingRoomDTO {
+  appointmentId: string;
+  patientName: string;
+  clientFingerprint?: string;
+}
+
+export interface KnockWaitingRoomResponse {
+  success: boolean;
+  participantId: string;
+  status: 'WAITING' | 'ADMITTED';
+  message: string;
+  roomStatus: import('./enums').TeleconsultationRoomStatus;
+}
+
+export interface AdmitParticipantDTO {
+  appointmentId: string;
+  participantId: string;
+  action: 'ADMIT' | 'REJECT';
+}
+
+export interface UpdateCallQualityDTO {
+  appointmentId: string;
+  rttMs: number;
+  jitterMs: number;
+  packetLoss: number;
+}
+
+export interface ToggleRecordingDTO {
+  appointmentId: string;
+  isRecordingActive: boolean;
+  recordingConsentConfirmed?: boolean;
+}
+
+export interface EndTeleconsultationDTO {
+  appointmentId: string;
+  durationSeconds?: number;
+  summaryNotes?: string;
+}
+
+export interface TeleconsultationRoomResponse {
+  success: boolean;
+  room: import('./models').TeleconsultationRoom;
+  message?: string;
+}
+
 
 

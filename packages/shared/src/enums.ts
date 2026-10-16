@@ -204,6 +204,44 @@ export enum BillingModality {
 }
 
 /**
+ * Estados da Sala de Teleconsulta WebRTC (RFC-001 §3.2, §3.3)
+ */
+export enum TeleconsultationRoomStatus {
+  IDLE = 'IDLE',
+  WAITING_ROOM = 'WAITING_ROOM',     // Paciente na sala de espera aguardando admissão ética (CFP nº 011/2018)
+  IN_PROGRESS = 'IN_PROGRESS',       // Sessão clínica em andamento
+  COMPLETED = 'COMPLETED',           // Sessão encerrada formalmente
+  DISCONNECTED = 'DISCONNECTED'      // Desconexão abrupta com retenção de estado
+}
+
+/**
+ * Papel do Participante na Sala de Teleconsulta
+ */
+export enum TeleconsultationParticipantRole {
+  THERAPIST = 'THERAPIST',
+  PATIENT = 'PATIENT',
+  SUPERVISOR = 'SUPERVISOR'
+}
+
+/**
+ * Estado de Qualidade de Chamada (RFC-001 §3.2 / ITU-T G.107 MOS)
+ */
+export enum CallQualityState {
+  EXCELLENT = 'EXCELLENT', // MOS 4.3 - 5.0: Áudio e vídeo cristalinos
+  GOOD = 'GOOD',           // MOS 4.0 - 4.2: Fluido, pequenas oscilações imperceptíveis
+  FAIR = 'FAIR',           // MOS 3.5 - 3.9: Leve pixelamento ou delay
+  POOR = 'POOR'            // MOS < 3.5: Alerta ético CFP - recomendação de fallback para apenas áudio
+}
+
+/**
+ * Ações de Knocking / Sala de Espera
+ */
+export enum KnockingAction {
+  ADMIT = 'ADMIT',
+  REJECT = 'REJECT'
+}
+
+/**
  * Papéis de controle de acesso baseado em função (RBAC)
  * para a clínica psicológica conforme RFC-001 e normas do CFP/LGPD
  */
@@ -561,7 +599,16 @@ export enum AuditAction {
   RECEIPT_GENERATED = 'RECEIPT_GENERATED',
   RECEIPT_CANCELLED = 'RECEIPT_CANCELLED',
   RECEIPT_VALIDATED = 'RECEIPT_VALIDATED',
-  FEE_CONTRACT_CREATED = 'FEE_CONTRACT_CREATED'
+  FEE_CONTRACT_CREATED = 'FEE_CONTRACT_CREATED',
+  // Ações de Teleconsulta WebRTC & Sala de Espera (RFC-001 §3.2, §3.3)
+  TELECONSULTATION_ROOM_CREATED = 'TELECONSULTATION_ROOM_CREATED',
+  TELECONSULTATION_KNOCK = 'TELECONSULTATION_KNOCK',
+  TELECONSULTATION_ADMIT = 'TELECONSULTATION_ADMIT',
+  TELECONSULTATION_REJECT = 'TELECONSULTATION_REJECT',
+  TELECONSULTATION_QUALITY_TELEMETRY = 'TELECONSULTATION_QUALITY_TELEMETRY',
+  TELECONSULTATION_QUALITY_ALERT = 'TELECONSULTATION_QUALITY_ALERT',
+  TELECONSULTATION_RECORDING_TOGGLED = 'TELECONSULTATION_RECORDING_TOGGLED',
+  TELECONSULTATION_ENDED = 'TELECONSULTATION_ENDED'
 }
 
 export enum AuditResourceType {
@@ -632,7 +679,8 @@ export enum AuditResourceType {
   CONSOLIDATED_REPORT = 'CONSOLIDATED_REPORT',
   CLINICAL_REFERRAL = 'CLINICAL_REFERRAL',
   CLINICAL_RECEIPT = 'CLINICAL_RECEIPT',
-  FEE_CONTRACT = 'FEE_CONTRACT'
+  FEE_CONTRACT = 'FEE_CONTRACT',
+  TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM'
 }
 
 /**

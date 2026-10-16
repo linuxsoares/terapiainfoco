@@ -20,6 +20,9 @@ import {
   PaymentStatus,
   ReceiptPurpose,
   BillingModality,
+  TeleconsultationRoomStatus,
+  TeleconsultationParticipantRole,
+  CallQualityState,
   UserRole,
   AuditAction,
   AuditResourceType,
@@ -5295,6 +5298,53 @@ export interface StoredFeeContract extends Omit<FeeContract, 'confidentialityTer
 }
 
 export type DecryptedFeeContract = FeeContract;
+
+/**
+ * 14. TELECONSULTA NATIVA WEBRTC & SALA DE ESPERA (RFC-001 §3.2, §3.3)
+ */
+export interface WaitingParticipant {
+  participantId: string;
+  name: string;
+  role: TeleconsultationParticipantRole;
+  knockedAt: string;
+  status: 'WAITING' | 'ADMITTED' | 'REJECTED';
+  clientFingerprint?: string;
+}
+
+export interface TeleconsultationCallMetrics {
+  rttMs: number;
+  jitterMs: number;
+  packetLossRate: number;
+  mosScore: number; // Mean Opinion Score (1.0 - 5.0)
+  qualityState: CallQualityState;
+  ethicalNotice?: string; // Alerta CFP caso a conexão degrade
+}
+
+export interface TeleconsultationRoom {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  therapistId: string;
+  therapistName: string;
+  status: TeleconsultationRoomStatus;
+  startedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
+  isRecordingActive: boolean;
+  recordingConsentConfirmed: boolean;
+  waitingParticipants: WaitingParticipant[];
+  metrics: TeleconsultationCallMetrics;
+  peerConnectionFingerprint?: string;
+  roomHashSha256: string;
+  wormAuditId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoredTeleconsultationRoom extends Omit<TeleconsultationRoom, 'patientName'> {
+  encryptedPatientName: EncryptedPayload;
+}
 
 
 

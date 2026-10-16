@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.305/1.305 Testes Passando (0 falhas em 131 arquivos)
+> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.315/1.315 Testes Passando (0 falhas em 132 arquivos)
 
 
 
@@ -2151,12 +2151,13 @@ terapiainfoco/
 | `feat/clinical-session-markers-and-smart-plans` | Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3), Metas Terapêuticas SMART & Escalas Psicométricas Padronizadas PHQ-9 e GAD-7 (RFC-001 §3.4 / CFP) | [PR #92](https://github.com/linuxsoares/terapiainfoco/pull/92) | Merged |
 | `feat/consolidated-clinical-reports-and-referrals` | Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019) e Encaminhamentos Multidisciplinares Interoperáveis com Contra-Referência Médica (RFC-001 §3.5) | [PR #93](https://github.com/linuxsoares/terapiainfoco/pull/93) | Merged |
 | `feat/clinical-billing-receipts-and-fee-terms` | Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários Psicológicos (RFC-001 §3.6) | [PR #94](https://github.com/linuxsoares/terapiainfoco/pull/94) | Merged |
+| `feat/webrtc-teleconsultation-and-waiting-room` | Teleconsulta Nativa WebRTC P2P com Sala de Espera Ética (Knocking CFP nº 011/2018), Gravação Consentida TCLE, Telemetria MOS ITU-T G.107 e Painel de Marcadores Clínicos (RFC-001 §3.2, §3.3) | [PR #95](https://github.com/linuxsoares/terapiainfoco/pull/95) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.305 testes automatizados (0 falhas em 131 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.315 testes automatizados (0 falhas em 132 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2167,9 +2168,11 @@ Com a **Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibo
 - [x] **Módulo de Laudo Pericial Multi-Sessões & Relatório Consolidado (Resolução CFP nº 006/2019 & RFC-001 §3.5):** Compilação estruturada nas 5 seções canônicas (I - Identificação com CRP, II - Descrição da Demanda, III - Procedimento com sessões da timeline e testes, IV - Análise com evolução psicométrica longitudinal e metas SMART, V - Conclusão com parecer e CID-11) com hash SHA-256 canônico e assinatura digital ICP-Brasil em lote.
 - [x] **Módulo de Encaminhamento Multidisciplinar Interoperável & Contra-Referência (RFC-001 §3.5):** Comunicação multiprofissional ética sob o Art. 9º do Código de Ética do Psicólogo, níveis de urgência (ROUTINE, PRIORITY, EMERGENCY), resumo psicométrico objetivo, validação pública anônima sem login por token (iniciais do paciente mascaradas para LGPD/CFP) e registro de contra-referência médica/psiquiátrica.
 - [x] **Módulo de Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários (RFC-001 §3.6).**
-- [ ] **Módulo de Teleconsulta Nativa WebRTC P2P com Gravação Cifrada Ponta a Ponta e Transcrição Local em Tempo Real (RFC-001 §3.2, §3.3).**
-- [ ] **Módulo de Telemetria & Qualidade de Chamada Clínica WebRTC com Diagnósticos de Conexão e Alertas Éticos CFP (RFC-001 §3.2).**
+- [x] **Módulo de Teleconsulta Nativa WebRTC P2P com Gravação Cifrada Ponta a Ponta, Sala de Espera Ética (Knocking CFP nº 011/2018) e Marcadores Clínicos (RFC-001 §3.2, §3.3).**
+- [x] **Módulo de Telemetria & Qualidade de Chamada Clínica WebRTC com Diagnósticos de Conexão (MOS ITU-T G.107) e Alertas Éticos CFP (RFC-001 §3.2).**
 - [ ] **Módulo de Assinatura Avançada ICP-Brasil com Certificado A1/A3 em Lote para Fechamento de Ciclos de Prontuário (RFC-001 §3.5).**
+- [ ] **Módulo de Transcrição Assistida por IA com Diarização de Voz e Síntese de Rascunho SOAP em Tempo Real (RFC-001 §3.3).**
+- [ ] **Módulo de Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos e Histórico de Recibos (RFC-001 §3.6, §3.7).**
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -2229,7 +2232,7 @@ Com a **Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibo
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (1.305 testes)
+# 2. Executar suíte completa de testes (1.315 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

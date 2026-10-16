@@ -576,7 +576,16 @@ import type {
   ValidateReceiptPublicResponse,
   FeeContract,
   CreateFeeContractDTO,
-  FeeContractResponse
+  FeeContractResponse,
+  TeleconsultationRoom,
+  KnockWaitingRoomDTO,
+  KnockWaitingRoomResponse,
+  AdmitParticipantDTO,
+  UpdateCallQualityDTO,
+  ToggleRecordingDTO,
+  EndTeleconsultationDTO,
+  TeleconsultationCallMetrics,
+  TeleconsultationRoomResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3526,6 +3535,50 @@ export const api = {
       body: JSON.stringify(dto)
     });
     return res.contract;
+  },
+
+  // 14. Teleconsulta Nativa WebRTC, Sala de Espera (Knocking) & Telemetria MOS (RFC-001 §3.2, §3.3)
+  async getTeleconsultationRoom(appointmentId: string): Promise<TeleconsultationRoom> {
+    const res = await request<TeleconsultationRoomResponse>(`/teleconsultation/session/room/${encodeURIComponent(appointmentId)}`);
+    return res.room;
+  },
+
+  async knockTeleconsultationWaitingRoom(dto: KnockWaitingRoomDTO): Promise<KnockWaitingRoomResponse> {
+    return await request<KnockWaitingRoomResponse>('/teleconsultation/session/knock', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async admitTeleconsultationParticipant(dto: AdmitParticipantDTO): Promise<TeleconsultationRoom> {
+    const res = await request<TeleconsultationRoomResponse>('/teleconsultation/session/admit', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.room;
+  },
+
+  async updateTeleconsultationQuality(dto: UpdateCallQualityDTO): Promise<{ room: TeleconsultationRoom; metrics: TeleconsultationCallMetrics }> {
+    return await request<{ success: boolean; room: TeleconsultationRoom; metrics: TeleconsultationCallMetrics }>('/teleconsultation/session/quality', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async toggleTeleconsultationRecording(dto: ToggleRecordingDTO): Promise<TeleconsultationRoom> {
+    const res = await request<TeleconsultationRoomResponse>('/teleconsultation/session/recording', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.room;
+  },
+
+  async endTeleconsultation(dto: EndTeleconsultationDTO): Promise<TeleconsultationRoom> {
+    const res = await request<TeleconsultationRoomResponse>('/teleconsultation/session/end', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.room;
   }
 };
 
