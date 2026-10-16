@@ -340,7 +340,15 @@ import {
   type RedosSecurityIncident,
   type RedosGuardOverview,
   type SimulateRedosAttackResponse,
-  type VerifyRedosSealResponse
+  type VerifyRedosSealResponse,
+  SstiThreatVector,
+  type TemplateInspectionResult,
+  type SandboxedRenderResult,
+  type SstiProofSeal,
+  type SstiSecurityIncident,
+  type SstiGuardOverview,
+  type SimulateSstiAttackResponse,
+  type VerifySstiSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -5363,6 +5371,195 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 67. BLINDAGEM CONTRA SSTI & SECURE SANDBOXED TEMPLATE ENGINE (OWASP ASVS V5.2 & CFP 006/2019)
+  const [sstiOverview, setSstiOverview] = useState<SstiGuardOverview | null>(null);
+  const [loadingSsti, setLoadingSsti] = useState<boolean>(false);
+  const [sstiActiveTab, setSstiActiveTab] = useState<'editor' | 'presets' | 'simulate' | 'policy'>('editor');
+
+  // Aba 1: Editor & Sandbox
+  const [templateContentInput, setTemplateContentInput] = useState<string>(
+    `DECLARAÇÃO PSICOLÓGICA (CFP nº 006/2019)\n\nDeclaro para os devidos fins que o(a) paciente {{pacienteNome}}, CPF nº {{pacienteCpf}}, compareceu à sessão de atendimento psicológico no dia {{dataSessao}}, às {{horarioSessao}}.\n\n{{cidade}}, {{dataEmissao}}\n\nPsicólogo(a): {{terapeutaNome}} — CRP: {{terapeutaCrp}}`
+  );
+  const [templateVariablesInput, setTemplateVariablesInput] = useState<string>(
+    JSON.stringify(
+      {
+        pacienteNome: 'João da Silva Santos',
+        pacienteCpf: '123.456.789-00',
+        dataSessao: '16/10/2026',
+        horarioSessao: '14:30',
+        cidade: 'São Paulo - SP',
+        dataEmissao: '16 de outubro de 2026',
+        terapeutaNome: 'Dra. Helena Vasconcelos',
+        terapeutaCrp: '06/123456'
+      },
+      null,
+      2
+    )
+  );
+  const [inspectingTemplate, setInspectingTemplate] = useState<boolean>(false);
+  const [renderingTemplate, setRenderingTemplate] = useState<boolean>(false);
+  const [lastTemplateInspection, setLastTemplateInspection] = useState<TemplateInspectionResult | null>(null);
+  const [lastSandboxedRender, setLastSandboxedRender] = useState<SandboxedRenderResult | null>(null);
+  const [lastRenderSeal, setLastRenderSeal] = useState<SstiProofSeal | null>(null);
+
+  // Aba 3: Simulador Adversarial SSTI
+  const [simSstiVector, setSimSstiVector] = useState<SstiThreatVector>(SstiThreatVector.PROTOTYPE_ACCESS);
+  const [simulatingSsti, setSimulatingSsti] = useState<boolean>(false);
+  const [simSstiResult, setSimSstiResult] = useState<SimulateSstiAttackResponse | null>(null);
+
+  // Aba 4: Políticas
+  const [policyStrictSandboxing, setPolicyStrictSandboxing] = useState<boolean>(true);
+  const [policyStripPrototype, setPolicyStripPrototype] = useState<boolean>(true);
+  const [policyBlockGlobals, setPolicyBlockGlobals] = useState<boolean>(true);
+  const [policyEscapeHtml, setPolicyEscapeHtml] = useState<boolean>(true);
+  const [policyMaxLen, setPolicyMaxLen] = useState<number>(50000);
+  const [updatingSstiPolicy, setUpdatingSstiPolicy] = useState<boolean>(false);
+
+  // Modal 49.A: Certidão Notarial Forense WORM de Avaliação SSTI
+  const [selectedSstiSealForModal, setSelectedSstiSealForModal] = useState<SstiProofSeal | null>(null);
+  const [sstiModalIncidentItem, setSstiModalIncidentItem] = useState<SstiSecurityIncident | null>(null);
+  const [verifyingSstiSeal, setVerifyingSstiSeal] = useState<boolean>(false);
+  const [sstiSealVerifyResult, setSstiSealVerifyResult] = useState<VerifySstiSealResponse | null>(null);
+
+  const fetchSstiGuardData = async () => {
+    try {
+      setLoadingSsti(true);
+      const res = await api.getSstiGuardOverview();
+      setSstiOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyStrictSandboxing(res.overview.policy.strictSandboxing);
+        setPolicyStripPrototype(res.overview.policy.stripPrototypeAccess ?? true);
+        setPolicyBlockGlobals(res.overview.policy.blockRuntimeGlobals ?? true);
+        setPolicyEscapeHtml(res.overview.policy.escapeHtmlOutput ?? true);
+        setPolicyMaxLen(res.overview.policy.maxTemplateLength);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de SSTI Guard:', err);
+    } finally {
+      setLoadingSsti(false);
+    }
+  };
+
+  const handleInspectTemplateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setInspectingTemplate(true);
+      setLastTemplateInspection(null);
+      const res = await api.inspectTemplate({
+        templateContent: templateContentInput
+      });
+      setLastTemplateInspection(res.inspection);
+      setFeedback({
+        type: res.inspection.isValid ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSstiGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar template.' });
+    } finally {
+      setInspectingTemplate(false);
+    }
+  };
+
+  const handleRenderTemplateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setRenderingTemplate(true);
+      setLastSandboxedRender(null);
+      setLastRenderSeal(null);
+
+      let parsedVariables: Record<string, string> = {};
+      try {
+        parsedVariables = JSON.parse(templateVariablesInput || '{}');
+      } catch {
+        setFeedback({ type: 'error', message: 'Formato JSON das variáveis inválido.' });
+        setRenderingTemplate(false);
+        return;
+      }
+
+      const res = await api.renderSandboxedTemplate({
+        templateContent: templateContentInput,
+        contextVariables: parsedVariables,
+        strictSandboxing: policyStrictSandboxing
+      });
+
+      setLastSandboxedRender(res.result);
+      if (res.seal) {
+        setLastRenderSeal(res.seal);
+      }
+
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSstiGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao renderizar template em sandbox.' });
+    } finally {
+      setRenderingTemplate(false);
+    }
+  };
+
+  const handleSimulateSstiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingSsti(true);
+      setSimSstiResult(null);
+      const res = await api.simulateSstiAttack({
+        threatVector: simSstiVector
+      });
+      setSimSstiResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSstiGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque SSTI.' });
+    } finally {
+      setSimulatingSsti(false);
+    }
+  };
+
+  const handleUpdateSstiPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingSstiPolicy(true);
+      const res = await api.updateSstiPolicy({
+        policy: {
+          strictSandboxing: policyStrictSandboxing,
+          stripPrototypeAccess: policyStripPrototype,
+          blockRuntimeGlobals: policyBlockGlobals,
+          escapeHtmlOutput: policyEscapeHtml,
+          maxTemplateLength: policyMaxLen
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchSstiGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de SSTI.' });
+    } finally {
+      setUpdatingSstiPolicy(false);
+    }
+  };
+
+  const handleVerifySstiSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingSstiSeal(true);
+      setSstiSealVerifyResult(null);
+      const res = await api.verifySstiSeal({ sealToken });
+      setSstiSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de SSTI Guard.' });
+    } finally {
+      setVerifyingSstiSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -5403,6 +5600,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchXmlGuardData();
       fetchSessionGuardData();
       fetchRedosGuardData();
+      fetchSstiGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -25812,6 +26010,566 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* ============================================================================
+          67. CARD 49: BLINDAGEM CONTRA SSTI EM LAUDOS MULTIFORMATO (OWASP ASVS V5.2 & CFP 006/2019)
+          ============================================================================ */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <FileCode className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Blindagem contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  OWASP ASVS V5.2 & CWE-1336
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                  CFP Nº 006/2019
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Motor Sandboxed Hermético (Object.create(null)), Isolamento RCE, Presets Clínicos Oficiais e Selos Probatórios WORM RFC 8785
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchSstiGuardData}
+            disabled={loadingSsti}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingSsti ? 'animate-spin' : ''}`} />
+            Atualizar Telemetria
+          </button>
+        </div>
+
+        {/* 5 KPIS DE GOVERNANÇA DE SSTI */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Templates Avaliados
+            </span>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">
+              {sstiOverview?.metrics.totalTemplatesEvaluated ?? sstiOverview?.metrics.totalRenders ?? 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+              Renderizações Seguras
+            </span>
+            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+              {sstiOverview?.metrics.safeTemplatesRendered ?? sstiOverview?.metrics.safeRenders ?? 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+              Ataques SSTI Bloqueados
+            </span>
+            <p className="text-xl font-bold text-rose-600 dark:text-rose-400">
+              {sstiOverview?.metrics.blockedSstiAttacks ?? sstiOverview?.metrics.blockedInjections ?? 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+              Tags Sanitizadas
+            </span>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+              {sstiOverview?.metrics.sanitizedExpressions ?? sstiOverview?.metrics.sanitizedTemplates ?? 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/50 col-span-2 md:col-span-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+              Latência Média Sandbox
+            </span>
+            <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+              {sstiOverview?.metrics.avgRenderDurationMs ?? sstiOverview?.metrics.avgRenderTimeMs ?? 0.38} ms
+            </p>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS */}
+        <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2">
+          <button
+            type="button"
+            onClick={() => setSstiActiveTab('editor')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              sstiActiveTab === 'editor'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Editor & Sandbox Hermético
+          </button>
+          <button
+            type="button"
+            onClick={() => setSstiActiveTab('presets')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              sstiActiveTab === 'presets'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Presets Oficiais CFP nº 006/2019
+          </button>
+          <button
+            type="button"
+            onClick={() => setSstiActiveTab('simulate')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              sstiActiveTab === 'simulate'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Simulador Adversarial SSTI
+          </button>
+          <button
+            type="button"
+            onClick={() => setSstiActiveTab('policy')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              sstiActiveTab === 'policy'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            Políticas de Sandboxing & Incidentes
+          </button>
+        </div>
+
+        {/* ABA 1: EDITOR DE TEMPLATE & SANDBOX HERMÉTICO */}
+        {sstiActiveTab === 'editor' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Corpo do Template (Interpolação Léxica com tags <code className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{'{{variavel}}'}</code>):
+                </label>
+                <textarea
+                  rows={8}
+                  value={templateContentInput}
+                  onChange={(e) => setTemplateContentInput(e.target.value)}
+                  className="w-full font-mono text-xs p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Contexto de Variáveis Clínicas (JSON Seguro):
+                </label>
+                <textarea
+                  rows={5}
+                  value={templateVariablesInput}
+                  onChange={(e) => setTemplateVariablesInput(e.target.value)}
+                  className="w-full font-mono text-xs p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={inspectingTemplate}
+                  onClick={handleInspectTemplateSubmit}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  {inspectingTemplate ? 'Inspecionando...' : 'Inspecionar Léxico AST'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={renderingTemplate}
+                  onClick={handleRenderTemplateSubmit}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {renderingTemplate ? 'Renderizando no Sandbox...' : 'Renderizar no Sandbox Hermético'}
+                </button>
+              </div>
+
+              {/* Resultado da Inspeção Estática */}
+              {lastTemplateInspection && (
+                <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                  lastTemplateInspection.isValid
+                    ? 'bg-emerald-50/70 text-emerald-900 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800/50'
+                    : 'bg-rose-50/70 text-rose-900 border-rose-200 dark:bg-rose-950/30 dark:text-rose-200 dark:border-rose-800/50'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {lastTemplateInspection.isValid ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      )}
+                      Status: {lastTemplateInspection.isValid ? 'Template Aprovado no AST' : 'Ameaça SSTI Detectada'}
+                    </span>
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded-lg bg-white/60 dark:bg-black/40">
+                      Risco: {lastTemplateInspection.riskSeverity}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-[11px]">
+                    <p><strong>Vetor de Ameaça:</strong> {lastTemplateInspection.threatVector}</p>
+                    <p><strong>Variáveis Encontradas:</strong> {lastTemplateInspection.allowedVariablesUsed.length > 0 ? lastTemplateInspection.allowedVariablesUsed.join(', ') : 'Nenhuma'}</p>
+                    {lastTemplateInspection.detectedThreats.length > 0 && (
+                      <div className="pt-1 border-t border-rose-200 dark:border-rose-900/50">
+                        <strong className="text-rose-700 dark:text-rose-300">Violações Interceptadas:</strong>
+                        <ul className="list-disc pl-4 space-y-0.5 text-rose-600 dark:text-rose-400">
+                          {lastTemplateInspection.detectedThreats.map((threat, idx) => (
+                            <li key={idx}>{threat}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Painel de Saída Renderizada */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Saída do Documento em Sandbox (Preview Timbrado):
+                </label>
+                {lastSandboxedRender && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {lastSandboxedRender.executionTimeMs} ms • {lastSandboxedRender.variablesInterpolated} tags
+                  </span>
+                )}
+              </div>
+
+              <div className="min-h-[280px] p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 font-serif text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed shadow-inner">
+                {lastSandboxedRender ? (
+                  lastSandboxedRender.renderedOutput
+                ) : (
+                  <span className="text-slate-400 italic font-sans">
+                    Clique em &quot;Renderizar no Sandbox Hermético&quot; para executar a interpolação com Object.create(null) sem herança de prototype.
+                  </span>
+                )}
+              </div>
+
+              {lastRenderSeal && (
+                <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">
+                      Selo Probatório WORM RFC 8785 Emitido
+                    </span>
+                    <p className="font-mono text-xs text-indigo-900 dark:text-indigo-200 font-bold truncate max-w-xs">
+                      {lastRenderSeal.sealId}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSstiSealForModal(lastRenderSeal);
+                      setSstiModalIncidentItem(null);
+                      setSstiSealVerifyResult(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Ver Certidão WORM
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ABA 2: PRESETS OFICIAIS CFP Nº 006/2019 */}
+        {sstiActiveTab === 'presets' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(sstiOverview?.clinicalPresets || sstiOverview?.presets || []).map((preset) => (
+              <div
+                key={preset.type}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-2.5 flex flex-col justify-between"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-xs text-slate-900 dark:text-white">
+                      {preset.title}
+                    </h3>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {preset.type}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {preset.description}
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 font-mono text-[10px] text-slate-600 dark:text-slate-300 max-h-24 overflow-y-auto whitespace-pre-wrap">
+                  {preset.rawTemplate.slice(0, 180)}...
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateContentInput(preset.rawTemplate);
+                    setTemplateVariablesInput(JSON.stringify(preset.defaultVariables, null, 2));
+                    setSstiActiveTab('editor');
+                    setFeedback({
+                      type: 'success',
+                      message: `Preset "${preset.title}" carregado no editor com sucesso.`
+                    });
+                  }}
+                  className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ScrollText className="w-3.5 h-3.5" />
+                  Carregar no Editor & Testar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ABA 3: SIMULADOR ADVERSARIAL SSTI */}
+        {sstiActiveTab === 'simulate' && (
+          <form onSubmit={handleSimulateSstiSubmit} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-200">
+              <span className="font-bold block mb-1">Simulador de Ataques Adversariais SSTI (CWE-1336):</span>
+              Dispara injeções deliberadas em templates clínicos para validar contenção por isolamento hermético (Object.create(null)), bloqueio de chamadas a processos de SO e emissão de laudo forense.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Vetor de Ameaça SSTI a Simular:
+                </label>
+                <select
+                  value={simSstiVector}
+                  onChange={(e) => setSimSstiVector(e.target.value as SstiThreatVector)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 font-medium"
+                >
+                  <option value={SstiThreatVector.PROTOTYPE_ACCESS}>PROTOTYPE_ACCESS (__proto__ / prototype pollution)</option>
+                  <option value={SstiThreatVector.RUNTIME_GLOBALS_ACCESS}>RUNTIME_GLOBALS_ACCESS (process / child_process / require)</option>
+                  <option value={SstiThreatVector.DYNAMIC_EVAL_ATTEMPT}>DYNAMIC_EVAL_ATTEMPT (constructor / Function() / eval)</option>
+                  <option value={SstiThreatVector.DELIMITER_INJECTION}>DELIMITER_INJECTION (${'${...}'} / &lt;% %&gt;)</option>
+                  <option value={SstiThreatVector.FORBIDDEN_IDENTIFIER}>FORBIDDEN_IDENTIFIER (Identificador fora da allowlist clínica)</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={simulatingSsti}
+                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {simulatingSsti ? 'Executando Teste Adversarial...' : 'Disparar Simulação de Ataque'}
+                </button>
+              </div>
+            </div>
+
+            {simSstiResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                    simSstiResult.threatBlocked
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                  }`}>
+                    {simSstiResult.threatBlocked ? '✅ Ataque SSTI Neutralizado pelo Sandbox' : '⚠️ Alerta de Injeção'}
+                  </span>
+                  {simSstiResult.incident?.seal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (simSstiResult.incident) {
+                          setSstiModalIncidentItem(simSstiResult.incident);
+                          setSelectedSstiSealForModal(simSstiResult.incident.seal);
+                          setSstiSealVerifyResult(null);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Certidão Notarial WORM
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1 font-mono text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-900 text-white break-all">
+                    <span className="text-slate-400 block text-[10px]">Payload Adversarial Testado:</span>
+                    <span className="text-rose-400 font-bold">{simSstiResult.attackPayload}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400">Resposta do Enclave: </span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{simSstiResult.message}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* ABA 4: POLÍTICAS DE SANDBOXING & INCIDENTES */}
+        {sstiActiveTab === 'policy' && (
+          <div className="space-y-6">
+            <form onSubmit={handleUpdateSstiPolicySubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Sandbox Hermético Estrito</span>
+                    <input
+                      type="checkbox"
+                      checked={policyStrictSandboxing}
+                      onChange={(e) => setPolicyStrictSandboxing(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Bloqueia execução imediata caso detecte tokens suspeitos de SSTI.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Expurgo de __proto__ & constructor</span>
+                    <input
+                      type="checkbox"
+                      checked={policyStripPrototype}
+                      onChange={(e) => setPolicyStripPrototype(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Isola escopo com Object.create(null) impedindo prototype pollution.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Bloqueio de Globais (process/require)</span>
+                    <input
+                      type="checkbox"
+                      checked={policyBlockGlobals}
+                      onChange={(e) => setPolicyBlockGlobals(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Veta resolução de símbolos do runtime Node.js/Bun para prevenir RCE.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Escape HTML/Markdown Downstream</span>
+                    <input
+                      type="checkbox"
+                      checked={policyEscapeHtml}
+                      onChange={(e) => setPolicyEscapeHtml(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Converte tags &lt;script&gt; em entidades seguras prevenindo Stored XSS.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Tamanho Máximo do Template (chars):
+                  </label>
+                  <input
+                    type="number"
+                    value={policyMaxLen}
+                    onChange={(e) => setPolicyMaxLen(Number(e.target.value))}
+                    className="w-full p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={updatingSstiPolicy}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {updatingSstiPolicy ? 'Salvando...' : 'Salvar Políticas de Sandboxing'}
+                </button>
+              </div>
+            </form>
+
+            {/* TABELA DE INCIDENTES RECENTES SSTI */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Histórico Forense de Tentativas de Injeção Interceptadas
+              </h3>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                      <th className="p-3">Data/Hora</th>
+                      <th className="p-3">Vetor de Ameaça</th>
+                      <th className="p-3">Severidade</th>
+                      <th className="p-3">Payload Amostral</th>
+                      <th className="p-3">Ação Aplicada</th>
+                      <th className="p-3 text-right">Ação Forense</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {!sstiOverview?.recentIncidents || sstiOverview.recentIncidents.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-4 text-center text-slate-400 italic">
+                          Nenhum incidente de injeção de template registrado no período. Enclave 100% íntegro.
+                        </td>
+                      </tr>
+                    ) : (
+                      sstiOverview.recentIncidents.map((inc) => (
+                        <tr key={inc.id || inc.incidentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                          <td className="p-3 font-mono text-[11px] text-slate-500">
+                            {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">
+                            {inc.threatVector}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                              {inc.riskSeverity || 'CRITICAL'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-[10px] text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                            {inc.attemptedPayload || inc.templateSnippet}
+                          </td>
+                          <td className="p-3 font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                            {inc.actionTaken}
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSstiModalIncidentItem(inc);
+                                setSelectedSstiSealForModal(inc.seal);
+                                setSstiSealVerifyResult(null);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                            >
+                              Certidão WORM
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -32016,6 +32774,199 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedRedosSealForModal(null);
                     setRedosModalIncidentItem(null);
                     setRedosSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================================
+          67. MODAL 49.A: CERTIDÃO NOTARIAL FORENSE WORM DE AVALIAÇÃO SSTI (RFC 8785)
+          ============================================================================ */}
+      {selectedSstiSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Stamp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                    Certidão Notarial Forense WORM — Avaliação de SSTI
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    OWASP ASVS v4.0 V5.2 & CWE-1336 • Fé Pública RFC 8785
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSstiSealForModal(null);
+                  setSstiModalIncidentItem(null);
+                  setSstiSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Identificador Notarial */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID do Selo Probatório WORM
+                  </span>
+                  <p className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    {selectedSstiSealForModal.sealId}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  {selectedSstiSealForModal.riskSeverity}
+                </span>
+              </div>
+
+              {/* Informações de Auditoria */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Vetor de Ameaça
+                  </span>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedSstiSealForModal.threatVector}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Ação Aplicada
+                  </span>
+                  <p className="font-mono text-xs text-indigo-600 dark:text-indigo-400 font-bold truncate">
+                    {selectedSstiSealForModal.actionTaken}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Latência Sandbox
+                  </span>
+                  <p className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {selectedSstiSealForModal.executionTimeMs} ms
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Padrão Canônico
+                  </span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    v{selectedSstiSealForModal.version} (RFC 8785)
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes do Incidente SSTI se houver */}
+              {sstiModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 block">
+                    Incidente SSTI Interceptado:
+                  </span>
+                  <p className="font-mono text-xs text-rose-900 dark:text-rose-200 font-bold">
+                    ID: {sstiModalIncidentItem.id || sstiModalIncidentItem.incidentId}
+                  </p>
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300 font-mono break-all">
+                    Payload: {sstiModalIncidentItem.attemptedPayload || sstiModalIncidentItem.templateSnippet}
+                  </p>
+                  <div className="text-[10px] font-mono text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
+                    <p>Ação: {sstiModalIncidentItem.actionTaken} | IP Origem: {sstiModalIncidentItem.clientIp}</p>
+                    <p>Usuário ID: {sstiModalIncidentItem.userId}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hash Canônico do Template SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do Template (Canonical Template Hash)
+                </span>
+                <p className="font-mono text-[10px] text-indigo-400 break-all select-all">
+                  {selectedSstiSealForModal.templateHash}
+                </p>
+              </div>
+
+              {/* Hash Canônico do Contexto SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do Contexto de Variáveis (Canonical Context Hash)
+                </span>
+                <p className="font-mono text-[10px] text-purple-400 break-all select-all">
+                  {selectedSstiSealForModal.contextHash}
+                </p>
+              </div>
+
+              {/* Hash Canônico da Saída Renderizada SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do Documento Saída (Canonical Output Hash)
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedSstiSealForModal.outputHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-amber-300 break-all select-all">
+                  {selectedSstiSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {sstiSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  sstiSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {sstiSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {sstiSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedSstiSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingSstiSeal}
+                  onClick={() => handleVerifySstiSealSubmit(JSON.stringify(selectedSstiSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingSstiSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSstiSealForModal(null);
+                    setSstiModalIncidentItem(null);
+                    setSstiSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

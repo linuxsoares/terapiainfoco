@@ -468,6 +468,17 @@ import type {
   SimulateRedosAttackResponse,
   VerifyRedosSealDTO,
   VerifyRedosSealResponse,
+  InspectTemplateDTO,
+  InspectTemplateResponse,
+  RenderSandboxedTemplateDTO,
+  RenderSandboxedTemplateResponse,
+  UpdateSstiPolicyDTO,
+  UpdateSstiPolicyResponse,
+  SimulateSstiAttackDTO,
+  SimulateSstiAttackResponse,
+  VerifySstiSealDTO,
+  VerifySstiSealResponse,
+  SstiGuardOverviewResponse,
   RedosGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
@@ -2904,6 +2915,46 @@ export const api = {
 
   async verifyRedosSeal(dto: VerifyRedosSealDTO): Promise<VerifyRedosSealResponse> {
     return await request<VerifyRedosSealResponse>('/redos-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 67. Blindagem contra Injeção de Templates no Servidor (SSTI) em Laudos Multiformato (OWASP ASVS V5.2 & CFP 006/2019)
+  async getSstiGuardOverview(): Promise<SstiGuardOverviewResponse> {
+    return await request<SstiGuardOverviewResponse>('/ssti-guard/overview');
+  },
+
+  async inspectTemplate(dto: InspectTemplateDTO): Promise<InspectTemplateResponse> {
+    return await request<InspectTemplateResponse>('/ssti-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async renderSandboxedTemplate(dto: RenderSandboxedTemplateDTO): Promise<RenderSandboxedTemplateResponse> {
+    return await request<RenderSandboxedTemplateResponse>('/ssti-guard/render', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateSstiPolicy(dto: UpdateSstiPolicyDTO): Promise<UpdateSstiPolicyResponse> {
+    return await request<UpdateSstiPolicyResponse>('/ssti-guard/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateSstiAttack(dto: SimulateSstiAttackDTO): Promise<SimulateSstiAttackResponse> {
+    return await request<SimulateSstiAttackResponse>('/ssti-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySstiSeal(dto: VerifySstiSealDTO): Promise<VerifySstiSealResponse> {
+    return await request<VerifySstiSealResponse>('/ssti-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

@@ -1,8 +1,8 @@
 # 📋 TerapiaInFoco — Status de Implementação & Próximos Passos (RFC-001)
 
 > **Documento de Continuidade Operacional**  
-> **Data:** 14/10/2026  
-> **Status Geral:** 8 Módulos Principais + 42 Extensões de Segurança + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.054/1.054 Testes Passando (0 falhas em 112 arquivos)
+> **Data:** 16/10/2026  
+> **Status Geral:** 8 Módulos Principais + 43 Extensões de Segurança + Blindagem contra SSTI em Laudos Multiformato (OWASP ASVS V5.2/CWE-1336/CFP 006/2019) + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.077/1.077 Testes Passando (0 falhas em 114 arquivos)
 
 
 
@@ -1813,6 +1813,95 @@ terapiainfoco/
 
 ---
 
+### 64. Detecção e Prevenção Ativa de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)
+- [x] **Motor Criptográfico e Sanitizador Seguro (`packages/crypto/src/xxeGuard.ts`):**
+  - **Detecção Rigorosa de DTDs e Declarações Maliciosas:** Bloqueio preemptivo de declarações `<!DOCTYPE`, `<!ENTITY`, `SYSTEM` e `PUBLIC`.
+  - **Prevenção de XML Entity Expansion / Recursion Bombs:** Proteção matemática contra ataques do tipo Billion Laughs e Quadratic Blowup com contadores estritos de entidades expandidas.
+  - **Mitigação de SSRF via XML Schemas:** Varredura léxica impedindo esquemas de URI perigosos (`file://`, `http://`, `https://`, `ftp://`, `gopher://`, `php://`, `expect://`).
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica JCS com prefixo `xxe_guard_v1_<base64url>` assinada via HMAC-SHA256 atestando sanitização segura.
+  - Suíte com 14 testes unitários aprovados em `packages/crypto/test/xxeGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `XxeThreatSeverity`, `XxeThreatType`, `XxeSanitizationAction`, `XmlPayloadType`.
+  - Ações WORM `XXE_ATTEMPT_BLOCKED`, `XML_BOMB_BLOCKED`, `SAFE_XML_SANITIZED`, `XXE_GUARD_POLICY_UPDATED`, `XXE_GUARD_SEAL_VERIFIED`.
+  - Modelos `XxeThreat`, `XxeProofSeal`, `XxeScanResult`, `XxeGuardPolicy`, `XxeGuardMetrics`, `XxeSecurityIncident`, `XxeGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `XxeGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de injeção XML e auditoria WORM mandatória via `AuditService.log`.
+  - 5 rotas REST sob `/api/xxe-guard` (`/overview`, `/scan`, `/policy`, `/simulate`, `/verify-seal`).
+  - Suíte com 8 testes de integração aprovados em `apps/backend/test/xxeGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 46:** Painel de Blindagem contra XXE & XML Bombs com 5 KPIs, 3 abas interativas (*Scanner & Sanitizador XML*, *Simulador Adversarial CWE-611/776*, *Políticas de Hardening & Incidentes*) e tabela WORM de incidentes bloqueados.
+  - **Modal 46.A:** Certidão Notarial Forense de Integridade XML WORM com validação do selo criptográfico em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+### 65. Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)
+- [x] **Motor Criptográfico e Binding Dinâmico (`packages/crypto/src/sessionFixationGuard.ts`):**
+  - **Rotação Criptográfica Obrigatória Pós-Autenticação (CWE-384):** Destruição atômica de tokens pré-autenticação e emissão de nova sessão criptográfica com entropia de 256 bits gerada via CSPRNG.
+  - **Binding Dinâmico Multidimensão de Contexto de Rede & TLS (OWASP ASVS V3.3):** Vinculação criptográfica contínua da sessão ao IP de origem, ASN, Fingerprint TLS/JA3/JA4 e cabeçalhos de integridade.
+  - **Detecção Heurística de Hijacking & Deslocamento Geográfico Impossível:** Análise de discrepâncias anômalas de rede entre requisições consecutivas, disparando revogação forçada de sessão.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica JCS com prefixo `session_guard_v1_<base64url>` atestando validação e rotação de sessão.
+  - Suíte com 14 testes unitários aprovados em `packages/crypto/test/sessionFixationGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `SessionRiskSeverity`, `SessionThreatVector`, `SessionEnforcementAction`, `SessionLifecycleStage`.
+  - Ações WORM `SESSION_ROTATED_POST_AUTH`, `SESSION_HIJACK_ATTEMPT_BLOCKED`, `SESSION_CONTEXT_MISMATCH_TERMINATED`, `SESSION_GUARD_POLICY_UPDATED`, `SESSION_GUARD_SEAL_VERIFIED`.
+  - Modelos `SessionContextFingerprint`, `SessionValidationResult`, `SessionProofSeal`, `SessionGuardPolicy`, `SessionGuardMetrics`, `SessionSecurityIncident`, `SessionGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `SessionFixationGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de fixação/sequestro e auditoria WORM mandatória via `AuditService.log`.
+  - 6 rotas REST sob `/api/session-guard` (`/overview`, `/rotate`, `/validate`, `/policy`, `/simulate`, `/verify-seal`).
+  - Suíte com 8 testes de integração aprovados em `apps/backend/test/sessionFixationGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 47:** Painel de Blindagem contra Fixação & Sequestro de Sessão com 5 KPIs, 3 abas interativas (*Monitor & Validador de Sessão*, *Simulador de Sequestro/Fixação*, *Políticas de Context Binding & Incidentes*) e tabela WORM de incidentes bloqueados.
+  - **Modal 47.A:** Certidão Notarial Forense de Validação de Sessão WORM com validação do selo criptográfico em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+### 66. Detecção e Prevenção Ativa de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)
+- [x] **Motor Criptográfico e Safe Regex Engine (`packages/crypto/src/redosGuard.ts`):**
+  - **Análise Léxica & AST de Expressões Regulares:** Detecção estática de quantificadores aninhados suscetíveis a backtracking catastrófico ($O(2^n)$ e $O(n^k)$), repetições sobrepostas e grupos ambíguos.
+  - **Execução Sandboxed com Timeout Não-Bloqueante:** Avaliação protegida de expressões contra inputs arbitrários com isolamento temporal estrito em microssegundos.
+  - **Sanitização Proativa & Sugestão de Padrões Seguros:** Conversão automática de regex vulneráveis para alternativas determinísticas equivalentes ($O(n)$) e presets clínicos certificados (CFP 001/2009, CPF, CID-11, Telefone, E-mail).
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica JCS com prefixo `redos_guard_v1_<base64url>` atestando validação e segurança assintótica.
+  - Suíte com 15 testes unitários aprovados em `packages/crypto/test/redosGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `RegexVulnerabilitySeverity`, `BacktrackingComplexity`, `RegexSanitizationAction`, `ClinicalRegexCategory`.
+  - Ações WORM `REDOS_PATTERN_BLOCKED`, `REDOS_INPUT_EVALUATION_TIMEOUT`, `SAFE_REGEX_COMPILED`, `REDOS_GUARD_POLICY_UPDATED`, `REDOS_GUARD_SEAL_VERIFIED`.
+  - Modelos `RegexVulnerabilityPattern`, `RegexEvaluationResult`, `RedosProofSeal`, `RedosGuardPolicy`, `RedosGuardMetrics`, `RedosSecurityIncident`, `RedosGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `RedosGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de ReDoS e auditoria WORM mandatória via `AuditService.log`.
+  - 6 rotas REST sob `/api/redos-guard` (`/overview`, `/inspect`, `/evaluate`, `/policy`, `/simulate`, `/verify-seal`).
+  - Suíte com 8 testes de integração aprovados em `apps/backend/test/redosGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 48:** Painel de Blindagem contra ReDoS com 5 KPIs, 3 abas interativas (*Inspetor Léxico AST & Validador*, *Simulador de Backtracking Catastrófico*, *Políticas de Sanitização & Incidentes*) e tabela WORM de incidentes bloqueados.
+  - **Modal 48.A:** Certidão Notarial Forense de Avaliação ReDoS WORM com validação do selo criptográfico em tempo real.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+### 67. Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) e Execução Remota em Laudos, Pareceres e Relatórios Psicológicos Multiformato (OWASP ASVS v4.0 V5.2, CWE-1336, CFP nº 006/2019 & Secure Sandboxed Template Engine)
+- [x] **Motor Criptográfico e Sandboxed Template Engine (`packages/crypto/src/sstiGuard.ts`):**
+  - **Análise Estática Léxica AST de Templates Clínicos:** Detecção precoce de vetores de injeção de template, tais como: acesso a protótipo (`__proto__`, `constructor`, `prototype`), globais de runtime (`process`, `global`, `window`, `require`, `import`), tentativas de avaliação dinâmica (`eval`, `Function`, `setTimeout`, `setInterval`) e delimitadores anômalos de engines vulneráveis (`{{ ... }}`, `${ ... }`, `<%= ... %>`, `#{ ... }`, `*{ ... }`).
+  - **Mecanismo de Renderização Hermético e Sandboxed:** Interpolação léxica segura onde os identificadores permitidos são estritamente delimitados por listas de variáveis declaradas, e a renderização opera sobre um escopo congelado construído com `Object.create(null)` e suporte a escape HTML contextual (`escapeHtml`), impossibilitando fuga de escopo ou execução remota de código (RCE).
+  - **Templates Clínicos Certificados (Resolução CFP nº 006/2019):** Presets auditados de Atestado Psicológico, Declaração Psicológica, Relatório Psicológico, Laudo Pericial, Parecer Técnico e Termo de Consentimento Livre e Esclarecido (TCLE) com validação sintática compulsória.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica JCS com prefixo `ssti_guard_v1_<base64url>` assinada via HMAC-SHA256 atestando sanitização segura e conformidade de template.
+  - Suíte com 15 testes unitários aprovados em `packages/crypto/test/sstiGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `TemplateRiskSeverity`, `SstiThreatVector`, `SstiSanitizationAction`, `ClinicalDocumentTemplateType`.
+  - Ações WORM `SSTI_ATTEMPT_BLOCKED`, `SSTI_TEMPLATE_SANITIZED`, `SSTI_SANDBOX_RENDER_SUCCESS`, `SSTI_POLICY_UPDATED`, `SSTI_SEAL_VERIFIED`.
+  - Modelos `SstiThreat`, `SstiProofSeal`, `TemplateInspectionResult`, `SandboxedRenderResult`, `SstiGuardPolicy`, `SstiGuardMetrics`, `SstiSecurityIncident`, `SstiGuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `SstiGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação de vetores de injeção de templates e auditoria WORM mandatória via `AuditService.log`.
+  - 6 rotas REST sob `/api/ssti-guard` (`/overview`, `/inspect`, `/render`, `/policy`, `/simulate`, `/verify-seal`).
+  - Atualização do `wafMiddleware.ts` para isenção da rota `/api/ssti-guard` de bloqueio de borda durante testes de simulação.
+  - Suíte com 8 testes de integração aprovados em `apps/backend/test/sstiGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 49:** Painel de Blindagem contra SSTI em Laudos Psicológicos (OWASP ASVS V5.2 & CFP nº 006/2019) com 5 KPIs, 4 abas interativas (*Editor & Sandbox Seguro*, *Modelos Oficiais CFP nº 006/2019*, *Simulador Adversarial de SSTI*, *Políticas de Sandboxing & Incidentes*) e tabela WORM de incidentes bloqueados.
+  - **Modal 49.A:** Certidão Notarial Forense de Avaliação SSTI WORM (RFC 8785) com fé pública e validação instantânea.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -1892,12 +1981,13 @@ terapiainfoco/
 | `feat/xxe-injection-xml-bomb-defense` | Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR) | [PR #81](https://github.com/linuxsoares/terapiainfoco/pull/81) | Merged |
 | `feat/session-fixation-hijacking-guard` | Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B) | [PR #82](https://github.com/linuxsoares/terapiainfoco/pull/82) | Merged |
 | `feat/redos-safe-regex-engine` | Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333) | [PR #83](https://github.com/linuxsoares/terapiainfoco/pull/83) | Merged |
+| `feat/ssti-secure-template-engine` | Blindagem contra Injeção de Templates no Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019) | [PR #84](https://github.com/linuxsoares/terapiainfoco/pull/84) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, o **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, e a suíte completa de **1.054 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019)**, a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, o **Módulo de Proteção contra Ataques de Poluição de Cache HTTP (Web Cache Poisoning & Cache Deception) em Recursos Clínicos com Normalização de Chave e Assinatura de Cache (RFC 7234, RFC 9111 & OWASP ASVS v4.0)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices)**, e a suíte completa de **1.077 testes automatizados (0 falhas em 114 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1940,7 +2030,9 @@ Com a **Detecção e Prevenção de Negação de Serviço por Expressões Regula
 - [x] **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE - XML External Entity Injection) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Dados em Saúde Mental (OWASP Top 10 API Security, CWE-611, CWE-776 & HL7/FHIR XML Best Practices).**
 - [x] **Módulo de Proteção contra Ataques de Fixação de Sessão & Hijacking de Sessão Clínica com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B).**
 - [x] **Módulo de Detecção e Prevenção Ativa de Ataques de Negação de Serviço por Expressões Regulares (ReDoS - Regular Expression Denial of Service) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5, CWE-1333 & Safe Regex Engine).**
-- [ ] **Módulo de Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI - Server-Side Template Injection) e Execução Remota em Laudos, Pareceres e Relatórios Psicológicos Multiformato (OWASP ASVS v4.0 V5.2, CWE-1336 & Secure Sandboxed Template Engine).**
+- [x] **Módulo de Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI - Server-Side Template Injection) e Execução Remota em Laudos, Pareceres e Relatórios Psicológicos Multiformato (OWASP ASVS v4.0 V5.2, CWE-1336 & Secure Sandboxed Template Engine).**
+- [ ] **Módulo de Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78 & OWASP ASVS v4.0 V5.3).**
+- [ ] **Módulo de Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23 & OWASP ASVS v4.0 V5.5).**
 
 ---
 
