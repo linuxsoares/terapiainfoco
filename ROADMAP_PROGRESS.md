@@ -1710,19 +1710,60 @@ terapiainfoco/
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
 ### 59. Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)
-- [ ] **Motor Criptográfico de Esteganografia Visual & DCT/DWT Invisível (`packages/crypto/src/visualWatermarkShield.ts`):**
+- [x] **Motor Criptográfico de Esteganografia Visual & DCT/DWT Invisível (`packages/crypto/src/visualWatermarkShield.ts`):**
   - **Injeção de Marca d'Água Espectral Invisível em Quadros de Vídeo WebRTC (Spatial / Frequency Domain DCT Watermarking):** Algoritmo de dispersão de ruído imperceptível ao olho humano nos coeficientes de média frequência da Transformada Discreta de Cosseno (DCT), resistente a compressões de vídeo H.264/VP8/VP9 e capturas de tela parciais.
   - **Semente Esteganográfica Pseudorrandomica (CSPRNG Watermark Seed):** Derivação criptográfica baseada em `(TherapistCRP, PatientBlindIndex, SessionTimestamp, SessionSalt)` gerando matriz ortogonal única de rastreamento.
   - **Detector & Extrator Forense de Vazamento (Leak Tracer):** Algoritmo de correlação cruzada normalizada que detecta e extrai a identidade do usuário vazador mesmo a partir de printscreens recortados, fotografias de monitor ou vídeos recompactados.
   - **Selo Probatório WORM HMAC-SHA256:** Certidão de autoria de mídia e rastreabilidade forense com canonicalização JCS (RFC 8785).
-- [ ] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
   - **Enums e Ações WORM:** `AuditResourceType.VISUAL_WATERMARK_SHIELD`, ações `VISUAL_WATERMARK_EMBEDDED`, `LEAK_EXTRACTION_ATTEMPTED`, `LEAK_SOURCE_IDENTIFIED`, `WATERMARK_PROOF_VERIFIED`.
   - **Modelos e DTOs:** Interfaces de configuração espectral, laudo de correlação forense e DTOs tipados.
-- [ ] **Backend Service & Rotas REST (`apps/backend`):**
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
   - **Serviço Central e Rotas REST (`/api/visual-watermark`):** Rastreamento de sessões, injeção de metadados invisíveis e verificação pericial de prints vazados.
-- [ ] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
   - **Card 41:** Painel de proteção contra exfiltração de tela com simulador forense de detecção de printscreens.
   - **Modal 41.A:** Laudo Pericial de Traçabilidade de Vazamento.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
+---
+
+### 60. Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)
+- [x] **Motor Criptográfico de Tokens Efêmeros e Auto-Revogação (`packages/crypto/src/ephemeralTokenEngine.ts`):**
+  - **Emissão Criptográfica com HMAC-SHA256 e Restrição Temporal Estrita:** Tokens pontuais com payload mínimo cifrado, nonce anti-colisão, derivação de chave de sessão única e TTL milimétrico (5 a 120 minutos).
+  - **Consumo Único & Auto-Revogação Imediata:** Invalidação atômica e irreversível do token no primeiro uso (One-Time Access), impedindo reutilização acidental ou intencional por terceiros.
+  - **Revogação Pró-Ativa e Bloqueio de Emergência:** Capacidade do psicólogo titular revogar imediatamente links de atendimento caso detecte comportamento suspeito ou link compartilhado indevidamente.
+  - **Selo Probatório WORM HMAC-SHA256 & RFC 8785:** Certidão imutável de emissão, consumo ou revogação forçada com hash-chain auditável.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `EphemeralTokenStatus`, `EphemeralTokenTarget`, `RevocationReason` e ação WORM `EPHEMERAL_TOKEN_ISSUED`, `CONSUMED`, `REVOKED`, `SEAL_VERIFIED`.
+  - Modelos `EphemeralAccessToken`, `EphemeralTokenProofSeal`, `EphemeralTokenOverview` e DTOs de criação, consumo e auditoria.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `EphemeralTokenService` com armazenamento em memória, proteção contra replay, cotas e trilha WORM inalterável.
+  - Rotas sob `/api/ephemeral-tokens` (`/overview`, `/issue`, `/consume`, `/revoke`, `/simulate-intrusion`, `/verify-seal`).
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 42:** Painel de Credenciais Temporárias & Links Efêmeros com KPIs, gerador dinâmico de links e simulador de intrusão.
+  - **Modal 42.A:** Certidão Notarial Forense do Link Temporário com verificação WORM em tempo real.
+
+---
+
+### 61. Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)
+- [x] **Motor Criptográfico de Shamir's Secret Sharing no Corpo Finito $GF(256)$ (`packages/crypto/src/shamirSecretSharingEngine.ts`):**
+  - **Aritmética Exata de Galois Field $GF(2^8)$:** Implementação com polinômio redutor irredutível $0x11b$ ($x^8 + x^4 + x^3 + x + 1$) e tabelas de logaritmo/exponencial com gerador $\alpha = 3$, garantindo soma/multiplicação/divisão em tempo constante $O(1)$.
+  - **Divisão de Segredo em $n$ Cotas com Limiar $t$ ($t$-of-$n$ Scheme):** Geração de polinômio aleatório de grau $t-1$ onde $P(0) = \text{SecretByte}$ e avaliação em pontos $x \in \{1, \dots, n\}$.
+  - **Reconstrução Colegiada via Interpolação de Lagrange:** Reconstrução exata do segredo em $x=0$ a partir de qualquer subconjunto arbitrário de $k \ge t$ cotas distintas; garantia de segurança teórica de informação (Information-Theoretic Security) para $k < t$.
+  - **Envelopamento de Prontuário Clínico (AES-256-GCM + SSS):** Cifragem do prontuário com DEK de 256 bits e divisão da DEK em cotas distribuídas entre os custodiantes legais (Juiz da Vara, Presidente da Comissão de Ética do CRP, Psicólogo Titular, DPO Institucional, Ministério Público).
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração de certidão criptográfica canônica com prefixo `threshold_v1_<base64url>`.
+  - Suíte com 12 testes unitários aprovados em `packages/crypto/test/shamirSecretSharingEngine.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `CourtOrderVaultStatus`, `CustodianRole`, `ThresholdReconstructionVerdict`, `LegalJustificationType`.
+  - Ações WORM `COURT_ORDER_VAULT_INITIALIZED`, `THRESHOLD_KEY_SPLIT`, `CUSTODIAN_SHARE_ISSUED`, `CUSTODIAN_SHARE_SUBMITTED`, `QUORUM_RECONSTRUCTION_SUCCESS`, `QUORUM_RECONSTRUCTION_FAILED`, `COURT_ORDER_RECORD_DECRYPTED`, `COURT_ORDER_VAULT_PURGED`, `THRESHOLD_PROOF_SEAL_VERIFIED`.
+  - Modelos `ThresholdProofSeal`, `ShamirKeyShare`, `CourtOrderVault`, `ThresholdReconstructionResult`, `ThresholdVaultMetrics`, `ThresholdVaultOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `CourtOrderThresholdService` singleton gerenciando cofres judiciais, cotas de custodiantes, quorum de liberação e registro compulsório na hash-chain WORM via `AuditService.log`.
+  - 6 rotas REST sob `/api/court-order-threshold` (`/overview`, `/create-vault`, `/submit-share`, `/reconstruct-decrypt`, `/simulate-attack`, `/verify-seal`).
+  - Suíte com 6 testes de integração aprovados em `apps/backend/test/courtOrderThreshold.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 43:** Painel de Liberação Colegiada de Prontuários Judiciais com 5 KPIs, 3 abas interativas (*Cofre & Custodiantes Legais*, *Assembleia Colegiada & Reconstrução de Quorum*, *Simulador Adversarial de Sub-Quorum / Fraude*) e tabela WORM de processos.
+  - **Modal 43.A:** Certidão Notarial Forense de Abertura Colegiada com validação do selo criptográfico WORM em tempo real.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
 ---
@@ -1802,12 +1843,13 @@ terapiainfoco/
 | `feat/anti-replay-nonce-sliding-window-bloom-filter` | Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security) | [PR #75](https://github.com/linuxsoares/terapiainfoco/pull/75) | Merged |
 | `feat/visual-watermark-screen-exfiltration-tracer` | Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4) | [PR #76](https://github.com/linuxsoares/terapiainfoco/pull/76) | Merged |
 | `feat/ephemeral-teleconsult-tokens-auto-revocation` | Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46) | [PR #77](https://github.com/linuxsoares/terapiainfoco/pull/77) | Merged |
+| `feat/threshold-shamir-secret-sharing-court-order` | Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2) | [PR #78](https://github.com/linuxsoares/terapiainfoco/pull/78) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, o **Módulo de Criptografia Pós-Quântica Híbrida (PQC Kyber/ML-KEM & Dilithium/ML-DSA) para Telemedicina e Prontuários Clínicos (NIST FIPS 203 & FIPS 204)**, e a suíte completa de **927 testes automatizados**, os próximos passos de evolução do roadmap são:
+Com o **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2)**, o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46)**, o **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4)**, o **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security)**, o **Módulo de Proteção Criptográfica contra Ataques Side-Channel e Timing Attacks (Constant-Time Operations, Blinding & Cache Allocation Shield - NIST SP 800-38D & RFC §4.2, §4.4)**, e a suíte completa de **945 testes automatizados**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -1844,7 +1886,8 @@ Com o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Tempor�
 - [x] **Módulo de Proteção contra Ataques de Replay & Reutilização de Nonce/IV em Sessões WebRTC e Tokens Clínicos com Janela Deslizante e Bloom Filter (RFC 8446 TLS 1.3, RFC 9147 DTLS 1.3 & OWASP Top 10 API Security).**
 - [x] **Módulo de Marcação D'água Esteganográfica Visual e Traçabilidade Forense Anti-Exfiltração de Tela em Sessões WebRTC e Prontuários Médicos (LGPD Art. 46, Resolução CFP nº 011/2018 e RFC-001 §3.2, §4.4).**
 - [x] **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Temporário / Links Efêmeros de Teleconsulta com HMAC-Time-Constrained Token e Auto-Revogação com Prova de Não-Repúdio (RFC 7519, RFC 7009 & LGPD Art. 46).**
-- [ ] **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2).**
+- [x] **Módulo de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography & Shamir's Secret Sharing (t-of-n Multi-Party Computation - CFP nº 001/2009 Art. 9º, LGPD Art. 11 e RFC §4.2).**
+- [ ] **Módulo de Detecção e Prevenção Ativa de Ataques de Poluição de Protótipo (Prototype Pollution) & Desserialização Insegura em Objetos Clínicos Dinâmicos (OWASP ASVS v4.0 V5.5, CWE-1321 & Node.js Security Best Practices).**
 
 ---
 
@@ -1854,7 +1897,7 @@ Com o **Módulo de Rastreabilidade & Proteção de Credenciais de Acesso Tempor�
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (927 testes)
+# 2. Executar suíte completa de testes (945 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

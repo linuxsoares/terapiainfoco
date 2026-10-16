@@ -46,6 +46,7 @@ export * from './sideChannelShield';
 export * from './antiReplayShield';
 export * from './visualWatermarkShield';
 export * from './ephemeralTokenEngine';
+export * from './shamirSecretSharingEngine';
 
 
 

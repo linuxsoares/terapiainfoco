@@ -290,7 +290,17 @@ export enum AuditAction {
   EPHEMERAL_TOKEN_REVOKED = 'EPHEMERAL_TOKEN_REVOKED',
   EPHEMERAL_TOKEN_EXPIRED = 'EPHEMERAL_TOKEN_EXPIRED',
   EPHEMERAL_TOKEN_ACCESS_BLOCKED = 'EPHEMERAL_TOKEN_ACCESS_BLOCKED',
-  EPHEMERAL_TOKEN_PROOF_VERIFIED = 'EPHEMERAL_TOKEN_PROOF_VERIFIED'
+  EPHEMERAL_TOKEN_PROOF_VERIFIED = 'EPHEMERAL_TOKEN_PROOF_VERIFIED',
+  // Ações de Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography (CFP nº 001/2009 Art. 9º, LGPD Art. 11 & RFC §4.2)
+  COURT_ORDER_VAULT_INITIALIZED = 'COURT_ORDER_VAULT_INITIALIZED',
+  THRESHOLD_KEY_SPLIT = 'THRESHOLD_KEY_SPLIT',
+  CUSTODIAN_SHARE_ISSUED = 'CUSTODIAN_SHARE_ISSUED',
+  CUSTODIAN_SHARE_SUBMITTED = 'CUSTODIAN_SHARE_SUBMITTED',
+  QUORUM_RECONSTRUCTION_SUCCESS = 'QUORUM_RECONSTRUCTION_SUCCESS',
+  QUORUM_RECONSTRUCTION_FAILED = 'QUORUM_RECONSTRUCTION_FAILED',
+  COURT_ORDER_RECORD_DECRYPTED = 'COURT_ORDER_RECORD_DECRYPTED',
+  COURT_ORDER_VAULT_PURGED = 'COURT_ORDER_VAULT_PURGED',
+  THRESHOLD_PROOF_SEAL_VERIFIED = 'THRESHOLD_PROOF_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -339,7 +349,8 @@ export enum AuditResourceType {
   SIDE_CHANNEL_SHIELD = 'SIDE_CHANNEL_SHIELD',
   ANTI_REPLAY_SHIELD = 'ANTI_REPLAY_SHIELD',
   VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD',
-  EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD'
+  EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD',
+  COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT'
 }
 
 /**
@@ -1472,6 +1483,50 @@ export enum EphemeralTokenVerificationVerdict {
   SIGNATURE_INVALID = 'SIGNATURE_INVALID',                         // Assinatura HMAC-SHA256 não confere
   ROOM_MISMATCH = 'ROOM_MISMATCH',                                 // Tentativa de uso do token em outra sala
   PREMATURE_ACCESS_NBF = 'PREMATURE_ACCESS_NBF'                    // Acesso antes do horário nbf estipulado
+}
+
+/**
+ * Status do Cofre de Quebra de Sigilo por Ordem Judicial
+ */
+export enum CourtOrderVaultStatus {
+  PENDING_QUORUM = 'PENDING_QUORUM',                     // Aguardando submissão do número mínimo de cotas (threshold)
+  QUORUM_REACHED = 'QUORUM_REACHED',                     // Quorum atingido, pronto para decifragem
+  DECRYPTED_FOR_INSPECTION = 'DECRYPTED_FOR_INSPECTION', // Prontuário revelado sob custódia forense
+  EXPIRED = 'EXPIRED',                                   // Prazo legal de cumprimento da ordem expirado
+  REVOKED_ABORTED = 'REVOKED_ABORTED'                    // Processo judicial suspenso ou cancelado
+}
+
+/**
+ * Papéis de Custódia Legal para o Colegiado de Quebra de Sigilo (Threshold Custodians)
+ */
+export enum CustodianRole {
+  LEAD_PSYCHOLOGIST = 'LEAD_PSYCHOLOGIST',               // Psicólogo Responsável Técnico pelo Atendimento
+  DPO_OFFICER = 'DPO_OFFICER',                           // Encarregado de Proteção de Dados (DPO LGPD)
+  ETHICS_COMMITTEE_CHAIR = 'ETHICS_COMMITTEE_CHAIR',     // Presidente da Comissão de Ética do CRP/CFP
+  LEGAL_COUNSEL = 'LEGAL_COUNSEL',                       // Assessor Jurídico / Advogado Institucional
+  JUDICIAL_OFFICER = 'JUDICIAL_OFFICER'                  // Oficial de Justiça / Perito Judicial Designado
+}
+
+/**
+ * Veredito da Reconstrução de Chave por Interpolação de Shamir
+ */
+export enum ThresholdReconstructionVerdict {
+  VALID_RECONSTRUCTED = 'VALID_RECONSTRUCTED',           // Chave mestre recomposta com sucesso via interpolação polinomial
+  INSUFFICIENT_SHARES = 'INSUFFICIENT_SHARES',           // Número de cotas submetidas inferior ao threshold exigido (t)
+  CORRUPTED_SHARE_CHECKSUM = 'CORRUPTED_SHARE_CHECKSUM', // Cota com erro de paridade ou hash corrompido
+  DUPLICATE_CUSTODIAN_SHARE = 'DUPLICATE_CUSTODIAN_SHARE', // Tentativa de submeter a mesma cota mais de uma vez
+  UNAUTHORIZED_QUORUM = 'UNAUTHORIZED_QUORUM',           // Cotas válidas mas pertencentes a cofres distintos
+  VAULT_NOT_FOUND_OR_EXPIRED = 'VAULT_NOT_FOUND_OR_EXPIRED' // Cofre expirado ou inexistente
+}
+
+/**
+ * Justificativa Jurídico-Ética para Quebra de Sigilo (Código de Ética do Psicólogo Art. 10 & LGPD Art. 11)
+ */
+export enum LegalJustificationType {
+  COURT_ORDER_SUBPOENA = 'COURT_ORDER_SUBPOENA',         // Determinação judicial formal com mandado e segredo de justiça
+  CFP_ETHICS_INQUIRY = 'CFP_ETHICS_INQUIRY',             // Sindicância formal de processo ético-disciplinar no Conselho
+  GRAVE_LIFE_THREAT_EMERGENCY = 'GRAVE_LIFE_THREAT_EMERGENCY', // Risco iminente e concreto de violência ou suicídio
+  PATIENT_DECEASED_INVENTORY = 'PATIENT_DECEASED_INVENTORY'    // Inventário judicial com herdeiros legítimos e autorização
 }
 
 

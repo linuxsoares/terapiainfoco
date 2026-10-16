@@ -3311,6 +3311,87 @@ export interface EphemeralTokenOverview {
   allowConcurrentAccess: boolean;
 }
 
+/**
+ * Selo Probatório WORM de Operação de Threshold Cryptography (RFC 8785 JCS)
+ */
+export interface ThresholdProofSeal {
+  sealToken: string;            // Prefixo: threshold_v1_<base64url>
+  canonicalDigest: string;      // Digest SHA-256 canônico JCS (RFC 8785)
+  action: import('./enums').AuditAction;
+  vaultId: string;
+  issuedAt: string;
+  signature: string;
+}
+
+/**
+ * Cota de Chave Criptográfica de Shamir (Shamir Secret Share)
+ */
+export interface ShamirKeyShare {
+  shareIndex: number;            // Coordenada x no corpo finito (1..n)
+  shareData: string;             // Valor f(x) codificado em hex/base64
+  custodianRole: import('./enums').CustodianRole;
+  custodianName: string;
+  checksum: string;              // Hash SHA-256 parcial para validação de integridade do share
+}
+
+/**
+ * Cofre Criptográfico de Quebra de Sigilo por Ordem Judicial (Court Order Vault)
+ */
+export interface CourtOrderVault {
+  vaultId: string;
+  patientId: string;
+  patientMaskedName: string;
+  legalCaseNumber: string;       // Número do processo judicial (ex: CNJ 0001234-56.2026.8.26.0100)
+  legalJustification: import('./enums').LegalJustificationType;
+  thresholdRequired: number;     // t (mínimo de cotas necessárias, ex: 3)
+  totalShares: number;           // n (total de cotas distribuídas, ex: 5)
+  cipheredRecordPayload: string; // Prontuário cifrado com AES-256-GCM
+  ivHex: string;                 // Nonce/IV AES-GCM
+  authTagHex: string;            // Tag de autenticação GCM
+  status: import('./enums').CourtOrderVaultStatus;
+  createdAt: string;
+  expiresAt: string;
+  submittedShares: ShamirKeyShare[];
+  decryptedRecordText?: string;  // Disponível apenas se status for DECRYPTED_FOR_INSPECTION
+  proofSeal: ThresholdProofSeal;
+}
+
+/**
+ * Resultado da Reconstrução de Quorum e Decifragem
+ */
+export interface ThresholdReconstructionResult {
+  success: boolean;
+  verdict: import('./enums').ThresholdReconstructionVerdict;
+  quorumCount: number;
+  thresholdRequired: number;
+  recoveredKeyHex?: string;
+  decryptedPayload?: string;
+  proofSeal: ThresholdProofSeal;
+  message: string;
+}
+
+/**
+ * Métricas e Telemetria de Governança de Threshold Cryptography
+ */
+export interface ThresholdVaultMetrics {
+  totalVaultsCreated: number;
+  pendingQuorumVaults: number;
+  successfullyUnlockedVaults: number;
+  rejectedQuorumAttempts: number;
+  averageQuorumThreshold: number;
+  systemIntegrity: 'OPTIMAL' | 'WARNING' | 'ALERT';
+}
+
+/**
+ * Visão Geral de Cofres de Quebra de Sigilo
+ */
+export interface ThresholdVaultOverview {
+  metrics: ThresholdVaultMetrics;
+  activeVaults: CourtOrderVault[];
+  defaultThreshold: number;
+  defaultTotalShares: number;
+}
+
 
 
 

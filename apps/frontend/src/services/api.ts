@@ -408,7 +408,18 @@ import type {
   UpdateEphemeralPolicyResponse,
   VerifyEphemeralTokenSealDTO,
   VerifyEphemeralTokenSealResponse,
-  EphemeralTokenOverviewResponse
+  EphemeralTokenOverviewResponse,
+  CreateCourtOrderVaultDTO,
+  CreateCourtOrderVaultResponse,
+  SubmitCustodianShareDTO,
+  SubmitCustodianShareResponse,
+  ReconstructAndDecryptDTO,
+  ReconstructAndDecryptResponse,
+  SimulateThresholdAttackDTO,
+  SimulateThresholdAttackResponse,
+  VerifyThresholdSealDTO,
+  VerifyThresholdSealResponse,
+  ThresholdVaultOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2625,6 +2636,46 @@ export const api = {
 
   async verifyEphemeralTokenSeal(dto: VerifyEphemeralTokenSealDTO): Promise<VerifyEphemeralTokenSealResponse> {
     return await request<VerifyEphemeralTokenSealResponse>('/ephemeral-tokens/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 44. Liberação Colegiada de Prontuários Sob Ordem Judicial com Threshold Cryptography (CFP nº 001/2009 & LGPD Art. 11)
+  async getCourtOrderThresholdOverview(): Promise<ThresholdVaultOverviewResponse> {
+    return await request<ThresholdVaultOverviewResponse>('/court-order-threshold/overview');
+  },
+
+  async createCourtOrderVault(dto: CreateCourtOrderVaultDTO): Promise<CreateCourtOrderVaultResponse> {
+    return await request<CreateCourtOrderVaultResponse>('/court-order-threshold/create-vault', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async submitCustodianShare(dto: SubmitCustodianShareDTO): Promise<SubmitCustodianShareResponse> {
+    return await request<SubmitCustodianShareResponse>('/court-order-threshold/submit-share', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async reconstructAndDecrypt(dto: ReconstructAndDecryptDTO): Promise<ReconstructAndDecryptResponse> {
+    return await request<ReconstructAndDecryptResponse>('/court-order-threshold/reconstruct-decrypt', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateThresholdAttack(dto: SimulateThresholdAttackDTO): Promise<SimulateThresholdAttackResponse> {
+    return await request<SimulateThresholdAttackResponse>('/court-order-threshold/simulate-attack', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyThresholdSeal(dto: VerifyThresholdSealDTO): Promise<VerifyThresholdSealResponse> {
+    return await request<VerifyThresholdSealResponse>('/court-order-threshold/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
