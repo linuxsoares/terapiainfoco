@@ -59,6 +59,7 @@ import { api } from '../services/api';
 import { PatientPortalModal } from './PatientPortalModal';
 import { DiagnosticDecisionTreeModal } from './DiagnosticDecisionTreeModal';
 import { PsychiatricReferralModal } from './PsychiatricReferralModal';
+import { PortabilityVaultModal } from './PortabilityVaultModal';
 
 export function PatientsModule() {
   const [searchCpf, setSearchCpf] = useState('');
@@ -177,6 +178,11 @@ export function PatientsModule() {
   const [showPsychiatricReferralModal, setShowPsychiatricReferralModal] = useState(false);
   const [selectedPsychiatricPatientId, setSelectedPsychiatricPatientId] = useState<string | undefined>(undefined);
   const [selectedPsychiatricPatientName, setSelectedPsychiatricPatientName] = useState<string | undefined>(undefined);
+
+  // Modal de Cofre Cifrado .enc Argon2id + AES-256-GCM (RFC §3.3, §4.4 & LGPD Art. 18)
+  const [showPortabilityVaultModal, setShowPortabilityVaultModal] = useState(false);
+  const [selectedVaultPatientId, setSelectedVaultPatientId] = useState<string | undefined>(undefined);
+  const [selectedVaultPatientName, setSelectedVaultPatientName] = useState<string | undefined>(undefined);
 
   const handleOpenGoals = async (patientId: string) => {
     setShowGoalsModal(true);
@@ -863,6 +869,18 @@ export function PatientsModule() {
               >
                 <DownloadCloud className="w-3.5 h-3.5" />
                 Portabilidade LGPD (Art. 18)
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedVaultPatientId(searchResult.id);
+                  setSelectedVaultPatientName(searchResult.name);
+                  setShowPortabilityVaultModal(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Cofre Cifrado .enc Argon2id (RFC §3.3)
               </button>
 
               <button
@@ -2809,6 +2827,16 @@ export function PatientsModule() {
           onClose={() => setShowPsychiatricReferralModal(false)}
           patientId={selectedPsychiatricPatientId}
           patientName={selectedPsychiatricPatientName}
+        />
+      )}
+
+      {/* Modal de Cofre Cifrado .enc Argon2id + AES-256-GCM (RFC §3.3, §4.4 & LGPD Art. 18) */}
+      {selectedVaultPatientId && (
+        <PortabilityVaultModal
+          isOpen={showPortabilityVaultModal}
+          onClose={() => setShowPortabilityVaultModal(false)}
+          patientId={selectedVaultPatientId}
+          patientName={selectedVaultPatientName}
         />
       )}
     </div>

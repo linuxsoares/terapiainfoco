@@ -72,6 +72,8 @@ import { icpBatchSigningRouter } from './routes/icpBatchSigning';
 import { patientPortalRouter } from './routes/patientPortal';
 import { diagnosticDecisionTreeRouter } from './routes/diagnosticDecisionTree';
 import { psychiatricReferralRouter } from './routes/psychiatricReferral';
+import { portabilityVaultRouter } from './routes/portabilityVault';
+import { webSocketGuardRoutes } from './routes/webSocketGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -228,6 +230,7 @@ app.route('/api/expression-guard', expressionInjectionGuardRoutes);
 app.route('/api/graphql-guard', graphQLQueryGuardRoutes);
 app.route('/api/http2-guard', http2GrpcGuardRoutes);
 app.route('/api/supply-chain-guard', supplyChainGuardRoutes);
+app.route('/api/websocket-guard', webSocketGuardRoutes);
 app.route('/api/clinical-markers', clinicalMarkersRouter);
 app.route('/api/goals', therapeuticGoalsRouter);
 app.route('/api/psychometrics', psychometricsRouter);
@@ -240,6 +243,7 @@ app.route('/api/icp-batch', icpBatchSigningRouter);
 app.route('/api/patient-portal', patientPortalRouter);
 app.route('/api/diagnostic-tree', diagnosticDecisionTreeRouter);
 app.route('/api/psychiatric-referrals', psychiatricReferralRouter);
+app.route('/api/portability-vault', portabilityVaultRouter);
 
 
 

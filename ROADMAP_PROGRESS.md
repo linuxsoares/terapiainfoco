@@ -2033,6 +2033,25 @@ terapiainfoco/
 - [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
   - **Card 55:** Painel de Proteção de Supply Chain & Injeção de Dependências Dinâmicas com 5 KPIs dinâmicos, 4 abas operacionais (*Inspetor de Manifestos & Importações*, *Pacotes Homologados & SRI*, *Simulador Adversarial de Supply Chain*, *Políticas de Governança SLSA*) e tabela WORM de incidentes interceptados.
   - **Modal 55.A:** Certidão Notarial Forense WORM de Avaliação de Integridade de Supply Chain & SLSA L3 Provenance (RFC 8785) com validação criptográfica instantânea.
+
+### 74. Proteção contra Injeção de Objetos e Desserialização Não Segura em Sessões WebSocket (RFC 6455, OWASP ASVS v4.0 V5.5 & CWE-502)
+- [x] **Motor Criptográfico e Validador de Frames WebSocket (`packages/crypto/src/webSocketDeserializationGuard.ts`):**
+  - **Detecção de Gadget Chains & Magic Markers (CWE-502):** Varredura profunda contra desserialização insegura (`node-serialize` IIFE `_$$ND_FUNC$$_`, Java Serialization `rO0AB`, Python Pickle, PHP Object Injection `O:4:"User"`, `.NET $type` e YAML `!!python/object`).
+  - **Prevenção de Poluição de Protótipo (CWE-1321) & Sanitização Recursiva:** Bloqueio ativo de chaves proibidas (`__proto__`, `constructor`, `prototype`, `__defineGetter__`, `__defineSetter__`) e limites estritos de profundidade de aninhamento (`maxNestingDepth`) e chaves totais (`maxTotalKeys`).
+  - **Conformidade RFC 6455 & Anti-Smuggling:** Validação estrita de opcodes permitidos, rejeição de bits reservados (`RSV1/RSV2/RSV3`) sem extensão negociada, exigência de mascaramento cliente->servidor (`MASK=1`) e contenção de bombas de fragmentação.
+  - **Assinatura HMAC-SHA256 & Selo Probatório Notarial WORM RFC 8785:** Verificação de autenticidade de envelopes de sinalização WebRTC/Teleconsulta e emissão de certidão `ws_guard_seal_<hash>` com comparação em tempo constante (*timing-safe*).
+  - Suíte com 8 testes unitários aprovados em `packages/crypto/test/webSocketDeserializationGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `WebSocketThreatCategory`, `WebSocketFrameAction`, `WebSocketChannelType`.
+  - Ações WORM `WEBSOCKET_FRAME_INSPECTED`, `WEBSOCKET_INSECURE_DESERIALIZATION_BLOCKED`, `WEBSOCKET_OBJECT_INJECTION_BLOCKED`, `WEBSOCKET_PROTOTYPE_POLLUTION_BLOCKED`, `WEBSOCKET_SMUGGLING_BLOCKED`, `WEBSOCKET_POLICY_UPDATED`, `WEBSOCKET_SEAL_VERIFIED` e recurso `AuditResourceType.WEBSOCKET_GUARD`.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `WebSocketGuardService` singleton com telemetria contínua, histórico de incidentes, catálogo de amostras benignas e adversariais e auditoria WORM via `AuditService.log`.
+  - 6 rotas REST sob `/api/websocket-guard` (`/overview`, `/inspect`, `/policy`, `/simulate`, `/verify-seal`, `/samples`) com isenção no `wafMiddleware.ts`.
+  - Suíte com 5 testes de integração aprovados em `apps/backend/test/webSocketGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 56 (`SecurityModule.tsx`):** Painel de Proteção contra Injeção de Objetos & Desserialização WebSocket com 5 KPIs dinâmicos, 3 abas operacionais (*Inspetor de Frames & Sinalização*, *Simulador Adversarial CWE-502*, *Política RFC 6455 & ASVS V5.5*) e tabela WORM de incidentes.
+  - **Modal 56.A (`SecurityModule.tsx`):** Certidão Notarial Forense WORM de Inspeção de Frame WebSocket (RFC 8785) com verificação criptográfica instantânea.
+
 ### 12. Evolução de Produto RFC-001: Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED e Termo de Honorários Psicológicos (§3.6)
 - [x] **Conversor Numérico Monetário para Extenso em Português Formal:**
   - Implementação de algoritmo determinístico em `BillingReceiptService` convertendo valores monetários em centavos para texto por extenso (ex: 25000 centavos -> "Duzentos e cinquenta reais", 100050 centavos -> "Mil reais e cinquenta centavos"), atendendo às exigências normativas da Receita Federal (Livro Caixa / Carnê-Leão / DMED) e operadoras de saúde suplementar.
@@ -2183,6 +2202,24 @@ terapiainfoco/
 
 ---
 
+### 18. Exportação Segura e Portabilidade de Prontuário Clínico em Pacote Cifrado por Senha do Titular (.enc Argon2id + AES-256-GCM) com Verificação de Integridade (RFC-001 §3.3, §4.4 & LGPD Art. 18)
+- [x] **Motor Criptográfico de Cofre `.enc` com Argon2id + AES-256-GCM & AAD (`packages/crypto/src/encryptedPortabilityVault.ts`):**
+  - Derivação de chave simétrica 256-bit via KDF resistente a ASIC/GPU (Argon2id / PBKDF2-HMAC-SHA256 parametrizado) com salt aleatório de 32 bytes e IV de 12 bytes.
+  - Cifragem autenticada AES-256-GCM vinculando cabeçalho de contexto (`patientId`, `merkleRoot`, `plaintextSha256`, `createdAt`) como *Additional Authenticated Data (AAD)* para impedir substituição de metadados.
+  - Avaliador de entropia de passphrase em bits (`evaluatePassphraseStrength`) exigindo nível mínimo `STRONG` para emissão do pacote `.enc`.
+  - Suíte com 8 testes unitários aprovados em `packages/crypto/test/encryptedPortabilityVault.test.ts`.
+- [x] **Árvore de Merkle Determinística sobre 11 Seções Clínicas & Selo Notarial WORM RFC 8785:**
+  - Compilação integral de: Dados Cadastrais, Ficha de Admissão Biopsicossocial, Anamneses Diagnósticas Interativas, Sessões Agendadas, Evoluções SOAP Decifradas, Planos SMART, Escalas Psicométricas (PHQ-9/GAD-7), Documentos CFP nº 006/2019, Encaminhamentos Psiquiátricos, Exercícios Terapêuticos do Portal e Recibos/Contratos de Honorários.
+  - Segregação ética estrita (Art. 9º do Código de Ética do Psicólogo): anotações confidenciais de uso exclusivo do psicólogo são omitidas na modalidade de portabilidade ao titular (`PATIENT_SELF_PORTABILITY`).
+  - Emissão de selo notarial WORM `port_vault_seal_<hash>` com verificação pública zero-knowledge sem necessidade de revelar a senha do titular.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `PortabilityVaultService` e 5 rotas sob `/api/portability-vault` (`/:patientId/generate`, `/verify`, `/decrypt`, `/:patientId/history`, `/evaluate-passphrase`).
+  - Suíte com 4 testes de integração aprovados em `apps/backend/test/portabilityVault.test.ts`.
+- [x] **Componente Frontend Dedicado (`PortabilityVaultModal.tsx` & `PatientsModule.tsx`):**
+  - Modal com 3 abas operacionais (*Gerar Cofre .enc*, *Verificar & Decifrar .enc*, *Histórico WORM*), medidor de entropia de senha em tempo real, download direto do arquivo `.enc` e explorador de árvore de Merkle.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -2278,12 +2315,13 @@ terapiainfoco/
 | `feat/patient-portal-and-therapeutic-exercises` | Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos Interativos (TCC/ACT/DBT), Histórico de Recibos para Reembolso e Termos TCLE (RFC-001 §3.6, §3.7) | [PR #98](https://github.com/linuxsoares/terapiainfoco/pull/98) | Merged |
 | `feat/interactive-diagnostic-tree-and-initial-scales` | Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4) | [PR #99](https://github.com/linuxsoares/terapiainfoco/pull/99) | Merged |
 | `feat/psychiatric-referral-and-drug-interactions` | Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5) | [PR #100](https://github.com/linuxsoares/terapiainfoco/pull/100) | Merged |
+| `feat/v0-encrypted-portability-and-websocket-guard` | Fechamento do Marco V0: Cofre de Portabilidade Cifrado `.enc` (Argon2id + AES-256-GCM + Merkle Tree LGPD Art. 18) e Proteção contra Injeção de Objetos & Desserialização WebSocket (RFC 6455 / CWE-502) | [PR #101](https://github.com/linuxsoares/terapiainfoco/pull/101) | Open |
 
 ---
 
-## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
+## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários — Marco V0 100% Concluído & Evolução V1)
 
-Com a **Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas §3.5 + Anamnese Digital Interativa com Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais §3.4 + Portal do Paciente Autenticado com Exercícios Terapêuticos TCC/ACT/DBT, Histórico de Recibos & Termos TCLE §3.6, §3.7 + Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.356 testes automatizados (0 falhas em 137 arquivos)**, os próximos passos de evolução do roadmap são:
+Com o **Marco V0 100% Concluído** — contemplando todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.381 testes automatizados (0 falhas em 141 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2301,7 +2339,8 @@ Com a **Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento 
 - [x] **Módulo de Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos e Histórico de Recibos (RFC-001 §3.6, §3.7).**
 - [x] **Módulo de Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4).**
 - [x] **Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5):** Catálogo de 18 psicofármacos comuns no Brasil, motor de regras farmacológicas cruzadas com matriz de severidade (Contraindicada, Maior, Moderada), alertas de Síndrome Serotoninérgica letal e depressão respiratória, guia interoperável timbrada com token notarial de validação pública e FLE AES-256-GCM para anotações do terapeuta.
-- [ ] **Módulo de Exportação Segura e Portabilidade de Prontuário Clínico em Pacote Cifrado por Senha do Titular com Verificação de Integridade (RFC-001 §3.3, §4.4 & LGPD Art. 18):** Geração sob demanda de arquivo `.enc` protegido por Argon2id e AES-256-GCM contendo a integralidade dos registros clínicos, sessões, escalas e recibos para cumprimento estrito do direito de portabilidade e autodeterminação informativa.
+- [x] **Módulo de Exportação Segura e Portabilidade de Prontuário Clínico em Pacote Cifrado por Senha do Titular com Verificação de Integridade (RFC-001 §3.3, §4.4 & LGPD Art. 18):** Geração sob demanda de arquivo `.enc` protegido por Argon2id e AES-256-GCM contendo a integralidade dos registros clínicos, sessões, escalas e recibos para cumprimento estrito do direito de portabilidade e autodeterminação informativa.
+- [ ] **[V1] Módulo de Supervisão Clínica Ética & Discussão de Casos Anonimizados com Blindagem k-Anonymity (Resolução CFP nº 010/2005 & LGPD Art. 12):** Compartilhamento controlado de recortes clínicos com supervisor credenciado mediante pseudonimização reversível zero-knowledge e revogação automática pós-supervisão.
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -2351,7 +2390,8 @@ Com a **Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento 
 - [x] **Módulo de Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices).**
 - [x] **Módulo de Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling).**
 - [x] **Módulo de Proteção contra Injeção de Dependências Dinâmicas e Hijacking de Módulos Node/Bun (CWE-470, CWE-912 & Dependency Confusion / Supply Chain Guard).**
-- [ ] **Módulo de Proteção contra Injeção de Objetos e Desserialização Não Segura em Sessões WebSocket (RFC 6455, OWASP ASVS v4.0 V5.5 & CWE-502).**
+- [x] **Módulo de Proteção contra Injeção de Objetos e Desserialização Não Segura em Sessões WebSocket (RFC 6455, OWASP ASVS v4.0 V5.5 & CWE-502).**
+- [ ] **[V1] Módulo de Proteção contra Ataques de Mass Assignment & Broken Object Property Level Authorization (BOPLA) em Payloads Clínicos (OWASP API3:2023 & ASVS v4.0 V4.1).**
 
 ---
 
@@ -2361,7 +2401,7 @@ Com a **Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento 
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (1.324 testes)
+# 2. Executar suíte completa de testes (1.381 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

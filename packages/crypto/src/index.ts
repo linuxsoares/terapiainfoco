@@ -59,6 +59,9 @@ export * from './expressionInjectionGuard';
 export * from './graphQLQueryGuard';
 export * from './http2GrpcGuard';
 export * from './supplyChainGuard';
+export * from './encryptedPortabilityVault';
+export * from './webSocketDeserializationGuard';
+
 
 
 

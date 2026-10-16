@@ -407,7 +407,17 @@ import {
   type DependencySecurityIncident,
   type SupplyChainGuardOverview,
   type SimulateSupplyChainAttackResponse,
-  type VerifySupplyChainSealResponse
+  type VerifySupplyChainSealResponse,
+  WebSocketThreatCategory,
+  ClinicalWebSocketChannelType,
+  WebSocketFrameOpcode,
+  WebSocketValidationAction,
+  type WebSocketProofSeal,
+  type WebSocketFrameInspectionResult,
+  type WebSocketSecurityIncident,
+  type WebSocketGuardOverview,
+  type SimulateWebSocketAttackResponse,
+  type VerifyWebSocketSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -6526,6 +6536,145 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 48. MÓDULO 75: PROTEÇÃO CONTRA INJEÇÃO DE OBJETOS E DESSERIALIZAÇÃO NÃO SEGURA EM SESSÕES WEBSOCKET (RFC 6455 & CWE-502)
+  const [wsGuardOverview, setWsGuardOverview] = useState<WebSocketGuardOverview | null>(null);
+  const [loadingWsGuard, setLoadingWsGuard] = useState<boolean>(false);
+  const [activeWsGuardTab, setActiveWsGuardTab] = useState<'inspector' | 'channels' | 'simulator' | 'policy'>('inspector');
+
+  // Aba 1: Inspetor de Frames WebSocket & Sanitizador
+  const [wsChannelInput, setWsChannelInput] = useState<ClinicalWebSocketChannelType>(ClinicalWebSocketChannelType.WEBRTC_SIGNALING);
+  const [wsRawPayloadInput, setWsRawPayloadInput] = useState<string>(
+    JSON.stringify(
+      {
+        event: 'WEBRTC_ICE_CANDIDATE',
+        roomId: 'room-teleconsult-001',
+        candidate: 'candidate:842163049 1 udp 1677729535 203.0.113.45 54400 typ srflx',
+        sdpMid: '0'
+      },
+      null,
+      2
+    )
+  );
+  const [inspectingWsFrame, setInspectingWsFrame] = useState<boolean>(false);
+  const [lastWsInspection, setLastWsInspection] = useState<WebSocketFrameInspectionResult | null>(null);
+
+  // Aba 3: Simulador Adversarial de Sessões WebSocket
+  const [simulatingWsAttack, setSimulatingWsAttack] = useState<boolean>(false);
+  const [wsSimulationResult, setWsSimulationResult] = useState<SimulateWebSocketAttackResponse | null>(null);
+
+  // Aba 4: Políticas de Governança RFC 6455 & CWE-502
+  const [wsPolicyEnforceTextFrames, setWsPolicyEnforceTextFrames] = useState<boolean>(true);
+  const [wsPolicyBlockBinary, setWsPolicyBlockBinary] = useState<boolean>(true);
+  const [wsPolicyBlockPrototype, setWsPolicyBlockPrototype] = useState<boolean>(true);
+  const [wsPolicyEnforceWhitelist, setWsPolicyEnforceWhitelist] = useState<boolean>(true);
+  const [wsPolicyMaxDepth, setWsPolicyMaxDepth] = useState<number>(8);
+  const [updatingWsPolicy, setUpdatingWsPolicy] = useState<boolean>(false);
+
+  // Modal 56.A: Certidão Notarial Forense WORM de Frame WebSocket RFC 8785 (JCS)
+  const [selectedWsSealForModal, setSelectedWsSealForModal] = useState<WebSocketProofSeal | null>(null);
+  const [wsModalIncidentItem, setWsModalIncidentItem] = useState<WebSocketSecurityIncident | null>(null);
+  const [verifyingWsSeal, setVerifyingWsSeal] = useState<boolean>(false);
+  const [wsSealVerifyResult, setWsSealVerifyResult] = useState<VerifyWebSocketSealResponse | null>(null);
+
+  const fetchWebSocketGuardData = async () => {
+    try {
+      setLoadingWsGuard(true);
+      const res = await api.getWebSocketGuardOverview();
+      setWsGuardOverview(res.overview);
+      if (res.overview?.policy) {
+        setWsPolicyEnforceTextFrames(Boolean(res.overview.policy.blockPolymorphicGadgets));
+        setWsPolicyBlockBinary(Boolean(res.overview.policy.blockBinaryFramesOnJsonChannels));
+        setWsPolicyBlockPrototype(Boolean(res.overview.policy.blockPrototypePollution));
+        setWsPolicyEnforceWhitelist(Boolean(res.overview.policy.enforceChannelEventSchema));
+        setWsPolicyMaxDepth(Number(res.overview.policy.maxJsonNestingDepth || 8));
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar visão geral do WebSocket Guard:', err);
+    } finally {
+      setLoadingWsGuard(false);
+    }
+  };
+
+  const handleInspectWsFrameSubmit = async () => {
+    try {
+      setInspectingWsFrame(true);
+      setLastWsInspection(null);
+      const res = await api.inspectWebSocketFrame({
+        channel: wsChannelInput,
+        opcode: WebSocketFrameOpcode.TEXT,
+        rawFramePayload: wsRawPayloadInput
+      });
+      setLastWsInspection(res.result);
+      setFeedback({
+        type: res.result.isValid ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchWebSocketGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar frame WebSocket.' });
+    } finally {
+      setInspectingWsFrame(false);
+    }
+  };
+
+  const handleSimulateWsAttack = async (threatCategory: WebSocketThreatCategory) => {
+    try {
+      setSimulatingWsAttack(true);
+      setWsSimulationResult(null);
+      const res = await api.simulateWebSocketAttack({
+        attackCategory: threatCategory
+      });
+      setWsSimulationResult(res);
+      setFeedback({
+        type: !res.result.isValid ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchWebSocketGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque em sessão WebSocket.' });
+    } finally {
+      setSimulatingWsAttack(false);
+    }
+  };
+
+  const handleSaveWsGuardPolicy = async () => {
+    try {
+      setUpdatingWsPolicy(true);
+      const res = await api.updateWebSocketGuardPolicy({
+        policy: {
+          blockPolymorphicGadgets: wsPolicyEnforceTextFrames,
+          blockBinaryFramesOnJsonChannels: wsPolicyBlockBinary,
+          blockPrototypePollution: wsPolicyBlockPrototype,
+          enforceChannelEventSchema: wsPolicyEnforceWhitelist,
+          maxJsonNestingDepth: wsPolicyMaxDepth
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchWebSocketGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar diretrizes do WebSocket Guard.' });
+    } finally {
+      setUpdatingWsPolicy(false);
+    }
+  };
+
+  const handleVerifyWsSealSubmit = async (sealId: string) => {
+    try {
+      setVerifyingWsSeal(true);
+      setWsSealVerifyResult(null);
+      const res = await api.verifyWebSocketSeal({ sealId, seal: selectedWsSealForModal || undefined });
+      setWsSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.details
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo notarial WebSocket.' });
+    } finally {
+      setVerifyingWsSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -6573,6 +6722,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchGqlGuardData();
       fetchHttp2GuardData();
       fetchSupplyChainData();
+      fetchWebSocketGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -31547,6 +31697,606 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* 48. CARD 56: PROTEÇÃO CONTRA INJEÇÃO DE OBJETOS E DESSERIALIZAÇÃO NÃO SEGURA EM SESSÕES WEBSOCKET (RFC 6455, OWASP ASVS V5.5 & CWE-502) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+        {/* CABEÇALHO DO CARD 56 */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                MÓDULO 75
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                RFC 6455 FRAMING
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                CWE-502 & CWE-1321
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                OWASP ASVS V5.5
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                WORM NOTARY RFC 8785
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Radio className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+              Proteção contra Injeção de Objetos e Desserialização Não Segura em Sessões WebSocket
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Blindagem de canais de sinalização WebRTC e telemetria clínica contra opcodes binários ilegais (RFC 6455), gadgets de desserialização RCE (CWE-502), poluição de protótipo (CWE-1321) e bombas de recursão JSON.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={loadingWsGuard}
+            onClick={fetchWebSocketGuardData}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingWsGuard ? 'animate-spin' : ''}`} />
+            Atualizar
+          </button>
+        </div>
+
+        {/* 5 KPIS DE GOVERNANÇA WEBSOCKET */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+              Frames Inspecionados
+            </span>
+            <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+              {wsGuardOverview?.metrics?.totalFramesInspected?.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Sinalização & Telemetria</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+              Frames Seguros
+            </span>
+            <span className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+              {wsGuardOverview?.metrics?.cleanFramesAllowed?.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 block mt-0.5">Null-Prototype Frozen</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+              Gadgets / Poluição
+            </span>
+            <span className="font-mono text-xl font-bold text-rose-600 dark:text-rose-400">
+              {((wsGuardOverview?.metrics?.deserializationGadgetsBlocked || 0) + (wsGuardOverview?.metrics?.prototypePollutionBlocked || 0)).toLocaleString('pt-BR')}
+            </span>
+            <span className="text-[10px] text-rose-600/70 dark:text-rose-400/70 block mt-0.5">CWE-502 & CWE-1321</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+              Conexões Encerradas
+            </span>
+            <span className="font-mono text-xl font-bold text-amber-600 dark:text-amber-400">
+              {wsGuardOverview?.metrics?.connectionsTerminated1008?.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-amber-600/70 dark:text-amber-400/70 block mt-0.5">Close Code 1008 / 1003</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/40 col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block mb-1">
+              Latência de Inspeção
+            </span>
+            <span className="font-mono text-xl font-bold text-cyan-600 dark:text-cyan-400">
+              {wsGuardOverview?.metrics?.avgInspectionLatencyUs || '0'} μs
+            </span>
+            <span className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 block mt-0.5">Parser AST Zero-Eval</span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS DO CARD 56 */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveWsGuardTab('inspector')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeWsGuardTab === 'inspector'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Braces className="w-3.5 h-3.5" />
+            Inspetor de Frames & Sanitizador
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveWsGuardTab('channels')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeWsGuardTab === 'channels'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Canais Homologados & Schemas
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveWsGuardTab('simulator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeWsGuardTab === 'simulator'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Simulador Adversarial (CWE-502)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveWsGuardTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeWsGuardTab === 'policy'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            Políticas RFC 6455 & Incidentes
+          </button>
+        </div>
+
+        {/* CONTEÚDO DA ABA 1: INSPETOR DE FRAMES WEBSOCKET & SANITIZADOR */}
+        {activeWsGuardTab === 'inspector' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Radio className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    Inspeção Forense de Frame WebSocket e Desserialização Null-Prototype
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Verifica opcode RFC 6455, bits reservados RSV1-3, assinaturas de gadgets (CWE-502) e reconstrói o objeto com Object.create(null) + Object.freeze().
+                  </p>
+                </div>
+
+                <select
+                  value={wsChannelInput}
+                  onChange={(e) => setWsChannelInput(e.target.value as ClinicalWebSocketChannelType)}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  <option value={ClinicalWebSocketChannelType.WEBRTC_SIGNALING}>WEBRTC_SIGNALING (SDP/ICE)</option>
+                  <option value={ClinicalWebSocketChannelType.LIVE_TRANSCRIPTION_STREAM}>LIVE_TRANSCRIPTION_STREAM</option>
+                  <option value={ClinicalWebSocketChannelType.CLINICAL_MARKERS_SYNC}>CLINICAL_MARKERS_SYNC</option>
+                  <option value={ClinicalWebSocketChannelType.WAITING_ROOM_PRESENCE}>WAITING_ROOM_PRESENCE</option>
+                  <option value={ClinicalWebSocketChannelType.TELEMETRY_HEARTBEAT}>TELEMETRY_HEARTBEAT</option>
+                </select>
+              </div>
+
+              <textarea
+                rows={6}
+                value={wsRawPayloadInput}
+                onChange={(e) => setWsRawPayloadInput(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Opcode TEXT_FRAME (0x1) • Limite 64 KB • Profundidade máx: {wsPolicyMaxDepth} níveis
+                </span>
+                <button
+                  type="button"
+                  disabled={inspectingWsFrame || !wsRawPayloadInput.trim()}
+                  onClick={handleInspectWsFrameSubmit}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {inspectingWsFrame ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                  Inspecionar Frame & Desserializar
+                </button>
+              </div>
+
+              {lastWsInspection && (
+                <div className={`p-4 rounded-2xl border text-xs space-y-3 ${
+                  lastWsInspection.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-900 dark:text-rose-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">
+                        {lastWsInspection.isValid ? 'Frame Seguro & Congelado' : 'Ameaça de Desserialização Interceptada'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700">
+                        {lastWsInspection.action}
+                      </span>
+                    </div>
+
+                    {lastWsInspection.seal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedWsSealForModal(lastWsInspection.seal || null);
+                          setWsModalIncidentItem(null);
+                          setWsSealVerifyResult(null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Stamp className="w-3.5 h-3.5" />
+                        Laudo Notarial WORM
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Tamanho: <span className="font-bold">{lastWsInspection.frameSizeBytes} B</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Profundidade: <span className="font-bold">{lastWsInspection.nestingDepth}</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Chaves: <span className="font-bold">{lastWsInspection.keyCount}</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Null-Proto: <span className="font-bold text-emerald-600">{lastWsInspection.sanitizedPayload ? 'SIM' : 'NÃO'}</span>
+                    </div>
+                  </div>
+
+                  {lastWsInspection.threats.length > 0 && (
+                    <div className="space-y-1.5 pt-2 border-t border-rose-200/50 dark:border-rose-800/50">
+                      {lastWsInspection.threats.map((t) => (
+                        <div key={t.id} className="p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/60 space-y-0.5">
+                          <div className="flex items-center justify-between font-mono font-bold text-rose-700 dark:text-rose-300">
+                            <span>[{t.cwe}] {t.category}</span>
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200">
+                              {t.severity}
+                            </span>
+                          </div>
+                          <div className="text-slate-700 dark:text-slate-300 text-[11px]">{t.description}</div>
+                          <div className="text-emerald-700 dark:text-emerald-400 text-[10px] font-mono">
+                            Remediação: {t.remediation}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 2: CANAIS HOMOLOGADOS & SCHEMAS */}
+        {activeWsGuardTab === 'channels' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(wsGuardOverview?.channelSchemas || []).map((ch) => (
+              <div
+                key={ch.channel}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-xs text-cyan-700 dark:text-cyan-300">
+                    {ch.channel}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    Máx {(ch.maxPayloadBytes / 1024).toFixed(0)} KB
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {ch.description}
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {ch.allowedEventTypes.map((msgType: string) => (
+                    <span
+                      key={msgType}
+                      className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                    >
+                      {msgType}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 3: SIMULADOR ADVERSARIAL WEBSOCKET (CWE-502 & CWE-1321) */}
+        {activeWsGuardTab === 'simulator' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <button
+                type="button"
+                disabled={simulatingWsAttack}
+                onClick={() => handleSimulateWsAttack(WebSocketThreatCategory.INSECURE_DESERIALIZATION_GADGET)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                    CWE-502 RCE
+                  </span>
+                  <Terminal className="w-4 h-4 text-slate-400 group-hover:text-cyan-500" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Gadget node-serialize (_$$ND_FUNC$$_)</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Injeta IIFE serializado tentando execução remota de código via desserializador.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingWsAttack}
+                onClick={() => handleSimulateWsAttack(WebSocketThreatCategory.PROTOTYPE_POLLUTION_INJECTION)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                    CWE-1321
+                  </span>
+                  <Braces className="w-4 h-4 text-slate-400 group-hover:text-cyan-500" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Poluição de Protótipo (__proto__)</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Injeta __proto__ e constructor.prototype em frame de sinalização WebRTC.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingWsAttack}
+                onClick={() => handleSimulateWsAttack(WebSocketThreatCategory.BINARY_OPCODE_SMUGGLING)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    RFC 6455 §5.2
+                  </span>
+                  <Binary className="w-4 h-4 text-slate-400 group-hover:text-cyan-500" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Confusão de Opcode Binário (0x2)</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Envia stream binário BSON/MessagePack com bits RSV ilegais em canal JSON.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingWsAttack}
+                onClick={() => handleSimulateWsAttack(WebSocketThreatCategory.DEEP_NESTING_DOS)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                    CWE-400 DoS
+                  </span>
+                  <Layers className="w-4 h-4 text-slate-400 group-hover:text-cyan-500" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Bomba de Aninhamento Profundo</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Objeto JSON com 18 níveis de recursão visando exaurir a call stack do event loop.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingWsAttack}
+                onClick={() => handleSimulateWsAttack(WebSocketThreatCategory.UNREGISTERED_CHANNEL_EVENT)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 text-left transition-all cursor-pointer group disabled:opacity-50 sm:col-span-2 lg:col-span-2"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                    ASVS V5.5 SCHEMA
+                  </span>
+                  <ShieldAlert className="w-4 h-4 text-slate-400 group-hover:text-cyan-500" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Injeção de Comando Não Homologado no Canal</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Dispara comando EXECUTE_REMOTE_SHELL fora da whitelist estrita do canal WebRTC.
+                </p>
+              </button>
+            </div>
+
+            {wsSimulationResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
+                      !wsSimulationResult.result.isValid
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                    }`}>
+                      {!wsSimulationResult.result.isValid ? '🛡️ Frame Malicioso Bloqueado' : 'Frame Permitido'}
+                    </span>
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      {wsSimulationResult.sampleUsed.name}
+                    </span>
+                  </div>
+
+                  {wsSimulationResult.incident?.seal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedWsSealForModal(wsSimulationResult.incident?.seal || null);
+                        setWsModalIncidentItem(wsSimulationResult.incident || null);
+                        setWsSealVerifyResult(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Stamp className="w-3.5 h-3.5" />
+                      Certidão WORM
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  {wsSimulationResult.message}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 4: POLÍTICAS RFC 6455 & INCIDENTES */}
+        {activeWsGuardTab === 'policy' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Scale className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                Diretrizes de Hardening de Sessões WebSocket (RFC 6455 & OWASP ASVS V5.5)
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wsPolicyEnforceTextFrames}
+                    onChange={(e) => setWsPolicyEnforceTextFrames(e.target.checked)}
+                    className="rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Exigir Frames TEXT_FRAME (0x1)</span>
+                    <span className="text-[11px] text-slate-500">Garante serialização JSON estrita sem eval.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wsPolicyBlockBinary}
+                    onChange={(e) => setWsPolicyBlockBinary(e.target.checked)}
+                    className="rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Bloquear Opcodes Binários (0x2)</span>
+                    <span className="text-[11px] text-slate-500">Rejeita payloads BSON/MessagePack com Close 1003.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wsPolicyBlockPrototype}
+                    onChange={(e) => setWsPolicyBlockPrototype(e.target.checked)}
+                    className="rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Bloquear Poluição de Protótipo (CWE-1321)</span>
+                    <span className="text-[11px] text-slate-500">Neutraliza __proto__, prototype e constructor.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wsPolicyEnforceWhitelist}
+                    onChange={(e) => setWsPolicyEnforceWhitelist(e.target.checked)}
+                    className="rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Whitelist Estrita por Canal</span>
+                    <span className="text-[11px] text-slate-500">Valida o atributo type contra o schema do canal.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Profundidade Máxima JSON:</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={16}
+                    value={wsPolicyMaxDepth}
+                    onChange={(e) => setWsPolicyMaxDepth(Number(e.target.value))}
+                    className="w-20 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={updatingWsPolicy}
+                  onClick={handleSaveWsGuardPolicy}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {updatingWsPolicy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Salvar Diretrizes WebSocket
+                </button>
+              </div>
+            </div>
+
+            {/* TABELA DE INCIDENTES WEBSOCKET */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Histórico de Incidentes em Sessões WebSocket (Trilha WORM Inviolável)
+              </h4>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold">
+                      <th className="px-3.5 py-2.5">Horário</th>
+                      <th className="px-3.5 py-2.5">Canal</th>
+                      <th className="px-3.5 py-2.5">Categoria</th>
+                      <th className="px-3.5 py-2.5">Severidade</th>
+                      <th className="px-3.5 py-2.5">Ação</th>
+                      <th className="px-3.5 py-2.5 text-right">Laudo Notarial</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+                    {(!wsGuardOverview?.recentIncidents || wsGuardOverview.recentIncidents.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                          Nenhum incidente em sessão WebSocket registrado no período.
+                        </td>
+                      </tr>
+                    ) : (
+                      wsGuardOverview.recentIncidents.map((inc) => (
+                        <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">
+                            {new Date(inc.timestamp).toLocaleTimeString('pt-BR')}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono font-bold text-slate-900 dark:text-white">
+                            {inc.channel}
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                              {inc.category}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px] font-bold text-rose-600">
+                            {inc.severity}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.actionTaken}</td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            {inc.seal ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedWsSealForModal(inc.seal || null);
+                                  setWsModalIncidentItem(inc);
+                                  setWsSealVerifyResult(null);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:hover:bg-cyan-900 dark:text-cyan-300 font-bold text-[11px] transition-colors cursor-pointer"
+                              >
+                                Laudo WORM
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
 
       {showSimulateModal && (
@@ -38922,10 +39672,143 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL 56.A: CERTIDÃO NOTARIAL FORENSE WORM DE SESSÃO WEBSOCKET (RFC 6455 & CWE-502) */}
+      {selectedWsSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                Certidão Notarial Forense WORM — Sessão WebSocket
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWsSealForModal(null);
+                  setWsModalIncidentItem(null);
+                  setWsSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* STATUS DO LAUDO */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Veredito de Conformidade RFC 6455 & ASVS V5.5
+                  </span>
+                  <span className={`text-xs font-black uppercase ${
+                    selectedWsSealForModal.action === WebSocketValidationAction.ALLOW_FRAME
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {selectedWsSealForModal.action === WebSocketValidationAction.ALLOW_FRAME
+                      ? 'Frame Seguro • Object.create(null) + Frozen'
+                      : 'Ataque Interceptado • Conexão Isolada'}
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                  {selectedWsSealForModal.channel}
+                </span>
+              </div>
+
+              {/* TOKEN DO SELO */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Token do Selo WORM RFC 8785
+                </span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[11px] text-slate-900 dark:text-white break-all select-all font-bold">
+                  {selectedWsSealForModal.sealId}
+                </div>
+              </div>
+
+              {/* DETALHES FORENSES */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Digest do Frame (SHA-256)</span>
+                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate block" title={selectedWsSealForModal.payloadSha256}>
+                    {(selectedWsSealForModal.payloadSha256 || 'N/A').substring(0, 18)}...
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Severidade</span>
+                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate block">
+                    {selectedWsSealForModal.severity}
+                  </span>
+                </div>
+              </div>
+
+              {/* INCIDENTE ASSOCIADO */}
+              {wsModalIncidentItem && (
+                <div className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">
+                      {wsModalIncidentItem.incidentId}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 uppercase">
+                      {wsModalIncidentItem.category}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Canal: <span className="font-mono font-bold text-slate-900 dark:text-white">{wsModalIncidentItem.channel}</span> | IP: <span className="font-mono">{wsModalIncidentItem.clientIp}</span>
+                  </div>
+                  <div className="text-[11px] text-rose-700 dark:text-rose-300 font-mono">
+                    Ação: {wsModalIncidentItem.actionTaken}
+                  </div>
+                </div>
+              )}
+
+              {/* FEEDBACK DE VERIFICAÇÃO CRIPTOGRÁFICA */}
+              {wsSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  wsSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                }`}>
+                  {wsSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {wsSealVerifyResult.details}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {selectedWsSealForModal.timestamp ? new Date(selectedWsSealForModal.timestamp).toLocaleString('pt-BR') : 'Recente'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingWsSeal}
+                  onClick={() => handleVerifyWsSealSubmit(selectedWsSealForModal.sealId)}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingWsSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedWsSealForModal(null);
+                    setWsModalIncidentItem(null);
+                    setWsSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-
-
-
