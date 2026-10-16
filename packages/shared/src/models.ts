@@ -4299,6 +4299,164 @@ export interface PathGuardOverview {
   recentSealsSample?: PathProofSeal[];
 }
 
+/**
+ * 70. BLINDAGEM CONTRA INJEÇÃO DE CÓDIGO EM EXPRESSÕES E CONSULTAS DINÂMICAS (CWE-94, CWE-95 & ASVS V5.2)
+ */
+
+/**
+ * Nó da Árvore de Sintaxe Abstrata (AST) Segura para Expressões Clínicas (Zero eval)
+ */
+export interface AstNode {
+  type: 'Literal' | 'Identifier' | 'BinaryExpr' | 'LogicalExpr' | 'UnaryExpr' | 'ArrayLiteral' | 'InExpr';
+  operator?: string; // ==, !=, <, <=, >, >=, &&, ||, !, IN, NOT IN, CONTAINS, STARTS_WITH
+  left?: AstNode;
+  right?: AstNode;
+  argument?: AstNode;
+  value?: string | number | boolean | null;
+  name?: string;
+  elements?: AstNode[];
+}
+
+/**
+ * Ameaça detectada em análise estática/heurística de expressão dinâmica
+ */
+export interface ExpressionThreat {
+  category: import('./enums').ExpressionThreatCategory;
+  pattern: string;
+  match: string;
+  severity: import('./enums').ExpressionRiskSeverity;
+  description: string;
+  offset?: number;
+}
+
+/**
+ * Selo Notarial Probatório WORM RFC 8785 de Validação Segura de Expressão
+ */
+export interface ExpressionProofSeal {
+  sealId: string;
+  timestamp: string;
+  expressionHash: string;
+  dialect: import('./enums').ExpressionFilterDialect;
+  threatsDetected: number;
+  decision: import('./enums').ExpressionValidationAction;
+  hmacSignature: string;
+  canonicalAstJson?: string;
+}
+
+/**
+ * Resultado da Inspeção Léxica, Heurística e Sintática de Expressão
+ */
+export interface ExpressionInspectionResult {
+  rawExpression: string;
+  dialect: import('./enums').ExpressionFilterDialect;
+  isValid: boolean;
+  isSafe: boolean;
+  action: import('./enums').ExpressionValidationAction;
+  severity: import('./enums').ExpressionRiskSeverity;
+  threats: ExpressionThreat[];
+  astRoot?: AstNode;
+  astNodeCount: number;
+  astDepth: number;
+  inspectionDurationUs: number;
+  seal?: ExpressionProofSeal;
+  sanitizedExpression?: string;
+}
+
+/**
+ * Registro de Amostra de Prontuário para Avaliação Sandboxed de Predicados
+ */
+export interface ClinicalRecordSample {
+  id: string;
+  patientId: string;
+  patientNameMasked: string;
+  sessionDate: string;
+  cid11: string;
+  cidCategory: string;
+  severity: 'MILD' | 'MODERATE' | 'SEVERE';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  attended: boolean;
+  tags: string[];
+  doctorName: string;
+  modality: 'ONLINE' | 'IN_PERSON';
+  notesLength: number;
+}
+
+/**
+ * Resultado da Avaliação Segura de Expressão sobre Conjunto de Prontuários
+ */
+export interface ExpressionEvaluationResult {
+  success: boolean;
+  expression: string;
+  dialect: import('./enums').ExpressionFilterDialect;
+  totalRecordsEvaluated: number;
+  matchedCount: number;
+  matchedRecords: ClinicalRecordSample[];
+  evaluationDurationUs: number;
+  proofSeal: ExpressionProofSeal;
+  errorReason?: string;
+}
+
+/**
+ * Política Ativa de Blindagem contra Code/Expression Injection
+ */
+export interface ExpressionGuardPolicy {
+  strictAstEnforcement: boolean;
+  maxAstDepth: number;
+  maxAstNodes: number;
+  defaultDialect: import('./enums').ExpressionFilterDialect;
+  blockOnDangerousIdentifiers: boolean;
+  strictFieldWhitelist: boolean;
+  allowedClinicalFields: string[];
+  updatedAt: string;
+}
+
+/**
+ * Métricas do Módulo de Proteção contra Code/Expression Injection
+ */
+export interface ExpressionGuardMetrics {
+  totalExpressionsInspected: number;
+  safeExpressionsAllowed: number;
+  attacksBlocked: number;
+  expressionsSanitized: number;
+  clinicalRecordsEvaluated: number;
+  avgInspectionDurationUs: number;
+  threatsByCategory: Record<string, number>;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente de Injeção de Código em Expressão
+ */
+export interface ExpressionSecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  dialect: import('./enums').ExpressionFilterDialect;
+  rawExpression: string;
+  category: import('./enums').ExpressionThreatCategory;
+  threatCategory?: import('./enums').ExpressionThreatCategory;
+  severity: import('./enums').ExpressionRiskSeverity;
+  riskSeverity?: import('./enums').ExpressionRiskSeverity;
+  clientIp: string;
+  userAgent: string;
+  blocked: boolean;
+  remediationAction: string;
+  threats: ExpressionThreat[];
+  seal?: ExpressionProofSeal;
+}
+
+/**
+ * Visão Geral Operacional e Telemetria de Code/Expression Guard
+ */
+export interface ExpressionGuardOverview {
+  metrics: ExpressionGuardMetrics;
+  policy: ExpressionGuardPolicy;
+  recentIncidents: ExpressionSecurityIncident[];
+  clinicalRecordsSample: ClinicalRecordSample[];
+  recentSealsSample?: ExpressionProofSeal[];
+}
+
+
 
 
 

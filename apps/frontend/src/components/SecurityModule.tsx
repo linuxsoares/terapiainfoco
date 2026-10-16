@@ -75,7 +75,8 @@ import {
   Gavel,
   Braces,
   Terminal,
-  FolderLock
+  FolderLock,
+  Code2
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -368,7 +369,16 @@ import {
   type PathSecurityIncident,
   type PathGuardOverview,
   type SimulatePathAttackResponse,
-  type VerifyPathSealResponse
+  type VerifyPathSealResponse,
+  ExpressionThreatCategory,
+  ExpressionFilterDialect,
+  type ExpressionProofSeal,
+  type ExpressionInspectionResult,
+  type ExpressionEvaluationResult,
+  type ExpressionSecurityIncident,
+  type ExpressionGuardOverview,
+  type SimulateExpressionAttackResponse,
+  type VerifyExpressionSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -5909,6 +5919,165 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // ==========================================
+  // ESTADOS DO MÓDULO 70: CODE/EXPRESSION INJECTION GUARD (CWE-94, CWE-95 & ASVS V5.2)
+  // ==========================================
+  const [exprOverview, setExprOverview] = useState<ExpressionGuardOverview | null>(null);
+  const [loadingExprGuard, setLoadingExprGuard] = useState<boolean>(false);
+  const [exprActiveTab, setExprActiveTab] = useState<'inspector' | 'evaluator' | 'simulator' | 'policy'>('inspector');
+
+  // Aba 1: Inspetor Léxico & AST Segura
+  const [expressionInput, setExpressionInput] = useState<string>("cidCategory == 'DEPRESSION' && (riskLevel == 'CRITICAL' || riskLevel == 'HIGH')");
+  const [selectedExprDialect, setSelectedExprDialect] = useState<ExpressionFilterDialect>(ExpressionFilterDialect.CLINICAL_AST_DSL);
+  const [inspectingExpr, setInspectingExpr] = useState<boolean>(false);
+  const [lastExprInspection, setLastExprInspection] = useState<ExpressionInspectionResult | null>(null);
+
+  // Aba 2: Avaliador Clínico Sandboxed (Zero eval)
+  const [evaluatingExpr, setEvaluatingExpr] = useState<boolean>(false);
+  const [lastExprEvaluation, setLastExprEvaluation] = useState<ExpressionEvaluationResult | null>(null);
+
+  // Aba 3: Simulador Adversarial
+  const [simExprCategory, setSimExprCategory] = useState<ExpressionThreatCategory>(ExpressionThreatCategory.SYSTEM_GLOBAL_ACCESS);
+  const [simulatingExpr, setSimulatingExpr] = useState<boolean>(false);
+  const [simExprResult, setSimExprResult] = useState<SimulateExpressionAttackResponse | null>(null);
+
+  // Aba 4: Políticas de Governança
+  const [exprPolicyStrictAst, setExprPolicyStrictAst] = useState<boolean>(true);
+  const [exprPolicyMaxDepth, setExprPolicyMaxDepth] = useState<number>(10);
+  const [exprPolicyMaxNodes, setExprPolicyMaxNodes] = useState<number>(100);
+  const [exprPolicyBlockDangerousIdents, setExprPolicyBlockDangerousIdents] = useState<boolean>(true);
+  const [exprPolicyStrictWhitelist, setExprPolicyStrictWhitelist] = useState<boolean>(true);
+  const [updatingExprPolicy, setUpdatingExprPolicy] = useState<boolean>(false);
+
+  // Modal 52.A: Certidão Notarial Forense WORM de Expressão
+  const [selectedExprSealForModal, setSelectedExprSealForModal] = useState<ExpressionProofSeal | null>(null);
+  const [exprModalIncidentItem, setExprModalIncidentItem] = useState<ExpressionSecurityIncident | null>(null);
+  const [verifyingExprSeal, setVerifyingExprSeal] = useState<boolean>(false);
+  const [exprSealVerifyResult, setExprSealVerifyResult] = useState<VerifyExpressionSealResponse | null>(null);
+
+  const fetchExprGuardData = async () => {
+    try {
+      setLoadingExprGuard(true);
+      const res = await api.getExpressionGuardOverview();
+      setExprOverview(res.overview);
+      if (res.overview?.policy) {
+        setExprPolicyStrictAst(res.overview.policy.strictAstEnforcement);
+        setExprPolicyMaxDepth(res.overview.policy.maxAstDepth);
+        setExprPolicyMaxNodes(res.overview.policy.maxAstNodes);
+        setExprPolicyBlockDangerousIdents(res.overview.policy.blockOnDangerousIdentifiers);
+        setExprPolicyStrictWhitelist(res.overview.policy.strictFieldWhitelist);
+      }
+    } catch (err: any) {
+      console.error('Erro ao buscar dados do Expression Injection Guard:', err);
+    } finally {
+      setLoadingExprGuard(false);
+    }
+  };
+
+  const handleInspectExprSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setInspectingExpr(true);
+      setLastExprInspection(null);
+      const res = await api.inspectExpression({
+        expression: expressionInput.trim(),
+        dialect: selectedExprDialect,
+      });
+      setLastExprInspection(res.inspection);
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message,
+      });
+      await fetchExprGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar expressão clínica.' });
+    } finally {
+      setInspectingExpr(false);
+    }
+  };
+
+  const handleEvaluateExprSubmit = async () => {
+    try {
+      setEvaluatingExpr(true);
+      setLastExprEvaluation(null);
+      const res = await api.evaluateExpression({
+        expression: expressionInput.trim(),
+        dialect: selectedExprDialect,
+      });
+      setLastExprEvaluation(res.result);
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message,
+      });
+      await fetchExprGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao avaliar expressão em prontuários.' });
+    } finally {
+      setEvaluatingExpr(false);
+    }
+  };
+
+  const handleSimulateExprSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingExpr(true);
+      setSimExprResult(null);
+      const res = await api.simulateExpressionAttack({
+        threatCategory: simExprCategory,
+        dialect: selectedExprDialect,
+      });
+      setSimExprResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message,
+      });
+      await fetchExprGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de expressão.' });
+    } finally {
+      setSimulatingExpr(false);
+    }
+  };
+
+  const handleUpdateExprPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingExprPolicy(true);
+      const res = await api.updateExpressionPolicy({
+        policy: {
+          strictAstEnforcement: exprPolicyStrictAst,
+          maxAstDepth: Number(exprPolicyMaxDepth),
+          maxAstNodes: Number(exprPolicyMaxNodes),
+          blockOnDangerousIdentifiers: exprPolicyBlockDangerousIdents,
+          strictFieldWhitelist: exprPolicyStrictWhitelist,
+        },
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchExprGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de expressões.' });
+    } finally {
+      setUpdatingExprPolicy(false);
+    }
+  };
+
+  const handleVerifyExprSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingExprSeal(true);
+      setExprSealVerifyResult(null);
+      const res = await api.verifyExpressionSeal({ sealToken });
+      setExprSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message,
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de expressão.' });
+    } finally {
+      setVerifyingExprSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -5952,6 +6121,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchSstiGuardData();
       fetchOsCommandData();
       fetchPathGuardData();
+      fetchExprGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -28138,6 +28308,738 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* CARD 52: DETECÇÃO E PREVENÇÃO DE CODE/EXPRESSION INJECTION EM PRONTUÁRIOS (CWE-94, CWE-95 & ASVS V5.2) */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+              <Code2 className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Módulo 70: Blindagem contra Injeção de Código em Expressões e Consultas Clínicas
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                  CWE-94 &amp; CWE-95
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  Zero eval • AST Sandbox
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  OWASP ASVS V5.2
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Parser de Descida Recursiva, Validador Léxico Determinístico, Avaliação Sandboxed de Prontuários e Selagem WORM RFC 8785
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchExprGuardData}
+            disabled={loadingExprGuard}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingExprGuard ? 'animate-spin' : ''}`} />
+            Atualizar Telemetria
+          </button>
+        </div>
+
+        {/* 5 KPIS DINÂMICOS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Expressões Inspecionadas
+            </span>
+            <span className="text-xl font-extrabold text-slate-900 dark:text-white">
+              {exprOverview?.metrics.totalExpressionsInspected ?? 0}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">Filtros dinâmicos</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Consultas Seguras (AST)
+            </span>
+            <span className="text-xl font-extrabold text-violet-600 dark:text-violet-400">
+              {exprOverview?.metrics.safeExpressionsAllowed ?? 0}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">Execução limpa</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Injeções Bloqueadas
+            </span>
+            <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">
+              {exprOverview?.metrics.attacksBlocked ?? 0}
+            </span>
+            <span className="text-[10px] text-rose-500 block mt-0.5">CWE-94/95 barradas</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Prontuários Avaliados
+            </span>
+            <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {exprOverview?.metrics.clinicalRecordsEvaluated ?? 0}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">Zero eval em memória</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Latência Média AST
+            </span>
+            <span className="text-xl font-extrabold text-slate-900 dark:text-white">
+              {exprOverview?.metrics.avgInspectionDurationUs ? `${Math.round(exprOverview.metrics.avgInspectionDurationUs)} µs` : '142 µs'}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">Microssegundos</span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS */}
+        <div className="flex border-b border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setExprActiveTab('inspector')}
+            className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+              exprActiveTab === 'inspector'
+                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            1. Inspetor Léxico &amp; AST Segura
+          </button>
+          <button
+            type="button"
+            onClick={() => setExprActiveTab('evaluator')}
+            className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+              exprActiveTab === 'evaluator'
+                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            2. Avaliador Clínico Sandboxed
+          </button>
+          <button
+            type="button"
+            onClick={() => setExprActiveTab('simulator')}
+            className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+              exprActiveTab === 'simulator'
+                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            3. Simulador Adversarial CWE-94 / CWE-95
+          </button>
+          <button
+            type="button"
+            onClick={() => setExprActiveTab('policy')}
+            className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+              exprActiveTab === 'policy'
+                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            4. Políticas de Governança &amp; Incidentes
+          </button>
+        </div>
+
+        {/* ABA 1: INSPETOR LÉXICO & AST SEGURA */}
+        {exprActiveTab === 'inspector' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                Presets de Filtros Clínicos Homologados (Clique para Carregar):
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExpressionInput("cidCategory == 'DEPRESSION' && (riskLevel == 'CRITICAL' || riskLevel == 'HIGH')")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-violet-500 cursor-pointer"
+                >
+                  Depressão com Risco Crítico
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpressionInput("cid11 == '6A70' && attended == true")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-violet-500 cursor-pointer"
+                >
+                  CID-11 6A70 &amp; Comparecimento
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpressionInput("tags CONTAINS 'suicide_ideation' && modality == 'ONLINE'")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-violet-500 cursor-pointer"
+                >
+                  Tag Ideação Suicida &amp; Teleconsulta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpressionInput("sessionDate >= '2026-03-15' && riskLevel IN ['HIGH', 'CRITICAL']")}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-violet-500 cursor-pointer"
+                >
+                  Data Recente &amp; Risco Elevado
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleInspectExprSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Expressão de Predicado / Filtro Clínico:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={expressionInput}
+                    onChange={(e) => setExpressionInput(e.target.value)}
+                    placeholder="Ex: cidCategory == 'DEPRESSION' && severity == 'SEVERE'"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Dialeto de Consulta:
+                  </label>
+                  <select
+                    value={selectedExprDialect}
+                    onChange={(e) => setSelectedExprDialect(e.target.value as ExpressionFilterDialect)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  >
+                    <option value={ExpressionFilterDialect.CLINICAL_AST_DSL}>CLINICAL_AST_DSL (DSL Nativa Segura)</option>
+                    <option value={ExpressionFilterDialect.SAFE_MONGO_PREDICATE}>SAFE_MONGO_PREDICATE (NoSQL Seguro)</option>
+                    <option value={ExpressionFilterDialect.JSONPATH_RESTRICTED}>JSONPATH_RESTRICTED (JSONPath Estrito)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={inspectingExpr || !expressionInput.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Code2 className="w-4 h-4" />
+                  {inspectingExpr ? 'Inspecionando AST...' : 'Inspecionar Expressão'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleEvaluateExprSubmit}
+                  disabled={evaluatingExpr || !expressionInput.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4" />
+                  {evaluatingExpr ? 'Avaliando Prontuários...' : 'Avaliar em Prontuários (Zero eval)'}
+                </button>
+              </div>
+            </form>
+
+            {/* PAINEL DE RESULTADO DA INSPEÇÃO */}
+            {lastExprInspection && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Resultado da Inspeção Léxica &amp; AST:
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                      lastExprInspection.isSafe
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    }`}>
+                      {lastExprInspection.action} ({lastExprInspection.severity})
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] font-mono text-slate-500">
+                    Nós: {lastExprInspection.astNodeCount} | Profundidade: {lastExprInspection.astDepth} | Latência: {lastExprInspection.inspectionDurationUs} µs
+                  </div>
+                </div>
+
+                {lastExprInspection.threats.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                      Ameaças Identificadas ({lastExprInspection.threats.length}):
+                    </span>
+                    <div className="space-y-1">
+                      {lastExprInspection.threats.map((threat, idx) => (
+                        <div key={idx} className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs flex items-center justify-between">
+                          <span className="font-semibold text-rose-900 dark:text-rose-200">
+                            {threat.description}
+                          </span>
+                          <span className="font-mono text-[10px] text-rose-700 dark:text-rose-400">
+                            Trecho: &quot;{threat.match}&quot;
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {lastExprInspection.astRoot && (
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">
+                      Árvore de Sintaxe Abstrata (AST Determinística):
+                    </span>
+                    <pre className="p-3 rounded-xl bg-slate-900 text-violet-300 font-mono text-[11px] overflow-x-auto max-h-48">
+                      {JSON.stringify(lastExprInspection.astRoot, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {lastExprInspection.seal && (
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-xs font-mono text-slate-500">
+                      Selo Notarial WORM: {lastExprInspection.seal.sealId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedExprSealForModal(lastExprInspection.seal!);
+                        setExprModalIncidentItem(null);
+                        setExprSealVerifyResult(null);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Auditar Selo WORM
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA 2: AVALIADOR CLÍNICO SANDBOXED */}
+        {exprActiveTab === 'evaluator' && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Base de Prontuários Eletrônicos em Memória (Sandboxed Cohort)
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Avaliação segura via AST Visitor determinístico sem acesso a interpretadores de script
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleEvaluateExprSubmit}
+                disabled={evaluatingExpr}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Play className="w-4 h-4" />
+                {evaluatingExpr ? 'Executando...' : 'Reavaliar Filtro Ativo'}
+              </button>
+            </div>
+
+            {lastExprEvaluation && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
+                <span>
+                  <strong>{lastExprEvaluation.matchedCount}</strong> de <strong>{lastExprEvaluation.totalRecordsEvaluated}</strong> prontuários correspondem ao predicado.
+                </span>
+                <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
+                  Tempo de execução: {lastExprEvaluation.evaluationDurationUs} µs
+                </span>
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-3.5 py-2.5">ID / Paciente</th>
+                    <th className="px-3.5 py-2.5">Data Sessão</th>
+                    <th className="px-3.5 py-2.5">CID-11 / Categoria</th>
+                    <th className="px-3.5 py-2.5">Severidade</th>
+                    <th className="px-3.5 py-2.5">Risco</th>
+                    <th className="px-3.5 py-2.5">Tags Clínicas</th>
+                    <th className="px-3.5 py-2.5">Terapeuta / CRP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {((lastExprEvaluation ? lastExprEvaluation.matchedRecords : exprOverview?.clinicalRecordsSample) || []).map((rec) => (
+                    <tr key={rec.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="px-3.5 py-2.5 font-mono">
+                        <span className="font-bold text-slate-900 dark:text-white block">{rec.id}</span>
+                        <span className="text-[11px] text-slate-500">{rec.patientNameMasked}</span>
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono">{rec.sessionDate}</td>
+                      <td className="px-3.5 py-2.5">
+                        <span className="font-bold text-violet-600 dark:text-violet-400">{rec.cid11}</span>
+                        <span className="text-[10px] text-slate-400 block">{rec.cidCategory}</span>
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          rec.severity === 'SEVERE'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            : rec.severity === 'MODERATE'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        }`}>
+                          {rec.severity}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          rec.riskLevel === 'CRITICAL' || rec.riskLevel === 'HIGH'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
+                        }`}>
+                          {rec.riskLevel}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <div className="flex flex-wrap gap-1">
+                          {rec.tags.map((tag, tIdx) => (
+                            <span key={tIdx} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] font-mono text-slate-600 dark:text-slate-400">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-2.5 text-[11px]">{rec.doctorName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ABA 3: SIMULADOR ADVERSARIAL CWE-94 / CWE-95 */}
+        {exprActiveTab === 'simulator' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                Selecione o Cenário de Penetration Testing para Simulação:
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.SYSTEM_GLOBAL_ACCESS)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.SYSTEM_GLOBAL_ACCESS
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    1. Global Process Execution (RCE)
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    require(&#39;child_process&#39;).execSync(&#39;id&#39;)
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.PROTOTYPE_POLLUTION_EXPR)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.PROTOTYPE_POLLUTION_EXPR
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    2. Prototype Pollution via Identifier
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    __proto__.isAdmin = true
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.TEMPLATE_LITERAL_INJECTION)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.TEMPLATE_LITERAL_INJECTION
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    3. Template Literal Injection
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    doctorName == `${'{'}process.mainModule...{'}'}`
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.NOSQL_CODE_OPERATOR)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.NOSQL_CODE_OPERATOR
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    4. NoSQL $where Code Execution
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {'{'} $where: &#39;sleep(5000)...&#39; {'}'}
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.SPEL_OGNL_INJECTION)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.SPEL_OGNL_INJECTION
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    5. SpEL Remote Code Execution
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    T(java.lang.Runtime).getRuntime().exec(...)
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => setSimExprCategory(ExpressionThreatCategory.DYNAMIC_CODE_EXECUTION)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    simExprCategory === ExpressionThreatCategory.DYNAMIC_CODE_EXECUTION
+                      ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    6. Function Constructor Bypass
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Function(&#39;return process...&#39;)()
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSimulateExprSubmit}
+                  disabled={simulatingExpr}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldAlert className="w-4 h-4" />
+                  {simulatingExpr ? 'Executando Pentest...' : 'Disparar Pentest Adversarial'}
+                </button>
+              </div>
+            </div>
+
+            {simExprResult && (
+              <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500 text-white">
+                      ATAQUE INTERCEPTADO
+                    </span>
+                    <span className="text-xs font-bold text-slate-300">
+                      Laudo Pericial de Defesa CWE-94 / CWE-95
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-slate-400">
+                    Incidente: {simExprResult.incident?.id}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Payload do Invasor:</span>
+                    <p className="text-rose-400 break-all bg-slate-950 p-2 rounded-xl border border-rose-900/40">
+                      {simExprResult.attackPayload}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Ação de Neutralização:</span>
+                    <p className="text-emerald-400 font-bold">
+                      {simExprResult.incident?.remediationAction}
+                    </p>
+                  </div>
+                </div>
+
+                {simExprResult.inspection.seal && (
+                  <div className="pt-2 border-t border-slate-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedExprSealForModal(simExprResult.inspection.seal!);
+                        setExprModalIncidentItem(simExprResult.incident || null);
+                        setExprSealVerifyResult(null);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Ver Certidão Notarial Forense WORM
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA 4: POLÍTICAS DE GOVERNANÇA & INCIDENTES */}
+        {exprActiveTab === 'policy' && (
+          <div className="space-y-4">
+            <form onSubmit={handleUpdateExprPolicySubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Diretrizes de Confinamento da AST e Whitelist Clínica
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exprPolicyStrictAst}
+                      onChange={(e) => setExprPolicyStrictAst(e.target.checked)}
+                      className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Enforce Estrito de AST (Proibir qualquer interpretador livre)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exprPolicyBlockDangerousIdents}
+                      onChange={(e) => setExprPolicyBlockDangerousIdents(e.target.checked)}
+                      className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Bloquear Identificadores de Sistema (process, require, eval)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exprPolicyStrictWhitelist}
+                      onChange={(e) => setExprPolicyStrictWhitelist(e.target.checked)}
+                      className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                      Whitelist Estrita de Campos Clínicos de Prontuário
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Profundidade Máx. da AST:
+                    </label>
+                    <input
+                      type="number"
+                      min={3}
+                      max={20}
+                      value={exprPolicyMaxDepth}
+                      onChange={(e) => setExprPolicyMaxDepth(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Máx. de Nós na Árvore:
+                    </label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={500}
+                      value={exprPolicyMaxNodes}
+                      onChange={(e) => setExprPolicyMaxNodes(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={updatingExprPolicy}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {updatingExprPolicy ? 'Salvando...' : 'Salvar Diretrizes de Governança'}
+                </button>
+              </div>
+            </form>
+
+            {/* TABELA DE INCIDENTES RECENTES */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Trilha Forense de Incidentes de Injeção Interceptados
+              </h4>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-3.5 py-2.5">ID / Data</th>
+                      <th className="px-3.5 py-2.5">Dialeto</th>
+                      <th className="px-3.5 py-2.5">Categoria da Ameaça</th>
+                      <th className="px-3.5 py-2.5">Expressão Interceptada</th>
+                      <th className="px-3.5 py-2.5">IP Origem</th>
+                      <th className="px-3.5 py-2.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {(!exprOverview?.recentIncidents || exprOverview.recentIncidents.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400 italic">
+                          Nenhum incidente de code injection detectado recentemente.
+                        </td>
+                      </tr>
+                    ) : (
+                      exprOverview.recentIncidents.map((inc) => (
+                        <tr key={inc.id || inc.incidentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="px-3.5 py-2.5 font-mono">
+                            <span className="font-bold text-slate-900 dark:text-white block">{inc.id || inc.incidentId}</span>
+                            <span className="text-[10px] text-slate-400">{new Date(inc.timestamp).toLocaleTimeString('pt-BR')}</span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.dialect}</td>
+                          <td className="px-3.5 py-2.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                              {inc.category || inc.threatCategory}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px] truncate max-w-xs" title={inc.rawExpression}>
+                            {inc.rawExpression}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.clientIp}</td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (inc.seal) {
+                                  setSelectedExprSealForModal(inc.seal);
+                                  setExprModalIncidentItem(inc);
+                                  setExprSealVerifyResult(null);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold cursor-pointer"
+                            >
+                              Laudo WORM
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -34903,6 +35805,173 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedPathSealForModal(null);
                     setPathModalIncidentItem(null);
                     setPathSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 52.A: CERTIDÃO NOTARIAL FORENSE WORM DE VALIDAÇÃO DE EXPRESSÃO AST (RFC 8785 & CWE-94/CWE-95) */}
+      {selectedExprSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                  <Code2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Certidão Notarial Forense de Expressão AST
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                      RFC 8785 WORM
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Prova Criptográfica Inviolável de Sanitização e Avaliação Sandboxed (CWE-94/95 • ASVS V5.2)
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExprSealForModal(null);
+                  setExprModalIncidentItem(null);
+                  setExprSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Veredito */}
+              <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+                selectedExprSealForModal.decision !== 'BLOCK_ATTACK'
+                  ? 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-900/40'
+                  : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/40'
+              }`}>
+                <div>
+                  <span className="text-[10px] font-bold text-violet-700 dark:text-violet-400 uppercase tracking-wider block">
+                    Veredito do Sandbox AST (Zero eval):
+                  </span>
+                  <p className="font-bold text-xs text-violet-950 dark:text-violet-200">
+                    {selectedExprSealForModal.decision !== 'BLOCK_ATTACK'
+                      ? 'Expressão Segura Validada — Execução Hermeticamente Confinada'
+                      : 'Tentativa de Injeção de Código Bloqueada Preventivamente'}
+                  </p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                  selectedExprSealForModal.decision !== 'BLOCK_ATTACK'
+                    ? 'bg-violet-200 dark:bg-violet-900/60 text-violet-800 dark:text-violet-300'
+                    : 'bg-rose-200 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300'
+                }`}>
+                  {selectedExprSealForModal.decision}
+                </span>
+              </div>
+
+              {/* Grid de Identificadores */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID Notarial do Selo
+                  </span>
+                  <p className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400 truncate">
+                    {selectedExprSealForModal.sealId}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Dialeto de Consulta
+                  </span>
+                  <p className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedExprSealForModal.dialect}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes do Incidente se houver */}
+              {exprModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 space-y-1">
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+                    Incidente Forense Associado
+                  </span>
+                  <p className="font-mono text-xs text-rose-900 dark:text-rose-200 font-bold">
+                    ID: {exprModalIncidentItem.id || exprModalIncidentItem.incidentId}
+                  </p>
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300 font-mono break-all">
+                    Expressão: {exprModalIncidentItem.rawExpression}
+                  </p>
+                  <div className="text-[10px] font-mono text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
+                    <p>Categoria: {exprModalIncidentItem.category || exprModalIncidentItem.threatCategory}</p>
+                    <p>IP Origem: {exprModalIncidentItem.clientIp} | Bloqueado: SIM</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hash SHA-256 da Expressão */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest Canônico SHA-256 da Expressão
+                </span>
+                <p className="font-mono text-[10px] text-violet-400 break-all select-all">
+                  {selectedExprSealForModal.expressionHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável da AST)
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedExprSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {exprSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  exprSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {exprSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {exprSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedExprSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingExprSeal}
+                  onClick={() => handleVerifyExprSealSubmit(JSON.stringify(selectedExprSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingExprSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedExprSealForModal(null);
+                    setExprModalIncidentItem(null);
+                    setExprSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

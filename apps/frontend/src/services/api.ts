@@ -501,7 +501,18 @@ import type {
   SimulatePathAttackResponse,
   VerifyPathSealDTO,
   VerifyPathSealResponse,
-  PathGuardOverviewResponse
+  PathGuardOverviewResponse,
+  InspectExpressionDTO,
+  InspectExpressionResponse,
+  EvaluateExpressionDTO,
+  EvaluateExpressionResponse,
+  UpdateExpressionPolicyDTO,
+  UpdateExpressionPolicyResponse,
+  SimulateExpressionAttackDTO,
+  SimulateExpressionAttackResponse,
+  VerifyExpressionSealDTO,
+  VerifyExpressionSealResponse,
+  ExpressionGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3057,6 +3068,46 @@ export const api = {
 
   async verifyPathSeal(dto: VerifyPathSealDTO): Promise<VerifyPathSealResponse> {
     return await request<VerifyPathSealResponse>('/path-traversal-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 70. Detecção e Prevenção Ativa de Injeção de Código em Expressões e Consultas (CWE-94, CWE-95 & ASVS V5.2)
+  async getExpressionGuardOverview(): Promise<ExpressionGuardOverviewResponse> {
+    return await request<ExpressionGuardOverviewResponse>('/expression-guard/overview');
+  },
+
+  async inspectExpression(dto: InspectExpressionDTO): Promise<InspectExpressionResponse> {
+    return await request<InspectExpressionResponse>('/expression-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async evaluateExpression(dto: EvaluateExpressionDTO): Promise<EvaluateExpressionResponse> {
+    return await request<EvaluateExpressionResponse>('/expression-guard/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateExpressionPolicy(dto: UpdateExpressionPolicyDTO): Promise<UpdateExpressionPolicyResponse> {
+    return await request<UpdateExpressionPolicyResponse>('/expression-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateExpressionAttack(dto: SimulateExpressionAttackDTO): Promise<SimulateExpressionAttackResponse> {
+    return await request<SimulateExpressionAttackResponse>('/expression-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyExpressionSeal(dto: VerifyExpressionSealDTO): Promise<VerifyExpressionSealResponse> {
+    return await request<VerifyExpressionSealResponse>('/expression-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
