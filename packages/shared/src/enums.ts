@@ -608,7 +608,15 @@ export enum AuditAction {
   TELECONSULTATION_QUALITY_TELEMETRY = 'TELECONSULTATION_QUALITY_TELEMETRY',
   TELECONSULTATION_QUALITY_ALERT = 'TELECONSULTATION_QUALITY_ALERT',
   TELECONSULTATION_RECORDING_TOGGLED = 'TELECONSULTATION_RECORDING_TOGGLED',
-  TELECONSULTATION_ENDED = 'TELECONSULTATION_ENDED'
+  TELECONSULTATION_ENDED = 'TELECONSULTATION_ENDED',
+  // Ações de Transcrição, Diarização & Síntese SOAP Assistida por IA (RFC-001 §3.3)
+  TRANSCRIPTION_INGESTED = 'TRANSCRIPTION_INGESTED',
+  TRANSCRIPTION_CONSENT_VERIFIED = 'TRANSCRIPTION_CONSENT_VERIFIED',
+  TRANSCRIPTION_DIARIZED = 'TRANSCRIPTION_DIARIZED',
+  AI_SOAP_SYNTHESIZED = 'AI_SOAP_SYNTHESIZED',
+  AI_SOAP_ACCEPTED = 'AI_SOAP_ACCEPTED',
+  AI_SOAP_MODIFIED = 'AI_SOAP_MODIFIED',
+  AI_SOAP_REJECTED = 'AI_SOAP_REJECTED'
 }
 
 export enum AuditResourceType {
@@ -680,7 +688,9 @@ export enum AuditResourceType {
   CLINICAL_REFERRAL = 'CLINICAL_REFERRAL',
   CLINICAL_RECEIPT = 'CLINICAL_RECEIPT',
   FEE_CONTRACT = 'FEE_CONTRACT',
-  TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM'
+  TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM',
+  TRANSCRIPTION_SESSION = 'TRANSCRIPTION_SESSION',
+  AI_SOAP_DRAFT = 'AI_SOAP_DRAFT'
 }
 
 /**
@@ -2378,6 +2388,42 @@ export enum DependencyRegistryScope {
   UNSCOPED_PUBLIC = 'UNSCOPED_PUBLIC',                           // Pacote público sem escopo oficial
   UNVERIFIED_THIRD_PARTY = 'UNVERIFIED_THIRD_PARTY'              // Pacotes desconhecidos de registros externos
 }
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 40. TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+/**
+ * Identificação do Locutor na Transcrição Diarizada
+ */
+export enum TranscriptionSpeaker {
+  THERAPIST = 'THERAPIST',
+  PATIENT = 'PATIENT',
+  SYSTEM = 'SYSTEM'
+}
+
+/**
+ * Status do Rascunho SOAP Assistido por IA (Human-in-the-Loop)
+ */
+export enum AiSoapDraftStatus {
+  DRAFT_PENDING_REVIEW = 'DRAFT_PENDING_REVIEW', // Aguardando revisão do psicólogo
+  ACCEPTED_BY_THERAPIST = 'ACCEPTED_BY_THERAPIST', // Aprovado sem alterações
+  MODIFIED_BY_THERAPIST = 'MODIFIED_BY_THERAPIST', // Aprovado com ajustes clínicos
+  REJECTED = 'REJECTED'                          // Descartado pelo profissional
+}
+
+/**
+ * Polaridade Afetiva / Emocional do Enunciado
+ */
+export enum ConversationalSentiment {
+  POSITIVE = 'POSITIVE',
+  NEUTRAL = 'NEUTRAL',
+  NEGATIVE = 'NEGATIVE',
+  MIXED = 'MIXED'
+}
+
 
 
 

@@ -585,7 +585,13 @@ import type {
   ToggleRecordingDTO,
   EndTeleconsultationDTO,
   TeleconsultationCallMetrics,
-  TeleconsultationRoomResponse
+  TeleconsultationRoomResponse,
+  TranscriptionSession,
+  AiSoapDraft,
+  IngestTranscriptionDTO,
+  ReviewAiSoapDraftDTO,
+  TranscriptionSessionResponse,
+  AiSoapDraftResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3579,6 +3585,40 @@ export const api = {
       body: JSON.stringify(dto)
     });
     return res.room;
+  },
+
+  // 15. Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)
+  async ingestTranscription(dto: IngestTranscriptionDTO): Promise<{ session: TranscriptionSession; soapDraft: AiSoapDraft }> {
+    const res = await request<TranscriptionSessionResponse>('/transcription/ingest', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return { session: res.session, soapDraft: res.soapDraft! };
+  },
+
+  async getTranscriptionSession(appointmentId: string): Promise<TranscriptionSession | null> {
+    try {
+      const res = await request<TranscriptionSessionResponse>(`/transcription/session/${encodeURIComponent(appointmentId)}`);
+      return res.session;
+    } catch {
+      return null;
+    }
+  },
+
+  async getAiSoapDraft(draftId: string): Promise<AiSoapDraft | null> {
+    try {
+      const res = await request<{ success: boolean; draft: AiSoapDraft }>(`/transcription/draft/${encodeURIComponent(draftId)}`);
+      return res.draft;
+    } catch {
+      return null;
+    }
+  },
+
+  async reviewAiSoapDraft(dto: ReviewAiSoapDraftDTO): Promise<AiSoapDraftResponse> {
+    return await request<AiSoapDraftResponse>('/transcription/draft/review', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
 
