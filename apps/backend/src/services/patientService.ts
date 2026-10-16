@@ -137,6 +137,22 @@ export class PatientService {
   }
 
   /**
+   * Busca paciente por E-mail usando Blind Index (HMAC-SHA256) sem expor e-mail no banco (§4.3)
+   */
+  static findByEmail(
+    rawEmail: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): DecryptedPatient | null {
+    const targetBindex = hashEmail(rawEmail);
+    for (const patient of db.patients.values()) {
+      if (patient.emailBindex === targetBindex) {
+        return this.getPatientById(patient.id, context);
+      }
+    }
+    return null;
+  }
+
+  /**
    * Harmonização LGPD Art. 18 vs. CFP (Resolução nº 001/2009 - Guarda de 5 Anos)
    * Anonimiza dados de contato e coloca o cadastro em quarentena legal.
    */

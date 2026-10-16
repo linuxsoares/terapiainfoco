@@ -621,7 +621,15 @@ export enum AuditAction {
   ICP_BATCH_MANIFEST_CREATED = 'ICP_BATCH_MANIFEST_CREATED',
   ICP_BATCH_SIGNED = 'ICP_BATCH_SIGNED',
   ICP_BATCH_VERIFIED = 'ICP_BATCH_VERIFIED',
-  ICP_CERTIFICATE_CONFIGURED = 'ICP_CERTIFICATE_CONFIGURED'
+  ICP_CERTIFICATE_CONFIGURED = 'ICP_CERTIFICATE_CONFIGURED',
+  // Ações do Portal do Paciente & Exercícios Terapêuticos (RFC-001 §3.6, §3.7)
+  PATIENT_PORTAL_AUTH_REQUESTED = 'PATIENT_PORTAL_AUTH_REQUESTED',
+  PATIENT_PORTAL_LOGGED_IN = 'PATIENT_PORTAL_LOGGED_IN',
+  THERAPEUTIC_EXERCISE_ASSIGNED = 'THERAPEUTIC_EXERCISE_ASSIGNED',
+  THERAPEUTIC_EXERCISE_SUBMITTED = 'THERAPEUTIC_EXERCISE_SUBMITTED',
+  THERAPEUTIC_EXERCISE_REVIEWED = 'THERAPEUTIC_EXERCISE_REVIEWED',
+  PATIENT_RECEIPT_ACCESSED = 'PATIENT_RECEIPT_ACCESSED',
+  PATIENT_CONSENT_ACKNOWLEDGED = 'PATIENT_CONSENT_ACKNOWLEDGED'
 }
 
 export enum AuditResourceType {
@@ -696,7 +704,9 @@ export enum AuditResourceType {
   TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM',
   TRANSCRIPTION_SESSION = 'TRANSCRIPTION_SESSION',
   AI_SOAP_DRAFT = 'AI_SOAP_DRAFT',
-  ICP_BATCH_CLOSING = 'ICP_BATCH_CLOSING'
+  ICP_BATCH_CLOSING = 'ICP_BATCH_CLOSING',
+  PATIENT_PORTAL = 'PATIENT_PORTAL',
+  THERAPEUTIC_EXERCISE = 'THERAPEUTIC_EXERCISE'
 }
 
 /**
@@ -2462,6 +2472,39 @@ export enum BatchClosingStatus {
   SIGNED_SEALED = 'SIGNED_SEALED',   // Lote assinado digitalmente com certificado ICP-Brasil e selado WORM
   REVOKED = 'REVOKED'                // Lote retificado ou revogado formalmente
 }
+
+/**
+ * Tipos de Exercícios Terapêuticos Interativos Prescritos no Portal do Paciente (RFC-001 §3.6, §3.7)
+ */
+export enum ExerciseType {
+  RPD_THOUGHT_RECORD = 'RPD_THOUGHT_RECORD',       // Registro de Pensamentos Disfuncionais (TCC - Beck)
+  MOOD_TRACKER = 'MOOD_TRACKER',                   // Rastreador Diário de Humor & Afeto com Escala Visual
+  MINDFULNESS_BREATHING = 'MINDFULNESS_BREATHING', // Exercício de Respiração Diafragmática & Regulação Autonômica
+  VALUES_CLARIFICATION = 'VALUES_CLARIFICATION',   // Inventário de Valores & Ações Comprometidas (ACT)
+  BEHAVIORAL_ACTIVATION = 'BEHAVIORAL_ACTIVATION'  // Planejamento de Atividades & Ativação Comportamental
+}
+
+/**
+ * Status do Exercício Terapêutico
+ */
+export enum ExerciseStatus {
+  ASSIGNED = 'ASSIGNED',       // Prescrito pelo terapeuta, aguardando preenchimento do paciente
+  IN_PROGRESS = 'IN_PROGRESS', // Iniciado pelo paciente (rascunho salvo)
+  COMPLETED = 'COMPLETED',     // Concluído e submetido pelo paciente
+  REVIEWED = 'REVIEWED'        // Revisado pelo terapeuta com feedback clínico
+}
+
+/**
+ * Abas de Navegação do Portal do Paciente
+ */
+export enum PatientPortalTab {
+  OVERVIEW = 'OVERVIEW',
+  APPOINTMENTS = 'APPOINTMENTS',
+  EXERCISES = 'EXERCISES',
+  RECEIPTS = 'RECEIPTS',
+  DOCUMENTS_CONSENT = 'DOCUMENTS_CONSENT'
+}
+
 
 
 

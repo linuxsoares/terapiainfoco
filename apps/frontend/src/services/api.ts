@@ -596,10 +596,19 @@ import type {
   IcpBatchClosingManifest,
   PrepareBatchClosingDTO,
   ExecuteBatchSignatureDTO,
-  VerifyIcpBatchDTO,
   BatchPendingItemsResponse,
   BatchClosingResponse,
-  BatchVerificationResponse
+  BatchVerificationResponse,
+  TherapeuticExercise,
+  PatientPortalOverview,
+  RequestPatientAccessCodeDTO,
+  VerifyPatientAccessCodeDTO,
+  PatientAuthResponse,
+  AssignExerciseDTO,
+  SubmitExerciseResponseDTO,
+  ReviewExerciseDTO,
+  ExerciseResponse,
+  ExerciseListResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3655,8 +3664,97 @@ export const api = {
     return res.manifests || [];
   },
 
-  async verifyIcpBatchSignature(dto: VerifyIcpBatchDTO): Promise<BatchVerificationResponse> {
+  async verifyIcpBatchSignature(dto: any): Promise<BatchVerificationResponse> {
     return await request<BatchVerificationResponse>('/icp-batch/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // ==========================================
+  // PORTAL DO PACIENTE & EXERCÍCIOS TERAPÊUTICOS (RFC-001 §3.6, §3.7)
+  // ==========================================
+  async requestPatientAccessCode(dto: RequestPatientAccessCodeDTO): Promise<{ success: boolean; message: string; code?: string }> {
+    return await request<{ success: boolean; message: string; code?: string }>('/patient-portal/auth/request-code', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPatientAccessCode(dto: VerifyPatientAccessCodeDTO): Promise<PatientAuthResponse> {
+    const res = await request<PatientAuthResponse>('/patient-portal/auth/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    if (res.token && typeof window !== 'undefined') {
+      localStorage.setItem('terapiainfoco_patient_token', res.token);
+    }
+    return res;
+  },
+
+  async getPatientPortalOverview(token?: string): Promise<PatientPortalOverview> {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_patient_token') : null);
+    const headers: Record<string, string> = {};
+    if (effectiveToken) {
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+    }
+    const res = await request<{ success: boolean; data: PatientPortalOverview }>('/patient-portal/overview', {
+      headers
+    });
+    return res.data;
+  },
+
+  async getPatientExercises(token?: string): Promise<TherapeuticExercise[]> {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_patient_token') : null);
+    const headers: Record<string, string> = {};
+    if (effectiveToken) {
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+    }
+    const res = await request<ExerciseListResponse>('/patient-portal/exercises', {
+      headers
+    });
+    return res.exercises || [];
+  },
+
+  async submitPatientExercise(dto: SubmitExerciseResponseDTO, token?: string): Promise<ExerciseResponse> {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_patient_token') : null);
+    const headers: Record<string, string> = {};
+    if (effectiveToken) {
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+    }
+    return await request<ExerciseResponse>('/patient-portal/exercises/submit', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientReceipts(token?: string): Promise<any[]> {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('terapiainfoco_patient_token') : null);
+    const headers: Record<string, string> = {};
+    if (effectiveToken) {
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+    }
+    const res = await request<{ success: boolean; receipts: any[] }>('/patient-portal/receipts', {
+      headers
+    });
+    return res.receipts || [];
+  },
+
+  async assignTherapeuticExercise(dto: AssignExerciseDTO): Promise<ExerciseResponse> {
+    return await request<ExerciseResponse>('/patient-portal/therapist/assign', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getTherapistPatientExercises(patientId: string): Promise<TherapeuticExercise[]> {
+    const res = await request<ExerciseListResponse>(`/patient-portal/therapist/patient/${patientId}/exercises`);
+    return res.exercises || [];
+  },
+
+  async reviewTherapeuticExercise(dto: ReviewExerciseDTO): Promise<ExerciseResponse> {
+    return await request<ExerciseResponse>('/patient-portal/therapist/review', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

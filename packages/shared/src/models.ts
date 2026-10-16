@@ -5477,6 +5477,66 @@ export interface IcpBatchClosingManifest {
 
 export interface StoredIcpBatchClosingManifest extends IcpBatchClosingManifest {}
 
+/**
+ * Modelo de Exercício Terapêutico Interativo (RFC-001 §3.6, §3.7)
+ */
+export interface TherapeuticExercise {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  title: string;
+  description: string;
+  type: import('./enums').ExerciseType;
+  status: import('./enums').ExerciseStatus;
+  assignedAt: string;
+  dueAt?: string;
+  completedAt?: string;
+  reviewedAt?: string;
+  encryptedPayload?: any;
+  answers?: Record<string, any>;
+  therapistFeedback?: string;
+  templateData?: Record<string, any>;
+  wormAuditId?: string;
+}
+
+export interface PatientPortalProfile {
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
+  therapistName: string;
+  therapistCrp: string;
+}
+
+export interface PatientPortalAppointment {
+  id: string;
+  date: string;
+  time: string;
+  type: string;
+  status: import('./enums').AppointmentStatus;
+  meetUrl?: string;
+  canEnterWaitingRoom: boolean;
+  durationMinutes: number;
+}
+
+export interface PatientPortalConsent {
+  type: string;
+  title: string;
+  description: string;
+  acceptedAt?: string;
+  isRequired: boolean;
+}
+
+export interface PatientPortalOverview {
+  profile: PatientPortalProfile;
+  nextAppointment?: PatientPortalAppointment;
+  pendingExercisesCount: number;
+  completedExercisesCount: number;
+  availableReceiptsCount: number;
+  activeConsentsCount: number;
+}
+
+
 
 
 
