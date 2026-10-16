@@ -4569,6 +4569,32 @@ export interface TeleconsultationRoomResponse {
   message?: string;
 }
 
+export interface SendWebRtcSignalDTO {
+  appointmentId: string;
+  senderRole?: import('./enums').TeleconsultationParticipantRole;
+  signalType: 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'MEDIA_STATE_SYNC' | 'BYE';
+  sdp?: string;
+  candidate?: {
+    candidate: string;
+    sdpMid?: string | null;
+    sdpMLineIndex?: number | null;
+  };
+  mediaState?: import('./models').MediaHardwareState;
+}
+
+export interface SyncMediaHardwareDTO {
+  appointmentId: string;
+  role?: import('./enums').TeleconsultationParticipantRole;
+  cameraActive: boolean;
+  microphoneActive: boolean;
+  screenShareActive?: boolean;
+  cameraLabel?: string;
+  microphoneLabel?: string;
+  resolution?: string;
+  frameRate?: number;
+  audioSampleRate?: number;
+}
+
 /**
  * -------------------------------------------------------------------------------------------------
  * 40. TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)

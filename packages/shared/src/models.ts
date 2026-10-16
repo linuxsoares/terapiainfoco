@@ -5346,6 +5346,34 @@ export interface TeleconsultationCallMetrics {
   ethicalNotice?: string; // Alerta CFP caso a conexão degrade
 }
 
+export interface MediaHardwareState {
+  cameraActive: boolean;
+  microphoneActive: boolean;
+  screenShareActive: boolean;
+  cameraLabel?: string;
+  microphoneLabel?: string;
+  resolution?: string;
+  frameRate?: number;
+  audioSampleRate?: number;
+  updatedAt: string;
+}
+
+export interface WebRtcSignalEnvelope {
+  id: string;
+  appointmentId: string;
+  senderId: string;
+  senderRole: TeleconsultationParticipantRole;
+  signalType: 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'MEDIA_STATE_SYNC' | 'BYE';
+  sdp?: string;
+  candidate?: {
+    candidate: string;
+    sdpMid?: string | null;
+    sdpMLineIndex?: number | null;
+  };
+  mediaState?: MediaHardwareState;
+  createdAt: string;
+}
+
 export interface TeleconsultationRoom {
   id: string;
   appointmentId: string;
@@ -5362,6 +5390,9 @@ export interface TeleconsultationRoom {
   waitingParticipants: WaitingParticipant[];
   metrics: TeleconsultationCallMetrics;
   peerConnectionFingerprint?: string;
+  therapistMediaState?: MediaHardwareState;
+  patientMediaState?: MediaHardwareState;
+  signals?: WebRtcSignalEnvelope[];
   roomHashSha256: string;
   wormAuditId?: string;
   createdAt: string;

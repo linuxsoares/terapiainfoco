@@ -590,6 +590,9 @@ import type {
   EndTeleconsultationDTO,
   TeleconsultationCallMetrics,
   TeleconsultationRoomResponse,
+  SendWebRtcSignalDTO,
+  SyncMediaHardwareDTO,
+  WebRtcSignalEnvelope,
   TranscriptionSession,
   AiSoapDraft,
   IngestTranscriptionDTO,
@@ -3667,6 +3670,28 @@ export const api = {
       body: JSON.stringify(dto)
     });
     return res.room;
+  },
+
+  async syncTeleconsultationHardware(dto: SyncMediaHardwareDTO): Promise<TeleconsultationRoom> {
+    const res = await request<TeleconsultationRoomResponse>('/teleconsultation/session/hardware-sync', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.room;
+  },
+
+  async sendTeleconsultationSignal(dto: SendWebRtcSignalDTO): Promise<{ signal: WebRtcSignalEnvelope; room: TeleconsultationRoom }> {
+    return await request<{ success: boolean; signal: WebRtcSignalEnvelope; room: TeleconsultationRoom }>('/teleconsultation/session/signal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getTeleconsultationSignals(appointmentId: string, excludeSelf = true): Promise<WebRtcSignalEnvelope[]> {
+    const res = await request<{ success: boolean; signals: WebRtcSignalEnvelope[] }>(
+      `/teleconsultation/session/signal/${encodeURIComponent(appointmentId)}?excludeSelf=${excludeSelf ? 'true' : 'false'}`
+    );
+    return res.signals || [];
   },
 
   // 15. Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)
