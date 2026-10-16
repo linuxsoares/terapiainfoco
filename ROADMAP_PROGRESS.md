@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + 46 Extensões de Segurança + Proteção contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS V5.1) + Blindagem contra Injeção de Código em Expressões e Consultas Dinâmicas (OWASP ASVS V5.2/CWE-94/CWE-95) + Blindagem contra Path Traversal e LFI em Anexos de Prontuários (OWASP ASVS V5.5/CWE-22/CWE-23) + Blindagem contra OS Command Injection em Conversores de PDF (OWASP ASVS V5.3/CWE-78/CWE-88) + Blindagem contra SSTI em Laudos Multiformato (OWASP ASVS V5.2/CWE-1336/CFP 006/2019) + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.203/1.203 Testes Passando (0 falhas em 122 arquivos)
+> **Status Geral:** 8 Módulos Principais + 47 Extensões de Segurança + Proteção contra Injeção de Cabeçalhos e Split HTTP/2 & gRPC (RFC 9113/CWE-113/CWE-444) + Proteção contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS V5.1) + Blindagem contra Injeção de Código em Expressões e Consultas Dinâmicas (OWASP ASVS V5.2/CWE-94/CWE-95) + Blindagem contra Path Traversal e LFI em Anexos de Prontuários (OWASP ASVS V5.5/CWE-22/CWE-23) + Blindagem contra OS Command Injection em Conversores de PDF (OWASP ASVS V5.3/CWE-78/CWE-88) + Blindagem contra SSTI em Laudos Multiformato (OWASP ASVS V5.2/CWE-1336/CFP 006/2019) + Blindagem ReDoS AST Safe Engine (OWASP ASVS V5.5/CWE-1333) + Blindagem Fixação & Sequestro de Sessão (OWASP ASVS V3.3/NIST SP 800-63B) + Blindagem XXE & XML Bombs (CWE-611/CWE-776) + Proteção Cache Poisoning & Deception (RFC 7234/9111) + Prototype Pollution Shield + Shamir's Secret Sharing + Ephemeral Tokens + Visual Watermark + Anti-Replay + Proteção Side-Channel + PQC Híbrida + Assinaturas Cegas + Zero Trust + TLS Pinning + Blindagem de Memória + Rate Limiting + SSRF + Cifragem Homomórfica + HPP/CRLF + Notarização TSA + Tarpit + PoW + Token Binding DPoP + Privacidade Diferencial + UEBA + DID/VC + Expurgamento Seguro + Cartório Notarial + DLP Clipboard + Dark Web Monitor + ZKP Forense + Sharding de Mídia + WAF + WebRTC + Hardening + OTel OTLP + KMS | 1.239/1.239 Testes Passando (0 falhas em 124 arquivos)
 
 
 
@@ -1988,6 +1988,29 @@ terapiainfoco/
   - **Modal 53.A:** Certidão Notarial Forense WORM de Avaliação Segura de Custo de Consulta GraphQL (RFC 8785) com validação criptográfica instantânea e dados contextuais do incidente.
   - Suporte completo a **Light Mode** e **Dark Mode**.
 
+### 72. Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling)
+- [x] **Motor Criptográfico e Analisador de Cabeçalhos RFC 9113 (`packages/crypto/src/http2GrpcGuard.ts`):**
+  - **Validação Estrita de Framing e Lowercase Enforcement:** Imposição de nomes em minúsculas conforme RFC 9113 §8.2.1 (rejeitando/sanitizando maiúsculas), checagem de precedência de pseudo-cabeçalhos (`:method`, `:path`, `:authority`, `:scheme`, `:status`) antes dos campos regulares e veto a pseudo-cabeçalhos não autorizados.
+  - **Mitigação Ativa de HTTP/2 to HTTP/1.1 Request Smuggling (H2.TE & H2.CL):** Bloqueio irrevogável de cabeçalhos `transfer-encoding` e valores arbitrários em `te` (permitindo apenas `te: trailers` conforme RFC 9113 §8.2.2), além de detecção de múltiplos cabeçalhos `content-length` conflitantes ou valores numéricos negativos.
+  - **Blindagem contra CRLF Injection & Header Splitting (CWE-113):** Detecção e neutralização de sequências `\r`, `\n` ou bytes de controle (`\0`) no nome ou valor de cabeçalhos HTTP/2, impedindo divisão de requisições downstream em proxies reversos.
+  - **Validação Estrita de Metadados gRPC:** Inspeção de conformidade de `grpc-timeout` (formato numérico + unidades `H`, `M`, `S`, `m`, `u`, `n`), restrição a codecs homologados em `grpc-encoding` (`identity`, `gzip`, `deflate`, `snappy`) e bloqueio de injeção precoce de `grpc-status` no frame HEADERS inicial.
+  - **Selo Probatório Notarial WORM RFC 8785:** Geração e verificação timing-safe de certidão criptográfica canônica JCS com identificador `h2_desync_seal_<hash>` assinado via HMAC-SHA256 atestando conformidade da requisição.
+  - **Catálogo de Pentest Adversarial & Suítes Benignas:** 7 vetores de ataque cobrindo H2.TE Smuggling, CRLF Header Split, gRPC Timeout Tampering, H2.CL Desync, Connection Hop-by-Hop, Uppercase Violation e Null Byte Path Injection; acompanhado de 3 suítes clínicas benignas (REST, gRPC Telemetry e WebRTC Signal).
+  - Suíte com 22 testes unitários aprovados em `packages/crypto/test/http2GrpcGuard.test.ts`.
+- [x] **Contratos Compartilhados, Modelos & DTOs (`packages/shared`):**
+  - Enums `Http2RiskSeverity`, `Http2ThreatCategory`, `Http2ValidationAction`, `Http2ProtocolTarget`.
+  - Ações WORM `HTTP2_SMUGGLING_ATTEMPT_BLOCKED`, `HTTP2_HEADER_INJECTION_DETECTED`, `GRPC_METADATA_TAMPERING_BLOCKED`, `HTTP2_FRAME_ANALYZED`, `HTTP2_GUARD_POLICY_UPDATED`, `HTTP2_DESYNC_SEAL_VERIFIED` e recurso `AuditResourceType.HTTP2_GRPC_GUARD`.
+  - Modelos `Http2HeaderPair`, `Http2Threat`, `Http2ProofSeal`, `Http2InspectionResult`, `Http2GuardPolicy`, `Http2GuardMetrics`, `Http2SecurityIncident`, `Http2GuardOverview` e DTOs tipados.
+- [x] **Backend Service & Rotas REST (`apps/backend`):**
+  - `Http2GrpcGuardService` singleton com telemetria contínua, histórico forense de incidentes, simulação adversarial e auditoria WORM mandatória via `AuditService.log`.
+  - 5 rotas REST sob `/api/http2-guard` (`/overview`, `/inspect`, `/policy`, `/simulate`, `/verify-seal`).
+  - Isenção de inspeção redundante configurada no `wafMiddleware.ts`.
+  - Suíte com 14 testes de integração aprovados em `apps/backend/test/http2GrpcGuard.test.ts`.
+- [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
+  - **Card 54:** Painel de Blindagem contra Injeção de Cabeçalhos e Split HTTP/2 & gRPC com 5 KPIs dinâmicos, 4 abas operacionais (*Inspetor de Cabeçalhos & Desync Guard*, *Suítes Homologadas RFC 9113 & gRPC*, *Simulador Adversarial de Desincronização*, *Políticas de Governança & Incidentes*) e tabela WORM de incidentes interceptados.
+  - **Modal 54.A:** Certidão Notarial Forense WORM de Avaliação Segura de Cabeçalhos HTTP/2 & gRPC Framing (RFC 8785) com validação criptográfica instantânea.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+
 ---
 
 ## 📌 Histórico de Branches & Pull Requests
@@ -2074,12 +2097,13 @@ terapiainfoco/
 | `feat/path-traversal-lfi-guard` | Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23, CWE-73 & OWASP ASVS v4.0 V5.5) | [PR #86](https://github.com/linuxsoares/terapiainfoco/pull/86) | Merged |
 | `feat/code-expression-injection-guard` | Detecção e Prevenção Ativa de Injeção de Código em Expressões e Consultas Dinâmicas (Code/Expression Injection) em Filtros de Prontuários e Buscas Clínicas (CWE-94, CWE-95 & OWASP ASVS v4.0 V5.2) | [PR #87](https://github.com/linuxsoares/terapiainfoco/pull/87) | Merged |
 | `feat/graphql-query-cost-guard` | Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices) | [PR #88](https://github.com/linuxsoares/terapiainfoco/pull/88) | Merged |
+| `feat/http2-grpc-header-guard` | Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling) | [PR #89](https://github.com/linuxsoares/terapiainfoco/pull/89) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices)**, a **Detecção e Prevenção Ativa de Injeção de Código em Expressões e Consultas Dinâmicas (Code/Expression Injection) em Filtros de Prontuários e Buscas Clínicas (CWE-94, CWE-95 & OWASP ASVS v4.0 V5.2)**, a **Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23, CWE-73 & OWASP ASVS v4.0 V5.5)**, a **Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS v4.0 V5.3)**, a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019)**, a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, e a suíte completa de **1.203 testes automatizados (0 falhas em 122 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling)**, a **Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices)**, a **Detecção e Prevenção Ativa de Injeção de Código em Expressões e Consultas Dinâmicas (Code/Expression Injection) em Filtros de Prontuários e Buscas Clínicas (CWE-94, CWE-95 & OWASP ASVS v4.0 V5.2)**, a **Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23, CWE-73 & OWASP ASVS v4.0 V5.5)**, a **Detecção e Prevenção Ativa de Injeção de Comandos de Sistema Operacional (OS Command Injection) em Conversores de PDF e Renderizadores de Laudos com Argument Whitelisting e Enclave Sandboxed (CWE-78, CWE-88 & OWASP ASVS v4.0 V5.3)**, a **Blindagem Criptográfica contra Injeção de Templates no Lado do Servidor (SSTI) em Laudos Psicológicos com Sandboxed Template Engine (OWASP ASVS V5.2, CWE-1336 & CFP 006/2019)**, a **Detecção e Prevenção de Negação de Serviço por Expressões Regulares (ReDoS) com Validador Léxico AST, Timeout Não-Bloqueante e Sanitização de Regex Clínico (OWASP ASVS v4.0 V5.5 & CWE-1333)**, a **Blindagem contra Fixação & Sequestro de Sessão com Rotação Criptográfica Obrigatória Pós-Autenticação e Dynamic TLS/Network Context Binding (OWASP ASVS v4.0 V3.3, CWE-384, CWE-287 & NIST SP 800-63B)**, o **Módulo de Detecção e Prevenção Ativa de Ataques de Injeção de Entidades Externas XML (XXE) & Expansão de Entidades (Billion Laughs / XML Bomb) em Intercâmbios de Saúde Mental (CWE-611, CWE-776 & HL7/FHIR)**, e a suíte completa de **1.239 testes automatizados (0 falhas em 124 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -2127,7 +2151,8 @@ Com a **Proteção Avançada contra Injeção de Consultas GraphQL, Introspecç�
 - [x] **Módulo de Sanitização e Validação Estrita de Caminhos de Arquivos e Prevenção de Path Traversal / Local File Inclusion (LFI) em Uploads e Anexos de Prontuários (CWE-22, CWE-23, CWE-73 & OWASP ASVS v4.0 V5.5).**
 - [x] **Módulo de Detecção e Prevenção Ativa de Injeção de Código em Expressões e Consultas Dinâmicas (Code/Expression Injection) em Filtros de Prontuários e Buscas Clínicas (CWE-94, CWE-95 & OWASP ASVS v4.0 V5.2).**
 - [x] **Módulo de Proteção Avançada contra Injeção de Consultas GraphQL, Introspecção Maliciosa & Query Cost Limiting (OWASP ASVS v4.0 V5.1 & GraphQL Security Best Practices).**
-- [ ] **Módulo de Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling).**
+- [x] **Módulo de Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling).**
+- [ ] **Módulo de Proteção contra Injeção de Dependências Dinâmicas e Hijacking de Módulos Node/Bun (CWE-470, CWE-912 & Dependency Confusion / Supply Chain Guard).**
 
 ---
 
@@ -2137,7 +2162,7 @@ Com a **Proteção Avançada contra Injeção de Consultas GraphQL, Introspecç�
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (1.203 testes)
+# 2. Executar suíte completa de testes (1.239 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)

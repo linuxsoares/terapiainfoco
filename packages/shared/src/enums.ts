@@ -364,7 +364,14 @@ export enum AuditAction {
   GRAPHQL_DEPTH_VIOLATION_BLOCKED = 'GRAPHQL_DEPTH_VIOLATION_BLOCKED',
   GRAPHQL_QUERY_ANALYZED = 'GRAPHQL_QUERY_ANALYZED',
   GRAPHQL_GUARD_POLICY_UPDATED = 'GRAPHQL_GUARD_POLICY_UPDATED',
-  GRAPHQL_COST_SEAL_VERIFIED = 'GRAPHQL_COST_SEAL_VERIFIED'
+  GRAPHQL_COST_SEAL_VERIFIED = 'GRAPHQL_COST_SEAL_VERIFIED',
+  // Ações de Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113)
+  HTTP2_SMUGGLING_ATTEMPT_BLOCKED = 'HTTP2_SMUGGLING_ATTEMPT_BLOCKED',
+  HTTP2_HEADER_INJECTION_DETECTED = 'HTTP2_HEADER_INJECTION_DETECTED',
+  GRPC_METADATA_TAMPERING_BLOCKED = 'GRPC_METADATA_TAMPERING_BLOCKED',
+  HTTP2_FRAME_ANALYZED = 'HTTP2_FRAME_ANALYZED',
+  HTTP2_GUARD_POLICY_UPDATED = 'HTTP2_GUARD_POLICY_UPDATED',
+  HTTP2_DESYNC_SEAL_VERIFIED = 'HTTP2_DESYNC_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -424,7 +431,8 @@ export enum AuditResourceType {
   OS_COMMAND_GUARD = 'OS_COMMAND_GUARD',
   PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD',
   CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD',
-  GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD'
+  GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD',
+  HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD'
 }
 
 /**
@@ -2029,6 +2037,48 @@ export enum GraphQLOperationType {
   MUTATION = 'MUTATION',
   SUBSCRIPTION = 'SUBSCRIPTION'
 }
+
+/**
+ * Severidade de Risco de Cabeçalhos HTTP/2 e Metadados gRPC (CWE-113, CWE-444 & RFC 9113)
+ */
+export enum Http2RiskSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Categorias de Ameaças em Requisições HTTP/2 & gRPC (RFC 9113, RFC 7540, CWE-113 & CWE-444)
+ */
+export enum Http2ThreatCategory {
+  H2_TE_SMUGGLING = 'H2_TE_SMUGGLING',                           // Desincronização H2.TE / H2.CL (Transfer-Encoding proibido na RFC 9113 §8.2.2)
+  PSEUDO_HEADER_INJECTION = 'PSEUDO_HEADER_INJECTION',           // Injeção/adulteração em pseudo-cabeçalhos (:path, :authority, :method, :scheme)
+  CRLF_HEADER_SPLIT = 'CRLF_HEADER_SPLIT',                       // Injeção de CRLF (\r\n) ou bytes de controle quebrando o framing
+  GRPC_HEADER_TAMPERING = 'GRPC_HEADER_TAMPERING',               // Adulteração em metadados gRPC (grpc-timeout malicioso, grpc-status forjado)
+  AMBIGUOUS_CONTENT_LENGTH = 'AMBIGUOUS_CONTENT_LENGTH',         // Content-Length múltiplo, negativo ou conflitante com o corpo
+  CONNECTION_SPECIFIC_HEADER = 'CONNECTION_SPECIFIC_HEADER',     // Cabeçalhos hop-by-hop proibidos em HTTP/2 (Connection, Keep-Alive, Upgrade)
+  INVALID_CHARACTER_NAME_VALUE = 'INVALID_CHARACTER_NAME_VALUE'  // Nomes de cabeçalho em maiúsculas (violação RFC 9113 §8.2.1) ou bytes não ASCII
+}
+
+/**
+ * Ações de Remediação / Mitigação em Requisições HTTP/2 & gRPC
+ */
+export enum Http2ValidationAction {
+  ALLOW = 'ALLOW',                                               // Cabeçalhos em estrita conformidade com a RFC 9113
+  SANITIZE = 'SANITIZE',                                         // Normalização automática de minúsculas e strip de cabeçalhos proibidos
+  BLOCK_AND_ISOLATE = 'BLOCK_AND_ISOLATE'                        // Rejeição imediata com RST_STREAM / HTTP 400 Bad Request
+}
+
+/**
+ * Alvos de Protocolo Suportados
+ */
+export enum Http2ProtocolTarget {
+  HTTP2_REST = 'HTTP2_REST',                                     // APIs REST sob HTTP/2
+  GRPC_STREAM = 'GRPC_STREAM',                                   // Streams e Unary calls gRPC (application/grpc)
+  HTTP2_WEBRTC_SIGNAL = 'HTTP2_WEBRTC_SIGNAL'                    // Sinalização de teleconsulta WebRTC multiplexada
+}
+
 
 
 

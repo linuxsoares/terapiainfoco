@@ -58,6 +58,7 @@ import { osCommandGuardRoutes } from './routes/osCommandGuard';
 import { pathTraversalGuardRoutes } from './routes/pathTraversalGuard';
 import { expressionInjectionGuardRoutes } from './routes/expressionInjectionGuard';
 import { graphQLQueryGuardRoutes } from './routes/graphQLQueryGuard';
+import { http2GrpcGuardRoutes } from './routes/http2GrpcGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -212,6 +213,7 @@ app.route('/api/os-command-guard', osCommandGuardRoutes);
 app.route('/api/path-traversal-guard', pathTraversalGuardRoutes);
 app.route('/api/expression-guard', expressionInjectionGuardRoutes);
 app.route('/api/graphql-guard', graphQLQueryGuardRoutes);
+app.route('/api/http2-guard', http2GrpcGuardRoutes);
 
 
 

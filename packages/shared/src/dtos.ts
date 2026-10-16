@@ -3955,6 +3955,74 @@ export interface GetGraphQLSchemasResponse {
   schemas: import('./models').GraphQLSchemaDefinition[];
 }
 
+/**
+ * 72. PROTEÇÃO CONTRA INJEÇÃO DE CABEÇALHOS E SPLIT DE REQUISIÇÕES HTTP/2 & GRPC
+ * (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling)
+ */
+export interface InspectHttp2HeadersDTO {
+  headers: Array<{ name: string; value: string }>;
+  protocolTarget?: import('./enums').Http2ProtocolTarget;
+  clientIp?: string;
+  userAgent?: string;
+}
+
+export interface InspectHttp2HeadersResponse {
+  success: boolean;
+  isValid: boolean;
+  action: import('./enums').Http2ValidationAction;
+  inspection: import('./models').Http2InspectionResult;
+  incident?: import('./models').Http2SecurityIncident;
+  message: string;
+}
+
+export interface UpdateHttp2PolicyDTO {
+  blockTransferEncoding?: boolean;
+  enforceLowercaseHeaders?: boolean;
+  stripConnectionHeaders?: boolean;
+  validateGrpcMetadata?: boolean;
+  maxHeaderNameLength?: number;
+  maxHeaderValueLength?: number;
+  maxTotalHeadersCount?: number;
+  strictContentLengthValidation?: boolean;
+}
+
+export interface UpdateHttp2PolicyResponse {
+  success: boolean;
+  policy: import('./models').Http2GuardPolicy;
+  message: string;
+}
+
+export interface SimulateHttp2AttackDTO {
+  threatCategory: import('./enums').Http2ThreatCategory;
+}
+
+export interface SimulateHttp2AttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayloadHeaders: Array<{ name: string; value: string }>;
+  inspection: import('./models').Http2InspectionResult;
+  incident?: import('./models').Http2SecurityIncident;
+  message: string;
+}
+
+export interface VerifyHttp2SealDTO {
+  sealToken: string | import('./models').Http2ProofSeal;
+}
+
+export interface VerifyHttp2SealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').Http2ProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface Http2GuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').Http2GuardOverview;
+}
+
+
 
 
 

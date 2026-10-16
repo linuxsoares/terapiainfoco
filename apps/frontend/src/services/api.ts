@@ -522,7 +522,16 @@ import type {
   VerifyGraphQLCostSealDTO,
   VerifyGraphQLCostSealResponse,
   GraphQLGuardOverviewResponse,
-  GetGraphQLSchemasResponse
+  GetGraphQLSchemasResponse,
+  InspectHttp2HeadersDTO,
+  InspectHttp2HeadersResponse,
+  UpdateHttp2PolicyDTO,
+  UpdateHttp2PolicyResponse,
+  SimulateHttp2AttackDTO,
+  SimulateHttp2AttackResponse,
+  VerifyHttp2SealDTO,
+  VerifyHttp2SealResponse,
+  Http2GuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3158,8 +3167,42 @@ export const api = {
 
   async getGraphQLSchemas(): Promise<GetGraphQLSchemasResponse> {
     return await request<GetGraphQLSchemasResponse>('/graphql-guard/schemas');
+  },
+
+  // 46. Proteção contra Injeção de Cabeçalhos e Split HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113)
+  async getHttp2GuardOverview(): Promise<Http2GuardOverviewResponse> {
+    return await request<Http2GuardOverviewResponse>('/http2-guard/overview');
+  },
+
+  async inspectHttp2Headers(dto: InspectHttp2HeadersDTO): Promise<InspectHttp2HeadersResponse> {
+    return await request<InspectHttp2HeadersResponse>('/http2-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateHttp2Policy(dto: UpdateHttp2PolicyDTO): Promise<UpdateHttp2PolicyResponse> {
+    return await request<UpdateHttp2PolicyResponse>('/http2-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateHttp2Attack(dto: SimulateHttp2AttackDTO): Promise<SimulateHttp2AttackResponse> {
+    return await request<SimulateHttp2AttackResponse>('/http2-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyHttp2Seal(dto: VerifyHttp2SealDTO): Promise<VerifyHttp2SealResponse> {
+    return await request<VerifyHttp2SealResponse>('/http2-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   }
 };
+
 
 
 
