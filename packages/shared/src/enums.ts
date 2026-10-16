@@ -616,7 +616,12 @@ export enum AuditAction {
   AI_SOAP_SYNTHESIZED = 'AI_SOAP_SYNTHESIZED',
   AI_SOAP_ACCEPTED = 'AI_SOAP_ACCEPTED',
   AI_SOAP_MODIFIED = 'AI_SOAP_MODIFIED',
-  AI_SOAP_REJECTED = 'AI_SOAP_REJECTED'
+  AI_SOAP_REJECTED = 'AI_SOAP_REJECTED',
+  // Ações de Assinatura Avançada ICP-Brasil em Lote (RFC-001 §3.4, §3.5)
+  ICP_BATCH_MANIFEST_CREATED = 'ICP_BATCH_MANIFEST_CREATED',
+  ICP_BATCH_SIGNED = 'ICP_BATCH_SIGNED',
+  ICP_BATCH_VERIFIED = 'ICP_BATCH_VERIFIED',
+  ICP_CERTIFICATE_CONFIGURED = 'ICP_CERTIFICATE_CONFIGURED'
 }
 
 export enum AuditResourceType {
@@ -690,7 +695,8 @@ export enum AuditResourceType {
   FEE_CONTRACT = 'FEE_CONTRACT',
   TELECONSULTATION_ROOM = 'TELECONSULTATION_ROOM',
   TRANSCRIPTION_SESSION = 'TRANSCRIPTION_SESSION',
-  AI_SOAP_DRAFT = 'AI_SOAP_DRAFT'
+  AI_SOAP_DRAFT = 'AI_SOAP_DRAFT',
+  ICP_BATCH_CLOSING = 'ICP_BATCH_CLOSING'
 }
 
 /**
@@ -2423,6 +2429,40 @@ export enum ConversationalSentiment {
   NEGATIVE = 'NEGATIVE',
   MIXED = 'MIXED'
 }
+
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 41. ASSINATURA AVANÇADA ICP-BRASIL EM LOTE & FECHAMENTO DE CICLOS CLÍNICOS (RFC-001 §3.4, §3.5)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+/**
+ * Tipo de Certificado Digital ICP-Brasil Utilizado
+ */
+export enum IcpCertificateType {
+  A1_FILE = 'A1_FILE',                     // Certificado A1 (.pfx/.p12 armazenado em enclave seguro)
+  A3_HARDWARE_TOKEN = 'A3_HARDWARE_TOKEN', // Certificado A3 (Cartão ou Token criptográfico USB)
+  CLOUD_PSC_OIDC = 'CLOUD_PSC_OIDC'       // Certificado em Nuvem PSC homologado ITI (BirdID, SafeID, NeoID)
+}
+
+/**
+ * Padrão Normativo da Assinatura Digital ICP-Brasil (DOC-ICP-15 / MP nº 2.200-2/2001)
+ */
+export enum IcpSignatureStandard {
+  PADES_T = 'PADES_T',   // PDF Advanced Electronic Signature com Carimbo do Tempo TSA
+  PADES_LT = 'PADES_LT', // PAdES Long-Term Validation com LTV embutido
+  CADES_T = 'CADES_T'    // CMS Advanced Electronic Signature com Timestamp
+}
+
+/**
+ * Status do Lote de Fechamento de Ciclo Clínico
+ */
+export enum BatchClosingStatus {
+  DRAFT_MANIFEST = 'DRAFT_MANIFEST', // Manifesto gerado aguardando chancela do profissional
+  SIGNED_SEALED = 'SIGNED_SEALED',   // Lote assinado digitalmente com certificado ICP-Brasil e selado WORM
+  REVOKED = 'REVOKED'                // Lote retificado ou revogado formalmente
+}
+
 
 
 

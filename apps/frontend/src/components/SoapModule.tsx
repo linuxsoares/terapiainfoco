@@ -22,7 +22,8 @@ import {
   BookmarkPlus,
   Tag,
   Trash2,
-  ArrowRightCircle
+  ArrowRightCircle,
+  FileCheck2
 } from 'lucide-react';
 
 import type { 
@@ -35,9 +36,11 @@ import type {
 import { AuditResourceType, ClinicalMarkerCategory, ClinicalMarkerRelevance } from '@terapiainfoco/shared';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { api } from '../services/api';
+import { IcpBatchSigningModal } from './IcpBatchSigningModal';
 
 export function SoapModule() {
   const [recordId, setRecordId] = useState<string | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
   
   // Transcrição & Pipeline de Áudio
   const [hasLoadedAudio, setHasLoadedAudio] = useState(false);
@@ -398,6 +401,15 @@ export function SoapModule() {
             <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
             Sessão 08 • Mariana Silva (Google Meet)
           </div>
+
+          <button
+            onClick={() => setShowBatchModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            title="Fechar ciclos clínicos e assinar múltiplos prontuários com Certificado Digital ICP-Brasil (PAdES)"
+          >
+            <FileCheck2 className="w-4 h-4" />
+            <span>Assinatura ICP-Brasil em Lote</span>
+          </button>
 
           {isSigned && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
@@ -1396,6 +1408,17 @@ export function SoapModule() {
           </div>
         </div>
       )}
+
+      {/* Modal de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5) */}
+      <IcpBatchSigningModal
+        isOpen={showBatchModal}
+        onClose={() => setShowBatchModal(false)}
+        therapistName="Dra. Beatriz Santos"
+        therapistCrp="06/142980"
+        onBatchSigned={(manifest) => {
+          setSuccessMsg(`Lote #${manifest.id.substring(0, 8)} assinado com Certificado ICP-Brasil com sucesso! ${manifest.totalItemsCount} registros selados na trilha WORM.`);
+        }}
+      />
     </div>
   );
 }

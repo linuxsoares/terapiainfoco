@@ -22,7 +22,8 @@ import type {
   StoredFeeContract,
   StoredTeleconsultationRoom,
   StoredTranscriptionSession,
-  AiSoapDraft
+  AiSoapDraft,
+  IcpBatchClosingManifest
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -51,6 +52,7 @@ export class MemoryDatabase {
   public teleconsultationRooms: Map<string, StoredTeleconsultationRoom> = new Map();
   public transcriptionSessions: Map<string, StoredTranscriptionSession> = new Map();
   public aiSoapDrafts: Map<string, AiSoapDraft> = new Map();
+  public batchClosingManifests: Map<string, IcpBatchClosingManifest> = new Map();
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];
@@ -191,6 +193,7 @@ export class MemoryDatabase {
     this.teleconsultationRooms.clear();
     this.transcriptionSessions.clear();
     this.aiSoapDrafts.clear();
+    this.batchClosingManifests.clear();
     this.auditLogs = [];
     this.revokedTokens.clear();
     this.passkeys.clear();
