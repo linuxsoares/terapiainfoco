@@ -333,7 +333,13 @@ export enum AuditAction {
   REDOS_TIMEOUT_TRIGGERED = 'REDOS_TIMEOUT_TRIGGERED',
   REDOS_PATTERN_REWRITTEN = 'REDOS_PATTERN_REWRITTEN',
   REDOS_POLICY_UPDATED = 'REDOS_POLICY_UPDATED',
-  REDOS_SEAL_VERIFIED = 'REDOS_SEAL_VERIFIED'
+  REDOS_SEAL_VERIFIED = 'REDOS_SEAL_VERIFIED',
+  // Ações de Blindagem contra SSTI em Templates Clínicos (OWASP ASVS V5.2 & CWE-1336)
+  SSTI_ATTEMPT_BLOCKED = 'SSTI_ATTEMPT_BLOCKED',
+  SSTI_TEMPLATE_SANITIZED = 'SSTI_TEMPLATE_SANITIZED',
+  SSTI_SANDBOX_RENDER_SUCCESS = 'SSTI_SANDBOX_RENDER_SUCCESS',
+  SSTI_POLICY_UPDATED = 'SSTI_POLICY_UPDATED',
+  SSTI_SEAL_VERIFIED = 'SSTI_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -388,7 +394,8 @@ export enum AuditResourceType {
   CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD',
   XML_SECURITY_GUARD = 'XML_SECURITY_GUARD',
   SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD',
-  REDOS_GUARD = 'REDOS_GUARD'
+  REDOS_GUARD = 'REDOS_GUARD',
+  SSTI_GUARD = 'SSTI_GUARD'
 }
 
 /**
@@ -1771,6 +1778,49 @@ export enum RegexClinicalPresetType {
   CRP_REGISTRATION = 'CRP_REGISTRATION',               // Registro CRP (ex: CRP 06/123456)
   DATE_ISO8601 = 'DATE_ISO8601',                       // Data ISO AAAA-MM-DD
   CUSTOM_SEARCH = 'CUSTOM_SEARCH'                      // Busca textual livre customizada
+}
+
+/**
+ * Nível de Risco e Severidade de Template (CWE-1336 / OWASP ASVS V5.2)
+ */
+export enum TemplateRiskSeverity {
+  SAFE_STATIC = 'SAFE_STATIC',                         // Texto puro sem interpolação
+  SAFE_INTERPOLATED = 'SAFE_INTERPOLATED',             // Interpolação segura de variáveis clínicas permitidas
+  SUSPICIOUS_EXPRESSION = 'SUSPICIOUS_EXPRESSION',     // Expressões com métodos ou caracteres anômalos
+  CRITICAL_SSTI_ATTEMPT = 'CRITICAL_SSTI_ATTEMPT'      // Tentativa de escape de sandbox / RCE / acesso a protótipo
+}
+
+/**
+ * Vetor de Ameaça SSTI Detectado no Template
+ */
+export enum SstiThreatVector {
+  NONE = 'NONE',                                       // Template íntegro
+  PROTOTYPE_ACCESS = 'PROTOTYPE_ACCESS',               // Tentativa de acesso a __proto__, constructor, prototype
+  RUNTIME_GLOBALS_ACCESS = 'RUNTIME_GLOBALS_ACCESS',   // Tentativa de acesso a process, global, require, import, window
+  DYNAMIC_EVAL_ATTEMPT = 'DYNAMIC_EVAL_ATTEMPT',       // Tentativa de invocar eval(), Function(), setTimeout
+  FORBIDDEN_IDENTIFIER = 'FORBIDDEN_IDENTIFIER',       // Identificador fora da allowlist clínica estrita
+  DELIMITER_INJECTION = 'DELIMITER_INJECTION'          // Manipulação de tags de template não permitidas
+}
+
+/**
+ * Ação de Mitigação Aplicada pelo Enclave Sandboxed
+ */
+export enum SstiSanitizationAction {
+  ALLOWED_SANDBOXED = 'ALLOWED_SANDBOXED',             // Renderizado no sandbox hermético sem mutações
+  SANITIZED_STRIPPED = 'SANITIZED_STRIPPED',           // Tags inseguras removidas/escapadas com sucesso
+  BLOCKED_VULNERABLE = 'BLOCKED_VULNERABLE'            // Bloqueio integral da renderização por risco crítico
+}
+
+/**
+ * Tipos de Documentos Psicológicos Multiformato Oficiais (CFP nº 006/2019)
+ */
+export enum ClinicalDocumentTemplateType {
+  ATESTADO_PSICOLOGICO = 'ATESTADO_PSICOLOGICO',       // Atestado Psicológico CFP
+  DECLARACAO_PSICOLOGICA = 'DECLARACAO_PSICOLOGICA',   // Declaração de comparecimento/acompanhamento
+  RELATORIO_PSICOLOGICO = 'RELATORIO_PSICOLOGICO',     // Relatório Psicológico estruturado
+  LAUDO_PERICIAL = 'LAUDO_PERICIAL',                   // Laudo Pericial de avaliação diagnóstica
+  PARECER_TECNICO = 'PARECER_TECNICO',                 // Parecer Técnico fundamentado
+  TERMO_CONSENTIMENTO = 'TERMO_CONSENTIMENTO'          // Termo de Consentimento Livre e Esclarecido (TCLE)
 }
 
 

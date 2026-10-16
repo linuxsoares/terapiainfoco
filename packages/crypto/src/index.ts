@@ -52,6 +52,7 @@ export * from './webCacheGuard';
 export * from './xmlSecurityGuard';
 export * from './sessionFixationGuard';
 export * from './redosGuard';
+export * from './sstiGuard';
 
 
 

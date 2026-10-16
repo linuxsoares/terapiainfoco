@@ -3930,6 +3930,104 @@ export interface RedosGuardOverview {
   recentSealsSample: RedosProofSeal[];
 }
 
+/**
+ * 67. BLINDAGEM CONTRA SSTI & SECURE SANDBOXED TEMPLATE ENGINE
+ * (OWASP ASVS v4.0 V5.2, CWE-1336 & CFP nº 006/2019)
+ */
+
+export interface TemplateInspectionResult {
+  isValid: boolean;
+  riskSeverity: import('./enums').TemplateRiskSeverity;
+  threatVector: import('./enums').SstiThreatVector;
+  detectedThreats: string[];
+  sanitizedTemplate: string;
+  allowedVariablesUsed: string[];
+  forbiddenVariablesBlocked: string[];
+}
+
+export interface SandboxedRenderResult {
+  renderedOutput: string;
+  executionTimeMs: number;
+  variablesInterpolated: number;
+  wasSanitized: boolean;
+  actionTaken: import('./enums').SstiSanitizationAction;
+}
+
+export interface SstiProofSeal {
+  version: '1.0.0';
+  sealId: string; // ssti_seal_<base64url>
+  timestamp: string;
+  templateHash: string; // SHA-256 do template normalizado
+  contextHash: string;  // SHA-256 das variáveis de contexto
+  outputHash: string;   // SHA-256 da saída renderizada
+  riskSeverity: import('./enums').TemplateRiskSeverity;
+  threatVector: import('./enums').SstiThreatVector;
+  actionTaken: import('./enums').SstiSanitizationAction;
+  executionTimeMs: number;
+  hmacSignature: string; // Assinatura determinística RFC 8785
+}
+
+export interface SstiSecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  templateSnippet: string;
+  attemptedPayload?: string;
+  threatVector: import('./enums').SstiThreatVector;
+  riskSeverity?: import('./enums').TemplateRiskSeverity;
+  clientIp: string;
+  userId: string;
+  executionTimeMs: number;
+  actionTaken: import('./enums').SstiSanitizationAction;
+  seal: SstiProofSeal;
+}
+
+export interface SstiGuardPolicy {
+  maxTemplateLength: number;        // Tamanho máximo do template (default: 50000 chars)
+  maxRenderTimeMs: number;          // Teto de execução em sandbox (default: 15ms)
+  maxExecutionTimeMs?: number;
+  allowOnlyClinicalVars: boolean;   // Limita estritamente à allowlist clínica
+  disallowAllCodeExecution: boolean;// Bloqueia qualquer expressão avaliável
+  strictSandboxing: boolean;        // Congela proxies e isola escopo global
+  stripPrototypeAccess?: boolean;
+  blockRuntimeGlobals?: boolean;
+  escapeHtmlOutput?: boolean;
+  enableWormSeal: boolean;          // Emite selos probatórios WORM RFC 8785
+  allowedDocumentTypes?: import('./enums').ClinicalDocumentTemplateType[];
+}
+
+export interface ClinicalTemplatePreset {
+  type: import('./enums').ClinicalDocumentTemplateType;
+  title: string;
+  description: string;
+  rawTemplate: string;
+  defaultVariables: Record<string, string>;
+  sampleOutput: string;
+}
+
+export interface SstiGuardMetrics {
+  totalRenders: number;
+  totalTemplatesEvaluated?: number;
+  safeRenders: number;
+  safeTemplatesRendered?: number;
+  blockedInjections: number;
+  blockedSstiAttacks?: number;
+  sanitizedTemplates: number;
+  sanitizedExpressions?: number;
+  avgRenderTimeMs: number;
+  avgRenderDurationMs?: number;
+  lastIncidentTimestamp: string | null;
+}
+
+export interface SstiGuardOverview {
+  metrics: SstiGuardMetrics;
+  policy: SstiGuardPolicy;
+  recentIncidents: SstiSecurityIncident[];
+  clinicalPresets: ClinicalTemplatePreset[];
+  presets?: ClinicalTemplatePreset[];
+  recentSealsSample: SstiProofSeal[];
+}
+
 
 
 

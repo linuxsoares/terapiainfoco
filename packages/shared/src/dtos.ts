@@ -3612,6 +3612,77 @@ export interface RedosGuardOverviewResponse {
   overview: import('./models').RedosGuardOverview;
 }
 
+/**
+ * 67. BLINDAGEM CONTRA SSTI & SECURE SANDBOXED TEMPLATE ENGINE
+ * (OWASP ASVS v4.0 V5.2, CWE-1336 & CFP nº 006/2019)
+ */
+
+export interface InspectTemplateDTO {
+  templateContent: string;
+  contextVariables?: Record<string, string>;
+}
+
+export interface InspectTemplateResponse {
+  success: boolean;
+  inspection: import('./models').TemplateInspectionResult;
+  message: string;
+}
+
+export interface RenderSandboxedTemplateDTO {
+  templateContent: string;
+  contextVariables?: Record<string, string>;
+  strictSandboxing?: boolean;
+}
+
+export interface RenderSandboxedTemplateResponse {
+  success: boolean;
+  result: import('./models').SandboxedRenderResult;
+  seal?: import('./models').SstiProofSeal;
+  message: string;
+}
+
+export interface UpdateSstiPolicyDTO {
+  policy: Partial<import('./models').SstiGuardPolicy>;
+}
+
+export interface UpdateSstiPolicyResponse {
+  success: boolean;
+  policy: import('./models').SstiGuardPolicy;
+  message: string;
+}
+
+export interface SimulateSstiAttackDTO {
+  threatVector: import('./enums').SstiThreatVector;
+  documentType?: import('./enums').ClinicalDocumentTemplateType;
+}
+
+export interface SimulateSstiAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayload: string;
+  inspection: import('./models').TemplateInspectionResult;
+  renderResult?: import('./models').SandboxedRenderResult;
+  incident?: import('./models').SstiSecurityIncident;
+  message: string;
+}
+
+export interface VerifySstiSealDTO {
+  sealToken: string | import('./models').SstiProofSeal;
+}
+
+export interface VerifySstiSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').SstiProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface SstiGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').SstiGuardOverview;
+}
+
 
 
 
