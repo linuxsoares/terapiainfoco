@@ -60,6 +60,9 @@ import { expressionInjectionGuardRoutes } from './routes/expressionInjectionGuar
 import { graphQLQueryGuardRoutes } from './routes/graphQLQueryGuard';
 import { http2GrpcGuardRoutes } from './routes/http2GrpcGuard';
 import { supplyChainGuardRoutes } from './routes/supplyChainGuard';
+import { clinicalMarkersRouter } from './routes/clinicalMarkers';
+import { therapeuticGoalsRouter } from './routes/therapeuticGoals';
+import { psychometricsRouter } from './routes/psychometrics';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -216,6 +219,9 @@ app.route('/api/expression-guard', expressionInjectionGuardRoutes);
 app.route('/api/graphql-guard', graphQLQueryGuardRoutes);
 app.route('/api/http2-guard', http2GrpcGuardRoutes);
 app.route('/api/supply-chain-guard', supplyChainGuardRoutes);
+app.route('/api/clinical-markers', clinicalMarkersRouter);
+app.route('/api/goals', therapeuticGoalsRouter);
+app.route('/api/psychometrics', psychometricsRouter);
 
 
 

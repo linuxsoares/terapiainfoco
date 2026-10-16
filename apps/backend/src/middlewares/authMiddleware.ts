@@ -87,3 +87,12 @@ export function requireRoles(allowedRoles: UserRole[]) {
     return await next();
   };
 }
+
+/**
+ * Alias flexível para requireRoles, aceitando array ou múltiplos argumentos
+ */
+export function requireRole(roles: UserRole[] | UserRole, ...moreRoles: UserRole[]) {
+  const allowed = Array.isArray(roles) ? roles : [roles, ...moreRoles];
+  return requireRoles(allowed);
+}
+

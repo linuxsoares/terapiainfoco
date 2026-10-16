@@ -23,19 +23,34 @@ import {
   History,
   Video,
   ExternalLink,
-  Filter
+  Filter,
+  Target,
+  Activity,
+  PlusCircle,
+  Sparkles,
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import type { 
   DecryptedPatient, 
   CreatePatientDTO, 
-  ExportPatientDataResponse,
+  ExportPatientDataResponse, 
   DecryptedAnamnesisRecord,
   SaveAnamnesisDTO,
   PatientConsentLedger,
   PatientClinicalTimelineResponse,
-  PatientTimelineEvent
+  PatientTimelineEvent,
+  TherapeuticGoal,
+  PsychometricAssessment,
+  PsychometricScaleDefinition
 } from '@terapiainfoco/shared';
-import { AuditResourceType, ConsentScope, ConsentStatus } from '@terapiainfoco/shared';
+import { 
+  AuditResourceType, 
+  ConsentScope, 
+  ConsentStatus,
+  GoalStatus,
+  PsychometricScaleType
+} from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
 
@@ -119,6 +134,158 @@ export function PatientsModule() {
   const [timelineData, setTimelineData] = useState<PatientClinicalTimelineResponse | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<'ALL' | 'APPOINTMENT' | 'SOAP_RECORD' | 'DOCUMENT' | 'ANAMNESIS' | 'CONSENT'>('ALL');
   const [timelineFeedback, setTimelineFeedback] = useState<string | null>(null);
+
+  // Modal de Metas Terapêuticas SMART (RFC §3.4)
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [goalsLoading, setGoalsLoading] = useState(false);
+  const [patientGoals, setPatientGoals] = useState<TherapeuticGoal[]>([]);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalDesc, setNewGoalDesc] = useState('');
+  const [newGoalTargetDate, setNewGoalTargetDate] = useState('');
+  const [newGoalNotes, setNewGoalNotes] = useState('');
+  const [creatingGoal, setCreatingGoal] = useState(false);
+  const [goalsFeedback, setGoalsFeedback] = useState<string | null>(null);
+  const [isAddingGoal, setIsAddingGoal] = useState(false);
+
+  // Modal de Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7 / CFP)
+  const [showPsychometricsModal, setShowPsychometricsModal] = useState(false);
+  const [psychometricsLoading, setPsychometricsLoading] = useState(false);
+  const [patientAssessments, setPatientAssessments] = useState<PsychometricAssessment[]>([]);
+  const [activeScaleType, setActiveScaleType] = useState<PsychometricScaleType>(PsychometricScaleType.PHQ9);
+  const [scaleDefinition, setScaleDefinition] = useState<PsychometricScaleDefinition | null>(null);
+  const [answersMap, setAnswersMap] = useState<Record<number, number>>({});
+  const [submittingScale, setSubmittingScale] = useState(false);
+  const [psychometricsTab, setPsychometricsTab] = useState<'history' | 'apply'>('history');
+  const [psychometricFeedback, setPsychometricFeedback] = useState<string | null>(null);
+
+  const handleOpenGoals = async (patientId: string) => {
+    setShowGoalsModal(true);
+    setGoalsLoading(true);
+    setGoalsFeedback(null);
+    setIsAddingGoal(false);
+    try {
+      const goals = await api.getPatientGoals(patientId);
+      setPatientGoals(goals);
+    } catch (err: any) {
+      setGoalsFeedback(`Erro ao carregar metas: ${err.message}`);
+    } finally {
+      setGoalsLoading(false);
+    }
+  };
+
+  const handleCreateGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchResult || !newGoalTitle.trim() || !newGoalDesc.trim()) return;
+    try {
+      setCreatingGoal(true);
+      setGoalsFeedback(null);
+      const created = await api.createTherapeuticGoal({
+        patientId: searchResult.id,
+        title: newGoalTitle.trim(),
+        description: newGoalDesc.trim(),
+        targetDate: newGoalTargetDate || undefined,
+        notes: newGoalNotes.trim() || undefined
+      });
+      setPatientGoals(prev => [created, ...prev]);
+      setNewGoalTitle('');
+      setNewGoalDesc('');
+      setNewGoalTargetDate('');
+      setNewGoalNotes('');
+      setIsAddingGoal(false);
+      setGoalsFeedback('Meta terapêutica SMART criada com sucesso com criptografia FLE!');
+    } catch (err: any) {
+      setGoalsFeedback(`Erro ao criar meta: ${err.message}`);
+    } finally {
+      setCreatingGoal(false);
+    }
+  };
+
+  const handleUpdateGoalProgress = async (goalId: string, progressPercent: number) => {
+    try {
+      const updated = await api.updateTherapeuticGoal(goalId, {
+        progressPercent,
+        status: progressPercent >= 100 ? GoalStatus.ACHIEVED : GoalStatus.IN_PROGRESS
+      });
+      setPatientGoals(prev => prev.map(g => g.id === goalId ? updated : g));
+      setGoalsFeedback(`Progresso da meta atualizado para ${progressPercent}%!`);
+    } catch (err: any) {
+      setGoalsFeedback(`Falha ao atualizar meta: ${err.message}`);
+    }
+  };
+
+  const handleDeleteGoal = async (goalId: string) => {
+    try {
+      await api.deleteTherapeuticGoal(goalId);
+      setPatientGoals(prev => prev.filter(g => g.id !== goalId));
+      setGoalsFeedback('Meta terapêutica removida.');
+    } catch (err: any) {
+      setGoalsFeedback(`Erro ao remover meta: ${err.message}`);
+    }
+  };
+
+  const handleOpenPsychometrics = async (patientId: string) => {
+    setShowPsychometricsModal(true);
+    setPsychometricsLoading(true);
+    setPsychometricFeedback(null);
+    setPsychometricsTab('history');
+    try {
+      const [assessments, definition] = await Promise.all([
+        api.getPatientPsychometricAssessments(patientId),
+        api.getPsychometricDefinition(activeScaleType)
+      ]);
+      setPatientAssessments(assessments);
+      setScaleDefinition(definition);
+      const initAnswers: Record<number, number> = {};
+      definition.questions.forEach((_, idx) => { initAnswers[idx] = 0; });
+      setAnswersMap(initAnswers);
+    } catch (err: any) {
+      setPsychometricFeedback(`Erro ao carregar psicometria: ${err.message}`);
+    } finally {
+      setPsychometricsLoading(false);
+    }
+  };
+
+  const handleSelectScaleType = async (scale: PsychometricScaleType) => {
+    setActiveScaleType(scale);
+    setPsychometricsLoading(true);
+    try {
+      const def = await api.getPsychometricDefinition(scale);
+      setScaleDefinition(def);
+      const initAnswers: Record<number, number> = {};
+      def.questions.forEach((_, idx) => { initAnswers[idx] = 0; });
+      setAnswersMap(initAnswers);
+    } catch (err: any) {
+      setPsychometricFeedback(`Erro ao carregar escala: ${err.message}`);
+    } finally {
+      setPsychometricsLoading(false);
+    }
+  };
+
+  const handleSubmitAssessment = async () => {
+    if (!searchResult || !scaleDefinition) return;
+    try {
+      setSubmittingScale(true);
+      setPsychometricFeedback(null);
+      const answers = Object.entries(answersMap).map(([k, v]) => ({
+        questionIndex: parseInt(k, 10),
+        score: v
+      }));
+
+      const res = await api.submitPsychometricAssessment({
+        patientId: searchResult.id,
+        scaleType: activeScaleType,
+        answers
+      });
+
+      setPatientAssessments(prev => [res.assessment, ...prev]);
+      setPsychometricsTab('history');
+      setPsychometricFeedback(`Avaliação ${activeScaleType} registrada! Escore: ${res.assessment.totalScore} (${res.assessment.severityLevel}). Selo WORM emitido.`);
+    } catch (err: any) {
+      setPsychometricFeedback(`Erro ao submeter avaliação: ${err.message}`);
+    } finally {
+      setSubmittingScale(false);
+    }
+  };
 
   const handleOpenAnamnesis = async (patientId: string) => {
     setShowAnamnesisModal(true);
@@ -606,6 +773,22 @@ export function PatientsModule() {
               >
                 <FileCheck2 className="w-3.5 h-3.5" />
                 Consentimento Granular (LGPD)
+              </button>
+
+              <button
+                onClick={() => handleOpenGoals(searchResult.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Target className="w-3.5 h-3.5" />
+                Metas SMART (RFC §3.4)
+              </button>
+
+              <button
+                onClick={() => handleOpenPsychometrics(searchResult.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Activity className="w-3.5 h-3.5" />
+                Psicometria (PHQ-9 / GAD-7)
               </button>
 
               <button
@@ -1991,6 +2174,556 @@ export function PatientsModule() {
                 className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
               >
                 Fechar Linha do Tempo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Metas Terapêuticas SMART (RFC §3.4) */}
+      {showGoalsModal && searchResult && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Plano Terapêutico & Metas SMART
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
+                      RFC-001 §3.4
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Paciente: {searchResult.name} • Gestão orientada a objetivos clínicos mensuráveis
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!isAddingGoal && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingGoal(true)}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    Nova Meta
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowGoalsModal(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Feedback Message */}
+            {goalsFeedback && (
+              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300 text-xs flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>{goalsFeedback}</span>
+              </div>
+            )}
+
+            {/* Formulário de Criação de Meta */}
+            {isAddingGoal && (
+              <form onSubmit={handleCreateGoal} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Cadastrar Nova Meta Terapêutica (SMART)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingGoal(false)}
+                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Título da Meta *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newGoalTitle}
+                    onChange={(e) => setNewGoalTitle(e.target.value)}
+                    placeholder="Ex: Redução da frequência de crises de pânico ocupacionais"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Critérios SMART de Mensuração & Alcance *
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    value={newGoalDesc}
+                    onChange={(e) => setNewGoalDesc(e.target.value)}
+                    placeholder="Ex: Aplicação da técnica de respiração diafragmática em pelo menos 4 episódios semanais..."
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Data Alvo Prevista
+                    </label>
+                    <input
+                      type="date"
+                      value={newGoalTargetDate}
+                      onChange={(e) => setNewGoalTargetDate(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Anotações Clínicas (FLE AES-256)
+                    </label>
+                    <input
+                      type="text"
+                      value={newGoalNotes}
+                      onChange={(e) => setNewGoalNotes(e.target.value)}
+                      placeholder="Observações do terapeuta..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingGoal(false)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-medium cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingGoal}
+                    className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {creatingGoal ? 'Salvando...' : 'Salvar Meta SMART'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Listagem de Metas */}
+            {goalsLoading ? (
+              <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400">
+                Carregando plano de metas terapêuticas...
+              </div>
+            ) : patientGoals.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                Nenhuma meta terapêutica cadastrada ainda para este paciente. Clique em "Nova Meta" acima.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {patientGoals.map((goal) => {
+                  const isAchieved = goal.status === GoalStatus.ACHIEVED || goal.progressPercent >= 100;
+                  return (
+                    <div
+                      key={goal.id}
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-sm space-y-3 transition-all hover:border-purple-300 dark:hover:border-purple-700"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                              {goal.title}
+                            </h4>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isAchieved
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300'
+                              }`}
+                            >
+                              {isAchieved ? '✓ CONCLUÍDA' : 'EM ANDAMENTO'}
+                            </span>
+                            {goal.targetDate && (
+                              <span className="font-mono text-[10px] text-slate-500 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                Alvo: {new Date(goal.targetDate).toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {goal.description}
+                          </p>
+                          {goal.notes && (
+                            <p className="text-[11px] text-purple-700 dark:text-purple-300 italic">
+                              Notas: {goal.notes}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGoal(goal.id)}
+                          className="text-slate-400 hover:text-rose-500 p-1 rounded-lg transition-colors cursor-pointer"
+                          title="Remover meta"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Barra de Progresso Visual */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            Progresso Mensurado:
+                          </span>
+                          <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
+                            {goal.progressPercent}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 rounded-full transition-all duration-300 ${
+                              isAchieved
+                                ? 'bg-emerald-500'
+                                : goal.progressPercent >= 50
+                                ? 'bg-purple-600'
+                                : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, goal.progressPercent))}%` }}
+                          />
+                        </div>
+
+                        {/* Botões rápidos de ajuste de progresso */}
+                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                          {[25, 50, 75, 100].map((step) => (
+                            <button
+                              key={step}
+                              type="button"
+                              onClick={() => handleUpdateGoalProgress(goal.id, step)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer ${
+                                goal.progressPercent === step
+                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {step === 100 ? '100% Concluir' : `${step}%`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowGoalsModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Fechar Metas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Avaliações Psicométricas Padronizadas (PHQ-9 & GAD-7 / CFP) */}
+      {showPsychometricsModal && searchResult && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Escalas Psicométricas Padronizadas
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40">
+                      PHQ-9 & GAD-7 (CFP)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Paciente: {searchResult.name} • Monitoramento longitudinal de Depressão e Ansiedade
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPsychometricsModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Abas do Modal de Psicometria */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setPsychometricsTab('history')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  psychometricsTab === 'history'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Histórico Longitudinal ({patientAssessments.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPsychometricsTab('apply')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  psychometricsTab === 'apply'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                + Aplicar Nova Escala
+              </button>
+            </div>
+
+            {/* Feedback Message */}
+            {psychometricFeedback && (
+              <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-800 dark:text-sky-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <span>{psychometricFeedback}</span>
+              </div>
+            )}
+
+            {/* ABA 1: Histórico Longitudinal */}
+            {psychometricsTab === 'history' && (
+              <div className="space-y-4">
+                {/* Banner de Risco Ético se houver Ideação Crítica */}
+                {patientAssessments.some(a => a.criticalAlert) && (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200 text-xs space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-rose-700 dark:text-rose-300">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      ALERTA ÉTICO CRÍTICO: Risco Identificado no Item 9 (PHQ-9)
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      Constatada resposta positiva para ideação de autolesão em avaliações anteriores. Conforme o Código de Ética Profissional do Psicólogo (CFP), mantenha plano de segurança acordado e rede de apoio ativa.
+                    </p>
+                  </div>
+                )}
+
+                {psychometricsLoading ? (
+                  <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400">
+                    Carregando instrumentos psicométricos...
+                  </div>
+                ) : patientAssessments.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                    Nenhuma avaliação psicométrica registrada ainda para este paciente. Clique em "Aplicar Nova Escala" para iniciar o rastreio padronizado.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {patientAssessments.map((a) => {
+                      const sevColors: Record<string, string> = {
+                        MINIMAL: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300',
+                        MILD: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300',
+                        MODERATE: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300',
+                        MODERATELY_SEVERE: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border-orange-300',
+                        SEVERE: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300'
+                      };
+
+                      return (
+                        <div
+                          key={a.id}
+                          className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-sm space-y-2.5 transition-all hover:border-sky-300 dark:hover:border-sky-700"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 dark:text-white text-sm">
+                                  {a.scaleType}
+                                </span>
+                                <span className="font-mono text-xs font-extrabold px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                  {a.totalScore} / {a.scaleType === PsychometricScaleType.PHQ9 ? 27 : 21} pts
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${sevColors[a.severityLevel] || ''}`}>
+                                  {a.severityLevel}
+                                </span>
+                                {a.criticalAlert && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white animate-pulse">
+                                    ⚠️ Ideação Positiva
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-300">
+                                {a.clinicalInterpretation}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Recomendações Clínicas */}
+                          {a.conductRecommendations && a.conductRecommendations.length > 0 && (
+                            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-700/60">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">
+                                Diretrizes Clínicas & Conduta Ética:
+                              </span>
+                              <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-0.5 list-disc list-inside">
+                                {a.conductRecommendations.map((rec: string, i: number) => (
+                                  <li key={i}>{rec}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400">
+                            <span>Registrado em: {new Date(a.createdAt).toLocaleString('pt-BR')}</span>
+                            {a.auditWormId && (
+                              <span className="font-mono text-[9px] truncate max-w-[200px]" title={a.auditWormId}>
+                                WORM: {a.auditWormId}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ABA 2: Aplicar Nova Escala */}
+            {psychometricsTab === 'apply' && (
+              <div className="space-y-4">
+                {/* Seletor de Escala */}
+                <div className="flex items-center gap-2">
+                  {[
+                    { type: PsychometricScaleType.PHQ9, label: 'PHQ-9 (Depressão)', desc: 'Questionário de Saúde do Paciente (9 itens)' },
+                    { type: PsychometricScaleType.GAD7, label: 'GAD-7 (Ansiedade)', desc: 'Escala de Transtorno de Ansiedade Generalizada (7 itens)' }
+                  ].map((s) => (
+                    <button
+                      key={s.type}
+                      type="button"
+                      onClick={() => handleSelectScaleType(s.type)}
+                      className={`flex-1 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeScaleType === s.type
+                          ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-500 shadow-sm'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="font-bold text-xs text-slate-900 dark:text-white">
+                        {s.label}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {s.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Perguntas da Escala */}
+                {scaleDefinition && (
+                  <div className="space-y-3.5">
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300">
+                      <strong>Instruções ao Paciente:</strong> Nas últimas 2 semanas, com que frequência você foi incomodado(a) por qualquer um dos problemas abaixo?
+                    </div>
+
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                      {scaleDefinition.questions.map((q: string, qIdx: number) => {
+                        const currentScore = answersMap[qIdx] ?? 0;
+                        const isQuestion9 = activeScaleType === PsychometricScaleType.PHQ9 && qIdx === 8;
+
+                        return (
+                          <div
+                            key={qIdx}
+                            className={`p-3.5 rounded-2xl border text-xs space-y-2 transition-all ${
+                              isQuestion9 && currentScore > 0
+                                ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-400'
+                                : 'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/60'
+                            }`}
+                          >
+                            <div className="font-semibold text-slate-900 dark:text-white leading-snug">
+                              {qIdx + 1}. {q}
+                            </div>
+
+                            {/* Opções de Resposta (0 a 3) */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+                              {scaleDefinition.options.map((opt: any) => (
+                                <button
+                                  key={opt.score}
+                                  type="button"
+                                  onClick={() => setAnswersMap(prev => ({ ...prev, [qIdx]: opt.score }))}
+                                  className={`p-2 rounded-xl text-[11px] font-medium border text-center transition-all cursor-pointer ${
+                                    currentScore === opt.score
+                                      ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                  }`}
+                                >
+                                  <div className="font-bold">{opt.label}</div>
+                                  <div className="text-[9px] opacity-70">({opt.score} pts)</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Resumo Dinâmico & Ação de Submissão */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 to-transparent border border-sky-500/20 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 block">
+                          Escore Parcial Calculado:
+                        </span>
+                        <span className="text-base font-extrabold font-mono text-sky-600 dark:text-sky-400">
+                          {Object.values(answersMap).reduce((acc, v) => acc + (v || 0), 0)} / {scaleDefinition.questions.length * 3} pts
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSubmitAssessment}
+                        disabled={submittingScale}
+                        className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50 transition-colors"
+                      >
+                        {submittingScale ? (
+                          <>Processando & Emitindo Selo WORM...</>
+                        ) : (
+                          <>
+                            <Activity className="w-3.5 h-3.5" />
+                            Finalizar Avaliação Psicométrica
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPsychometricsModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>

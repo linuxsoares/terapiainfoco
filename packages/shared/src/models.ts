@@ -5,6 +5,11 @@ import {
   ReminderChannel,
   ReminderTiming,
   ReminderDeliveryStatus,
+  ClinicalMarkerCategory,
+  ClinicalMarkerRelevance,
+  GoalStatus,
+  PsychometricScaleType,
+  PsychometricSeverityLevel,
   TranscriptionStatus,
   SpeakerRole,
   DocumentType,
@@ -253,6 +258,83 @@ export interface PatientClinicalTimelineResponse {
     completedSoapRecords: number;
     documentsCount: number;
   };
+}
+
+/**
+ * Marcadores Clínicos em Tempo Real na Teleconsulta (RFC-001 §3.3)
+ */
+export interface ClinicalSessionMarker {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  therapistId: string;
+  timestampMs: number;          // Posição no áudio/sessão em milissegundos
+  timeFormatted: string;        // Formatação legível (ex: "14:32")
+  category: ClinicalMarkerCategory;
+  relevance: ClinicalMarkerRelevance;
+  note: string;                 // Observação clínica do psicólogo (FLE AES-256-GCM)
+  utteranceIndex?: number;      // Vínculo com trecho da transcrição
+  suggestedSoapQuadrant?: 'SUBJECTIVE' | 'OBJECTIVE' | 'ASSESSMENT' | 'PLAN';
+  createdAt: Date | string;
+}
+
+export interface StoredClinicalSessionMarker extends Omit<ClinicalSessionMarker, 'note'> {
+  encryptedNote: EncryptedPayload;
+}
+
+export type DecryptedClinicalSessionMarker = ClinicalSessionMarker;
+
+/**
+ * Metas e Planos Terapêuticos SMART (RFC-001 §3.4)
+ */
+export interface TherapeuticGoal {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  title: string;
+  description: string;
+  category?: string;            // Ex: Cognitivo, Comportamental, Emocional, Interpessoal
+  targetDate?: string;          // Data alvo ISO
+  status: GoalStatus;
+  progressPercent: number;      // 0 a 100
+  measurementMetric?: string;   // Como o alcance é mensurado
+  notes?: string;               // Anotações de evolução
+  sessionsLinkedCount?: number; // Número de sessões onde a meta foi abordada
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface StoredTherapeuticGoal extends Omit<TherapeuticGoal, 'description' | 'notes'> {
+  encryptedDescription: EncryptedPayload;
+  encryptedNotes?: EncryptedPayload;
+}
+
+export type DecryptedTherapeuticGoal = TherapeuticGoal;
+
+/**
+ * Avaliação e Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7 - RFC-001 §3.4 / CFP)
+ */
+export interface PsychometricAnswer {
+  questionIndex: number;
+  questionText: string;
+  score: number; // 0 a 3
+  optionText: string;
+}
+
+export interface PsychometricAssessment {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  appointmentId?: string;
+  scaleType: PsychometricScaleType; // PHQ9 ou GAD7
+  totalScore: number;
+  severityLevel: PsychometricSeverityLevel;
+  clinicalInterpretation: string;
+  answers: PsychometricAnswer[];
+  criticalAlert?: boolean; // Alerta de ideação/autolesão (ex: item 9 do PHQ-9 > 0)
+  conductRecommendations: string[];
+  auditWormId?: string;
+  createdAt: Date | string;
 }
 
 /**

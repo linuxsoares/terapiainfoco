@@ -7,9 +7,21 @@ import {
   RecurrenceFrequency,
   ReminderChannel,
   ReminderTiming,
-  ReminderDeliveryStatus
+  ReminderDeliveryStatus,
+  ClinicalMarkerCategory,
+  ClinicalMarkerRelevance,
+  GoalStatus,
+  PsychometricScaleType
 } from './enums';
-import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData, DecryptedAppointment } from './models';
+import type { 
+  SoapNote, 
+  TranscriptUtterance, 
+  SafeUser, 
+  IcpCertificateInfo, 
+  IcpSignatureData, 
+  DecryptedAppointment,
+  PsychometricAssessment
+} from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
 export interface CreatePatientDTO {
@@ -85,6 +97,101 @@ export interface SendReminderResponse {
   auditWormId?: string;
   message?: string;
   sentAt?: string;
+}
+
+/**
+ * DTOs de Marcadores Clínicos em Tempo Real (RFC-001 §3.3)
+ */
+export interface CreateClinicalMarkerDTO {
+  appointmentId: string;
+  timestampMs: number;
+  timeFormatted: string;
+  category: ClinicalMarkerCategory;
+  relevance: ClinicalMarkerRelevance;
+  note: string;
+  utteranceIndex?: number;
+  suggestedSoapQuadrant?: 'SUBJECTIVE' | 'OBJECTIVE' | 'ASSESSMENT' | 'PLAN';
+}
+
+export interface UpdateClinicalMarkerDTO {
+  category?: ClinicalMarkerCategory;
+  relevance?: ClinicalMarkerRelevance;
+  note?: string;
+  suggestedSoapQuadrant?: 'SUBJECTIVE' | 'OBJECTIVE' | 'ASSESSMENT' | 'PLAN';
+}
+
+export interface ExportMarkersToSoapProposalResponse {
+  success: boolean;
+  appointmentId: string;
+  totalMarkersCount: number;
+  suggestedSoap: {
+    subjective: string[];
+    objective: string[];
+    assessment: string[];
+    plan: string[];
+  };
+}
+
+/**
+ * DTOs de Metas e Planos Terapêuticos SMART (RFC-001 §3.4)
+ */
+export interface CreateTherapeuticGoalDTO {
+  patientId: string;
+  title: string;
+  description: string;
+  category?: string;
+  targetDate?: string;
+  measurementMetric?: string;
+  notes?: string;
+  initialProgressPercent?: number;
+}
+
+export interface UpdateTherapeuticGoalDTO {
+  title?: string;
+  description?: string;
+  category?: string;
+  targetDate?: string;
+  status?: GoalStatus;
+  progressPercent?: number;
+  measurementMetric?: string;
+  notes?: string;
+}
+
+/**
+ * DTOs de Avaliação e Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7)
+ */
+export interface PsychometricScaleQuestionOption {
+  score: number;
+  label: string;
+}
+
+export interface PsychometricScaleDefinition {
+  scaleType: PsychometricScaleType;
+  title: string;
+  description: string;
+  questions: string[];
+  options: PsychometricScaleQuestionOption[];
+  maxScore: number;
+}
+
+export interface SubmitPsychometricAssessmentDTO {
+  patientId: string;
+  appointmentId?: string;
+  scaleType: PsychometricScaleType;
+  answers: {
+    questionIndex: number;
+    score: number; // 0 (Nenhuma vez) a 3 (Quase todos os dias)
+  }[];
+}
+
+export interface PsychometricAssessmentResultResponse {
+  success: boolean;
+  assessment: PsychometricAssessment;
+  patientHistory: {
+    previousScore?: number;
+    scoreDelta?: number;
+    trend: 'IMPROVED' | 'STABLE' | 'WORSENED' | 'BASELINE';
+  };
 }
 
 export interface UpdateAppointmentStatusDTO {
