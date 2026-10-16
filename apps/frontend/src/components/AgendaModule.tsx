@@ -16,7 +16,8 @@ import {
   Repeat,
   Bell,
   Send,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
@@ -32,6 +33,7 @@ import {
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 import { TeleconsultationRoomModal } from './TeleconsultationRoomModal';
+import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 
 export function AgendaModule() {
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
@@ -41,6 +43,9 @@ export function AgendaModule() {
 
   // Teleconsulta Nativa WebRTC P2P (RFC-001 §3.2)
   const [selectedTeleconsultationApp, setSelectedTeleconsultationApp] = useState<DecryptedAppointment | null>(null);
+
+  // Transcrição & Síntese SOAP IA (RFC-001 §3.3)
+  const [selectedAiSoapApp, setSelectedAiSoapApp] = useState<DecryptedAppointment | null>(null);
 
   // Form de novo agendamento
   const [showModal, setShowModal] = useState(false);
@@ -540,6 +545,15 @@ export function AgendaModule() {
                     >
                       <Video className="w-3.5 h-3.5" />
                       <span>Teleconsulta Nativa</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedAiSoapApp(app)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>SOAP IA</span>
                     </button>
 
                     <button
@@ -1214,8 +1228,24 @@ export function AgendaModule() {
           patientName="Mariana Silva de Oliveira"
           onClose={() => setSelectedTeleconsultationApp(null)}
           onProceedToSoap={() => {
+            const currentApp = selectedTeleconsultationApp;
             setSelectedTeleconsultationApp(null);
-            setSuccessMsg('Teleconsulta concluída! Navegue para a aba Prontuário & SOAP para conferir a evolução clínica.');
+            setSelectedAiSoapApp(currentApp);
+          }}
+        />
+      )}
+
+      {/* Modal de Transcrição Assistida por IA, Diarização & Síntese SOAP (RFC-001 §3.3) */}
+      {selectedAiSoapApp && (
+        <AiTranscriptionSoapModal
+          isOpen={!!selectedAiSoapApp}
+          appointmentId={selectedAiSoapApp.id}
+          patientId={selectedAiSoapApp.patientId}
+          patientName="Mariana Silva de Oliveira"
+          onClose={() => setSelectedAiSoapApp(null)}
+          onEhrRecordSaved={() => {
+            setSelectedAiSoapApp(null);
+            setSuccessMsg('Prontuário Oficial do Paciente (EHR) selado com sucesso na trilha WORM com respaldo da IA (RFC-001 §3.3)!');
           }}
         />
       )}

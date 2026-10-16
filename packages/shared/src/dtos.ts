@@ -4495,5 +4495,55 @@ export interface TeleconsultationRoomResponse {
   message?: string;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 40. TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface IngestTranscriptionDTO {
+  appointmentId: string;
+  patientId: string;
+  rawTranscriptText?: string;
+  utterances?: Array<{
+    speaker: import('./enums').TranscriptionSpeaker;
+    startTimeMs: number;
+    endTimeMs: number;
+    text: string;
+    confidenceScore?: number;
+    sentimentPolarity?: import('./enums').ConversationalSentiment;
+    linkedMarkerId?: string;
+  }>;
+  consentConfirmed: boolean;
+  includeClinicalMarkers?: boolean;
+}
+
+export interface ReviewAiSoapDraftDTO {
+  draftId: string;
+  status: 'ACCEPTED_BY_THERAPIST' | 'MODIFIED_BY_THERAPIST' | 'REJECTED';
+  reviewedSubjective?: string;
+  reviewedObjective?: string;
+  reviewedAssessment?: string;
+  reviewedPlan?: string;
+  finalCid11?: string;
+  reviewNotes?: string;
+  saveAsOfficialEhrNote?: boolean;
+}
+
+export interface TranscriptionSessionResponse {
+  success: boolean;
+  session: import('./models').TranscriptionSession;
+  soapDraft?: import('./models').AiSoapDraft;
+  message?: string;
+}
+
+export interface AiSoapDraftResponse {
+  success: boolean;
+  draft: import('./models').AiSoapDraft;
+  message?: string;
+  createdEhrRecordId?: string;
+}
+
+
 
 

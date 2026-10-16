@@ -5346,6 +5346,90 @@ export interface StoredTeleconsultationRoom extends Omit<TeleconsultationRoom, '
   encryptedPatientName: EncryptedPayload;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 40. TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+/**
+ * Enunciado individual diarizado na sessão
+ */
+export interface DiarizedUtterance {
+  id: string;
+  speaker: import('./enums').TranscriptionSpeaker;
+  startTimeMs: number;
+  endTimeMs: number;
+  text: string;
+  confidenceScore: number; // 0.0 a 1.0
+  sentimentPolarity?: import('./enums').ConversationalSentiment;
+  linkedMarkerId?: string; // Vinculação opcional a um Marcador Clínico registrado em tempo real
+}
+
+/**
+ * Métricas Conversacionais e de Escuta Clínica Ativa
+ */
+export interface ConversationalMetrics {
+  therapistTalkTimeSeconds: number;
+  patientTalkTimeSeconds: number;
+  totalDurationSeconds: number;
+  talkToListenRatio: number; // Proporção de fala do psicólogo sobre a fala do paciente (0.0 a 1.0+)
+  turnTakingCount: number; // Quantidade de alternâncias de fala
+  longestMonologueSeconds: number; // Maior fala ininterrupta
+  silenceDurationSeconds: number; // Silêncio reflexivo total
+  clinicalBalanceAdvice: string; // Orientação baseada na dinâmica conversacional
+}
+
+/**
+ * Rascunho de Prontuário SOAP Sintetizado por IA (RFC-001 §3.3)
+ */
+export interface AiSoapDraft {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName?: string;
+  therapistId: string;
+  status: import('./enums').AiSoapDraftStatus;
+  subjectiveText: string; // S: Relatos, queixas subjetivas e sentimentos expressos
+  objectiveText: string;  // O: Observações comportamentais, afeto e linguagem não-verbal
+  assessmentText: string; // A: Hipóteses clínicas, dinâmicas psíquicas e correlações
+  planText: string;       // P: Tarefas acordadas e plano de intervenção
+  suggestedCid11Codes: string[]; // Sugestões preliminares (ex: 6A70, 6B00)
+  keyInsightsSummary: string[];
+  safetyWarning?: string; // Alerta em caso de risco ou crise
+  generatedAt: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  modelIdentifier: string; // "clinical-llm-hipaa-compliant-v1"
+  zeroRetentionGuaranteed: boolean; // Flag de conformidade com política de não-retenção LGPD
+}
+
+/**
+ * Sessão de Transcrição Completa
+ */
+export interface TranscriptionSession {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  therapistId: string;
+  status: import('./enums').TranscriptionStatus;
+  consentVerified: boolean;
+  utterances: DiarizedUtterance[];
+  metrics: ConversationalMetrics;
+  soapDraft?: AiSoapDraft;
+  rawTranscriptSha256: string;
+  wormAuditId?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface StoredTranscriptionSession extends Omit<TranscriptionSession, 'patientName'> {
+  encryptedPatientName: EncryptedPayload;
+  encryptedTranscriptPayload: EncryptedPayload;
+}
+
+
 
 
 
