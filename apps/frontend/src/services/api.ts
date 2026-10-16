@@ -490,7 +490,18 @@ import type {
   SimulateCommandAttackResponse,
   VerifyCommandSealDTO,
   VerifyCommandSealResponse,
-  CommandGuardOverviewResponse
+  CommandGuardOverviewResponse,
+  InspectPathInputDTO,
+  InspectPathInputResponse,
+  ResolveSafePathDTO,
+  ResolveSafePathResponse,
+  UpdatePathPolicyDTO,
+  UpdatePathPolicyResponse,
+  SimulatePathAttackDTO,
+  SimulatePathAttackResponse,
+  VerifyPathSealDTO,
+  VerifyPathSealResponse,
+  PathGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3006,6 +3017,46 @@ export const api = {
 
   async verifyOsCommandSeal(dto: VerifyCommandSealDTO): Promise<VerifyCommandSealResponse> {
     return await request<VerifyCommandSealResponse>('/os-command-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 69. Sanitização e Validação Estrita de Caminhos & Prevenção de Path Traversal / LFI (OWASP ASVS V5.5 & CWE-22/CWE-23)
+  async getPathGuardOverview(): Promise<PathGuardOverviewResponse> {
+    return await request<PathGuardOverviewResponse>('/path-traversal-guard/overview');
+  },
+
+  async inspectPath(dto: InspectPathInputDTO): Promise<InspectPathInputResponse> {
+    return await request<InspectPathInputResponse>('/path-traversal-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async resolveSafePath(dto: ResolveSafePathDTO): Promise<ResolveSafePathResponse> {
+    return await request<ResolveSafePathResponse>('/path-traversal-guard/resolve', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updatePathPolicy(dto: UpdatePathPolicyDTO): Promise<UpdatePathPolicyResponse> {
+    return await request<UpdatePathPolicyResponse>('/path-traversal-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulatePathAttack(dto: SimulatePathAttackDTO): Promise<SimulatePathAttackResponse> {
+    return await request<SimulatePathAttackResponse>('/path-traversal-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyPathSeal(dto: VerifyPathSealDTO): Promise<VerifyPathSealResponse> {
+    return await request<VerifyPathSealResponse>('/path-traversal-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

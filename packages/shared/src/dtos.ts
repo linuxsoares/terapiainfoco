@@ -3756,6 +3756,77 @@ export interface CommandGuardOverviewResponse {
   overview: import('./models').CommandGuardOverview;
 }
 
+/**
+ * DTOs de Sanitização e Prevenção de Path Traversal & LFI (CWE-22, CWE-23 & OWASP ASVS V5.5)
+ */
+export interface InspectPathInputDTO {
+  path: string;
+  category?: import('./enums').ClinicalAttachmentCategory;
+  customJailRoot?: string;
+}
+
+export interface InspectPathInputResponse {
+  success: boolean;
+  inspection: import('./models').PathInspectionResult;
+  message: string;
+}
+
+export interface ResolveSafePathDTO {
+  category: import('./enums').ClinicalAttachmentCategory;
+  proposedPath: string;
+  patientId?: string;
+  documentId?: string;
+}
+
+export interface ResolveSafePathResponse {
+  success: boolean;
+  result: import('./models').SafePathResolutionResult;
+  message: string;
+}
+
+export interface UpdatePathPolicyDTO {
+  policy: Partial<import('./models').PathGuardPolicy>;
+}
+
+export interface UpdatePathPolicyResponse {
+  success: boolean;
+  policy: import('./models').PathGuardPolicy;
+  message: string;
+}
+
+export interface SimulatePathAttackDTO {
+  threatVector: import('./enums').PathThreatVector;
+  category?: import('./enums').ClinicalAttachmentCategory;
+}
+
+export interface SimulatePathAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayload: string;
+  inspection: import('./models').PathInspectionResult;
+  resolutionResult?: import('./models').SafePathResolutionResult;
+  incident?: import('./models').PathSecurityIncident;
+  message: string;
+}
+
+export interface VerifyPathSealDTO {
+  sealToken: string | import('./models').PathProofSeal;
+}
+
+export interface VerifyPathSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').PathProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface PathGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').PathGuardOverview;
+}
+
+
 
 
 
