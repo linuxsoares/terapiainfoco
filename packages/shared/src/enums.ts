@@ -20,6 +20,47 @@ export enum AppointmentStatus {
   NAO_COMPARECEU = 'NAO_COMPARECEU'
 }
 
+/**
+ * Frequência de Recorrência para Séries Terapêuticas (RFC-001 §3.1)
+ */
+export enum RecurrenceFrequency {
+  WEEKLY = 'WEEKLY',       // Semanal
+  BIWEEKLY = 'BIWEEKLY',   // Quinzenal
+  MONTHLY = 'MONTHLY'      // Mensal
+}
+
+/**
+ * Canal de Notificação e Lembretes de Consulta (RFC-001 §3.1)
+ */
+export enum ReminderChannel {
+  WHATSAPP = 'WHATSAPP',
+  EMAIL = 'EMAIL',
+  BOTH = 'BOTH'
+}
+
+/**
+ * Temporização e Gatilho do Lembrete de Teleconsulta
+ */
+export enum ReminderTiming {
+  HOURS_48 = 'HOURS_48',                 // 48 horas de antecedência
+  HOURS_24 = 'HOURS_24',                 // 24 horas de antecedência
+  HOURS_24_BEFORE = 'HOURS_24_BEFORE',   // Alias 24h antes
+  HOURS_2 = 'HOURS_2',                   // 2 horas de antecedência
+  HOURS_2_BEFORE = 'HOURS_2_BEFORE',     // Alias 2h antes (sala de espera)
+  IMMEDIATE = 'IMMEDIATE',               // Disparo sob demanda manual pelo psicólogo
+  CONFIRMATION = 'CONFIRMATION'          // Na confirmação do agendamento
+}
+
+/**
+ * Status de Entrega do Lembrete
+ */
+export enum ReminderDeliveryStatus {
+  SCHEDULED = 'SCHEDULED',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED'
+}
+
 export enum TranscriptionStatus {
   PENDING = 'PENDING',
   PROCESSING = 'PROCESSING',
@@ -377,7 +418,12 @@ export enum AuditAction {
   DEPENDENCY_CONFUSION_DETECTED = 'DEPENDENCY_CONFUSION_DETECTED',
   SRI_INTEGRITY_VERIFIED = 'SRI_INTEGRITY_VERIFIED',
   DEPENDENCY_POLICY_UPDATED = 'DEPENDENCY_POLICY_UPDATED',
-  SUPPLY_CHAIN_SEAL_VERIFIED = 'SUPPLY_CHAIN_SEAL_VERIFIED'
+  SUPPLY_CHAIN_SEAL_VERIFIED = 'SUPPLY_CHAIN_SEAL_VERIFIED',
+  // Ações de Agendamento Recorrente e Lembretes Multicanal (RFC-001 §3.1)
+  APPOINTMENT_RECURRENCE_SERIES_CREATED = 'APPOINTMENT_RECURRENCE_SERIES_CREATED',
+  APPOINTMENT_REMINDER_DISPATCHED = 'APPOINTMENT_REMINDER_DISPATCHED',
+  // Ações de Linha do Tempo Clínica Longitudinal (RFC-001 §3.4)
+  PATIENT_TIMELINE_ACCESSED = 'PATIENT_TIMELINE_ACCESSED'
 }
 
 export enum AuditResourceType {
@@ -439,7 +485,9 @@ export enum AuditResourceType {
   CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD',
   GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD',
   HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD',
-  SUPPLY_CHAIN_GUARD = 'SUPPLY_CHAIN_GUARD'
+  SUPPLY_CHAIN_GUARD = 'SUPPLY_CHAIN_GUARD',
+  APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
+  PATIENT_TIMELINE = 'PATIENT_TIMELINE'
 }
 
 /**

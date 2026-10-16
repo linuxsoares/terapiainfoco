@@ -11,7 +11,8 @@ import type {
   StoredClinicalRecordRectification,
   PasskeyCredential,
   WebAuthnChallengeSession,
-  DPIAReport
+  DPIAReport,
+  StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
@@ -29,6 +30,7 @@ export class MemoryDatabase {
   public sessionTranscriptions: Map<string, StoredSessionTranscription> = new Map();
   public anamnesisRecords: Map<string, StoredAnamnesisRecord> = new Map();
   public clinicalRecordRectifications: Map<string, StoredClinicalRecordRectification> = new Map();
+  public reminders: Map<string, StoredAppointmentReminder> = new Map();
   public users: Map<string, User> = new Map();
   public revokedTokens: Set<string> = new Set();
   public auditLogs: AuditLog[] = [];

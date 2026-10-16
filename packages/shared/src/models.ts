@@ -1,6 +1,10 @@
 import {
   TherapistStatus,
   AppointmentStatus,
+  RecurrenceFrequency,
+  ReminderChannel,
+  ReminderTiming,
+  ReminderDeliveryStatus,
   TranscriptionStatus,
   SpeakerRole,
   DocumentType,
@@ -141,6 +145,18 @@ export interface Appointment {
   meetSpaceName?: string;
   meetProvider?: MeetProvider;
   meetAccessType?: MeetAccessType;
+
+  // Suporte a Recorrência & Séries Clínicas (RFC-001 §3.1)
+  seriesId?: string;
+  sequenceNumber?: number;
+  totalInSeries?: number;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceSeriesId?: string; // Alias
+  recurrenceSequence?: number; // Alias
+
+  // Lembretes & Notificações de Teleconsulta (RFC-001 §3.1)
+  reminderStatus?: ReminderDeliveryStatus;
+  lastReminderSentAt?: Date | string;
   
   createdAt: Date | string;
 }
@@ -151,6 +167,92 @@ export interface StoredAppointment extends Appointment {
 
 export interface DecryptedAppointment extends Appointment {
   meetUrl: string;
+}
+
+/**
+ * Lembretes e Notificações de Teleconsulta (RFC-001 §3.1)
+ */
+export interface AppointmentReminder {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  therapistId: string;
+  channel: ReminderChannel;
+  timing: ReminderTiming;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  templateType: string;
+  renderedMessage: string;
+  meetUrl: string;
+  status: ReminderDeliveryStatus;
+  scheduledFor?: Date | string;
+  sentAt?: Date | string;
+  whatsappMessageId?: string;
+  whatsappDirectUrl?: string;
+  auditWormId?: string;
+  createdAt: Date | string;
+}
+
+export interface StoredAppointmentReminder extends Omit<AppointmentReminder, 'recipientPhone' | 'recipientEmail'> {
+  encryptedRecipientPhone?: EncryptedPayload;
+  encryptedRecipientEmail?: EncryptedPayload;
+}
+
+/**
+ * Evento individual da Linha do Tempo Clínica Longitudinal (RFC-001 §3.4)
+ */
+export interface PatientTimelineEvent {
+  id: string;
+  timestamp: string; // ISO string
+  type: 'APPOINTMENT' | 'SOAP_RECORD' | 'ANAMNESIS' | 'DOCUMENT' | 'CONSENT';
+  title: string;
+  description: string;
+  subtitle?: string; // Resumo/detalhe do evento
+  badge?: string; // Etiqueta visual
+  status?: string;
+  badgeColor?: 'emerald' | 'blue' | 'violet' | 'amber' | 'rose' | 'slate';
+  actionLabel?: string;
+  actionUrl?: string;
+  metadata?: {
+    appointmentId?: string;
+    meetUrl?: string;
+    sessionNumber?: number;
+    soapId?: string;
+    isSigned?: boolean;
+    signatureHash?: string;
+    documentId?: string;
+    documentType?: DocumentType | string;
+    attendanceStatus?: AppointmentStatus;
+    validationToken?: string;
+    wormHash?: string;
+    status?: string;
+  };
+}
+
+/**
+ * Relatório Consolidado de Linha do Tempo Clínica Longitudinal (RFC-001 §3.4)
+ */
+export interface PatientClinicalTimelineResponse {
+  patientId: string;
+  patientName: string;
+  totalSessions: number;
+  completedSessions: number;
+  missedSessions: number; // No-shows
+  canceledSessions: number;
+  attendanceRate: number; // Porcentagem (0 a 100)
+  signedRecordsCount: number;
+  documentsCount: number;
+  firstConsultationDate?: string;
+  lastConsultationDate?: string;
+  nextScheduledAppointment?: DecryptedAppointment;
+  events: PatientTimelineEvent[];
+  kpis?: {
+    totalAppointments: number;
+    completedAppointments: number;
+    attendanceRate: number;
+    completedSoapRecords: number;
+    documentsCount: number;
+  };
 }
 
 /**

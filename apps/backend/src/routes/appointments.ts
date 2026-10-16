@@ -117,10 +117,97 @@ appointmentsRoute.post('/:id/end-meet', async (c) => {
   });
 });
 
+import { ReminderService } from '../services/reminderService';
+import { ReminderChannel } from '@terapiainfoco/shared';
+
 // Listar consultas do terapeuta
 appointmentsRoute.get('/therapist/:therapistId', async (c) => {
   const therapistId = c.req.param('therapistId');
   const appointments = AppointmentService.getTherapistAppointments(therapistId);
   return c.json({ success: true, appointments });
 });
+
+// Criar agendamento recorrente em série (§3.1)
+appointmentsRoute.post('/recurrent', async (c) => {
+  const body = await c.req.json<CreateAppointmentDTO & { therapistId: string }>();
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+
+  try {
+    const result = await AppointmentService.createRecurrentAppointments(
+      body.therapistId || 'therapist-001',
+      body,
+      { actorId: body.therapistId || 'therapist-001', ipAddress: ip, userAgent }
+    );
+    return c.json(result, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+// Cancelar série recorrente inteira (§3.1)
+appointmentsRoute.delete('/series/:seriesId', async (c) => {
+  const seriesId = c.req.param('seriesId');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+
+  try {
+    const result = AppointmentService.cancelSeries(seriesId, {
+      actorId: 'therapist-001',
+      ipAddress: ip,
+      userAgent
+    });
+    return c.json({ success: true, ...result });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+// Disparar lembrete de teleconsulta (WhatsApp e/ou E-mail) (§3.1)
+appointmentsRoute.post('/:id/reminders', async (c) => {
+  const appointmentId = c.req.param('id');
+  const body = await c.req.json<{ channel?: ReminderChannel; customMessage?: string }>();
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+
+  try {
+    const result = await ReminderService.sendAppointmentReminder({
+      appointmentId,
+      channel: body.channel || ReminderChannel.WHATSAPP,
+      customMessage: body.customMessage
+    }, {
+      actorId: 'therapist-001',
+      ipAddress: ip,
+      userAgent
+    });
+    return c.json(result, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+// Pré-visualização do texto e link do lembrete de consulta (§3.1)
+appointmentsRoute.get('/:id/reminders/preview', async (c) => {
+  const appointmentId = c.req.param('id');
+  const channel = (c.req.query('channel') as ReminderChannel) || ReminderChannel.WHATSAPP;
+
+  try {
+    const preview = ReminderService.previewReminder(appointmentId, channel);
+    return c.json({ success: true, preview });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+// Listar histórico de lembretes enviados para a consulta (§3.1)
+appointmentsRoute.get('/:id/reminders', async (c) => {
+  const appointmentId = c.req.param('id');
+  try {
+    const reminders = ReminderService.getAppointmentReminders(appointmentId);
+    return c.json({ success: true, reminders });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
 

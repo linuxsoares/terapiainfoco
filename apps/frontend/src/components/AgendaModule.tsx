@@ -12,15 +12,23 @@ import {
   Shield,
   PhoneOff,
   ExternalLink,
-  Link2
+  Link2,
+  Repeat,
+  Bell,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
   MeetAccessType, 
   MeetProvider, 
+  RecurrenceFrequency,
+  ReminderChannel,
+  ReminderTiming,
   type DecryptedAppointment,
   type GoogleMeetStatusResponse,
-  type GoogleMeetTestResponse 
+  type GoogleMeetTestResponse,
+  type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
@@ -39,6 +47,22 @@ export function AgendaModule() {
   const [customMeetUrl, setCustomMeetUrl] = useState('');
   const [accessType, setAccessType] = useState<MeetAccessType>(MeetAccessType.TRUSTED);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Recorrência (RFC §3.1)
+  const [isRecurrent, setIsRecurrent] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>(RecurrenceFrequency.WEEKLY);
+  const [recurrenceSessions, setRecurrenceSessions] = useState(4);
+
+  // Modal de Lembretes Multicanal (RFC §3.1 & Res. CFP nº 011/2018)
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [selectedAppointmentForReminder, setSelectedAppointmentForReminder] = useState<DecryptedAppointment | null>(null);
+  const [reminderChannel, setReminderChannel] = useState<ReminderChannel>(ReminderChannel.WHATSAPP);
+  const [reminderTiming, setReminderTiming] = useState<ReminderTiming>(ReminderTiming.HOURS_24_BEFORE);
+  const [reminderRecipientPhone, setReminderRecipientPhone] = useState('11987654321');
+  const [reminderRecipientEmail, setReminderRecipientEmail] = useState('mariana.silva@email.com');
+  const [reminderPreview, setReminderPreview] = useState<{ message: string; channel: string } | null>(null);
+  const [reminderLoading, setReminderLoading] = useState(false);
+  const [reminderHistory, setReminderHistory] = useState<StoredAppointmentReminder[]>([]);
 
   // Modal de diagnóstico / teste Google Meet REST API v2
   const [showMeetModal, setShowMeetModal] = useState(false);
@@ -120,23 +144,114 @@ export function AgendaModule() {
       const start = new Date(`${date}T${time}:00`);
       const end = new Date(start.getTime() + 50 * 60 * 1000); // 50 minutos de duração
 
-      await api.createAppointment({
-        patientId,
-        scheduledStart: start.toISOString(),
-        scheduledEnd: end.toISOString(),
-        bufferMinutes: Number(bufferMin),
-        meetUrl: customMeetUrl.trim() || undefined,
-        accessType
-      });
+      if (isRecurrent) {
+        const res = await api.createRecurrentAppointments({
+          patientId,
+          scheduledStart: start.toISOString(),
+          scheduledEnd: end.toISOString(),
+          bufferMinutes: Number(bufferMin),
+          meetUrl: customMeetUrl.trim() || undefined,
+          accessType,
+          recurrence: {
+            frequency: recurrenceFrequency,
+            count: Number(recurrenceSessions),
+            totalSessions: Number(recurrenceSessions)
+          }
+        });
+        const totalCreated = res.createdAppointments?.length || res.requestedCount || res.count || recurrenceSessions;
+        setSuccessMsg(`Série clínica de ${totalCreated} consultas criada com sucesso (RFC §3.1)!`);
+      } else {
+        await api.createAppointment({
+          patientId,
+          scheduledStart: start.toISOString(),
+          scheduledEnd: end.toISOString(),
+          bufferMinutes: Number(bufferMin),
+          meetUrl: customMeetUrl.trim() || undefined,
+          accessType
+        });
+        setSuccessMsg('Consulta agendada com sucesso! Link seguro do Google Meet gerado.');
+      }
 
-      setSuccessMsg('Consulta agendada com sucesso! Link seguro do Google Meet gerado.');
       setShowModal(false);
       await fetchAppointments();
-      setTimeout(() => setSuccessMsg(null), 4000);
+      setTimeout(() => setSuccessMsg(null), 4500);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelSeries = async (seriesId: string) => {
+    if (!confirm('Deseja cancelar todas as consultas futuras desta série clínica recorrente?')) {
+      return;
+    }
+    try {
+      setError(null);
+      const res = await api.cancelAppointmentSeries(seriesId);
+      setSuccessMsg(`Série cancelada com sucesso (${res.canceledCount} consultas removidas).`);
+      await fetchAppointments();
+      setTimeout(() => setSuccessMsg(null), 4500);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao cancelar série de consultas');
+    }
+  };
+
+  const handleOpenReminderModal = async (app: DecryptedAppointment) => {
+    setSelectedAppointmentForReminder(app);
+    setShowReminderModal(true);
+    setReminderPreview(null);
+    try {
+      const history = await api.getAppointmentReminders(app.id);
+      setReminderHistory(history);
+    } catch {
+      setReminderHistory([]);
+    }
+    try {
+      const preview = await api.previewAppointmentReminder(app.id, reminderChannel, reminderTiming);
+      setReminderPreview(preview);
+    } catch {
+      // preview pode falhar se não houver conexão, não trava abertura
+    }
+  };
+
+  const handleGeneratePreview = async (channel = reminderChannel, timing = reminderTiming) => {
+    if (!selectedAppointmentForReminder) return;
+    try {
+      setReminderLoading(true);
+      const preview = await api.previewAppointmentReminder(selectedAppointmentForReminder.id, channel, timing);
+      setReminderPreview(preview);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao gerar prévia do lembrete');
+    } finally {
+      setReminderLoading(false);
+    }
+  };
+
+  const handleSendReminder = async () => {
+    if (!selectedAppointmentForReminder) return;
+    try {
+      setReminderLoading(true);
+      const res = await api.sendAppointmentReminder({
+        appointmentId: selectedAppointmentForReminder.id,
+        channel: reminderChannel,
+        timing: reminderTiming,
+        recipientPhone: reminderChannel === ReminderChannel.WHATSAPP ? reminderRecipientPhone : undefined,
+        recipientEmail: reminderChannel === ReminderChannel.EMAIL ? reminderRecipientEmail : undefined
+      });
+
+      setSuccessMsg(res.message || 'Lembrete de teleconsulta processado e registrado na auditoria WORM.');
+      if (res.whatsappDirectUrl && reminderChannel === ReminderChannel.WHATSAPP) {
+        window.open(res.whatsappDirectUrl, '_blank');
+      }
+
+      const history = await api.getAppointmentReminders(selectedAppointmentForReminder.id);
+      setReminderHistory(history);
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao disparar lembrete');
+    } finally {
+      setReminderLoading(false);
     }
   };
 
@@ -378,6 +493,12 @@ export function AgendaModule() {
                             {app.meetAccessType === MeetAccessType.TRUSTED ? 'Sala de Espera (Knocking)' : app.meetAccessType}
                           </span>
                         )}
+                        {app.recurrenceSeriesId && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                            <Repeat className="w-3 h-3 text-purple-500" />
+                            Série #{app.recurrenceSequence || 1} ({app.recurrenceFrequency || 'WEEKLY'})
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
@@ -408,6 +529,15 @@ export function AgendaModule() {
 
                   {/* Ações de Estado */}
                   <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-slate-800">
+                    <button
+                      onClick={() => handleOpenReminderModal(app)}
+                      className="px-3 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-500/10 hover:bg-teal-100 dark:hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Enviar lembrete via WhatsApp ou E-mail com link da sala (CFP 011/2018)"
+                    >
+                      <Bell className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                      Lembrete
+                    </button>
+
                     {app.status === AppointmentStatus.CONFIRMADA && (
                       <button
                         onClick={() => handleStatusChange(app.id, AppointmentStatus.EM_ANDAMENTO)}
@@ -433,6 +563,18 @@ export function AgendaModule() {
                           <CheckCircle2 className="w-3.5 h-3.5" /> Concluir
                         </button>
                       </>
+                    )}
+
+                    {app.recurrenceSeriesId && 
+                     app.status !== AppointmentStatus.CONCLUIDA && 
+                     app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && (
+                      <button
+                        onClick={() => handleCancelSeries(app.recurrenceSeriesId!)}
+                        className="px-2.5 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Cancela todas as sessões futuras pertencentes a esta série clínica"
+                      >
+                        <Repeat className="w-3 h-3" /> Cancelar Série
+                      </button>
                     )}
 
                     {app.status !== AppointmentStatus.CONCLUIDA && 
@@ -580,6 +722,78 @@ export function AgendaModule() {
                 </p>
               </div>
 
+              {/* Recorrência Clínica (RFC §3.1) */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isRecurrent}
+                      onChange={(e) => setIsRecurrent(e.target.checked)}
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4"
+                    />
+                    <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    Agendar como Série Recorrente (RFC §3.1)
+                  </label>
+                  {isRecurrent && (
+                    <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+                      Série Clínica Ativa
+                    </span>
+                  )}
+                </div>
+
+                {isRecurrent && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-200 dark:border-slate-700/60">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Periodicidade
+                      </label>
+                      <select
+                        value={recurrenceFrequency}
+                        onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                      >
+                        <option value={RecurrenceFrequency.WEEKLY}>Semanal (Recomendado)</option>
+                        <option value={RecurrenceFrequency.BIWEEKLY}>Quinzenal</option>
+                        <option value={RecurrenceFrequency.MONTHLY}>Mensal</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Total de Sessões
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="2"
+                          max="24"
+                          value={recurrenceSessions}
+                          onChange={(e) => setRecurrenceSessions(Number(e.target.value))}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-semibold"
+                        />
+                        <div className="flex gap-1">
+                          {[4, 8, 12].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setRecurrenceSessions(n)}
+                              className={`px-2 py-1 text-[10px] rounded-lg border font-mono font-medium transition-colors cursor-pointer ${
+                                recurrenceSessions === n
+                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
@@ -593,10 +807,235 @@ export function AgendaModule() {
                   disabled={isSubmitting}
                   className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {isSubmitting ? 'Gerando Sala...' : 'Confirmar & Gerar Meet'}
+                  {isSubmitting 
+                    ? (isRecurrent ? 'Gerando Série...' : 'Gerando Sala...') 
+                    : (isRecurrent ? `Criar Série (${recurrenceSessions} Sessões)` : 'Confirmar & Gerar Meet')}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Notificações & Lembretes Multicanal (RFC §3.1 & Res. CFP nº 011/2018) */}
+      {showReminderModal && selectedAppointmentForReminder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl transition-colors duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    Lembrete de Teleconsulta
+                    <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                      CFP nº 011/2018
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Notificação multicanal com sala criptografada e link direto wa.me
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReminderModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Informações da Consulta */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Paciente:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                  {selectedAppointmentForReminder.patientId}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Data e Hora:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {new Date(selectedAppointmentForReminder.scheduledStart).toLocaleDateString('pt-BR')} às{' '}
+                  {new Date(selectedAppointmentForReminder.scheduledStart).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Link Meet:</span>
+                <span className="font-mono text-sky-600 dark:text-sky-400 truncate max-w-[240px]">
+                  {selectedAppointmentForReminder.meetUrl}
+                </span>
+              </div>
+            </div>
+
+            {/* Seleção de Canal e Destinatário */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Canal de Notificação
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReminderChannel(ReminderChannel.WHATSAPP);
+                      handleGeneratePreview(ReminderChannel.WHATSAPP, reminderTiming);
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                      reminderChannel === ReminderChannel.WHATSAPP
+                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-500" /> WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReminderChannel(ReminderChannel.EMAIL);
+                      handleGeneratePreview(ReminderChannel.EMAIL, reminderTiming);
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                      reminderChannel === ReminderChannel.EMAIL
+                        ? 'bg-sky-500/15 border-sky-500 text-sky-700 dark:text-sky-300 font-bold'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Send className="w-4 h-4 text-sky-500" /> E-mail
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Janela de Envio (Timing)
+                </label>
+                <select
+                  value={reminderTiming}
+                  onChange={(e) => {
+                    const timing = e.target.value as ReminderTiming;
+                    setReminderTiming(timing);
+                    handleGeneratePreview(reminderChannel, timing);
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value={ReminderTiming.IMMEDIATE}>Imediato (Agendamento Confirmado)</option>
+                  <option value={ReminderTiming.HOURS_24_BEFORE}>24 Horas Antes</option>
+                  <option value={ReminderTiming.HOURS_2_BEFORE}>2 Horas Antes (Sala de Espera)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Input de Destinatário */}
+            {reminderChannel === ReminderChannel.WHATSAPP ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Número de WhatsApp do Paciente (E.164 ou DDD + Telefone)
+                </label>
+                <input
+                  type="text"
+                  value={reminderRecipientPhone}
+                  onChange={(e) => setReminderRecipientPhone(e.target.value)}
+                  placeholder="Ex: 11987654321 ou +5511987654321"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  E-mail do Paciente
+                </label>
+                <input
+                  type="email"
+                  value={reminderRecipientEmail}
+                  onChange={(e) => setReminderRecipientEmail(e.target.value)}
+                  placeholder="paciente@exemplo.com"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono"
+                />
+              </div>
+            )}
+
+            {/* Preview da Mensagem */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Prévia da Mensagem (Acolhimento Ético & Knocking)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleGeneratePreview()}
+                  disabled={reminderLoading}
+                  className="text-[11px] text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                >
+                  Recarregar Prévia
+                </button>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto select-all">
+                {reminderPreview?.message || 'Gerando prévia da notificação...'}
+              </div>
+            </div>
+
+            {/* Histórico de Envios */}
+            {reminderHistory.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Envios Anteriores ({reminderHistory.length})
+                </span>
+                <div className="space-y-1 max-h-24 overflow-y-auto text-[11px]">
+                  {reminderHistory.map((rem) => (
+                    <div
+                      key={rem.id}
+                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {rem.channel}
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-500">
+                          {rem.sentAt ? new Date(rem.sentAt).toLocaleString('pt-BR') : 'Enviado'}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        {rem.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Botões de Ação */}
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReminderModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendReminder}
+                disabled={reminderLoading}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-md shadow-teal-500/20 cursor-pointer"
+              >
+                {reminderLoading ? (
+                  'Disparando...'
+                ) : reminderChannel === ReminderChannel.WHATSAPP ? (
+                  <>
+                    <MessageSquare className="w-4 h-4" />
+                    Enviar e Abrir WhatsApp
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Enviar E-mail com Auditoria WORM
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
