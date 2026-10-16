@@ -61,6 +61,59 @@ export enum ReminderDeliveryStatus {
   FAILED = 'FAILED'
 }
 
+/**
+ * Categorias Clínicas de Marcadores em Tempo Real na Teleconsulta (RFC-001 §3.3)
+ */
+export enum ClinicalMarkerCategory {
+  INSIGHT = 'INSIGHT',                               // Tomada de consciência / elaboração psíquica
+  AFFECT_SHIFT = 'AFFECT_SHIFT',                     // Mudança de afeto / labilidade emocional
+  CRISIS_ALERT = 'CRISIS_ALERT',                     // Alerta de desregulação aguda / ideação
+  SOMATIC_COMPLAINT = 'SOMATIC_COMPLAINT',           // Manifestação somática / queixa física
+  RESISTANCE = 'RESISTANCE',                         // Resistência / mecanismo de defesa
+  CORE_BELIEF = 'CORE_BELIEF',                       // Crença central / esquema cognitivo
+  THERAPEUTIC_CONTRACT = 'THERAPEUTIC_CONTRACT'      // Acordo terapêutico / tarefa entre sessões
+}
+
+/**
+ * Nível de Relevância Clínica do Marcador
+ */
+export enum ClinicalMarkerRelevance {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Status das Metas e Planos Terapêuticos SMART (RFC-001 §3.4)
+ */
+export enum GoalStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  ACHIEVED = 'ACHIEVED',
+  PAUSED = 'PAUSED',
+  REVISED = 'REVISED'
+}
+
+/**
+ * Escalas Psicométricas Padronizadas com Salvaguarda Ética CFP (RFC-001 §3.4)
+ */
+export enum PsychometricScaleType {
+  PHQ9 = 'PHQ9', // Patient Health Questionnaire-9 (Depressão)
+  GAD7 = 'GAD7'  // Generalized Anxiety Disorder-7 (Ansiedade)
+}
+
+/**
+ * Faixas de Gravidade Clínica das Escalas Psicométricas
+ */
+export enum PsychometricSeverityLevel {
+  MINIMAL = 'MINIMAL',                   // Mínimo / Ausente
+  MILD = 'MILD',                         // Leve
+  MODERATE = 'MODERATE',                 // Moderado
+  MODERATELY_SEVERE = 'MODERATELY_SEVERE', // Moderadamente Grave (PHQ-9)
+  SEVERE = 'SEVERE'                      // Grave
+}
+
 export enum TranscriptionStatus {
   PENDING = 'PENDING',
   PROCESSING = 'PROCESSING',
@@ -423,7 +476,13 @@ export enum AuditAction {
   APPOINTMENT_RECURRENCE_SERIES_CREATED = 'APPOINTMENT_RECURRENCE_SERIES_CREATED',
   APPOINTMENT_REMINDER_DISPATCHED = 'APPOINTMENT_REMINDER_DISPATCHED',
   // Ações de Linha do Tempo Clínica Longitudinal (RFC-001 §3.4)
-  PATIENT_TIMELINE_ACCESSED = 'PATIENT_TIMELINE_ACCESSED'
+  PATIENT_TIMELINE_ACCESSED = 'PATIENT_TIMELINE_ACCESSED',
+  // Ações de Marcadores Clínicos em Tempo Real & Metas Terapêuticas (RFC-001 §3.3, §3.4)
+  CLINICAL_MARKER_CREATED = 'CLINICAL_MARKER_CREATED',
+  CLINICAL_MARKER_DELETED = 'CLINICAL_MARKER_DELETED',
+  THERAPEUTIC_GOAL_CREATED = 'THERAPEUTIC_GOAL_CREATED',
+  THERAPEUTIC_GOAL_UPDATED = 'THERAPEUTIC_GOAL_UPDATED',
+  PSYCHOMETRIC_ASSESSMENT_SUBMITTED = 'PSYCHOMETRIC_ASSESSMENT_SUBMITTED'
 }
 
 export enum AuditResourceType {
@@ -487,7 +546,10 @@ export enum AuditResourceType {
   HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD',
   SUPPLY_CHAIN_GUARD = 'SUPPLY_CHAIN_GUARD',
   APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
-  PATIENT_TIMELINE = 'PATIENT_TIMELINE'
+  PATIENT_TIMELINE = 'PATIENT_TIMELINE',
+  CLINICAL_MARKER = 'CLINICAL_MARKER',
+  THERAPEUTIC_GOAL = 'THERAPEUTIC_GOAL',
+  PSYCHOMETRIC_ASSESSMENT = 'PSYCHOMETRIC_ASSESSMENT'
 }
 
 /**

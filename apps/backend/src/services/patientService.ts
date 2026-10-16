@@ -391,6 +391,54 @@ export class PatientService {
       });
     }
 
+    // 6. Avaliações Psicométricas Padronizadas (PHQ-9 & GAD-7 - RFC §3.4)
+    for (const psych of db.psychometricAssessments.values()) {
+      if (psych.patientId === patientId) {
+        let badgeColor: 'emerald' | 'blue' | 'violet' | 'amber' | 'rose' | 'slate' = 'blue';
+        if (psych.criticalAlert || psych.severityLevel === 'SEVERE') badgeColor = 'rose';
+        else if (psych.severityLevel === 'MODERATELY_SEVERE' || psych.severityLevel === 'MODERATE') badgeColor = 'amber';
+        else if (psych.severityLevel === 'MILD') badgeColor = 'blue';
+        else badgeColor = 'emerald';
+
+        events.push({
+          id: `ev-psych-${psych.id}`,
+          timestamp: new Date(psych.createdAt).toISOString(),
+          type: 'DOCUMENT',
+          title: `Escala ${psych.scaleType} — Escore: ${psych.totalScore} (${psych.severityLevel})`,
+          description: psych.clinicalInterpretation,
+          subtitle: psych.criticalAlert 
+            ? `⚠️ Alerta Crítico no Item 9 • ${psych.clinicalInterpretation}`
+            : psych.clinicalInterpretation,
+          badge: `${psych.scaleType} (${psych.totalScore} pts)`,
+          status: psych.severityLevel,
+          badgeColor,
+          actionLabel: 'Ver Avaliação & Recomendações',
+          metadata: {
+            documentType: psych.scaleType,
+            wormHash: psych.auditWormId
+          }
+        });
+      }
+    }
+
+    // 7. Metas Terapêuticas SMART (RFC §3.4)
+    for (const goal of db.therapeuticGoals.values()) {
+      if (goal.patientId === patientId) {
+        events.push({
+          id: `ev-goal-${goal.id}`,
+          timestamp: new Date(goal.createdAt).toISOString(),
+          type: 'ANAMNESIS',
+          title: `Meta SMART: ${goal.title} (${goal.progressPercent}%)`,
+          description: `Status: ${goal.status} • Categoria: ${goal.category || 'Geral'}`,
+          subtitle: `Progresso: ${goal.progressPercent}% • Status: ${goal.status}`,
+          badge: `${goal.progressPercent}% Concluído`,
+          status: goal.status,
+          badgeColor: goal.progressPercent === 100 ? 'emerald' : 'blue',
+          actionLabel: 'Ver Plano Terapêutico'
+        });
+      }
+    }
+
     // Calcula taxa de assiduidade clínica
     const evaluatedSessions = completedSessions + missedSessions;
     const attendanceRate = evaluatedSessions > 0

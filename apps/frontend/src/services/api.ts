@@ -548,7 +548,19 @@ import type {
   VerifySupplyChainSealDTO,
   VerifySupplyChainSealResponse,
   SupplyChainOverviewResponse,
-  DependencyNode
+  DependencyNode,
+  ClinicalSessionMarker,
+  CreateClinicalMarkerDTO,
+  UpdateClinicalMarkerDTO,
+  ExportMarkersToSoapProposalResponse,
+  TherapeuticGoal,
+  CreateTherapeuticGoalDTO,
+  UpdateTherapeuticGoalDTO,
+  PsychometricAssessment,
+  SubmitPsychometricAssessmentDTO,
+  PsychometricAssessmentResultResponse,
+  PsychometricScaleDefinition,
+  PsychometricScaleType
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3318,6 +3330,91 @@ export const api = {
 
   async getHomologatedDependencies(): Promise<{ success: boolean; packages: DependencyNode[] }> {
     return await request<{ success: boolean; packages: DependencyNode[] }>('/supply-chain-guard/homologated');
+  },
+
+  // =========================================================================
+  // RFC-001: Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3)
+  // =========================================================================
+  async createClinicalMarker(dto: CreateClinicalMarkerDTO): Promise<ClinicalSessionMarker> {
+    const res = await request<{ success: boolean; marker: ClinicalSessionMarker }>('/clinical-markers', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.marker;
+  },
+
+  async getAppointmentMarkers(appointmentId: string): Promise<ClinicalSessionMarker[]> {
+    const res = await request<{ success: boolean; markers: ClinicalSessionMarker[] }>(`/clinical-markers/appointment/${appointmentId}`);
+    return res.markers;
+  },
+
+  async updateClinicalMarker(id: string, dto: UpdateClinicalMarkerDTO): Promise<ClinicalSessionMarker> {
+    const res = await request<{ success: boolean; marker: ClinicalSessionMarker }>(`/clinical-markers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto)
+    });
+    return res.marker;
+  },
+
+  async deleteClinicalMarker(id: string): Promise<{ success: boolean; markerId: string }> {
+    return await request<{ success: boolean; markerId: string }>(`/clinical-markers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async exportMarkersToSoapProposal(appointmentId: string): Promise<ExportMarkersToSoapProposalResponse> {
+    return await request<ExportMarkersToSoapProposalResponse>(`/clinical-markers/appointment/${appointmentId}/soap-proposal`);
+  },
+
+  // =========================================================================
+  // RFC-001: Metas Terapêuticas SMART & Plano Clínico Longitudinal (§3.4)
+  // =========================================================================
+  async createTherapeuticGoal(dto: CreateTherapeuticGoalDTO): Promise<TherapeuticGoal> {
+    const res = await request<{ success: boolean; goal: TherapeuticGoal }>('/goals', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.goal;
+  },
+
+  async getPatientGoals(patientId: string): Promise<TherapeuticGoal[]> {
+    const res = await request<{ success: boolean; goals: TherapeuticGoal[] }>(`/goals/patient/${patientId}`);
+    return res.goals;
+  },
+
+  async updateTherapeuticGoal(id: string, dto: UpdateTherapeuticGoalDTO): Promise<TherapeuticGoal> {
+    const res = await request<{ success: boolean; goal: TherapeuticGoal }>(`/goals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto)
+    });
+    return res.goal;
+  },
+
+  async deleteTherapeuticGoal(id: string): Promise<{ success: boolean; goalId: string }> {
+    return await request<{ success: boolean; goalId: string }>(`/goals/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // =========================================================================
+  // RFC-001: Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7 / CFP)
+  // =========================================================================
+  async getPsychometricDefinition(scaleType: PsychometricScaleType): Promise<PsychometricScaleDefinition> {
+    const res = await request<{ success: boolean; definition: PsychometricScaleDefinition }>(`/psychometrics/definition/${scaleType}`);
+    return res.definition;
+  },
+
+  async submitPsychometricAssessment(dto: SubmitPsychometricAssessmentDTO): Promise<PsychometricAssessmentResultResponse> {
+    return await request<PsychometricAssessmentResultResponse>('/psychometrics/submit', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientPsychometricAssessments(patientId: string, scale?: PsychometricScaleType): Promise<PsychometricAssessment[]> {
+    const query = scale ? `?scale=${encodeURIComponent(scale)}` : '';
+    const res = await request<{ success: boolean; assessments: PsychometricAssessment[] }>(`/psychometrics/patient/${patientId}${query}`);
+    return res.assessments;
   }
 };
 
