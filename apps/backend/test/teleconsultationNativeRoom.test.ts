@@ -294,5 +294,68 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       const endData = await endRes.json() as any;
       expect(endData.room.status).toBe(TeleconsultationRoomStatus.COMPLETED);
     });
+
+    it('deve sincronizar dispositivos reais de hardware (câmera/microfone) e sinalização WebRTC P2P (SDP Offer/Answer/ICE)', async () => {
+      const loginRes = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'psicologo@terapiainfoco.com.br',
+          password: 'Senha@123456'
+        })
+      });
+      const { accessToken: token } = await loginRes.json() as any;
+
+      const hwRes = await app.request('/api/teleconsultation/session/hardware-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          appointmentId,
+          cameraActive: true,
+          microphoneActive: true,
+          screenShareActive: false,
+          cameraLabel: 'FaceTime HD Camera (Built-in)',
+          microphoneLabel: 'MacBook Pro Microphone',
+          resolution: '1280x720 @ 30fps',
+          frameRate: 30,
+          audioSampleRate: 48000
+        })
+      });
+      expect(hwRes.status).toBe(200);
+      const hwData = await hwRes.json() as any;
+      expect(hwData.success).toBe(true);
+      expect(hwData.room.therapistMediaState.cameraActive).toBe(true);
+      expect(hwData.room.therapistMediaState.cameraLabel).toBe('FaceTime HD Camera (Built-in)');
+      expect(hwData.room.therapistMediaState.microphoneLabel).toBe('MacBook Pro Microphone');
+
+      const sigRes = await app.request('/api/teleconsultation/session/signal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          appointmentId,
+          signalType: 'OFFER',
+          sdp: 'v=0\r\no=- 12345 2 IN IP4 127.0.0.1\r\na=fingerprint:sha-256 AA:BB:CC:DD'
+        })
+      });
+      expect(sigRes.status).toBe(200);
+      const sigData = await sigRes.json() as any;
+      expect(sigData.success).toBe(true);
+      expect(sigData.signal.signalType).toBe('OFFER');
+
+      const listSigRes = await app.request(`/api/teleconsultation/session/signal/${appointmentId}?excludeSelf=false`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      expect(listSigRes.status).toBe(200);
+      const listSigData = await listSigRes.json() as any;
+      expect(listSigData.signals).toHaveLength(1);
+      expect(listSigData.signals[0].sdp).toContain('fingerprint:sha-256');
+    });
   });
 });

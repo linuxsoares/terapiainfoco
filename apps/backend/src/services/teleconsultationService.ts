@@ -10,6 +10,10 @@ import {
   type UpdateCallQualityDTO,
   type ToggleRecordingDTO,
   type EndTeleconsultationDTO,
+  type SendWebRtcSignalDTO,
+  type SyncMediaHardwareDTO,
+  type WebRtcSignalEnvelope,
+  type MediaHardwareState,
   TeleconsultationRoomStatus,
   TeleconsultationParticipantRole,
   CallQualityState,
@@ -368,6 +372,120 @@ export class TeleconsultationService {
     });
 
     return this.decryptStoredRoom(stored);
+  }
+
+  /**
+   * Sincroniza o estado real dos dispositivos de hardware (Câmera, Microfone e Compartilhamento de Tela)
+   */
+  static syncMediaHardware(params: {
+    dto: SyncMediaHardwareDTO;
+    context: { actorId: string; ipAddress: string; userAgent?: string };
+  }): TeleconsultationRoom {
+    const { dto, context } = params;
+    let stored = db.teleconsultationRooms.get(dto.appointmentId);
+    if (!stored) {
+      this.getOrCreateRoom({ appointmentId: dto.appointmentId, context });
+      stored = db.teleconsultationRooms.get(dto.appointmentId)!;
+    }
+
+    const now = new Date().toISOString();
+    const hardwareState: MediaHardwareState = {
+      cameraActive: Boolean(dto.cameraActive),
+      microphoneActive: Boolean(dto.microphoneActive),
+      screenShareActive: Boolean(dto.screenShareActive),
+      cameraLabel: dto.cameraLabel || 'Câmera WebRTC HD Integrada',
+      microphoneLabel: dto.microphoneLabel || 'Microfone WebRTC com Cancelamento de Eco',
+      resolution: dto.resolution || '1280x720',
+      frameRate: dto.frameRate || 30,
+      audioSampleRate: dto.audioSampleRate || 48000,
+      updatedAt: now
+    };
+
+    if (dto.role === TeleconsultationParticipantRole.PATIENT) {
+      stored.patientMediaState = hardwareState;
+    } else {
+      stored.therapistMediaState = hardwareState;
+    }
+    stored.updatedAt = now;
+
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.TELECONSULTATION_ROOM,
+      resourceId: dto.appointmentId,
+      action: AuditAction.TELECONSULTATION_HARDWARE_SYNC,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    return this.decryptStoredRoom(stored);
+  }
+
+  /**
+   * Registra mensagem de sinalização WebRTC P2P (SDP Offer, Answer, ICE Candidate)
+   */
+  static sendSignal(params: {
+    dto: SendWebRtcSignalDTO;
+    context: { actorId: string; ipAddress: string; userAgent?: string };
+  }): { signal: WebRtcSignalEnvelope; room: TeleconsultationRoom } {
+    const { dto, context } = params;
+    let stored = db.teleconsultationRooms.get(dto.appointmentId);
+    if (!stored) {
+      this.getOrCreateRoom({ appointmentId: dto.appointmentId, context });
+      stored = db.teleconsultationRooms.get(dto.appointmentId)!;
+    }
+
+    const now = new Date().toISOString();
+    const signal: WebRtcSignalEnvelope = {
+      id: `sig_${randomUUID().substring(0, 12)}`,
+      appointmentId: dto.appointmentId,
+      senderId: context.actorId,
+      senderRole: dto.senderRole || TeleconsultationParticipantRole.THERAPIST,
+      signalType: dto.signalType,
+      sdp: dto.sdp,
+      candidate: dto.candidate,
+      mediaState: dto.mediaState,
+      createdAt: now
+    };
+
+    if (!stored.signals) {
+      stored.signals = [];
+    }
+    stored.signals.push(signal);
+    if (stored.signals.length > 50) {
+      stored.signals = stored.signals.slice(-50);
+    }
+    stored.updatedAt = now;
+
+    if (dto.signalType === 'OFFER' || dto.signalType === 'ANSWER') {
+      AuditService.log({
+        actorId: context.actorId,
+        resourceType: AuditResourceType.TELECONSULTATION_ROOM,
+        resourceId: dto.appointmentId,
+        action: AuditAction.TELECONSULTATION_WEBRTC_SIGNAL,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      });
+    }
+
+    return {
+      signal,
+      room: this.decryptStoredRoom(stored)
+    };
+  }
+
+  /**
+   * Lista sinais WebRTC P2P da sala
+   */
+  static getSignals(params: {
+    appointmentId: string;
+    excludeSenderId?: string;
+  }): WebRtcSignalEnvelope[] {
+    const stored = db.teleconsultationRooms.get(params.appointmentId);
+    if (!stored || !stored.signals) return [];
+    if (params.excludeSenderId) {
+      return stored.signals.filter(s => s.senderId !== params.excludeSenderId);
+    }
+    return stored.signals;
   }
 
   /**

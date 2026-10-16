@@ -5,6 +5,9 @@ import {
   type UpdateCallQualityDTO,
   type ToggleRecordingDTO,
   type EndTeleconsultationDTO,
+  type SendWebRtcSignalDTO,
+  type SyncMediaHardwareDTO,
+  TeleconsultationParticipantRole,
   UserRole
 } from '@terapiainfoco/shared';
 import { TeleconsultationService } from '../services/teleconsultationService';
@@ -113,6 +116,117 @@ teleconsultationRoutes.post('/admit', authMiddleware(), requireRole([UserRole.PS
     return c.json({
       success: false,
       message: err.message || 'Erro ao admitir participante.'
+    }, 400);
+  }
+});
+
+/**
+ * POST /api/teleconsultation/hardware-sync
+ * Sincroniza estado real dos dispositivos de hardware (Câmera, Microfone e Tela)
+ */
+teleconsultationRoutes.post('/hardware-sync', authMiddleware(), async (c) => {
+  try {
+    const body = await c.req.json<SyncMediaHardwareDTO>();
+    if (!body.appointmentId) {
+      return c.json({
+        success: false,
+        message: 'appointmentId é obrigatório.'
+      }, 400);
+    }
+
+    const user = c.get('user');
+    const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const userAgent = c.req.header('user-agent');
+
+    const role = body.role || (user.role === UserRole.PACIENTE ? TeleconsultationParticipantRole.PATIENT : TeleconsultationParticipantRole.THERAPIST);
+
+    const room = TeleconsultationService.syncMediaHardware({
+      dto: { ...body, role },
+      context: {
+        actorId: user.id,
+        ipAddress,
+        userAgent
+      }
+    });
+
+    return c.json({
+      success: true,
+      room,
+      message: 'Dispositivos de câmera e microfone sincronizados com a sessão WebRTC.'
+    }, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: err.message || 'Erro ao sincronizar hardware de mídia.'
+    }, 400);
+  }
+});
+
+/**
+ * POST /api/teleconsultation/signal
+ * Envia sinal WebRTC P2P (SDP Offer, SDP Answer, ICE Candidate, Media State)
+ */
+teleconsultationRoutes.post('/signal', authMiddleware(), async (c) => {
+  try {
+    const body = await c.req.json<SendWebRtcSignalDTO>();
+    if (!body.appointmentId || !body.signalType) {
+      return c.json({
+        success: false,
+        message: 'appointmentId e signalType são obrigatórios.'
+      }, 400);
+    }
+
+    const user = c.get('user');
+    const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const userAgent = c.req.header('user-agent');
+
+    const senderRole = body.senderRole || (user.role === UserRole.PACIENTE ? TeleconsultationParticipantRole.PATIENT : TeleconsultationParticipantRole.THERAPIST);
+
+    const result = TeleconsultationService.sendSignal({
+      dto: { ...body, senderRole },
+      context: {
+        actorId: user.id,
+        ipAddress,
+        userAgent
+      }
+    });
+
+    return c.json({
+      success: true,
+      signal: result.signal,
+      room: result.room
+    }, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: err.message || 'Erro ao enviar sinal WebRTC.'
+    }, 400);
+  }
+});
+
+/**
+ * GET /api/teleconsultation/signal/:appointmentId
+ * Lista sinais WebRTC P2P da sala
+ */
+teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), async (c) => {
+  try {
+    const appointmentId = c.req.param('appointmentId');
+    const excludeSelf = c.req.query('excludeSelf') === 'true';
+    const user = c.get('user');
+
+    const signals = TeleconsultationService.getSignals({
+      appointmentId,
+      excludeSenderId: excludeSelf ? user.id : undefined
+    });
+
+    return c.json({
+      success: true,
+      signals
+    }, 200);
+  } catch (err: any) {
+    return c.json({
+      success: false,
+      message: err.message || 'Erro ao buscar sinais WebRTC.'
     }, 400);
   }
 });
