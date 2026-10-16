@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.288/1.288 Testes Passando (0 falhas em 129 arquivos)
+> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.296/1.296 Testes Passando (0 falhas em 130 arquivos)
 
 
 
@@ -2124,13 +2124,14 @@ terapiainfoco/
 | `feat/http2-grpc-header-guard` | Proteção contra Injeção de Cabeçalhos e Split de Requisições HTTP/2 & gRPC (CWE-113, CWE-444 & RFC 9113 HTTP/2 Desync / Request Smuggling) | [PR #89](https://github.com/linuxsoares/terapiainfoco/pull/89) | Merged |
 | `feat/supply-chain-dependency-guard` | Proteção contra Injeção de Dependências Dinâmicas & Supply Chain Guard (SLSA L3, SCVS v1.0, RFC SRI, CWE-470, CWE-912) | [PR #90](https://github.com/linuxsoares/terapiainfoco/pull/90) | Merged |
 | `feat/recurrent-booking-reminders-clinical-timeline` | Agendamento Recorrente & Séries Clínicas, Notificações & Lembretes Multicanal WhatsApp/Email (CFP nº 011/2018) e Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.1, §3.4) | [PR #91](https://github.com/linuxsoares/terapiainfoco/pull/91) | Merged |
-| `feat/clinical-session-markers-and-smart-plans` | Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3), Metas Terapêuticas SMART & Escalas Psicométricas Padronizadas PHQ-9 e GAD-7 (RFC-001 §3.4 / CFP) | [PR #92](https://github.com/linuxsoares/terapiainfoco/pull/92) | Em Aberto / Merging |
+| `feat/clinical-session-markers-and-smart-plans` | Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3), Metas Terapêuticas SMART & Escalas Psicométricas Padronizadas PHQ-9 e GAD-7 (RFC-001 §3.4 / CFP) | [PR #92](https://github.com/linuxsoares/terapiainfoco/pull/92) | Merged |
+| `feat/consolidated-clinical-reports-and-referrals` | Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019) e Encaminhamentos Multidisciplinares Interoperáveis com Contra-Referência Médica (RFC-001 §3.5) | PR #93 | Em Aberto |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.288 testes automatizados (0 falhas em 129 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.296 testes automatizados (0 falhas em 130 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2138,8 +2139,10 @@ Com a **Evolução de Produto RFC-001 (Marcadores Clínicos em Tempo Real §3.3 
 - [x] **Linha do Tempo Clínica Longitudinal do Paciente (Timeline - RFC-001 §3.4):** Agregação unificada de consultas, evoluções SOAP assinadas, fichas de anamnese, documentos CFP emitidos e termos TCLE, com taxa de assiduidade dinâmica (attendanceRate).
 - [x] **Módulo de Prontuário Multidimensional com Marcadores Clínicos em Tempo Real (RFC-001 §3.3):** Marcação de momentos-chave na sessão durante a teleconsulta (INSIGHT, CRISIS_ALERT, AFFECT_SHIFT, SOMATIC_COMPLAINT, etc.) com notas timestamped criptografadas em repouso (FLE AES-256-GCM) e integração com 1 clique para consolidação preliminar dos quadrantes SOAP.
 - [x] **Módulo de Planos Terapêuticos SMART & Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7 - RFC-001 §3.4 / CFP):** Definição de objetivos terapêuticos SMART com mensuração de progresso visual (0% a 100%), e avaliação clínica padronizada com cálculo automático de escores, níveis de severidade, detecção de ideação de autolesão (Item 9 do PHQ-9) com diretrizes éticas CFP imediatas, selo WORM de imutabilidade e análise de tendência longitudinal.
-- [ ] **Módulo de Exportação Consolidada de Prontuário para Auditoria Pericial & Laudo Multi-Sessões (RFC-001 §3.5):** Compilação de série histórica de evoluções SOAP, linha do tempo, escalas psicométricas e metas com assinatura digital ICP-Brasil em lote.
-- [ ] **Módulo de Prescrição & Encaminhamento Multidisciplinar Interoperável (RFC-001 §3.5):** Geração de documentos com validação CFM/CFP e assinatura digital de contra-referência.
+- [x] **Módulo de Laudo Pericial Multi-Sessões & Relatório Consolidado (Resolução CFP nº 006/2019 & RFC-001 §3.5):** Compilação estruturada nas 5 seções canônicas (I - Identificação com CRP, II - Descrição da Demanda, III - Procedimento com sessões da timeline e testes, IV - Análise com evolução psicométrica longitudinal e metas SMART, V - Conclusão com parecer e CID-11) com hash SHA-256 canônico e assinatura digital ICP-Brasil em lote.
+- [x] **Módulo de Encaminhamento Multidisciplinar Interoperável & Contra-Referência (RFC-001 §3.5):** Comunicação multiprofissional ética sob o Art. 9º do Código de Ética do Psicólogo, níveis de urgência (ROUTINE, PRIORITY, EMERGENCY), resumo psicométrico objetivo, validação pública anônima sem login por token (iniciais do paciente mascaradas para LGPD/CFP) e registro de contra-referência médica/psiquiátrica.
+- [ ] **Módulo de Teleconsulta Nativa WebRTC P2P com Gravação Cifrada Ponta a Ponta e Transcrição Local em Tempo Real (RFC-001 §3.2, §3.3).**
+- [ ] **Módulo de Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio com Assinatura Digital e Termo de Honorários (RFC-001 §3.6).**
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.

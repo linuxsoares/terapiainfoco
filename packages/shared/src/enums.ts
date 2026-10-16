@@ -134,6 +134,37 @@ export enum DocumentType {
 }
 
 /**
+ * Finalidades Formais de Laudos & Relatórios Psicológicos Multi-Sessões (Resolução CFP nº 006/2019 & RFC-001 §3.5)
+ */
+export enum ClinicalReportPurpose {
+  JUDICIAL_EXPERT = 'JUDICIAL_EXPERT',               // Perícia Judicial / Assistência Técnica
+  PSYCHIATRIC_REFERRAL = 'PSYCHIATRIC_REFERRAL',     // Interconsulta / Encaminhamento Psiquiátrico
+  CLINICAL_EVOLUTION = 'CLINICAL_EVOLUTION',         // Relatório de Evolução e Síntese de Tratamento
+  OCCUPATIONAL = 'OCCUPATIONAL',                     // Avaliação Laboral / Aptidão Ocupacional
+  EDUCATIONAL = 'EDUCATIONAL',                       // Avaliação Psicopedagógica / Escolar
+  DISCHARGE_SUMMARY = 'DISCHARGE_SUMMARY'            // Sumário de Alta Terapêutica
+}
+
+/**
+ * Níveis de Urgência para Encaminhamento Multidisciplinar (RFC-001 §3.5)
+ */
+export enum ReferralUrgency {
+  ROUTINE = 'ROUTINE',       // Avaliação de rotina
+  PRIORITY = 'PRIORITY',     // Prioritário (sintomatologia moderada com prejuízo funcional)
+  EMERGENCY = 'EMERGENCY'    // Emergência médica / psiquiátrica (risco iminente ou ideação grave)
+}
+
+/**
+ * Status do Encaminhamento Multidisciplinar Interoperável
+ */
+export enum ReferralStatus {
+  ISSUED = 'ISSUED',               // Emitido e assinado digitalmente
+  ACKNOWLEDGED = 'ACKNOWLEDGED',   // Recebido e visualizado pelo profissional de destino
+  COUNTER_REFERRED = 'COUNTER_REFERRED', // Respondido com contra-referência
+  CANCELLED = 'CANCELLED'          // Cancelado
+}
+
+/**
  * Papéis de controle de acesso baseado em função (RBAC)
  * para a clínica psicológica conforme RFC-001 e normas do CFP/LGPD
  */
@@ -482,7 +513,11 @@ export enum AuditAction {
   CLINICAL_MARKER_DELETED = 'CLINICAL_MARKER_DELETED',
   THERAPEUTIC_GOAL_CREATED = 'THERAPEUTIC_GOAL_CREATED',
   THERAPEUTIC_GOAL_UPDATED = 'THERAPEUTIC_GOAL_UPDATED',
-  PSYCHOMETRIC_ASSESSMENT_SUBMITTED = 'PSYCHOMETRIC_ASSESSMENT_SUBMITTED'
+  PSYCHOMETRIC_ASSESSMENT_SUBMITTED = 'PSYCHOMETRIC_ASSESSMENT_SUBMITTED',
+  // Ações de Laudos Multi-Sessões & Encaminhamentos Multidisciplinares (RFC-001 §3.5)
+  CONSOLIDATED_REPORT_GENERATED = 'CONSOLIDATED_REPORT_GENERATED',
+  CLINICAL_REFERRAL_CREATED = 'CLINICAL_REFERRAL_CREATED',
+  CLINICAL_REFERRAL_VALIDATED = 'CLINICAL_REFERRAL_VALIDATED'
 }
 
 export enum AuditResourceType {
@@ -549,7 +584,9 @@ export enum AuditResourceType {
   PATIENT_TIMELINE = 'PATIENT_TIMELINE',
   CLINICAL_MARKER = 'CLINICAL_MARKER',
   THERAPEUTIC_GOAL = 'THERAPEUTIC_GOAL',
-  PSYCHOMETRIC_ASSESSMENT = 'PSYCHOMETRIC_ASSESSMENT'
+  PSYCHOMETRIC_ASSESSMENT = 'PSYCHOMETRIC_ASSESSMENT',
+  CONSOLIDATED_REPORT = 'CONSOLIDATED_REPORT',
+  CLINICAL_REFERRAL = 'CLINICAL_REFERRAL'
 }
 
 /**
