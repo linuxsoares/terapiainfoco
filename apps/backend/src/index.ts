@@ -50,6 +50,7 @@ import { ephemeralTokenRouter } from './routes/ephemeralToken';
 import { courtOrderThresholdRouter } from './routes/courtOrderThreshold';
 import { prototypePollutionRouter } from './routes/prototypePollution';
 import webCacheGuardRouter from './routes/webCacheGuard';
+import xmlSecurityGuardRouter from './routes/xmlSecurityGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -196,6 +197,7 @@ app.route('/api/ephemeral-tokens', ephemeralTokenRouter);
 app.route('/api/court-order-threshold', courtOrderThresholdRouter);
 app.route('/api/prototype-pollution', prototypePollutionRouter);
 app.route('/api/cache-guard', webCacheGuardRouter);
+app.route('/api/xml-guard', xmlSecurityGuardRouter);
 
 
 

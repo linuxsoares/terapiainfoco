@@ -49,6 +49,8 @@ export * from './ephemeralTokenEngine';
 export * from './shamirSecretSharingEngine';
 export * from './prototypePollutionGuard';
 export * from './webCacheGuard';
+export * from './xmlSecurityGuard';
+
 
 
 
