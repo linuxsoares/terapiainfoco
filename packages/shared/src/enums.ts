@@ -326,7 +326,14 @@ export enum AuditAction {
   SESSION_ROTATED_ON_PRIVILEGE_ELEVATION = 'SESSION_ROTATED_ON_PRIVILEGE_ELEVATION',
   SESSION_CONTEXT_BOUND = 'SESSION_CONTEXT_BOUND',
   SESSION_GUARD_POLICY_UPDATED = 'SESSION_GUARD_POLICY_UPDATED',
-  SESSION_GUARD_SEAL_VERIFIED = 'SESSION_GUARD_SEAL_VERIFIED'
+  SESSION_GUARD_SEAL_VERIFIED = 'SESSION_GUARD_SEAL_VERIFIED',
+  // Ações de Detecção e Prevenção de ReDoS (OWASP ASVS V5.5 & CWE-1333)
+  REDOS_PATTERN_ANALYZED = 'REDOS_PATTERN_ANALYZED',
+  REDOS_ATTACK_BLOCKED = 'REDOS_ATTACK_BLOCKED',
+  REDOS_TIMEOUT_TRIGGERED = 'REDOS_TIMEOUT_TRIGGERED',
+  REDOS_PATTERN_REWRITTEN = 'REDOS_PATTERN_REWRITTEN',
+  REDOS_POLICY_UPDATED = 'REDOS_POLICY_UPDATED',
+  REDOS_SEAL_VERIFIED = 'REDOS_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -380,7 +387,8 @@ export enum AuditResourceType {
   PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD',
   CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD',
   XML_SECURITY_GUARD = 'XML_SECURITY_GUARD',
-  SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD'
+  SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD',
+  REDOS_GUARD = 'REDOS_GUARD'
 }
 
 /**
@@ -1718,6 +1726,51 @@ export enum SessionSecurityLevel {
   STANDARD_WEB = 'STANDARD_WEB',                       // Navegação padrão no painel
   STRICT_CLINICAL = 'STRICT_CLINICAL',                 // Acesso autenticado a prontuários e notas SOAP (bind rígido de subnet)
   TELEMEDICINE_ENCLAVE = 'TELEMEDICINE_ENCLAVE'        // Teleconsulta WebRTC em tempo real com bind de TLS JA4/JA3 e rede
+}
+
+/**
+ * Nível de Complexidade e Risco Teórico de Regex (CWE-1333 / OWASP ASVS V5.5)
+ */
+export enum RegexComplexityRisk {
+  SAFE_LINEAR = 'SAFE_LINEAR',                         // O(n) - Seguro, sem repetições aninhadas
+  LOW_POLYNOMIAL = 'LOW_POLYNOMIAL',                   // O(n^2) - Polinomial leve, aceitável com limite de tamanho
+  HIGH_POLYNOMIAL = 'HIGH_POLYNOMIAL',                 // O(n^3+) - Polinomial grave, propenso a degradação
+  CRITICAL_EXPONENTIAL_EVIL = 'CRITICAL_EXPONENTIAL_EVIL' // O(2^n) - Evil Regex com backtracking catastrófico
+}
+
+/**
+ * Padrão Estrutural de Vulnerabilidade Léxica em Expressão Regular
+ */
+export enum RegexVulnerabilityType {
+  NONE = 'NONE',                                       // Padrão estruturalmente seguro
+  NESTED_QUANTIFIERS = 'NESTED_QUANTIFIERS',           // Ex: (a+)+, (\w+)* (quantificador aninhado)
+  OVERLAPPING_DISJUNCTION = 'OVERLAPPING_DISJUNCTION', // Ex: (a|aa)+, (b|b?)* (disjunções sobrepostas ambíguas)
+  ADJACENT_UNBOUNDED_REPETITIONS = 'ADJACENT_UNBOUNDED_REPETITIONS', // Ex: \d+.*\d+.* (múltiplas repetições abertas)
+  STAR_HEIGHT_EXCESSIVE = 'STAR_HEIGHT_EXCESSIVE'      // Star height > 1 aninhado
+}
+
+/**
+ * Ação de Mitigação e Execução Segura de Expressões Regulares
+ */
+export enum RegexSanitizationAction {
+  ALLOWED_SAFE = 'ALLOWED_SAFE',                       // Execução permitida diretamente
+  REWRITTEN_SAFE = 'REWRITTEN_SAFE',                   // Expressão reescrita para forma atômica/linear segura
+  EXECUTION_TIMED_OUT = 'EXECUTION_TIMED_OUT',         // Interrompido por timeout do guardrail
+  BLOCKED_VULNERABLE = 'BLOCKED_VULNERABLE'            // Bloqueado em modo estrito por complexidade catastrófica
+}
+
+/**
+ * Presets Clínicos Validados e Blindados contra ReDoS
+ */
+export enum RegexClinicalPresetType {
+  CPF_DOCUMENT = 'CPF_DOCUMENT',                       // Formato CPF 000.000.000-00 ou 11 dígitos
+  CNS_HEALTH_CARD = 'CNS_HEALTH_CARD',                 // Cartão Nacional de Saúde (15 dígitos)
+  CID11_DIAGNOSIS = 'CID11_DIAGNOSIS',                 // Código CID-11 (ex: 6A70, MB23.4)
+  PHONE_E164 = 'PHONE_E164',                           // Telefone E.164 internacional (+55...)
+  EMAIL_RFC5322 = 'EMAIL_RFC5322',                     // E-mail em formato seguro sem backtracking
+  CRP_REGISTRATION = 'CRP_REGISTRATION',               // Registro CRP (ex: CRP 06/123456)
+  DATE_ISO8601 = 'DATE_ISO8601',                       // Data ISO AAAA-MM-DD
+  CUSTOM_SEARCH = 'CUSTOM_SEARCH'                      // Busca textual livre customizada
 }
 
 

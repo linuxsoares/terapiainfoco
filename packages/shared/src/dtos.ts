@@ -3535,6 +3535,83 @@ export interface SessionGuardOverviewResponse {
   overview: import('./models').SessionGuardOverview;
 }
 
+/**
+ * 66. DETECÇÃO E PREVENÇÃO DE REDOS & SAFE REGEX ENGINE
+ * (OWASP ASVS v4.0 V5.5, CWE-1333 & ReDoS Guard)
+ */
+
+export interface AnalyzeRegexDTO {
+  pattern: string;
+  flags?: string;
+  testInput?: string;
+}
+
+export interface AnalyzeRegexResponse {
+  success: boolean;
+  analysis: import('./models').RegexAstAnalysisResult;
+  execution?: import('./models').SafeRegexExecutionResult;
+  seal?: import('./models').RedosProofSeal;
+  message: string;
+}
+
+export interface ExecuteSafeRegexDTO {
+  pattern: string;
+  flags?: string;
+  input: string;
+  maxTimeoutMs?: number;
+  autoRewrite?: boolean;
+}
+
+export interface ExecuteSafeRegexResponse {
+  success: boolean;
+  result: import('./models').SafeRegexExecutionResult;
+  seal?: import('./models').RedosProofSeal;
+  message: string;
+}
+
+export interface UpdateRedosPolicyDTO {
+  policy: Partial<import('./models').RedosGuardPolicy>;
+}
+
+export interface UpdateRedosPolicyResponse {
+  success: boolean;
+  policy: import('./models').RedosGuardPolicy;
+  message: string;
+}
+
+export interface SimulateRedosAttackDTO {
+  vulnerabilityType: import('./enums').RegexVulnerabilityType;
+  customInputSize?: number;
+}
+
+export interface SimulateRedosAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPattern: string;
+  attackInputSnippet: string;
+  analysis: import('./models').RegexAstAnalysisResult;
+  execution: import('./models').SafeRegexExecutionResult;
+  incident?: import('./models').RedosSecurityIncident;
+  message: string;
+}
+
+export interface VerifyRedosSealDTO {
+  sealToken: string | import('./models').RedosProofSeal;
+}
+
+export interface VerifyRedosSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').RedosProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface RedosGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').RedosGuardOverview;
+}
+
 
 
 

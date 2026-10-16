@@ -3835,6 +3835,101 @@ export interface SessionGuardOverview {
   }>;
 }
 
+/**
+ * 66. DETECÇÃO E PREVENÇÃO DE REDOS & SAFE REGEX ENGINE
+ * (OWASP ASVS v4.0 V5.5, CWE-1333 & ReDoS Guard)
+ */
+
+export interface RegexAstAnalysisResult {
+  pattern: string;
+  complexity: import('./enums').RegexComplexityRisk;
+  vulnerabilityType: import('./enums').RegexVulnerabilityType;
+  isVulnerable: boolean;
+  starHeight: number;
+  hasNestedQuantifiers: boolean;
+  hasOverlappingDisjunction: boolean;
+  hasAdjacentUnboundedRepetitions: boolean;
+  recommendations: string[];
+  suggestedSafePattern?: string;
+}
+
+export interface SafeRegexExecutionResult {
+  matched: boolean;
+  matchCount: number;
+  matches: string[];
+  executionTimeMs: number;
+  timedOut: boolean;
+  inputLength: number;
+  actionTaken: import('./enums').RegexSanitizationAction;
+  executedPattern: string;
+}
+
+export interface RedosProofSeal {
+  version: '1.0.0';
+  sealId: string; // redos_seal_<base64url>
+  timestamp: string;
+  patternHash: string; // SHA-256 do pattern normalizado
+  inputHash: string;   // SHA-256 do input testado
+  complexity: import('./enums').RegexComplexityRisk;
+  vulnerabilityType: import('./enums').RegexVulnerabilityType;
+  actionTaken: import('./enums').RegexSanitizationAction;
+  executionTimeMs: number;
+  hmacSignature: string; // Assinatura determinística RFC 8785
+}
+
+export interface RedosSecurityIncident {
+  id: string;
+  timestamp: string;
+  pattern: string;
+  patternSnippet: string;
+  inputSnippet: string;
+  vulnerabilityType: import('./enums').RegexVulnerabilityType;
+  complexity: import('./enums').RegexComplexityRisk;
+  executionTimeMs: number;
+  timedOut: boolean;
+  clientIp: string;
+  userId: string;
+  actionTaken: import('./enums').RegexSanitizationAction;
+  seal: RedosProofSeal;
+}
+
+export interface RedosGuardPolicy {
+  maxExecutionTimeMs: number;        // Teto rígido em ms (default: 25ms)
+  maxPatternLength: number;          // Tamanho máximo do pattern (default: 500 chars)
+  maxInputLength: number;            // Tamanho máximo da entrada a ser testada (default: 20000 chars)
+  blockExponentialPatterns: boolean; // Rejeita sumariamente padrões O(2^n)
+  autoRewriteIfPossible: boolean;    // Converte padrões conhecidos para forma linear segura
+  strictClinicalMode: boolean;       // Exige conformidade rígida para filtros e prontuários
+}
+
+export interface ClinicalRegexPreset {
+  type: import('./enums').RegexClinicalPresetType;
+  title: string;
+  description: string;
+  pattern: string;
+  sampleValid: string;
+  sampleInvalid: string;
+  complexity: import('./enums').RegexComplexityRisk;
+}
+
+export interface RedosGuardMetrics {
+  totalEvaluations: number;
+  safeEvaluations: number;
+  blockedAttacks: number;
+  timeoutsTriggered: number;
+  patternsRewritten: number;
+  avgExecutionTimeMs: number;
+  lastIncidentTimestamp: string | null;
+}
+
+export interface RedosGuardOverview {
+  metrics: RedosGuardMetrics;
+  policy: RedosGuardPolicy;
+  recentIncidents: RedosSecurityIncident[];
+  clinicalPresets: ClinicalRegexPreset[];
+  recentSealsSample: RedosProofSeal[];
+}
+
 
 
 

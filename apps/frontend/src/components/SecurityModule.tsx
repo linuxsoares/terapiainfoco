@@ -331,7 +331,16 @@ import {
   type SessionGuardIncident,
   type SessionGuardOverview,
   type SimulateSessionAttackResponse,
-  type VerifySessionSealResponse
+  type VerifySessionSealResponse,
+  RegexComplexityRisk,
+  RegexVulnerabilityType,
+  type RegexAstAnalysisResult,
+  type SafeRegexExecutionResult,
+  type RedosProofSeal,
+  type RedosSecurityIncident,
+  type RedosGuardOverview,
+  type SimulateRedosAttackResponse,
+  type VerifyRedosSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -5210,6 +5219,150 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 66. DETECÇÃO E PREVENÇÃO DE REDOS & SAFE REGEX ENGINE (OWASP ASVS V5.5 & CWE-1333)
+  const [redosOverview, setRedosOverview] = useState<RedosGuardOverview | null>(null);
+  const [loadingRedos, setLoadingRedos] = useState<boolean>(false);
+  const [redosActiveTab, setRedosActiveTab] = useState<'analyzer' | 'presets' | 'simulate' | 'policy'>('analyzer');
+
+  // Aba 1: Analisador Léxico & Executor Seguro
+  const [regexPatternInput, setRegexPatternInput] = useState<string>('^\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}$');
+  const [regexTestInput, setRegexTestInput] = useState<string>('123.456.789-00');
+  const [regexFlags, setRegexFlags] = useState<string>('');
+  const [regexAutoRewrite, setRegexAutoRewrite] = useState<boolean>(true);
+  const [analyzingRegex, setAnalyzingRegex] = useState<boolean>(false);
+  const [lastRegexAnalysis, setLastRegexAnalysis] = useState<RegexAstAnalysisResult | null>(null);
+  const [lastRegexExecution, setLastRegexExecution] = useState<SafeRegexExecutionResult | null>(null);
+
+  // Aba 3: Simulador Adversarial
+  const [simRedosVulnType, setSimRedosVulnType] = useState<RegexVulnerabilityType>(RegexVulnerabilityType.NESTED_QUANTIFIERS);
+  const [simRedosInputSize, setSimRedosInputSize] = useState<number>(25);
+  const [simulatingRedos, setSimulatingRedos] = useState<boolean>(false);
+  const [simRedosResult, setSimRedosResult] = useState<SimulateRedosAttackResponse | null>(null);
+
+  // Aba 4: Políticas
+  const [policyRedosMaxTimeMs, setPolicyRedosMaxTimeMs] = useState<number>(25);
+  const [policyRedosMaxPatternLen, setPolicyRedosMaxPatternLen] = useState<number>(500);
+  const [policyRedosMaxInputLen, setPolicyRedosMaxInputLen] = useState<number>(20000);
+  const [policyRedosBlockExponential, setPolicyRedosBlockExponential] = useState<boolean>(true);
+  const [policyRedosAutoRewrite, setPolicyRedosAutoRewrite] = useState<boolean>(true);
+  const [policyRedosStrictClinical, setPolicyRedosStrictClinical] = useState<boolean>(true);
+  const [updatingRedosPolicy, setUpdatingRedosPolicy] = useState<boolean>(false);
+
+  // Modal 48.A: Certidão Notarial Forense WORM
+  const [selectedRedosSealForModal, setSelectedRedosSealForModal] = useState<RedosProofSeal | null>(null);
+  const [redosModalIncidentItem, setRedosModalIncidentItem] = useState<RedosSecurityIncident | null>(null);
+  const [verifyingRedosSeal, setVerifyingRedosSeal] = useState<boolean>(false);
+  const [redosSealVerifyResult, setRedosSealVerifyResult] = useState<VerifyRedosSealResponse | null>(null);
+
+  const fetchRedosGuardData = async () => {
+    try {
+      setLoadingRedos(true);
+      const res = await api.getRedosGuardOverview();
+      setRedosOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyRedosMaxTimeMs(res.overview.policy.maxExecutionTimeMs);
+        setPolicyRedosMaxPatternLen(res.overview.policy.maxPatternLength);
+        setPolicyRedosMaxInputLen(res.overview.policy.maxInputLength);
+        setPolicyRedosBlockExponential(res.overview.policy.blockExponentialPatterns);
+        setPolicyRedosAutoRewrite(res.overview.policy.autoRewriteIfPossible);
+        setPolicyRedosStrictClinical(res.overview.policy.strictClinicalMode);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de ReDoS Guard:', err);
+    } finally {
+      setLoadingRedos(false);
+    }
+  };
+
+  const handleAnalyzeRegexSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setAnalyzingRegex(true);
+      setLastRegexAnalysis(null);
+      setLastRegexExecution(null);
+      const res = await api.analyzeRegex({
+        pattern: regexPatternInput,
+        flags: regexFlags,
+        testInput: regexTestInput
+      });
+      setLastRegexAnalysis(res.analysis);
+      if (res.execution) {
+        setLastRegexExecution(res.execution);
+      }
+      setFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchRedosGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao analisar expressão regular.' });
+    } finally {
+      setAnalyzingRegex(false);
+    }
+  };
+
+  const handleSimulateRedosSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingRedos(true);
+      setSimRedosResult(null);
+      const res = await api.simulateRedosAttack({
+        vulnerabilityType: simRedosVulnType,
+        customInputSize: simRedosInputSize
+      });
+      setSimRedosResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchRedosGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque ReDoS.' });
+    } finally {
+      setSimulatingRedos(false);
+    }
+  };
+
+  const handleUpdateRedosPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingRedosPolicy(true);
+      const res = await api.updateRedosPolicy({
+        policy: {
+          maxExecutionTimeMs: policyRedosMaxTimeMs,
+          maxPatternLength: policyRedosMaxPatternLen,
+          maxInputLength: policyRedosMaxInputLen,
+          blockExponentialPatterns: policyRedosBlockExponential,
+          autoRewriteIfPossible: policyRedosAutoRewrite,
+          strictClinicalMode: policyRedosStrictClinical
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchRedosGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar políticas de ReDoS.' });
+    } finally {
+      setUpdatingRedosPolicy(false);
+    }
+  };
+
+  const handleVerifyRedosSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingRedosSeal(true);
+      setRedosSealVerifyResult(null);
+      const res = await api.verifyRedosSeal({ sealToken });
+      setRedosSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo de ReDoS Guard.' });
+    } finally {
+      setVerifyingRedosSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -5249,6 +5402,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchCacheGuardData();
       fetchXmlGuardData();
       fetchSessionGuardData();
+      fetchRedosGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -25034,6 +25188,630 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* ============================================================================
+          66. CARD 48: DETECÇÃO E PREVENÇÃO ATIVA DE REDOS (OWASP ASVS V5.5 & CWE-1333)
+          ============================================================================ */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Detecção e Prevenção de ReDoS (Regular Expression Denial of Service)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                  OWASP ASVS V5.5 & CWE-1333
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Validador Léxico AST, Timeout Não-Bloqueante, Presets Clínicos e Sanitização contra Catastrophic Backtracking
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loadingRedos}
+              onClick={fetchRedosGuardData}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingRedos ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs Operacionais */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Avaliações Totais
+            </span>
+            <span className="text-xl font-black text-slate-900 dark:text-white block font-mono">
+              {redosOverview?.metrics.totalEvaluations ?? 0}
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">
+              Consultas e validações
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block">
+              Padrões Seguros O(n)
+            </span>
+            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 block font-mono">
+              {redosOverview?.metrics.safeEvaluations ?? 0}
+            </span>
+            <span className="text-[10px] text-emerald-600/80 font-medium">
+              Complexidade linear
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 block">
+              Ataques ReDoS Bloqueados
+            </span>
+            <span className="text-xl font-black text-rose-600 dark:text-rose-400 block font-mono">
+              {redosOverview?.metrics.blockedAttacks ?? 0}
+            </span>
+            <span className="text-[10px] text-rose-600/80 font-medium">
+              Evil regex O(2^n) barrados
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">
+              Timeouts Acionados
+            </span>
+            <span className="text-xl font-black text-amber-600 dark:text-amber-400 block font-mono">
+              {redosOverview?.metrics.timeoutsTriggered ?? 0}
+            </span>
+            <span className="text-[10px] text-amber-600/80 font-medium">
+              Thread protegida (&gt;25ms)
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 block">
+              Tempo Médio
+            </span>
+            <span className="text-xl font-black text-cyan-600 dark:text-cyan-400 block font-mono">
+              {redosOverview?.metrics.avgExecutionTimeMs ?? 0.1} ms
+            </span>
+            <span className="text-[10px] text-cyan-600/80 font-medium">
+              Wall clock NFA
+            </span>
+          </div>
+        </div>
+
+        {/* Abas de Navegação */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 w-fit">
+          <button
+            type="button"
+            onClick={() => setRedosActiveTab('analyzer')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              redosActiveTab === 'analyzer'
+                ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            Analisador Léxico & Executor
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRedosActiveTab('presets')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              redosActiveTab === 'presets'
+                ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            Presets Clínicos Blindados
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRedosActiveTab('simulate')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              redosActiveTab === 'simulate'
+                ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            Simulador Adversarial ReDoS
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRedosActiveTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              redosActiveTab === 'policy'
+                ? 'bg-white dark:bg-slate-900 text-cyan-600 dark:text-cyan-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            Políticas de Proteção
+          </button>
+        </div>
+
+        {/* ABA 1: ANALISADOR LÉXICO & EXECUTOR SEGURO */}
+        {redosActiveTab === 'analyzer' && (
+          <form onSubmit={handleAnalyzeRegexSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Expressão Regular a Inspecionar (Regex Pattern)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={regexPatternInput}
+                  onChange={(e) => setRegexPatternInput(e.target.value)}
+                  placeholder="Ex: ^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$ ou (a+)+$"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Flags Regex
+                </label>
+                <input
+                  type="text"
+                  value={regexFlags}
+                  onChange={(e) => setRegexFlags(e.target.value)}
+                  placeholder="Ex: i, m, u, s"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Texto de Entrada para Teste com Guardrail (Input String)
+                </label>
+                <textarea
+                  rows={2}
+                  value={regexTestInput}
+                  onChange={(e) => setRegexTestInput(e.target.value)}
+                  placeholder="Insira o texto clínico a ser testado contra a expressão..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={regexAutoRewrite}
+                  onChange={(e) => setRegexAutoRewrite(e.target.checked)}
+                  className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                />
+                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Permitir reescrita automática para forma linear segura (Auto-Rewrite)
+                </span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={analyzingRegex}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {analyzingRegex ? 'Analisando...' : 'Analisar Complexidade & Executar'}
+              </button>
+            </div>
+
+            {/* Painel de Resultados do Analisador */}
+            {lastRegexAnalysis && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Diagnóstico Estrutural de Complexidade Léxica
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                    lastRegexAnalysis.complexity === RegexComplexityRisk.SAFE_LINEAR
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : lastRegexAnalysis.complexity === RegexComplexityRisk.LOW_POLYNOMIAL
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                      : lastRegexAnalysis.complexity === RegexComplexityRisk.HIGH_POLYNOMIAL
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                  }`}>
+                    {lastRegexAnalysis.complexity}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 block font-bold">Vulnerabilidade</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {lastRegexAnalysis.vulnerabilityType}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 block font-bold">Quantificador Aninhado</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {lastRegexAnalysis.hasNestedQuantifiers ? 'Sim (Perigo)' : 'Não'}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 block font-bold">Disjunção Sobreposta</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {lastRegexAnalysis.hasOverlappingDisjunction ? 'Sim (Ambiguidade)' : 'Não'}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] text-slate-400 block font-bold">Star Height</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      Nível {lastRegexAnalysis.starHeight}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recomendações */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Recomendações Técnicas:
+                  </span>
+                  <ul className="list-disc list-inside text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+                    {lastRegexAnalysis.recommendations.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Resultado da Execução se houver */}
+                {lastRegexExecution && (
+                  <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                        Resultado: {lastRegexExecution.matched ? 'Correspondeu (Match)' : 'Não correspondeu'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Tempo: {lastRegexExecution.executionTimeMs} ms | Entrada: {lastRegexExecution.inputLength} chars | Ação: {lastRegexExecution.actionTaken}
+                      </span>
+                    </div>
+                    {lastRegexExecution.timedOut && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                        TIMEOUT INTERROMPIDO
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* ABA 2: PRESETS CLÍNICOS BLINDADOS */}
+        {redosActiveTab === 'presets' && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Padrões clínicos pré-validados com garantia de tempo linear O(n), sem risco de exaustão de CPU em prontuários e buscas:
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {redosOverview?.clinicalPresets.map((preset) => (
+                <div
+                  key={preset.type}
+                  className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2 flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        {preset.title}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        {preset.complexity}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {preset.description}
+                    </p>
+                    <div className="p-2 rounded-xl bg-slate-900 text-white font-mono text-[11px] truncate">
+                      {preset.pattern}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1">
+                      <span>Exemplo Válido: {preset.sampleValid}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegexPatternInput(preset.pattern);
+                        setRegexTestInput(preset.sampleValid);
+                        setRedosActiveTab('analyzer');
+                      }}
+                      className="px-3 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                    >
+                      Carregar no Analisador
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ABA 3: SIMULADOR ADVERSARIAL REDOS */}
+        {redosActiveTab === 'simulate' && (
+          <form onSubmit={handleSimulateRedosSubmit} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-900/40 text-xs text-cyan-900 dark:text-cyan-200">
+              <span className="font-bold block mb-1">Simulador de Ataques Adversariais ReDoS (CWE-1333):</span>
+              Gera dinamicamente expressões com Catastrophic Backtracking e payloads de gatilho para testar a contenção pelo guardrail não-bloqueante.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Vetor Adversarial de ReDoS
+                </label>
+                <select
+                  value={simRedosVulnType}
+                  onChange={(e) => setSimRedosVulnType(e.target.value as RegexVulnerabilityType)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:ring-2 focus:ring-cyan-500 outline-none"
+                >
+                  <option value={RegexVulnerabilityType.NESTED_QUANTIFIERS}>
+                    Quantificadores Aninhados (Nested Quantifiers: (a+)+$)
+                  </option>
+                  <option value={RegexVulnerabilityType.OVERLAPPING_DISJUNCTION}>
+                    Disjunção Sobreposta Ambígua (Overlapping: (a|aa)+$)
+                  </option>
+                  <option value={RegexVulnerabilityType.ADJACENT_UNBOUNDED_REPETITIONS}>
+                    Repetições Ilimitadas Adjacentes (Unbounded Repetitions: .*.*$)
+                  </option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Tamanho da Cadeia de Ataque (com falha de sufixo)
+                </label>
+                <input
+                  type="number"
+                  min={15}
+                  max={100}
+                  value={simRedosInputSize}
+                  onChange={(e) => setSimRedosInputSize(parseInt(e.target.value) || 25)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={simulatingRedos}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                {simulatingRedos ? 'Executando Ataque...' : 'Disparar Simulação Adversarial'}
+              </button>
+            </div>
+
+            {simRedosResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Resultado da Contenção pelo Guardrail:
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                    simRedosResult.threatBlocked
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                  }`}>
+                    {simRedosResult.threatBlocked ? 'Ataque Neutralizado' : 'Vulnerabilidade Não Mitigada'}
+                  </span>
+                </div>
+
+                <div className="text-xs font-mono space-y-1 text-slate-600 dark:text-slate-300">
+                  <p>Padrão Testado: <span className="text-rose-500 font-bold">{simRedosResult.attackPattern}</span></p>
+                  <p>Amostra de Entrada: {simRedosResult.attackInputSnippet}</p>
+                  <p>Ação do Guardrail: {simRedosResult.execution.actionTaken}</p>
+                  <p>Tempo de Resposta: {simRedosResult.execution.executionTimeMs} ms (Thread preservada)</p>
+                </div>
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* ABA 4: POLÍTICAS DE PROTEÇÃO */}
+        {redosActiveTab === 'policy' && (
+          <form onSubmit={handleUpdateRedosPolicySubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Timeout Máximo de Execução (ms)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={200}
+                  value={policyRedosMaxTimeMs}
+                  onChange={(e) => setPolicyRedosMaxTimeMs(parseInt(e.target.value) || 25)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Tamanho Máximo do Padrão (chars)
+                </label>
+                <input
+                  type="number"
+                  min={50}
+                  max={2000}
+                  value={policyRedosMaxPatternLen}
+                  onChange={(e) => setPolicyRedosMaxPatternLen(parseInt(e.target.value) || 500)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Tamanho Máximo da Entrada (chars)
+                </label>
+                <input
+                  type="number"
+                  min={1000}
+                  max={100000}
+                  value={policyRedosMaxInputLen}
+                  onChange={(e) => setPolicyRedosMaxInputLen(parseInt(e.target.value) || 20000)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+              <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={policyRedosBlockExponential}
+                  onChange={(e) => setPolicyRedosBlockExponential(e.target.checked)}
+                  className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                />
+                <div>
+                  <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                    Bloqueio Sumário de Evil Regex
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Rejeita padrões com complexidade exponencial O(2^n)
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={policyRedosAutoRewrite}
+                  onChange={(e) => setPolicyRedosAutoRewrite(e.target.checked)}
+                  className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                />
+                <div>
+                  <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                    Auto-Rewrite Seguro
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Reescreve quantificadores aninhados para forma linear
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={policyRedosStrictClinical}
+                  onChange={(e) => setPolicyRedosStrictClinical(e.target.checked)}
+                  className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                />
+                <div>
+                  <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                    Modo Clínico Estrito
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Exige validação prévia em buscas e filtros de prontuários
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={updatingRedosPolicy}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {updatingRedosPolicy ? 'Salvando...' : 'Salvar Políticas de ReDoS'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tabela de Incidentes Forenses Recentes */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              Histórico Forense de Tentativas de ReDoS Neutralizadas
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Trilha WORM com Selo RFC 8785
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <th className="p-3">Data/Hora</th>
+                  <th className="p-3">Padrão Snippet</th>
+                  <th className="p-3">Vulnerabilidade</th>
+                  <th className="p-3">Complexidade</th>
+                  <th className="p-3">Ação do Enclave</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {!redosOverview?.recentIncidents || redosOverview.recentIncidents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-slate-400 font-medium">
+                      Nenhum incidente de ReDoS registrado. Todos os padrões estão lineares e seguros.
+                    </td>
+                  </tr>
+                ) : (
+                  redosOverview.recentIncidents.map((inc) => (
+                    <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono">
+                        {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-900 dark:text-white font-bold truncate max-w-xs">
+                        {inc.patternSnippet}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          {inc.vulnerabilityType}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.complexity}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-cyan-600 dark:text-cyan-400">
+                        {inc.actionTaken}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRedosModalIncidentItem(inc);
+                            setSelectedRedosSealForModal(inc.seal);
+                            setRedosSealVerifyResult(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Certidão WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -31055,6 +31833,189 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedSessionSealForModal(null);
                     setSessionModalIncidentItem(null);
                     setSessionSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 48.A: Certidão Notarial Forense WORM - ReDoS Guard */}
+      {selectedRedosSealForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                    Certidão Notarial Forense WORM — Avaliação ReDoS
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    OWASP ASVS v4.0 V5.5 & CWE-1333 • Fé Pública RFC 8785
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRedosSealForModal(null);
+                  setRedosModalIncidentItem(null);
+                  setRedosSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Veredito */}
+              <div className="p-3.5 rounded-2xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-900/40 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider block">
+                    Veredito Estrutural de Complexidade:
+                  </span>
+                  <p className="font-bold text-xs text-cyan-950 dark:text-cyan-200">
+                    {selectedRedosSealForModal.complexity === RegexComplexityRisk.SAFE_LINEAR
+                      ? 'Padrão Linear Seguro O(n) — Sem Catastrophic Backtracking'
+                      : `Complexidade ${selectedRedosSealForModal.complexity} — Protegido pelo Enclave`}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-200 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300">
+                  {selectedRedosSealForModal.actionTaken}
+                </span>
+              </div>
+
+              {/* Grid de Identificadores */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID Notarial do Selo
+                  </span>
+                  <p className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400 truncate">
+                    {selectedRedosSealForModal.sealId}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Vulnerabilidade Diagnosticada
+                  </span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {selectedRedosSealForModal.vulnerabilityType}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Tempo de Avaliação no Enclave
+                  </span>
+                  <p className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {selectedRedosSealForModal.executionTimeMs} ms
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Padrão Canônico
+                  </span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    v{selectedRedosSealForModal.version} (RFC 8785)
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes do Incidente ReDoS se houver */}
+              {redosModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 block">
+                    Incidente ReDoS Mitigado:
+                  </span>
+                  <p className="font-mono text-xs text-rose-900 dark:text-rose-200 font-bold">
+                    Padrão: {redosModalIncidentItem.patternSnippet}
+                  </p>
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300">
+                    Entrada Amostral: {redosModalIncidentItem.inputSnippet}
+                  </p>
+                  <div className="text-[10px] font-mono text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
+                    <p>Ação: {redosModalIncidentItem.actionTaken} | IP Origem: {redosModalIncidentItem.clientIp}</p>
+                    <p>Timeout Disparado: {redosModalIncidentItem.timedOut ? 'SIM (Protegido)' : 'NÃO'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hash Canônico do Padrão SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do Padrão Regular (Canonical Pattern Hash)
+                </span>
+                <p className="font-mono text-[10px] text-cyan-400 break-all select-all">
+                  {selectedRedosSealForModal.patternHash}
+                </p>
+              </div>
+
+              {/* Hash Canônico do Input SHA-256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 da Entrada Submetida (Canonical Input Hash)
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedRedosSealForModal.inputHash}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-amber-300 break-all select-all">
+                  {selectedRedosSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {redosSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  redosSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {redosSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {redosSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedRedosSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingRedosSeal}
+                  onClick={() => handleVerifyRedosSealSubmit(JSON.stringify(selectedRedosSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingRedosSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRedosSealForModal(null);
+                    setRedosModalIncidentItem(null);
+                    setRedosSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
