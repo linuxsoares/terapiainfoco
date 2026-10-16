@@ -591,7 +591,15 @@ import type {
   IngestTranscriptionDTO,
   ReviewAiSoapDraftDTO,
   TranscriptionSessionResponse,
-  AiSoapDraftResponse
+  AiSoapDraftResponse,
+  BatchSignableItem,
+  IcpBatchClosingManifest,
+  PrepareBatchClosingDTO,
+  ExecuteBatchSignatureDTO,
+  VerifyIcpBatchDTO,
+  BatchPendingItemsResponse,
+  BatchClosingResponse,
+  BatchVerificationResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3616,6 +3624,39 @@ export const api = {
 
   async reviewAiSoapDraft(dto: ReviewAiSoapDraftDTO): Promise<AiSoapDraftResponse> {
     return await request<AiSoapDraftResponse>('/transcription/draft/review', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 16. Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5)
+  async getUnsignedBatchItems(): Promise<BatchSignableItem[]> {
+    const res = await request<BatchPendingItemsResponse>('/icp-batch/pending-items');
+    return res.items || [];
+  },
+
+  async prepareIcpBatchManifest(dto: PrepareBatchClosingDTO): Promise<IcpBatchClosingManifest> {
+    const res = await request<{ success: boolean; manifest: IcpBatchClosingManifest }>('/icp-batch/prepare', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.manifest;
+  },
+
+  async executeIcpBatchSignature(dto: ExecuteBatchSignatureDTO): Promise<BatchClosingResponse> {
+    return await request<BatchClosingResponse>('/icp-batch/sign', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getIcpBatchManifests(): Promise<IcpBatchClosingManifest[]> {
+    const res = await request<{ success: boolean; manifests: IcpBatchClosingManifest[] }>('/icp-batch/manifests');
+    return res.manifests || [];
+  },
+
+  async verifyIcpBatchSignature(dto: VerifyIcpBatchDTO): Promise<BatchVerificationResponse> {
+    return await request<BatchVerificationResponse>('/icp-batch/verify', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

@@ -68,6 +68,7 @@ import { clinicalReferralsRouter } from './routes/clinicalReferrals';
 import { billingReceiptsRouter } from './routes/billingReceipts';
 import { teleconsultationRoutes } from './routes/teleconsultation';
 import { aiTranscriptionRouter } from './routes/aiTranscription';
+import { icpBatchSigningRouter } from './routes/icpBatchSigning';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -232,6 +233,7 @@ app.route('/api/referrals', clinicalReferralsRouter);
 app.route('/api/billing', billingReceiptsRouter);
 app.route('/api/teleconsultation/session', teleconsultationRoutes);
 app.route('/api/transcription', aiTranscriptionRouter);
+app.route('/api/icp-batch', icpBatchSigningRouter);
 
 
 

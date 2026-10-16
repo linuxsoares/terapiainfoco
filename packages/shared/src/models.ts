@@ -5429,6 +5429,55 @@ export interface StoredTranscriptionSession extends Omit<TranscriptionSession, '
   encryptedTranscriptPayload: EncryptedPayload;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 41. ASSINATURA AVANÇADA ICP-BRASIL EM LOTE & FECHAMENTO DE CICLOS CLÍNICOS (RFC-001 §3.4, §3.5)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+/**
+ * Item Clínico Individual Elegível para Assinatura em Lote
+ */
+export interface BatchSignableItem {
+  id: string;
+  type: 'SOAP_RECORD' | 'PSYCHOLOGICAL_DOCUMENT' | 'CONSOLIDATED_REPORT' | 'CLINICAL_RECEIPT';
+  patientId: string;
+  patientNameMasked: string; // Ex: "M. S. O."
+  title: string;
+  itemCanonicalSha256: string;
+  itemDate: string;
+  sessionNumber?: number;
+}
+
+/**
+ * Manifesto Criptográfico de Fechamento de Ciclo em Lote (PAdES / DOC-ICP-15)
+ */
+export interface IcpBatchClosingManifest {
+  id: string;
+  therapistId: string;
+  therapistName: string;
+  therapistCrp: string;
+  certificateType: import('./enums').IcpCertificateType;
+  certificateSubjectDn: string; // Ex: "CN=BEATRIZ SANTOS:12345678900, OU=Certificado PF A1, O=ICP-Brasil"
+  certificateSerialNumberHex: string;
+  certificateIssuer: string; // Ex: "AC SOLUTI Multipla v5 / AC Raiz ICP-Brasil v10"
+  signatureStandard: import('./enums').IcpSignatureStandard;
+  merkleRootHash: string; // Merkle Root SHA-256 agregando todos os itens
+  items: BatchSignableItem[];
+  totalItemsCount: number;
+  status: import('./enums').BatchClosingStatus;
+  padesSignatureBase64: string; // Assinatura digital padrão PAdES
+  tsaTimestampToken: string;    // Token do Carimbo do Tempo TSA ICP-Brasil (DOC-ICP-11)
+  publicValidationToken: string; // Token público de fé pública: icp_batch_v1_<base64url>
+  signedAt: string;
+  wormAuditId?: string;
+  revocationReason?: string;
+  revokedAt?: string;
+}
+
+export interface StoredIcpBatchClosingManifest extends IcpBatchClosingManifest {}
+
+
 
 
 

@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.324/1.324 Testes Passando (0 falhas em 133 arquivos)
+> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.332/1.332 Testes Passando (0 falhas em 134 arquivos)
 
 
 
@@ -2061,6 +2061,39 @@ terapiainfoco/
 
 ---
 
+### 13. Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética & Transcrição com Diarização e Síntese SOAP IA (§3.2, §3.3)
+- [x] **Teleconsulta Nativa WebRTC com Sala de Espera Ética (Knocking CFP nº 011/2018):**
+  - Implementação de sala virtual de telepsicologia ponto-a-ponto (P2P WebRTC) com estado de knocking e admissão manual compulsória pelo psicólogo para garantia de sigilo profissional.
+  - Gravação consentida com registro de aceite de TCLE em trilha WORM e telemetria de qualidade com MOS ITU-T G.107 em tempo real.
+- [x] **Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop:**
+  - Ingestão de áudio da teleconsulta com particionamento temporal, diarização entre Terapeuta e Paciente e cálculo de taxa de escuta ativa (*Talk-to-Listen Ratio*).
+  - Síntese de rascunho de nota nos quatro quadrantes SOAP com sanitização prévia de PII (k-Anonymity) e fluxo de revisão obrigatória pelo terapeuta (*Human-in-the-Loop*).
+  - 12 testes aprovados em `apps/backend/test/aiTranscriptionSoap.test.ts`.
+
+---
+
+### 14. Evolução de Produto RFC-001: Assinatura Avançada ICP-Brasil em Lote com Certificado A1/A3/Nuvem PSC & Fechamento de Ciclos de Prontuário (§3.4, §3.5)
+- [x] **Arquitetura de Merkle Tree Determinística para Assinatura em Lote:**
+  - Construção de árvore de Merkle determinística com nós SHA-256 sobre a coleção de itens clínicos pendentes (evoluções de prontuário SOAP, documentos emitidos CFP nº 006/2019, relatórios consolidados e recibos de honorários).
+  - Resolução de folhas ímpares por duplicação do último hash e cálculo da Raiz de Merkle imutável (*Merkle Root*).
+- [x] **Emissão de Assinatura Qualificada ICP-Brasil & Carimbo do Tempo TSA (DOC-ICP-11):**
+  - Cifragem assimétrica ECDSA P-256 sobre a raiz de Merkle com emissão de assinatura no padrão PAdES-T / PAdES-LT (Lei nº 14.063/2020 e MP nº 2.200-2/2001).
+  - Inclusão compulsória de carimbo do tempo TSA credenciado pelo ITI / Observatório Nacional (política OID `2.16.76.1.4.1`), garantindo prova inequívoca de tempestividade e não-repúdio.
+  - Suporte completo a múltiplos modelos de custódia: Certificado A1 (PKCS#12 / arquivo criptografado), Token de Hardware A3 (USB / smartcard) e Provedores PSC em Nuvem Homologados (BirdID, SafeID, NeoID, VIDaaS).
+- [x] **Travamento WORM de Imutabilidade & Fé Pública:**
+  - Travamento atômico de imutabilidade (*lockedByBatchSignature*) em todos os prontuários e documentos do lote, impedindo alterações posteriores e exigindo termo formal de retificação (CFP nº 001/2009 Art. 9º).
+  - Geração de token público de verificação notarial `icp_batch_v1_<base64url>`.
+- [x] **Validador Notarial Público de Lote sem Login:**
+  - Endpoint público `POST /api/icp-batch/verify` com proteção por rate limiting e mascaramento de iniciais dos pacientes (K-Anonymity) para atestar a fé pública do lote sem violar a privacidade médica.
+- [x] **Interface Frontend Integrada (`IcpBatchSigningModal.tsx` & `SoapModule.tsx`):**
+  - Modal com 3 abas operacionais (*Assinar Lote Pendente*, *Histórico de Lotes Selados*, *Validador Notarial Público*).
+  - Visualização de itens pendentes por paciente com seleção individual ou em massa, seletor de credencial criptográfica (A1, A3, Nuvem PSC) e entrada segura de PIN.
+  - Totalmente adaptado para **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes do Módulo:**
+  - 8 testes unitários e de integração REST aprovados com 100% de sucesso em `apps/backend/test/icpBatchSigning.test.ts`.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -2153,12 +2186,13 @@ terapiainfoco/
 | `feat/clinical-billing-receipts-and-fee-terms` | Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários Psicológicos (RFC-001 §3.6) | [PR #94](https://github.com/linuxsoares/terapiainfoco/pull/94) | Merged |
 | `feat/webrtc-teleconsultation-and-waiting-room` | Teleconsulta Nativa WebRTC P2P com Sala de Espera Ética (Knocking CFP nº 011/2018), Gravação Consentida TCLE, Telemetria MOS ITU-T G.107 e Painel de Marcadores Clínicos (RFC-001 §3.2, §3.3) | [PR #95](https://github.com/linuxsoares/terapiainfoco/pull/95) | Merged |
 | `feat/ai-transcription-diarization-soap-synthesizer` | Transcrição Assistida por IA com Diarização de Voz, Escuta Ativa (Talk-to-Listen Ratio) e Síntese de Rascunho SOAP Human-in-the-Loop (RFC-001 §3.3) | [PR #96](https://github.com/linuxsoares/terapiainfoco/pull/96) | Merged |
+| `feat/icp-brasil-batch-signing-and-cycle-closing` | Assinatura Avançada ICP-Brasil com Certificado A1/A3/Nuvem PSC em Lote, Merkle Tree Root, DOC-ICP-11 TSA e Fechamento de Ciclos de Prontuário (RFC-001 §3.4, §3.5) | [PR #97](https://github.com/linuxsoares/terapiainfoco/pull/97) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.324 testes automatizados (0 falhas em 133 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.332 testes automatizados (0 falhas em 134 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2172,9 +2206,10 @@ Com a **Evolução de Produto RFC-001 (Transcrição Assistida por IA, Diarizaç
 - [x] **Módulo de Teleconsulta Nativa WebRTC P2P com Gravação Cifrada Ponta a Ponta, Sala de Espera Ética (Knocking CFP nº 011/2018) e Marcadores Clínicos (RFC-001 §3.2, §3.3).**
 - [x] **Módulo de Telemetria & Qualidade de Chamada Clínica WebRTC com Diagnósticos de Conexão (MOS ITU-T G.107) e Alertas Éticos CFP (RFC-001 §3.2).**
 - [x] **Módulo de Transcrição Assistida por IA com Diarização de Voz, Escuta Ativa (Talk-to-Listen Ratio) e Síntese de Rascunho SOAP Human-in-the-Loop (RFC-001 §3.3).**
-- [ ] **Módulo de Assinatura Avançada ICP-Brasil com Certificado A1/A3 em Lote para Fechamento de Ciclos de Prontuário (RFC-001 §3.5).**
+- [x] **Módulo de Assinatura Avançada ICP-Brasil com Certificado A1/A3 em Lote para Fechamento de Ciclos de Prontuário (RFC-001 §3.5):** Assinatura em lote com árvore de Merkle determinística (SHA-256), Carimbo do Tempo TSA ICP-Brasil (DOC-ICP-11 / política `2.16.76.1.4.1`), credenciais A1/A3 e Nuvem PSC (BirdID/SafeID/NeoID/VIDaaS), token público de verificação notarial sem login, trava WORM contra adulterações e conformidade com MP nº 2.200-2/2001 e Resolução CFP nº 001/2009.
 - [ ] **Módulo de Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos e Histórico de Recibos (RFC-001 §3.6, §3.7).**
 - [ ] **Módulo de Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4).**
+- [ ] **Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5).**
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.

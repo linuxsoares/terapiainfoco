@@ -4544,6 +4544,60 @@ export interface AiSoapDraftResponse {
   createdEhrRecordId?: string;
 }
 
+/**
+ * -------------------------------------------------------------------------------------------------
+ * 41. ASSINATURA AVANÇADA ICP-BRASIL EM LOTE & FECHAMENTO DE CICLOS CLÍNICOS (RFC-001 §3.4, §3.5)
+ * -------------------------------------------------------------------------------------------------
+ */
+
+export interface PrepareBatchClosingDTO {
+  recordIds?: string[];
+  documentIds?: string[];
+  reportIds?: string[];
+  receiptIds?: string[];
+  patientId?: string;
+  dateRangeStart?: string;
+  dateRangeEnd?: string;
+}
+
+export interface ExecuteBatchSignatureDTO {
+  recordIds: string[];
+  documentIds?: string[];
+  reportIds?: string[];
+  receiptIds?: string[];
+  certificateType: import('./enums').IcpCertificateType;
+  certificatePinOrSecret?: string;
+  certificateSubjectDn?: string;
+  pscCloudProvider?: string; // BirdID, SafeID, NeoID
+}
+
+export interface VerifyIcpBatchDTO {
+  publicValidationToken: string;
+}
+
+export interface BatchPendingItemsResponse {
+  success: boolean;
+  items: import('./models').BatchSignableItem[];
+  totalPendingCount: number;
+  message?: string;
+}
+
+export interface BatchClosingResponse {
+  success: boolean;
+  manifest: import('./models').IcpBatchClosingManifest;
+  sealedRecordsCount: number;
+  message: string;
+}
+
+export interface BatchVerificationResponse {
+  success: boolean;
+  valid: boolean;
+  manifest?: import('./models').IcpBatchClosingManifest;
+  verifiedAt: string;
+  details: string;
+}
+
+
 
 
 
