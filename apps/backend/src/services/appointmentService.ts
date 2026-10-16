@@ -5,13 +5,15 @@ import {
   AuditResourceType,
   MeetProvider,
   MeetAccessType,
+  RecurrenceFrequency,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
   type DecryptedAppointment,
   type AvailableSlot,
   type AvailableSlotsResponse,
   type PublicBookingDTO,
-  type PublicBookingResponse
+  type PublicBookingResponse,
+  type CreateRecurrentAppointmentsResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { getDb, schema } from '../db';
@@ -114,6 +116,12 @@ export class AppointmentService {
       meetProvider: meetResult.provider,
       meetAccessType: meetResult.accessType,
       meetUrl: meetResult.meetUrl,
+      seriesId: storedAppointment.seriesId,
+      sequenceNumber: storedAppointment.sequenceNumber,
+      totalInSeries: storedAppointment.totalInSeries,
+      recurrenceFrequency: storedAppointment.recurrenceFrequency,
+      reminderStatus: storedAppointment.reminderStatus,
+      lastReminderSentAt: storedAppointment.lastReminderSentAt,
       createdAt: storedAppointment.createdAt
     };
   }
@@ -204,6 +212,12 @@ export class AppointmentService {
           meetProvider: app.meetProvider,
           meetAccessType: app.meetAccessType,
           meetUrl: decryptField(app.encryptedMeetUrl),
+          seriesId: app.seriesId,
+          sequenceNumber: app.sequenceNumber,
+          totalInSeries: app.totalInSeries,
+          recurrenceFrequency: app.recurrenceFrequency,
+          reminderStatus: app.reminderStatus,
+          lastReminderSentAt: app.lastReminderSentAt,
           createdAt: app.createdAt
         });
       }
@@ -362,5 +376,138 @@ export class AppointmentService {
         }
       }
     }
+  }
+
+  /**
+   * Agenda uma série de sessões recorrentes (semanal, quinzenal ou mensal) conforme RFC-001 §3.1
+   */
+  static async createRecurrentAppointments(
+    therapistId: string,
+    dto: CreateAppointmentDTO,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): Promise<CreateRecurrentAppointmentsResponse> {
+    const recurrence = dto.recurrence;
+    if (!recurrence || recurrence.count < 1) {
+      const single = await this.createAppointment(therapistId, dto, context);
+      return {
+        success: true,
+        seriesId: `single-${single.id}`,
+        frequency: RecurrenceFrequency.WEEKLY,
+        requestedCount: 1,
+        createdAppointments: [single]
+      };
+    }
+
+    const count = Math.min(Math.max(recurrence.count, 2), 24); // Entre 2 e 24 sessões
+    const frequency = recurrence.frequency || RecurrenceFrequency.WEEKLY;
+    const seriesId = `series_${randomUUID().replace(/-/g, '').substring(0, 10)}`;
+    const bufferMin = dto.bufferMinutes ?? config.defaultBufferMinutes;
+
+    const baseStart = new Date(dto.scheduledStart);
+    const durationMs = new Date(dto.scheduledEnd).getTime() - baseStart.getTime();
+
+    const createdList: DecryptedAppointment[] = [];
+    const conflictSlots: { scheduledStart: string; scheduledEnd: string; reason: string }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      let slotStart: Date;
+      if (frequency === RecurrenceFrequency.MONTHLY) {
+        slotStart = new Date(baseStart);
+        slotStart.setMonth(baseStart.getMonth() + i);
+      } else if (frequency === RecurrenceFrequency.BIWEEKLY) {
+        slotStart = new Date(baseStart.getTime() + (i * 14 * 24 * 60 * 60 * 1000));
+      } else {
+        // WEEKLY
+        slotStart = new Date(baseStart.getTime() + (i * 7 * 24 * 60 * 60 * 1000));
+      }
+
+      const slotEnd = new Date(slotStart.getTime() + durationMs);
+
+      // Checa conflito
+      try {
+        this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMin);
+      } catch (conflictErr: any) {
+        conflictSlots.push({
+          scheduledStart: slotStart.toISOString(),
+          scheduledEnd: slotEnd.toISOString(),
+          reason: conflictErr.message
+        });
+        continue;
+      }
+
+      const apptDto: CreateAppointmentDTO = {
+        ...dto,
+        scheduledStart: slotStart.toISOString(),
+        scheduledEnd: slotEnd.toISOString()
+      };
+
+      const created = await this.createAppointment(therapistId, apptDto, context);
+      
+      const stored = db.appointments.get(created.id);
+      if (stored) {
+        stored.seriesId = seriesId;
+        stored.sequenceNumber = i + 1;
+        stored.totalInSeries = count;
+        stored.recurrenceFrequency = frequency;
+      }
+      created.seriesId = seriesId;
+      created.sequenceNumber = i + 1;
+      created.totalInSeries = count;
+      created.recurrenceFrequency = frequency;
+
+      createdList.push(created);
+    }
+
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.APPOINTMENT,
+      resourceId: seriesId,
+      action: AuditAction.APPOINTMENT_RECURRENCE_SERIES_CREATED,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    return {
+      success: createdList.length > 0,
+      seriesId,
+      frequency,
+      requestedCount: count,
+      createdAppointments: createdList,
+      conflictSlots: conflictSlots.length > 0 ? conflictSlots : undefined
+    };
+  }
+
+  /**
+   * Cancela em lote todas as sessões futuras de uma série recorrente (RFC-001 §3.1)
+   */
+  static cancelSeries(
+    seriesId: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): { canceledCount: number; seriesId: string } {
+    let canceledCount = 0;
+    const now = new Date();
+
+    for (const app of db.appointments.values()) {
+      if (
+        app.seriesId === seriesId &&
+        new Date(app.scheduledStart) > now &&
+        app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE &&
+        app.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA
+      ) {
+        app.status = AppointmentStatus.CANCELADA_PELO_TERAPEUTA;
+        canceledCount++;
+      }
+    }
+
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.APPOINTMENT,
+      resourceId: seriesId,
+      action: AuditAction.UPDATE,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    return { canceledCount, seriesId };
   }
 }

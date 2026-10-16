@@ -1,9 +1,16 @@
-import { AppointmentStatus, DocumentType, UserRole, MeetProvider, MeetAccessType } from './enums';
-import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData } from './models';
+import { 
+  AppointmentStatus, 
+  DocumentType, 
+  UserRole, 
+  MeetProvider, 
+  MeetAccessType,
+  RecurrenceFrequency,
+  ReminderChannel,
+  ReminderTiming,
+  ReminderDeliveryStatus
+} from './enums';
+import type { SoapNote, TranscriptUtterance, SafeUser, IcpCertificateInfo, IcpSignatureData, DecryptedAppointment } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
-
-
-
 
 export interface CreatePatientDTO {
   name: string;
@@ -13,6 +20,15 @@ export interface CreatePatientDTO {
   consentTranscriptionSigned: boolean;
 }
 
+/**
+ * Configuração de Recorrência para Séries Terapêuticas (RFC-001 §3.1)
+ */
+export interface AppointmentRecurrenceConfig {
+  frequency: RecurrenceFrequency; // WEEKLY, BIWEEKLY, MONTHLY
+  count: number;                  // Número de sessões na série (ex: 4, 8, 12)
+  totalSessions?: number;         // Alias para total de sessões
+}
+
 export interface CreateAppointmentDTO {
   patientId: string;
   scheduledStart: string; // ISO string
@@ -20,6 +36,55 @@ export interface CreateAppointmentDTO {
   bufferMinutes?: number;
   meetUrl?: string;
   accessType?: MeetAccessType;
+  recurrence?: AppointmentRecurrenceConfig;
+}
+
+/**
+ * Resposta de Criação de Agendamentos Recorrentes
+ */
+export interface CreateRecurrentAppointmentsResponse {
+  success: boolean;
+  seriesId: string;
+  frequency: RecurrenceFrequency;
+  requestedCount: number;
+  count?: number; // Alias para conveniência
+  createdAppointments: DecryptedAppointment[];
+  conflictSlots?: {
+    scheduledStart: string;
+    scheduledEnd: string;
+    reason: string;
+  }[];
+}
+
+/**
+ * DTO para Disparo de Lembrete de Consulta (RFC-001 §3.1)
+ */
+export interface SendReminderDTO {
+  appointmentId: string;
+  channel: ReminderChannel;
+  timing?: ReminderTiming;
+  customMessage?: string;
+  recipientPhone?: string;
+  recipientEmail?: string;
+}
+
+/**
+ * Resposta de Disparo de Lembrete
+ */
+export interface SendReminderResponse {
+  success: boolean;
+  reminderId: string;
+  appointmentId: string;
+  patientId: string;
+  channel: ReminderChannel;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  whatsappDirectUrl?: string;
+  renderedMessage: string;
+  status: ReminderDeliveryStatus;
+  auditWormId?: string;
+  message?: string;
+  sentAt?: string;
 }
 
 export interface UpdateAppointmentStatusDTO {

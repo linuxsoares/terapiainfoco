@@ -2,8 +2,13 @@ import type {
   CreatePatientDTO,
   DecryptedPatient,
   CreateAppointmentDTO,
+  CreateRecurrentAppointmentsResponse,
   DecryptedAppointment,
   AppointmentStatus,
+  SendReminderDTO,
+  SendReminderResponse,
+  ReminderChannel,
+  PatientClinicalTimelineResponse,
   UpdateSoapNoteDTO,
   DecryptedClinicalRecord,
   GenerateDocumentDTO,
@@ -643,6 +648,12 @@ export const api = {
     return res;
   },
 
+  // Linha do Tempo Clínica Longitudinal do Paciente (RFC §3.4)
+  async getPatientTimeline(patientId: string): Promise<PatientClinicalTimelineResponse> {
+    const res = await request<{ success: boolean; timeline: PatientClinicalTimelineResponse }>(`/patients/${patientId}/timeline`);
+    return res.timeline;
+  },
+
   // 2. Agenda & Sessões (RFC §3.1, §3.2)
   async getAppointments(therapistId = '00000000-0000-0000-0000-000000000001'): Promise<DecryptedAppointment[]> {
     const res = await request<{ success: boolean; appointments: DecryptedAppointment[] }>(`/appointments/therapist/${therapistId}`);
@@ -669,6 +680,57 @@ export const api = {
     return await request<{ success: boolean; conferenceEnded: boolean; message: string }>(`/appointments/${appointmentId}/end-meet`, {
       method: 'POST'
     });
+  },
+
+  // Agendamento Recorrente & Séries Clínicas (RFC §3.1)
+  async createRecurrentAppointments(dto: CreateAppointmentDTO, therapistId = '00000000-0000-0000-0000-000000000001'): Promise<CreateRecurrentAppointmentsResponse> {
+    return await request<CreateRecurrentAppointmentsResponse>('/appointments/recurrent', {
+      method: 'POST',
+      body: JSON.stringify({ ...dto, therapistId })
+    });
+  },
+
+  async cancelAppointmentSeries(seriesId: string): Promise<{ success: boolean; canceledCount: number; seriesId: string }> {
+    return await request<{ success: boolean; canceledCount: number; seriesId: string }>(`/appointments/series/${seriesId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Notificações & Lembretes Multicanal (WhatsApp/Email - RFC §3.1)
+  async sendAppointmentReminder(dto: SendReminderDTO): Promise<SendReminderResponse> {
+    return await request<SendReminderResponse>(`/appointments/${dto.appointmentId}/reminders`, {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async previewAppointmentReminder(appointmentId: string, channel: ReminderChannel = 'WHATSAPP' as any, timing?: string): Promise<{
+    message: string;
+    channel: string;
+    whatsappDirectUrl?: string;
+    preview: {
+      renderedMessage: string;
+      recipientPhone?: string;
+      recipientEmail?: string;
+      whatsappDirectUrl?: string;
+      patientName: string;
+      meetUrl: string;
+      scheduledStart: string;
+    };
+  }> {
+    const timingQuery = timing ? `&timing=${timing}` : '';
+    const res = await request<{ success: boolean; preview: any }>(`/appointments/${appointmentId}/reminders/preview?channel=${channel}${timingQuery}`);
+    return {
+      message: res.preview?.renderedMessage || '',
+      channel: String(channel),
+      whatsappDirectUrl: res.preview?.whatsappDirectUrl,
+      preview: res.preview
+    };
+  },
+
+  async getAppointmentReminders(appointmentId: string): Promise<any[]> {
+    const res = await request<{ success: boolean; reminders: any[] }>(`/appointments/${appointmentId}/reminders`);
+    return res.reminders;
   },
 
   async getGoogleMeetStatus(): Promise<{ success: boolean } & GoogleMeetStatusResponse> {

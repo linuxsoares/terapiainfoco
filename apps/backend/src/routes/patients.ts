@@ -228,4 +228,24 @@ patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, U
   }
 });
 
+// Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.4)
+patientsRoute.get('/:id/timeline', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+  const id = c.req.param('id');
+  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+  const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  try {
+    const timeline = PatientService.getPatientTimeline(id, {
+      actorId: user?.id || 'therapist-001',
+      ipAddress: ip,
+      userAgent
+    });
+    return c.json({ success: true, timeline });
+  } catch (err: any) {
+    const status = err.message.includes('não encontrado') ? 404 : 400;
+    return c.json({ success: false, error: err.message }, status);
+  }
+});
+
 
