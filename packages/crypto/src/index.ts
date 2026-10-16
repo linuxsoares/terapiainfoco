@@ -55,6 +55,7 @@ export * from './redosGuard';
 export * from './sstiGuard';
 export * from './osCommandGuard';
 export * from './pathTraversalGuard';
+export * from './expressionInjectionGuard';
 
 
 

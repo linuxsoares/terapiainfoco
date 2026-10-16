@@ -351,7 +351,13 @@ export enum AuditAction {
   FILE_PATH_SANITIZED = 'FILE_PATH_SANITIZED',
   SAFE_STORAGE_RESOLVED = 'SAFE_STORAGE_RESOLVED',
   PATH_GUARD_POLICY_UPDATED = 'PATH_GUARD_POLICY_UPDATED',
-  PATH_GUARD_SEAL_VERIFIED = 'PATH_GUARD_SEAL_VERIFIED'
+  PATH_GUARD_SEAL_VERIFIED = 'PATH_GUARD_SEAL_VERIFIED',
+  // Ações de Detecção e Prevenção de Injeção de Código em Expressões e Consultas (CWE-94, CWE-95 & ASVS V5.2)
+  CODE_INJECTION_ATTEMPT_BLOCKED = 'CODE_INJECTION_ATTEMPT_BLOCKED',
+  QUERY_EXPRESSION_SANITIZED = 'QUERY_EXPRESSION_SANITIZED',
+  SAFE_AST_FILTER_EVALUATED = 'SAFE_AST_FILTER_EVALUATED',
+  EXPRESSION_POLICY_UPDATED = 'EXPRESSION_POLICY_UPDATED',
+  EXPRESSION_SEAL_VERIFIED = 'EXPRESSION_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -409,7 +415,8 @@ export enum AuditResourceType {
   REDOS_GUARD = 'REDOS_GUARD',
   SSTI_GUARD = 'SSTI_GUARD',
   OS_COMMAND_GUARD = 'OS_COMMAND_GUARD',
-  PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD'
+  PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD',
+  CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD'
 }
 
 /**
@@ -1927,6 +1934,51 @@ export enum ClinicalAttachmentCategory {
   COURT_ORDER_CFP = 'COURT_ORDER_CFP',                             // Requisito ou ofício judicial de desarquivamento ético
   CLINICAL_SUMMARY = 'CLINICAL_SUMMARY'                            // Resumo de prontuário de transferência ou encaminhamento
 }
+
+/**
+ * Nível de Severidade de Risco de Injeção em Expressões e Consultas Clínicas (CWE-94/CWE-95)
+ */
+export enum ExpressionRiskSeverity {
+  CLEAN = 'CLEAN',                                                 // Sintaxe 100% segura e em conformidade estrita com a AST
+  LOW = 'LOW',                                                     // Uso de predicados não convencionais porém inofensivos
+  MEDIUM = 'MEDIUM',                                               // Identificadores não homologados na whitelist ou complexidade limítrofe
+  HIGH = 'HIGH',                                                   // Tentativa de acesso a operadores restritos ou manipulação de escopo
+  CRITICAL = 'CRITICAL'                                            // Tentativa explícita de RCE, eval, process, prototype pollution ou template injection
+}
+
+/**
+ * Categorias de Ameaça de Code/Expression Injection (CWE-94, CWE-95, OWASP ASVS V5.2)
+ */
+export enum ExpressionThreatCategory {
+  PROTOTYPE_POLLUTION_EXPR = 'PROTOTYPE_POLLUTION_EXPR',           // __proto__, constructor, prototype em predicados de consulta
+  SYSTEM_GLOBAL_ACCESS = 'SYSTEM_GLOBAL_ACCESS',                   // process, require, import, global, window, document, child_process
+  DYNAMIC_CODE_EXECUTION = 'DYNAMIC_CODE_EXECUTION',               // eval(), Function(), setTimeout, setInterval, exec()
+  TEMPLATE_LITERAL_INJECTION = 'TEMPLATE_LITERAL_INJECTION',       // ${...}, #{...}, *{...}, {{...}}, <%=...%>
+  NOSQL_CODE_OPERATOR = 'NOSQL_CODE_OPERATOR',                     // $where, $accumulator, $function, db.runCommand, sleep()
+  SPEL_OGNL_INJECTION = 'SPEL_OGNL_INJECTION',                     // T(java.lang...), #request, #context, class.forName
+  UNAUTHORIZED_FIELD_ACCESS = 'UNAUTHORIZED_FIELD_ACCESS',         // Campo clínico fora da whitelist homologada
+  AST_COMPLEXITY_EXCEEDED = 'AST_COMPLEXITY_EXCEEDED',             // Excesso de nós na AST (>100) ou profundidade recursiva (>10)
+  MALFORMED_SYNTAX = 'MALFORMED_SYNTAX'                            // Sintaxe malformada com caracteres de controle suspeitos
+}
+
+/**
+ * Ação de Validação e Bloqueio de Expressão Clínica
+ */
+export enum ExpressionValidationAction {
+  ALLOW_EXECUTION = 'ALLOW_EXECUTION',                             // Expressão AST validada e liberada para execução determinística
+  SANITIZE_AND_WARN = 'SANITIZE_AND_WARN',                         // Expressão sanitizada (campos mapeados/truncados) com alerta
+  BLOCK_ATTACK = 'BLOCK_ATTACK'                                    // Expressão bloqueada incondicionalmente por tentativa de injeção
+}
+
+/**
+ * Dialetos Suportados para Expressões de Busca e Filtros Clínicos
+ */
+export enum ExpressionFilterDialect {
+  CLINICAL_AST_DSL = 'CLINICAL_AST_DSL',                           // DSL Nativa Segura TerapiaInFoco para Prontuários (Zero eval)
+  SAFE_MONGO_PREDICATE = 'SAFE_MONGO_PREDICATE',                   // Predicado JSON estilo NoSQL sem operadores de código arbitrário
+  JSONPATH_RESTRICTED = 'JSONPATH_RESTRICTED'                      // Expressão de caminho JSONPath estritamente restrita
+}
+
 
 
 

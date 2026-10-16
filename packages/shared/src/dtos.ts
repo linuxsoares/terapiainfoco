@@ -3826,6 +3826,74 @@ export interface PathGuardOverviewResponse {
   overview: import('./models').PathGuardOverview;
 }
 
+/**
+ * DTOs de Blindagem contra Injeção de Código em Expressões e Consultas (CWE-94, CWE-95 & ASVS V5.2)
+ */
+export interface InspectExpressionDTO {
+  expression: string;
+  dialect?: import('./enums').ExpressionFilterDialect;
+}
+
+export interface InspectExpressionResponse {
+  success: boolean;
+  inspection: import('./models').ExpressionInspectionResult;
+  message: string;
+}
+
+export interface EvaluateExpressionDTO {
+  expression: string;
+  dialect?: import('./enums').ExpressionFilterDialect;
+  recordsSubset?: import('./models').ClinicalRecordSample[];
+}
+
+export interface EvaluateExpressionResponse {
+  success: boolean;
+  result: import('./models').ExpressionEvaluationResult;
+  message: string;
+}
+
+export interface UpdateExpressionPolicyDTO {
+  policy: Partial<import('./models').ExpressionGuardPolicy>;
+}
+
+export interface UpdateExpressionPolicyResponse {
+  success: boolean;
+  policy: import('./models').ExpressionGuardPolicy;
+  message: string;
+}
+
+export interface SimulateExpressionAttackDTO {
+  threatCategory: import('./enums').ExpressionThreatCategory;
+  dialect?: import('./enums').ExpressionFilterDialect;
+}
+
+export interface SimulateExpressionAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayload: string;
+  inspection: import('./models').ExpressionInspectionResult;
+  incident?: import('./models').ExpressionSecurityIncident;
+  message: string;
+}
+
+export interface VerifyExpressionSealDTO {
+  sealToken: string | import('./models').ExpressionProofSeal;
+}
+
+export interface VerifyExpressionSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').ExpressionProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface ExpressionGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').ExpressionGuardOverview;
+}
+
+
 
 
 

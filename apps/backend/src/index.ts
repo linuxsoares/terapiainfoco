@@ -56,6 +56,7 @@ import { redosGuardRoutes } from './routes/redosGuard';
 import { sstiGuardRoutes } from './routes/sstiGuard';
 import { osCommandGuardRoutes } from './routes/osCommandGuard';
 import { pathTraversalGuardRoutes } from './routes/pathTraversalGuard';
+import { expressionInjectionGuardRoutes } from './routes/expressionInjectionGuard';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -208,6 +209,7 @@ app.route('/api/redos-guard', redosGuardRoutes);
 app.route('/api/ssti-guard', sstiGuardRoutes);
 app.route('/api/os-command-guard', osCommandGuardRoutes);
 app.route('/api/path-traversal-guard', pathTraversalGuardRoutes);
+app.route('/api/expression-guard', expressionInjectionGuardRoutes);
 
 
 
