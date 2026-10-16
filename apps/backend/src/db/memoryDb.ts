@@ -136,6 +136,11 @@ export class MemoryDatabase {
       crp: '06/142980',
       crpRegion: 'SP',
       therapistId: 'therapist-001',
+      phone: '(11) 99123-4567',
+      specialty: 'Terapia Cognitivo-Comportamental (TCC) & ACT',
+      bio: 'Psicóloga Clínica (USP), Especialista em Transtornos de Ansiedade, Neuropsicologia e Telepsicologia Ética (CFP nº 011/2018).',
+      sessionFeeCents: 25000,
+      socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'GOV_BR' as any],
       passwordHash: defaultPasswordHash,
       twoFactorEnabled: false,
       createdAt: new Date()
@@ -150,6 +155,8 @@ export class MemoryDatabase {
       role: UserRole.SUPERVISOR_CLINICO,
       crp: '06/099887',
       crpRegion: 'SP',
+      specialty: 'Supervisão Clínica & Psicopatologia (CID-11)',
+      socialProviders: ['EMAIL_PASSWORD' as any],
       passwordHash: defaultPasswordHash,
       twoFactorEnabled: false,
       createdAt: new Date()
@@ -162,23 +169,47 @@ export class MemoryDatabase {
       email: 'recepcao@terapiainfoco.com.br',
       name: 'Ana Secretária',
       role: UserRole.RECEPCAO_SECRETARIA,
+      socialProviders: ['EMAIL_PASSWORD' as any],
       passwordHash: defaultPasswordHash,
       twoFactorEnabled: false,
       createdAt: new Date()
     };
     this.users.set(recepcaoUser.id, recepcaoUser);
 
-    // 4. Administrador de TI / Segurança
+    // 4. Administrador de TI / Segurança & DPO
     const adminUser: User = {
       id: '00000000-0000-0000-0000-000000000004',
       email: 'admin@terapiainfoco.com.br',
       name: 'Administrador do Sistema',
       role: UserRole.ADMIN,
+      phone: '(11) 99888-7766',
+      department: 'Engenharia de Segurança, Criptografia KMS & Governança LGPD',
+      dpoCertification: 'CDPO/BR • ISO/IEC 27701 & ANPD Resolução nº 15/2024',
+      socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'PASSKEY_FIDO2' as any],
       passwordHash: defaultPasswordHash,
       twoFactorEnabled: false,
       createdAt: new Date()
     };
     this.users.set(adminUser.id, adminUser);
+
+    // 5. Paciente Titular (Portal do Paciente, Exercícios TCC/ACT/DBT, Recibos & Cofre .enc LGPD Art. 18)
+    const pacienteUser: User = {
+      id: '00000000-0000-0000-0000-000000000005',
+      email: 'paciente@terapiainfoco.com.br',
+      name: 'Mariana Silva de Oliveira',
+      role: UserRole.PACIENTE,
+      patientId: '00000000-0000-0000-0000-000000000002',
+      therapistId: 'therapist-001',
+      phone: '(11) 98765-4321',
+      cpfMasked: '***.456.789-**',
+      emergencyContactName: 'Carlos Oliveira (Cônjuge)',
+      emergencyContactPhone: '(11) 97654-3210',
+      socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'APPLE' as any],
+      passwordHash: defaultPasswordHash,
+      twoFactorEnabled: false,
+      createdAt: new Date()
+    };
+    this.users.set(pacienteUser.id, pacienteUser);
   }
 
   clear() {

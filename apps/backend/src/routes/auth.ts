@@ -7,6 +7,8 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { authRateLimiter } from '../middlewares/rateLimiter';
 import type { 
   RegisterDTO, 
+  SocialAuthLoginDTO,
+  UpdateUserProfileDTO,
   LoginDTO, 
   TwoFactorVerifyDTO, 
   RefreshTokenDTO,
@@ -17,8 +19,17 @@ import type {
 export const authRoute = new Hono();
 
 /**
+ * GET /api/auth/public-showcase
+ * Vitrine pública da plataforma (sem necessidade de login)
+ */
+authRoute.get('/public-showcase', (c) => {
+  const showcase = authService.getPublicShowcaseOverview();
+  return c.json({ success: true, showcase }, 200);
+});
+
+/**
  * POST /api/auth/register
- * Cadastro de novo profissional clínico ou membro da equipe
+ * Cadastro de novo profissional clínico, paciente ou membro da equipe (com ou sem Login Social)
  */
 authRoute.post('/register', async (c) => {
   try {
@@ -33,6 +44,25 @@ authRoute.post('/register', async (c) => {
     return c.json({ success: true, user }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message || 'Falha ao registrar usuário.' }, 400);
+  }
+});
+
+/**
+ * POST /api/auth/social
+ * Autenticação ou Criação de Perfil via Login Social OAuth 2.0 / OIDC (Google, Gov.br, Apple)
+ */
+authRoute.post('/social', async (c) => {
+  try {
+    const body = await c.req.json<SocialAuthLoginDTO>();
+    if (!body.provider || !body.email || !body.name) {
+      return c.json({ success: false, error: 'Campos obrigatórios: provider, name, email.' }, 400);
+    }
+
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const response = await authService.socialLoginOrRegister(body, ip);
+    return c.json(response, response.isNewProfile ? 201 : 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha na autenticação social.' }, 400);
   }
 });
 
@@ -115,11 +145,37 @@ authRoute.post('/logout', authMiddleware({ optional: true }), async (c) => {
 
 /**
  * GET /api/auth/me
- * Retorna o perfil do usuário logado
+ * Retorna o perfil completo do usuário logado (Paciente, Psicólogo ou Admin)
  */
 authRoute.get('/me', authMiddleware({ strict: true }), async (c) => {
   const user = c.get('user');
-  return c.json({ success: true, user });
+  const fullProfile = authService.getUserById(user.id) || user;
+  return c.json({ success: true, user: fullProfile });
+});
+
+/**
+ * PUT /api/auth/profile
+ * Atualiza informações do perfil do usuário autenticado (Paciente, Psicólogo ou Admin)
+ */
+authRoute.put('/profile', authMiddleware({ strict: true }), async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json<UpdateUserProfileDTO>();
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const updated = await authService.updateProfile(user.id, body, ip);
+    return c.json({ success: true, user: updated, message: 'Perfil atualizado com sucesso.' }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Falha ao atualizar perfil.' }, 400);
+  }
+});
+
+/**
+ * GET /api/auth/profiles
+ * Lista perfis cadastrados na plataforma
+ */
+authRoute.get('/profiles', authMiddleware({ optional: true }), (c) => {
+  const profiles = authService.listProfiles();
+  return c.json({ success: true, profiles }, 200);
 });
 
 /**

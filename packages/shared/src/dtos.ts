@@ -2,6 +2,7 @@ import {
   AppointmentStatus, 
   DocumentType, 
   UserRole, 
+  SocialAuthProvider,
   MeetProvider, 
   MeetAccessType,
   RecurrenceFrequency,
@@ -318,7 +319,7 @@ export interface PublicBookingResponse {
 }
 
 /**
- * DTOs de Autenticação, Sessão e 2FA/MFA (Opção C)
+ * DTOs de Autenticação, Sessão, Login Social, Criação de Perfil e 2FA/MFA (Opção C)
  */
 export interface RegisterDTO {
   name: string;
@@ -327,6 +328,77 @@ export interface RegisterDTO {
   role: UserRole;
   crp?: string;
   crpRegion?: string;
+  phone?: string;
+  cpf?: string;
+  patientId?: string;
+  specialty?: string;
+  bio?: string;
+  sessionFeeCents?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  department?: string;
+  dpoCertification?: string;
+  socialProvider?: SocialAuthProvider;
+}
+
+export interface SocialAuthLoginDTO {
+  provider: SocialAuthProvider;
+  email: string;
+  name: string;
+  role?: UserRole;
+  providerToken?: string;
+  crp?: string;
+  crpRegion?: string;
+  phone?: string;
+  cpf?: string;
+  specialty?: string;
+  department?: string;
+  dpoCertification?: string;
+}
+
+export interface UpdateUserProfileDTO {
+  name?: string;
+  phone?: string;
+  crp?: string;
+  crpRegion?: string;
+  specialty?: string;
+  bio?: string;
+  sessionFeeCents?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  department?: string;
+  dpoCertification?: string;
+}
+
+export interface PublicPlatformShowcaseOverview {
+  platformName: string;
+  version: string;
+  tagline: string;
+  totalClinicalModules: number;
+  totalSecurityLayers: number;
+  totalAutomatedTests: number;
+  supportedSocialProviders: SocialAuthProvider[];
+  normativeCompliance: Array<{
+    code: string;
+    title: string;
+    description: string;
+  }>;
+  profilesCatalog: Array<{
+    role: UserRole;
+    title: string;
+    subtitle: string;
+    badge: string;
+    demoEmail: string;
+    highlights: string[];
+  }>;
+  clinicalModulesHighlight: Array<{
+    id: string;
+    section: string;
+    title: string;
+    description: string;
+    normativeBasis: string;
+    targetRoles: UserRole[];
+  }>;
 }
 
 export interface LoginDTO {
@@ -342,6 +414,8 @@ export interface LoginResponse {
   accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
+  socialProviderUsed?: SocialAuthProvider;
+  isNewProfile?: boolean;
   message?: string;
 }
 

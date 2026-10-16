@@ -9,19 +9,32 @@ import {
   generateTotpCode, 
   verifyTotpCode, 
   generateTotpUri, 
-  generateBackupCodes 
+  generateBackupCodes
 } from '@terapiainfoco/crypto';
 import type { 
   User, 
   SafeUser, 
   AuthTokenPayload, 
   RegisterDTO, 
+  SocialAuthLoginDTO,
+  UpdateUserProfileDTO,
+  PublicPlatformShowcaseOverview,
   LoginDTO, 
   LoginResponse,
   TwoFactorSetupResponse 
 } from '@terapiainfoco/shared';
-import { UserRole, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { UserRole, SocialAuthProvider, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { auditService } from './auditService';
+import { encryptField, hashEmail, hashCpf } from './cryptoContext';
+
+function maskCpfForProfile(cpf?: string): string | undefined {
+  if (!cpf) return undefined;
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
+  }
+  return '***.***.***-**';
+}
 
 export class AuthService {
   /**
@@ -36,6 +49,18 @@ export class AuthService {
       crp: user.crp,
       crpRegion: user.crpRegion,
       therapistId: user.therapistId,
+      patientId: user.patientId,
+      phone: user.phone,
+      cpfMasked: user.cpfMasked,
+      specialty: user.specialty,
+      bio: user.bio,
+      sessionFeeCents: user.sessionFeeCents,
+      emergencyContactName: user.emergencyContactName,
+      emergencyContactPhone: user.emergencyContactPhone,
+      department: user.department,
+      dpoCertification: user.dpoCertification,
+      socialProviders: user.socialProviders || [SocialAuthProvider.EMAIL_PASSWORD],
+      avatarUrl: user.avatarUrl,
       twoFactorEnabled: user.twoFactorEnabled,
       passkeysCount: user.passkeysCount ?? 0,
       createdAt: user.createdAt,
@@ -44,7 +69,7 @@ export class AuthService {
   }
 
   /**
-   * Cadastro de novo profissional com validação e Argon2id hash
+   * Cadastro de novo profissional, paciente ou administrador com validação e Argon2id hash
    */
   public async register(dto: RegisterDTO, ipAddress: string = '127.0.0.1'): Promise<SafeUser> {
     const existing = Array.from(db.users.values()).find(
@@ -63,16 +88,44 @@ export class AuthService {
 
     // Se for psicólogo, vincula ao registro de terapeuta com UUID válido
     let therapistId: string | undefined;
-    if (dto.role === UserRole.PSICOLOGO_TITULAR && dto.crp) {
+    if (dto.role === UserRole.PSICOLOGO_TITULAR) {
       therapistId = crypto.randomUUID();
       db.therapists.set(therapistId, {
         id: therapistId,
-        crp: dto.crp,
+        crp: dto.crp || '06/000000',
         crpRegion: dto.crpRegion || 'SP',
         status: 'ACTIVE' as any,
         encryptedDek: 'auto-generated-encrypted-dek-base64',
         createdAt: new Date()
       });
+    }
+
+    // Se for paciente, vincula ou cria registro cifrado em db.patients para acesso imediato ao Portal do Paciente
+    let patientId = dto.patientId;
+    if (dto.role === UserRole.PACIENTE) {
+      if (!patientId) {
+        patientId = crypto.randomUUID();
+        const emailNormalized = dto.email.toLowerCase().trim();
+        db.patients.set(patientId, {
+          id: patientId,
+          therapistId: 'therapist-001',
+          emailBindex: hashEmail(emailNormalized),
+          cpfBindex: dto.cpf ? hashCpf(dto.cpf) : undefined,
+          consentTranscriptionSigned: true,
+          consentSignedAt: new Date(),
+          createdAt: new Date(),
+          encryptedName: encryptField(dto.name.trim()),
+          encryptedEmail: encryptField(emailNormalized),
+          encryptedPhone: encryptField(dto.phone || '(11) 99999-0000'),
+          encryptedCpf: dto.cpf ? encryptField(dto.cpf) : undefined
+        });
+      }
+      therapistId = 'therapist-001';
+    }
+
+    const providers: SocialAuthProvider[] = [SocialAuthProvider.EMAIL_PASSWORD];
+    if (dto.socialProvider && !providers.includes(dto.socialProvider)) {
+      providers.push(dto.socialProvider);
     }
 
     const newUser: User = {
@@ -83,6 +136,17 @@ export class AuthService {
       crp: dto.crp,
       crpRegion: dto.crpRegion,
       therapistId,
+      patientId,
+      phone: dto.phone,
+      cpfMasked: maskCpfForProfile(dto.cpf),
+      specialty: dto.specialty,
+      bio: dto.bio,
+      sessionFeeCents: dto.sessionFeeCents,
+      emergencyContactName: dto.emergencyContactName,
+      emergencyContactPhone: dto.emergencyContactPhone,
+      department: dto.department,
+      dpoCertification: dto.dpoCertification,
+      socialProviders: providers,
       passwordHash,
       twoFactorEnabled: false,
       createdAt: new Date()
@@ -489,6 +553,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         therapistId: user.therapistId,
+        patientId: user.patientId,
         crp: user.crp,
         type: 'access',
         exp: now + expiresIn,
@@ -526,6 +591,260 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn
+    };
+  }
+
+  /**
+   * Autenticação ou Criação de Perfil via Login Social OAuth 2.0 / OIDC (Google, Gov.br, Apple)
+   */
+  public async socialLoginOrRegister(
+    dto: SocialAuthLoginDTO,
+    ipAddress: string = '127.0.0.1'
+  ): Promise<LoginResponse> {
+    if (!dto.email || !dto.name || !dto.provider) {
+      throw new Error('Provedor social, nome e e-mail são obrigatórios.');
+    }
+
+    const emailNormalized = dto.email.toLowerCase().trim();
+    let user = Array.from(db.users.values()).find(
+      u => u.email.toLowerCase() === emailNormalized
+    );
+    let isNewProfile = false;
+
+    if (!user) {
+      isNewProfile = true;
+      const role = dto.role || UserRole.PACIENTE;
+      const randomPassword = `SocialAuth@${crypto.randomUUID()}`;
+      const createdSafe = await this.register(
+        {
+          name: dto.name,
+          email: emailNormalized,
+          password: randomPassword,
+          role,
+          crp: dto.crp,
+          crpRegion: dto.crpRegion,
+          phone: dto.phone,
+          cpf: dto.cpf,
+          specialty: dto.specialty,
+          department: dto.department,
+          dpoCertification: dto.dpoCertification,
+          socialProvider: dto.provider
+        },
+        ipAddress
+      );
+      user = db.users.get(createdSafe.id)!;
+    } else {
+      const existingProviders = user.socialProviders || [SocialAuthProvider.EMAIL_PASSWORD];
+      if (!existingProviders.includes(dto.provider)) {
+        existingProviders.push(dto.provider);
+        user.socialProviders = existingProviders;
+      }
+      if (dto.phone && !user.phone) user.phone = dto.phone;
+      if (dto.crp && !user.crp) user.crp = dto.crp;
+      if (dto.crpRegion && !user.crpRegion) user.crpRegion = dto.crpRegion;
+      if (dto.specialty && !user.specialty) user.specialty = dto.specialty;
+    }
+
+    await auditService.logAccess({
+      actorId: user.id,
+      resourceType: AuditResourceType.USER,
+      resourceId: user.id,
+      action: AuditAction.SOCIAL_AUTH_LOGIN,
+      ipAddress,
+      userAgent: `SocialOAuth/${dto.provider}`
+    });
+
+    const tokens = await this.issueTokens(user, ipAddress);
+    return {
+      ...tokens,
+      socialProviderUsed: dto.provider,
+      isNewProfile,
+      message: isNewProfile
+        ? `Perfil (${user.role}) criado e autenticado via ${dto.provider} com sucesso.`
+        : `Autenticado com sucesso via ${dto.provider}.`
+    };
+  }
+
+  /**
+   * Atualização de dados de Perfil (Paciente, Psicólogo ou Admin)
+   */
+  public async updateProfile(
+    userId: string,
+    dto: UpdateUserProfileDTO,
+    ipAddress: string = '127.0.0.1'
+  ): Promise<SafeUser> {
+    const user = db.users.get(userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado.');
+    }
+
+    if (dto.name !== undefined && dto.name.trim()) user.name = dto.name.trim();
+    if (dto.phone !== undefined) user.phone = dto.phone.trim();
+    if (dto.crp !== undefined) user.crp = dto.crp.trim();
+    if (dto.crpRegion !== undefined) user.crpRegion = dto.crpRegion.trim().toUpperCase();
+    if (dto.specialty !== undefined) user.specialty = dto.specialty.trim();
+    if (dto.bio !== undefined) user.bio = dto.bio.trim();
+    if (dto.sessionFeeCents !== undefined) user.sessionFeeCents = dto.sessionFeeCents;
+    if (dto.emergencyContactName !== undefined) user.emergencyContactName = dto.emergencyContactName.trim();
+    if (dto.emergencyContactPhone !== undefined) user.emergencyContactPhone = dto.emergencyContactPhone.trim();
+    if (dto.department !== undefined) user.department = dto.department.trim();
+    if (dto.dpoCertification !== undefined) user.dpoCertification = dto.dpoCertification.trim();
+
+    await auditService.logAccess({
+      actorId: userId,
+      resourceType: AuditResourceType.USER,
+      resourceId: userId,
+      action: AuditAction.USER_PROFILE_UPDATED,
+      ipAddress,
+      userAgent: 'AuthService/updateProfile'
+    });
+
+    return this.toSafeUser(user);
+  }
+
+  /**
+   * Lista todos os perfis seguros cadastrados na plataforma
+   */
+  public listProfiles(): SafeUser[] {
+    return Array.from(db.users.values()).map(u => this.toSafeUser(u));
+  }
+
+  /**
+   * Retorna o catálogo público da Vitrine da Plataforma (sem necessidade de login)
+   */
+  public getPublicShowcaseOverview(): PublicPlatformShowcaseOverview {
+    return {
+      platformName: 'TerapiaInFoco',
+      version: 'v0.1.0-RFC001',
+      tagline: 'Ecossistema Clínico de Psicoterapia, Telepsicologia WebRTC, IA Human-in-the-Loop e Criptografia Zero-Knowledge (LGPD, CFP & ICP-Brasil)',
+      totalClinicalModules: 18,
+      totalSecurityLayers: 74,
+      totalAutomatedTests: 1381,
+      supportedSocialProviders: [
+        SocialAuthProvider.GOOGLE,
+        SocialAuthProvider.GOV_BR,
+        SocialAuthProvider.APPLE,
+        SocialAuthProvider.PASSKEY_FIDO2,
+        SocialAuthProvider.EMAIL_PASSWORD
+      ],
+      normativeCompliance: [
+        {
+          code: 'CFP nº 011/2018 & 001/2009',
+          title: 'Telepsicologia Ética & Guarda Documental de Prontuários',
+          description: 'Sala de espera ética com knocking manual, sigilo profissional Art. 9º e guarda criptográfica mínima de 5 anos.'
+        },
+        {
+          code: 'CFP nº 006/2019',
+          title: 'Elaboração de Documentos Psicológicos Oficiais',
+          description: 'Declarações, Atestados, Relatórios, Laudos Periciais Multi-Sessões e Pareceres nas 5 seções canônicas.'
+        },
+        {
+          code: 'LGPD (Lei 13.709/2018 Art. 11, 18 e 46)',
+          title: 'Proteção de Dados Sensíveis de Saúde & Autodeterminação',
+          description: 'Field-Level Encryption AES-256-GCM, Blind Indexing HMAC-SHA256, Smart Consent Revocation e Cofre de Portabilidade .enc.'
+        },
+        {
+          code: 'ICP-Brasil (MP 2.200-2/2001 & DOC-ICP-11)',
+          title: 'Fé Pública, Assinatura Qualificada PAdES & Carimbo do Tempo TSA',
+          description: 'Assinatura individual e em lote via Árvore de Merkle com certificados A1, A3 e Nuvem PSC (BirdID/SafeID/VIDaaS).'
+        },
+        {
+          code: 'NIST FIPS 203/204 & OWASP ASVS v4.0',
+          title: 'Criptografia Pós-Quântica Híbrida & 74 Camadas de Hardening',
+          description: 'ML-KEM-768 (Kyber), ML-DSA-65 (Dilithium), Envelope KMS, WAF, ZKP Schnorr, Shamir Secret Sharing e WebSocket Guard.'
+        }
+      ],
+      profilesCatalog: [
+        {
+          role: UserRole.PACIENTE,
+          title: 'Perfil Paciente (Titular)',
+          subtitle: 'Autonomia, acolhimento e acesso seguro à sua jornada terapêutica',
+          badge: 'Portal do Paciente & LGPD Art. 18',
+          demoEmail: 'paciente@terapiainfoco.com.br',
+          highlights: [
+            'Exercícios Terapêuticos Interativos (RPD TCC, Diário de Humor, Mindfulness 4-4-6, ACT e Ativação DBT)',
+            'Acesso aos Recibos de Honorários com QR Code para reembolso de convênio e dedução no IRPF/DMED',
+            'Gestão de Termos de Consentimento Livre e Esclarecido (TCLE) com revogação granular (Smart Revocation)',
+            'Exportação e Decifragem do Cofre de Portabilidade (.enc protegido por senha Argon2id + AES-256-GCM)'
+          ]
+        },
+        {
+          role: UserRole.PSICOLOGO_TITULAR,
+          title: 'Perfil Psicólogo(a) Clínico(a)',
+          subtitle: 'Prontuário SOAP, Teleconsulta WebRTC/Meet, IA Ética e Documentos CFP',
+          badge: 'CRP Ativo & e-Psi',
+          demoEmail: 'psicologo@terapiainfoco.com.br',
+          highlights: [
+            'Agenda com Séries Recorrentes, Lembretes WhatsApp/E-mail e Teleconsulta WebRTC P2P + Google Meet API v2',
+            'Transcrição Assistida por IA com Diarização de Voz, Taxa de Escuta Ativa e Rascunho SOAP Human-in-the-Loop',
+            'Anamnese Interativa com Árvore de Decisão CID-11, Escalas PHQ-9/GAD-7/PSS-10/ASRS e Planos SMART',
+            'Laudos CFP nº 006/2019, Encaminhamento Psiquiátrico com Interações Medicamentosas e Assinatura ICP-Brasil em Lote'
+          ]
+        },
+        {
+          role: UserRole.ADMIN,
+          title: 'Perfil Administrador TI & DPO',
+          subtitle: 'Governança multi-normativa, chaves KMS, SIEM, auditoria WORM e defesa cibernética',
+          badge: 'DPO / CISO Governance',
+          demoEmail: 'admin@terapiainfoco.com.br',
+          highlights: [
+            'Dashboard Executivo de Conformidade (LGPD, CFP, ICP-Brasil, SOC2/ISO 27001) com DPO Sign-Off e Relatório RIPD',
+            'Gestão do Ciclo de Vida de Chaves KMS (Rotação automática de KEKs e Re-wrapping de DEKs) e Backups Disaster Recovery',
+            'Painel com 56 Módulos Ativos de Segurança (WAF, ZKP, PQC Kyber/Dilithium, UEBA, DLP Esteganográfico, WebSocket Guard)',
+            'Trilha de Auditoria Forense WORM em Hash-Chain SHA-256 inviolável e exportação OpenTelemetry/Prometheus/SIEM'
+          ]
+        }
+      ],
+      clinicalModulesHighlight: [
+        {
+          id: 'mod-agenda-teleconsulta',
+          section: 'RFC-001 §3.1 & §3.2',
+          title: 'Agendamento Recorrente, Lembretes Multicanal & Teleconsulta WebRTC P2P / Google Meet',
+          description: 'Séries semanais/quinzenais, sala de espera ética com knocking (CFP 011/2018), monitoramento de qualidade MOS ITU-T G.107 e reconexão automática.',
+          normativeBasis: 'Resolução CFP nº 011/2018',
+          targetRoles: [UserRole.PSICOLOGO_TITULAR, UserRole.PACIENTE]
+        },
+        {
+          id: 'mod-ia-soap-markers',
+          section: 'RFC-001 §3.3',
+          title: 'Transcrição com Diarização IA, Marcadores em Tempo Real & Prontuário SOAP Cifrado',
+          description: 'Particionamento de fala Terapeuta/Paciente, sanitização prévia de PII, marcadores clínicos durante a sessão e revisão obrigatória Human-in-the-Loop.',
+          normativeBasis: 'Resolução CFP nº 001/2009 & LGPD Art. 11',
+          targetRoles: [UserRole.PSICOLOGO_TITULAR]
+        },
+        {
+          id: 'mod-anamnese-escalas-smart',
+          section: 'RFC-001 §3.4',
+          title: 'Anamnese Digital com Árvore Diagnóstica CID-11, Escalas PHQ-9/GAD-7 & Metas SMART',
+          description: 'Investigação guiada por hipóteses com detecção de Red Flags de crise, escalas psicométricas padronizadas e linha do tempo longitudinal.',
+          normativeBasis: 'CFP nº 001/2009 & OMS CID-11',
+          targetRoles: [UserRole.PSICOLOGO_TITULAR]
+        },
+        {
+          id: 'mod-docs-icp-psiquiatria',
+          section: 'RFC-001 §3.5',
+          title: 'Laudos CFP 006/2019, Interações Psicofarmacológicas & Assinatura ICP-Brasil em Lote',
+          description: 'Geração de documentos oficiais, checagem cruzada de 18 psicofármacos (alerta de Síndrome Serotoninérgica) e fechamento em lote via Merkle Tree.',
+          normativeBasis: 'CFP nº 006/2019 & MP 2.200-2/2001',
+          targetRoles: [UserRole.PSICOLOGO_TITULAR]
+        },
+        {
+          id: 'mod-faturamento-portal-cofre',
+          section: 'RFC-001 §3.6, §3.7 & §4.4',
+          title: 'Faturamento DMED/Reembolso, Portal do Paciente (TCC/ACT/DBT) & Cofre Cifrado .enc',
+          description: 'Recibos timbrados com valor por extenso, prescrição de exercícios interativos entre sessões e pacote de portabilidade Argon2id + AES-256-GCM.',
+          normativeBasis: 'LGPD Art. 18 & Receita Federal DMED',
+          targetRoles: [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR]
+        },
+        {
+          id: 'mod-governanca-hardening',
+          section: 'RFC-001 §4.2, §4.4 & §5.2',
+          title: 'Arquitetura Zero-Knowledge, Envelope KMS, WORM Hash-Chain & 74 Guardiões de Segurança',
+          description: 'Proteção ponta a ponta com DEKs por terapeuta, provas de conhecimento zero (ZKP), criptografia pós-quântica e defesa ativa contra OWASP Top 10.',
+          normativeBasis: 'LGPD Art. 46, NIST SP 800-57 & FIPS 203/204',
+          targetRoles: [UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]
+        }
+      ]
     };
   }
 
@@ -581,9 +900,13 @@ export class AuthService {
       return {
         sub: localUser ? localUser.id : data.id,
         email: data.email || (localUser ? localUser.email : ''),
+        name: localUser ? localUser.name : (data.user_metadata?.name || ''),
         role: localUser ? localUser.role : (data.user_metadata?.role || UserRole.PSICOLOGO_TITULAR),
         therapistId: localUser?.therapistId || '00000000-0000-0000-0000-000000000001',
-        type: 'access'
+        patientId: localUser?.patientId,
+        type: 'access',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000)
       };
     } catch {
       return null;

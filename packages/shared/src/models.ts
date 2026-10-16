@@ -24,6 +24,7 @@ import {
   TeleconsultationParticipantRole,
   CallQualityState,
   UserRole,
+  SocialAuthProvider,
   AuditAction,
   AuditResourceType,
   KmsKeyStatus,
@@ -488,7 +489,7 @@ export interface AuditLog {
 
 /**
  * 8. USUÁRIO DO SISTEMA (Opção C - RFC §5.2)
- * Profissional autenticado com suporte a RBAC e 2FA/MFA
+ * Profissional, Paciente ou Administrador autenticado com suporte a RBAC, Login Social e 2FA/MFA
  */
 export interface User {
   id: string;
@@ -498,6 +499,18 @@ export interface User {
   crp?: string;
   crpRegion?: string;
   therapistId?: string;
+  patientId?: string;
+  phone?: string;
+  cpfMasked?: string;
+  specialty?: string;
+  bio?: string;
+  sessionFeeCents?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  department?: string;
+  dpoCertification?: string;
+  socialProviders?: SocialAuthProvider[];
+  avatarUrl?: string;
   passwordHash: string;
   twoFactorEnabled: boolean;
   twoFactorSecret?: string;
@@ -518,6 +531,18 @@ export interface SafeUser {
   crp?: string;
   crpRegion?: string;
   therapistId?: string;
+  patientId?: string;
+  phone?: string;
+  cpfMasked?: string;
+  specialty?: string;
+  bio?: string;
+  sessionFeeCents?: number;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  department?: string;
+  dpoCertification?: string;
+  socialProviders?: SocialAuthProvider[];
+  avatarUrl?: string;
   twoFactorEnabled: boolean;
   passkeysCount?: number;
   createdAt: Date | string;
@@ -533,6 +558,7 @@ export interface AuthTokenPayload {
   name: string;
   role: UserRole;
   therapistId?: string;
+  patientId?: string;
   crp?: string;
   type: 'access' | 'refresh' | 'mfa_temp';
   exp: number;
