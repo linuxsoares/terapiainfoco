@@ -613,7 +613,14 @@ import type {
   SaveDiagnosticAssessmentDTO,
   DiagnosticAssessmentReportResponse,
   DiagnosticAssessmentReport,
-  DiagnosticAssessmentListResponse
+  DiagnosticAssessmentListResponse,
+  CheckDrugInteractionsResponse,
+  CreatePsychiatricReferralDTO,
+  PsychiatricReferralResponse,
+  PsychiatricReferralListResponse,
+  PsychopharmaceuticalCatalogResponse,
+  Psychopharmaceutical,
+  PsychiatricReferralGuide
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3785,6 +3792,35 @@ export const api = {
   async getDiagnosticAssessment(id: string): Promise<DiagnosticAssessmentReport> {
     const res = await request<{ success: boolean; report: DiagnosticAssessmentReport }>(`/diagnostic-tree/assessments/${id}`);
     return res.report;
+  },
+
+  // Prescrição & Encaminhamento Psiquiátrico com Validação Farmacológica (RFC-001 §3.5)
+  async getPsychopharmaceuticalsCatalog(): Promise<Psychopharmaceutical[]> {
+    const res = await request<PsychopharmaceuticalCatalogResponse>('/psychiatric-referrals/catalog');
+    return res.drugs || [];
+  },
+
+  async checkDrugInteractions(drugIds: string[]): Promise<CheckDrugInteractionsResponse> {
+    return await request<CheckDrugInteractionsResponse>('/psychiatric-referrals/check-interactions', {
+      method: 'POST',
+      body: JSON.stringify({ drugIds })
+    });
+  },
+
+  async createPsychiatricReferral(dto: CreatePsychiatricReferralDTO): Promise<PsychiatricReferralResponse> {
+    return await request<PsychiatricReferralResponse>('/psychiatric-referrals', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getPatientPsychiatricReferrals(patientId: string): Promise<PsychiatricReferralGuide[]> {
+    const res = await request<PsychiatricReferralListResponse>(`/psychiatric-referrals/patients/${patientId}`);
+    return res.referrals || [];
+  },
+
+  async validatePsychiatricReferral(token: string): Promise<{ success: boolean; isValid: boolean; referral?: Partial<PsychiatricReferralGuide>; message: string }> {
+    return await request<{ success: boolean; isValid: boolean; referral?: Partial<PsychiatricReferralGuide>; message: string }>(`/psychiatric-referrals/validate/${token}`);
   }
 };
 

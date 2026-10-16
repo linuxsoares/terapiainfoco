@@ -4706,6 +4706,53 @@ export interface DiagnosticAssessmentListResponse {
   total: number;
 }
 
+/**
+ * DTOs para Prescrição & Encaminhamento Psiquiátrico com Validação Farmacológica (RFC-001 §3.5)
+ */
+export interface CheckDrugInteractionsDTO {
+  drugIds: string[];
+}
+
+export interface CheckDrugInteractionsResponse {
+  success: boolean;
+  interactions: import('./models').DrugInteractionRecord[];
+  maxSeverity: import('./enums').DrugInteractionSeverity | 'NONE';
+  warningCount: number;
+}
+
+export interface CreatePsychiatricReferralDTO {
+  patientId: string;
+  urgencyLevel: import('./enums').DiagnosticUrgencyLevel;
+  reasonForReferral: string;
+  clinicalHypothesesCid11: string[];
+  currentMedications: import('./models').PatientCurrentMedication[];
+  psychometricSummary?: {
+    scale: string;
+    score: number;
+    severity: string;
+  };
+  confidentialNotes?: string;
+}
+
+export interface PsychiatricReferralResponse {
+  success: boolean;
+  referral: import('./models').PsychiatricReferralGuide;
+  validationUrl: string;
+  message: string;
+}
+
+export interface PsychiatricReferralListResponse {
+  success: boolean;
+  referrals: import('./models').PsychiatricReferralGuide[];
+  total: number;
+}
+
+export interface PsychopharmaceuticalCatalogResponse {
+  success: boolean;
+  drugs: import('./models').Psychopharmaceutical[];
+  total: number;
+}
+
 
 
 

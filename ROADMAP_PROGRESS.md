@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Anamnese Digital Interativa com Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais §3.4 + Portal do Paciente Autenticado com Exercícios Terapêuticos TCC/ACT/DBT, Histórico de Recibos & Termos TCLE §3.6, §3.7 + Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.348/1.348 Testes Passando (0 falhas em 136 arquivos)
+> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas §3.5 + Anamnese Digital Interativa com Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais §3.4 + Portal do Paciente Autenticado com Exercícios Terapêuticos TCC/ACT/DBT, Histórico de Recibos & Termos TCLE §3.6, §3.7 + Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.356/1.356 Testes Passando (0 falhas em 137 arquivos)
 
 
 
@@ -2151,6 +2151,38 @@ terapiainfoco/
 
 ---
 
+### 17. Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5 & Art. 9º do Código de Ética do Psicólogo)
+- [x] **Catálogo Padronizado de Psicofármacos Brasileiros (`PSYCHOPHARMACEUTICALS_CATALOG`):**
+  - Mapeamento abrangente de 18 psicofármacos comuns no Brasil com dosagens, indicações principais, efeitos colaterais e pérolas clínicas em 8 classes farmacológicas:
+    - **ISRS:** Fluoxetina, Sertralina, Escitalopram.
+    - **IRSN:** Venlafaxina, Duloxetina.
+    - **Antidepressivos Atípicos:** Bupropiona, Mirtazapina, Tranilcipromina (IMAO).
+    - **Benzodiazepínicos & Hipnóticos:** Clonazepam, Alprazolam, Zolpidem.
+    - **Estabilizadores de Humor:** Carbonato de Lítio, Ácido Valproico/Divalproato, Lamotrigina.
+    - **Antipsicóticos Atípicos (Segunda Geração):** Quetiapina, Risperidona, Aripiprazol.
+    - **Psicoestimulantes:** Metilfenidato, Lisdexanfetamina.
+- [x] **Motor de Regras Farmacológicas de Interações Cruzadas (`DRUG_INTERACTION_RULES`):**
+  - Avaliação automatizada de interações par-a-par com matriz de severidade clínica padronizada:
+    - **CONTRAINDICATED:** Combinações de altíssimo risco de letalidade por Síndrome Serotoninérgica Aguda (ex: Inibidores da MAO como Tranilcipromina combinados a ISRS/IRSN).
+    - **MAJOR:** Riscos graves de depressão respiratória central e sedação extrema (Benzodiazepínicos + Zolpidem), além de toxicidade neuromuscular e tremor por litiemia tóxica (Lítio + ISRS).
+    - **MODERATE:** Redução cumulativa de limiar convulsivo, taquicardia sinusal e hipersedação com hipotensão ortostática (Bupropiona + IRSN; Clonazepam + Quetiapina; Psicoestimulantes + IRSN).
+  - Emissão de orientações práticas direcionadas ao psicólogo (`psychologistManagementTip`) para observação clínica e manejo em sessão.
+- [x] **Guia de Encaminhamento Psiquiátrico Interoperável & Notarial:**
+  - Emissão com cálculo imutável de **Checksum SHA-256** sobre o payload clínico e hipóteses CID-11.
+  - Geração de token notarial único (`psy_ref_<hex>`) para verificação pública pelo médico psiquiatra externo sem necessidade de autenticação.
+  - Cifragem **Field-Level Encryption (AES-256-GCM)** exclusiva para notas confidenciais do terapeuta, preservando o sigilo profissional (Art. 9º do Código de Ética do Psicólogo).
+  - Trilha de auditoria WORM imutável registrando `PSYCHIATRIC_REFERRAL_CREATED`, `DRUG_INTERACTIONS_EVALUATED` e `CRITICAL_DRUG_ALERT_TRIGGERED`.
+- [x] **Componente Frontend Dedicado (`PsychiatricReferralModal.tsx` & `PatientsModule.tsx`):**
+  - Interface clínica por abas (*Novo Encaminhamento & Checagem* vs. *Histórico de Guias*).
+  - Seletor de níveis de urgência (`ROUTINE`, `MODERATE`, `CRITICAL_RED_FLAG`), atalhos de hipóteses diagnósticas CID-11, cadastro de medicamentos em uso com dosagem, posologia e adesão relatada.
+  - Verificador instantâneo de interações com badges dinâmicos de severidade e dicas práticas de manejo.
+  - Pré-visualização da Guia Timbrada com carimbo digital, QR/Token notarial e botão de cópia rápida.
+  - Suporte completo a **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes Automatizados:**
+  - 8 testes unitários e de integração REST com 41 asserções aprovadas com 100% de sucesso em `apps/backend/test/psychiatricReferral.test.ts`.
+
+---
+
 ## 📌 Histórico de Branches & Pull Requests
 
 | Branch | Escopo | PR no GitHub | Status |
@@ -2245,12 +2277,13 @@ terapiainfoco/
 | `feat/ai-transcription-diarization-soap-synthesizer` | Transcrição Assistida por IA com Diarização de Voz, Escuta Ativa (Talk-to-Listen Ratio) e Síntese de Rascunho SOAP Human-in-the-Loop (RFC-001 §3.3) | [PR #96](https://github.com/linuxsoares/terapiainfoco/pull/96) | Merged |
 | `feat/patient-portal-and-therapeutic-exercises` | Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos Interativos (TCC/ACT/DBT), Histórico de Recibos para Reembolso e Termos TCLE (RFC-001 §3.6, §3.7) | [PR #98](https://github.com/linuxsoares/terapiainfoco/pull/98) | Merged |
 | `feat/interactive-diagnostic-tree-and-initial-scales` | Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4) | [PR #99](https://github.com/linuxsoares/terapiainfoco/pull/99) | Merged |
+| `feat/psychiatric-referral-and-drug-interactions` | Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5) | [PR #100](https://github.com/linuxsoares/terapiainfoco/pull/100) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Anamnese Digital Interativa com Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais §3.4 + Portal do Paciente Autenticado com Exercícios Terapêuticos TCC/ACT/DBT, Histórico de Recibos & Termos TCLE §3.6, §3.7 + Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.348 testes automatizados (0 falhas em 136 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas §3.5 + Anamnese Digital Interativa com Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais §3.4 + Portal do Paciente Autenticado com Exercícios Terapêuticos TCC/ACT/DBT, Histórico de Recibos & Termos TCLE §3.6, §3.7 + Assinatura Avançada ICP-Brasil A1/A3/Nuvem em Lote & Fechamento de Ciclos §3.4, §3.5 + Transcrição Assistida por IA, Diarização de Voz & Síntese SOAP Human-in-the-Loop §3.3 + Teleconsulta Nativa WebRTC P2P, Sala de Espera Ética CFP nº 011/2018 & Telemetria MOS ITU-T G.107 §3.2, §3.3 + Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.356 testes automatizados (0 falhas em 137 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2267,7 +2300,8 @@ Com a **Evolução de Produto RFC-001 (Anamnese Digital Interativa com Árvore d
 - [x] **Módulo de Assinatura Avançada ICP-Brasil com Certificado A1/A3 em Lote para Fechamento de Ciclos de Prontuário (RFC-001 §3.5):** Assinatura em lote com árvore de Merkle determinística (SHA-256), Carimbo do Tempo TSA ICP-Brasil (DOC-ICP-11 / política `2.16.76.1.4.1`), credenciais A1/A3 e Nuvem PSC (BirdID/SafeID/NeoID/VIDaaS), token público de verificação notarial sem login, trava WORM contra adulterações e conformidade com MP nº 2.200-2/2001 e Resolução CFP nº 001/2009.
 - [x] **Módulo de Portal do Paciente Autenticado com Acesso a Exercícios Terapêuticos e Histórico de Recibos (RFC-001 §3.6, §3.7).**
 - [x] **Módulo de Anamnese Digital Interativa com Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4).**
-- [ ] **Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5).**
+- [x] **Módulo de Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5):** Catálogo de 18 psicofármacos comuns no Brasil, motor de regras farmacológicas cruzadas com matriz de severidade (Contraindicada, Maior, Moderada), alertas de Síndrome Serotoninérgica letal e depressão respiratória, guia interoperável timbrada com token notarial de validação pública e FLE AES-256-GCM para anotações do terapeuta.
+- [ ] **Módulo de Exportação Segura e Portabilidade de Prontuário Clínico em Pacote Cifrado por Senha do Titular com Verificação de Integridade (RFC-001 §3.3, §4.4 & LGPD Art. 18):** Geração sob demanda de arquivo `.enc` protegido por Argon2id e AES-256-GCM contendo a integralidade dos registros clínicos, sessões, escalas e recibos para cumprimento estrito do direito de portabilidade e autodeterminação informativa.
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
