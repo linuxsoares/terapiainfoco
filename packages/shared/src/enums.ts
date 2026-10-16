@@ -165,6 +165,45 @@ export enum ReferralStatus {
 }
 
 /**
+ * Métodos de Pagamento Clínico Aceitos (RFC-001 §3.6)
+ */
+export enum PaymentMethod {
+  PIX = 'PIX',
+  CREDIT_CARD = 'CREDIT_CARD',
+  DEBIT_CARD = 'DEBIT_CARD',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CASH = 'CASH'
+}
+
+/**
+ * Status do Pagamento de Honorários
+ */
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED'
+}
+
+/**
+ * Finalidades Formais do Recibo de Honorários (Receita Federal / DMED / Convênios / CFP)
+ */
+export enum ReceiptPurpose {
+  CONVENIO_REIMBURSO = 'CONVENIO_REIMBURSO', // Reembolso de Plano de Saúde / Operadora de Saúde
+  IRPF_CARNE_LEAO = 'IRPF_CARNE_LEAO',       // Declaração de IRPF / Carnê-Leão / DMED
+  SIMPLES_QUITACAO = 'SIMPLES_QUITACAO'      // Comprovante de Quitação Simples
+}
+
+/**
+ * Modalidade de Cobrança Clínica
+ */
+export enum BillingModality {
+  PER_SESSION = 'PER_SESSION',           // Cobrança por Sessão Individual
+  MONTHLY_PACKAGE = 'MONTHLY_PACKAGE',   // Pacote Mensal de Atendimentos
+  CUSTOM_PACKAGE = 'CUSTOM_PACKAGE'      // Pacote Customizado de Atendimentos
+}
+
+/**
  * Papéis de controle de acesso baseado em função (RBAC)
  * para a clínica psicológica conforme RFC-001 e normas do CFP/LGPD
  */
@@ -517,7 +556,12 @@ export enum AuditAction {
   // Ações de Laudos Multi-Sessões & Encaminhamentos Multidisciplinares (RFC-001 §3.5)
   CONSOLIDATED_REPORT_GENERATED = 'CONSOLIDATED_REPORT_GENERATED',
   CLINICAL_REFERRAL_CREATED = 'CLINICAL_REFERRAL_CREATED',
-  CLINICAL_REFERRAL_VALIDATED = 'CLINICAL_REFERRAL_VALIDATED'
+  CLINICAL_REFERRAL_VALIDATED = 'CLINICAL_REFERRAL_VALIDATED',
+  // Ações de Faturamento Clínico & Recibos Fiscais (RFC-001 §3.6)
+  RECEIPT_GENERATED = 'RECEIPT_GENERATED',
+  RECEIPT_CANCELLED = 'RECEIPT_CANCELLED',
+  RECEIPT_VALIDATED = 'RECEIPT_VALIDATED',
+  FEE_CONTRACT_CREATED = 'FEE_CONTRACT_CREATED'
 }
 
 export enum AuditResourceType {
@@ -586,7 +630,9 @@ export enum AuditResourceType {
   THERAPEUTIC_GOAL = 'THERAPEUTIC_GOAL',
   PSYCHOMETRIC_ASSESSMENT = 'PSYCHOMETRIC_ASSESSMENT',
   CONSOLIDATED_REPORT = 'CONSOLIDATED_REPORT',
-  CLINICAL_REFERRAL = 'CLINICAL_REFERRAL'
+  CLINICAL_REFERRAL = 'CLINICAL_REFERRAL',
+  CLINICAL_RECEIPT = 'CLINICAL_RECEIPT',
+  FEE_CONTRACT = 'FEE_CONTRACT'
 }
 
 /**

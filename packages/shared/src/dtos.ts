@@ -4369,4 +4369,83 @@ export interface ValidateReferralPublicResponse {
   message: string;
 }
 
+/**
+ * FATURAMENTO CLÍNICO & RECIBOS DE HONORÁRIOS (RFC-001 §3.6 / Receita Federal DMED / IRPF / CFP)
+ */
+export interface CreateClinicalReceiptDTO {
+  patientId: string;
+  financialResponsible?: {
+    nome: string;
+    cpf: string;
+    parentesco?: string;
+  };
+  purpose: import('./enums').ReceiptPurpose;
+  modality: import('./enums').BillingModality;
+  sessionsCovered: Array<{
+    data: string;
+    horario?: string;
+    modalidade: 'ONLINE' | 'PRESENCIAL';
+    appointmentId?: string;
+  }>;
+  amountCents: number;
+  paymentMethod: import('./enums').PaymentMethod;
+  paymentDate?: string;
+  notes?: string;
+}
+
+export interface ClinicalReceiptResponse {
+  success: boolean;
+  receipt: import('./models').ClinicalReceipt;
+  message?: string;
+}
+
+export interface ListClinicalReceiptsResponse {
+  success: boolean;
+  receipts: import('./models').ClinicalReceipt[];
+  totalAmountCents: number;
+  totalFormatted: string;
+  total: number;
+}
+
+export interface CancelReceiptDTO {
+  receiptId: string;
+  cancelReason: string;
+}
+
+export interface ValidateReceiptPublicResponse {
+  success: boolean;
+  valid: boolean;
+  receipt?: {
+    id: string;
+    receiptNumber: string;
+    patientInitials: string;
+    therapistName: string;
+    therapistCrp: string;
+    purpose: import('./enums').ReceiptPurpose;
+    amountFormatted: string;
+    paymentDate: string;
+    sessionsCount: number;
+    paymentStatus: import('./enums').PaymentStatus;
+    documentHashSha256: string;
+    wormAuditId?: string;
+  };
+  message: string;
+}
+
+export interface CreateFeeContractDTO {
+  patientId: string;
+  sessionPriceCents: number;
+  paymentDueDateRule?: string;
+  cancellationPolicyHours?: number;
+  reajustRule?: string;
+  confidentialityTerms?: string;
+}
+
+export interface FeeContractResponse {
+  success: boolean;
+  contract: import('./models').FeeContract;
+  message?: string;
+}
+
+
 

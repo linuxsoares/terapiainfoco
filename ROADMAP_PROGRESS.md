@@ -2,7 +2,7 @@
 
 > **Documento de Continuidade Operacional**  
 > **Data:** 16/10/2026  
-> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.296/1.296 Testes Passando (0 falhas em 130 arquivos)
+> **Status Geral:** 8 Módulos Principais + Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4) + 47 Extensões de Segurança | 1.305/1.305 Testes Passando (0 falhas em 131 arquivos)
 
 
 
@@ -2033,7 +2033,31 @@ terapiainfoco/
 - [x] **Frontend Clínico & Painel de Governança (`apps/frontend`):**
   - **Card 55:** Painel de Proteção de Supply Chain & Injeção de Dependências Dinâmicas com 5 KPIs dinâmicos, 4 abas operacionais (*Inspetor de Manifestos & Importações*, *Pacotes Homologados & SRI*, *Simulador Adversarial de Supply Chain*, *Políticas de Governança SLSA*) e tabela WORM de incidentes interceptados.
   - **Modal 55.A:** Certidão Notarial Forense WORM de Avaliação de Integridade de Supply Chain & SLSA L3 Provenance (RFC 8785) com validação criptográfica instantânea.
+### 12. Evolução de Produto RFC-001: Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED e Termo de Honorários Psicológicos (§3.6)
+- [x] **Conversor Numérico Monetário para Extenso em Português Formal:**
+  - Implementação de algoritmo determinístico em `BillingReceiptService` convertendo valores monetários em centavos para texto por extenso (ex: 25000 centavos -> "Duzentos e cinquenta reais", 100050 centavos -> "Mil reais e cinquenta centavos"), atendendo às exigências normativas da Receita Federal (Livro Caixa / Carnê-Leão / DMED) e operadoras de saúde suplementar.
+- [x] **Emissão de Recibo de Honorários Psicológicos com Selo WORM & Hash SHA-256:**
+  - Numeração sequencial anual padronizada (`REC-YYYY-NNNN`).
+  - Identificação completa do psicólogo com registro CRP ativo (`CRP 06/142980`) e CPF para dedutibilidade tributária.
+  - Discriminação obrigatória de cada sessão coberta (data, modalidade ONLINE / PRESENCIAL, finalidade).
+  - Suporte completo a responsável financeiro para pacientes menores de idade ou dependentes legais (nome, CPF e parentesco).
+  - Assinatura digital criptográfica com hash SHA-256 canônico gerado a partir do payload imutável e selo WORM de auditoria.
+- [x] **Cancelamento Justificado com Preservação de Rastreabilidade Fiscal:**
+  - Em conformidade com auditoria contábil e CFP, recibos cancelados não são deletados, mas marcados com status `CANCELLED`, registrando justificativa formal, data/hora e trilha de auditoria WORM imutável.
+- [x] **Validador Público de Recibo para Operadoras de Saúde & Convênios:**
+  - Endpoint público rate-limited (`GET /api/billing/receipts/validate/:token`).
+  - Anonimização de dados segundo LGPD (Art. 11) e CFP (Art. 9º): o nome do paciente é anonimizado em iniciais (ex: "Mariana Silva de Oliveira" -> "M. S. d. O."), permitindo que a operadora de saúde comprove a autenticidade e quitação do serviço sem violar o sigilo profissional da psicoterapia.
+- [x] **Contrato / Termo de Honorários Psicológicos & Prestação de Serviços (Resolução CFP nº 010/2005):**
+  - Formalização de honorários profissionais (Art. 4º) com valor por sessão individual ou pacote, regras de vencimento, política de cancelamento/desmarcações com antecedência mínima estipulada (ex: 24 horas) e cláusula estrita de confidencialidade e sigilo psicológico (Art. 9º).
+  - Geração de hash SHA-256 e auditoria WORM vinculada ao prontuário do paciente.
+- [x] **Frontend Clínico & Módulo de Faturamento Integrado (`apps/frontend`):**
+  - Aba integrada "Faturamento & Recibos de Honorários (RFC §3.6)" em `DocumentsModule.tsx` e componente dedicado `BillingReceiptsModule.tsx`.
+  - Painel com KPIs financeiros (Total Faturado em R$, Recibos Emitidos e Status Quitado/Cancelado).
+  - Visualizador timbrado oficial com layout timbrado profissional, pronto para impressão / exportação PDF com QR Code de autenticidade instantânea.
+  - Modais para Emissão de Recibo, Cancelamento Formal Justificado, Emissão de Termo de Honorários e Validador Público de Recibo para Convênio.
   - Suporte completo a **Light Mode** e **Dark Mode**.
+- [x] **Suíte de Testes do Módulo:**
+  - 9 testes unitários e de integração HTTP REST aprovados com 100% de sucesso em `apps/backend/test/billingReceiptsAndContracts.test.ts`.
 
 ---
 
@@ -2125,13 +2149,14 @@ terapiainfoco/
 | `feat/supply-chain-dependency-guard` | Proteção contra Injeção de Dependências Dinâmicas & Supply Chain Guard (SLSA L3, SCVS v1.0, RFC SRI, CWE-470, CWE-912) | [PR #90](https://github.com/linuxsoares/terapiainfoco/pull/90) | Merged |
 | `feat/recurrent-booking-reminders-clinical-timeline` | Agendamento Recorrente & Séries Clínicas, Notificações & Lembretes Multicanal WhatsApp/Email (CFP nº 011/2018) e Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.1, §3.4) | [PR #91](https://github.com/linuxsoares/terapiainfoco/pull/91) | Merged |
 | `feat/clinical-session-markers-and-smart-plans` | Marcadores Clínicos em Tempo Real na Teleconsulta (§3.3), Metas Terapêuticas SMART & Escalas Psicométricas Padronizadas PHQ-9 e GAD-7 (RFC-001 §3.4 / CFP) | [PR #92](https://github.com/linuxsoares/terapiainfoco/pull/92) | Merged |
-| `feat/consolidated-clinical-reports-and-referrals` | Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019) e Encaminhamentos Multidisciplinares Interoperáveis com Contra-Referência Médica (RFC-001 §3.5) | PR #93 | Em Aberto |
+| `feat/consolidated-clinical-reports-and-referrals` | Laudos Periciais Multi-Sessões & Relatórios Psicológicos Consolidados (CFP nº 006/2019) e Encaminhamentos Multidisciplinares Interoperáveis com Contra-Referência Médica (RFC-001 §3.5) | [PR #93](https://github.com/linuxsoares/terapiainfoco/pull/93) | Merged |
+| `feat/clinical-billing-receipts-and-fee-terms` | Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários Psicológicos (RFC-001 §3.6) | [PR #94](https://github.com/linuxsoares/terapiainfoco/pull/94) | Merged |
 
 ---
 
 ## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários)
 
-Com a **Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.296 testes automatizados (0 falhas em 130 arquivos)**, os próximos passos de evolução do roadmap são:
+Com a **Evolução de Produto RFC-001 (Faturamento Clínico & Emissão de Recibos de Honorários para Reembolso de Convênio/DMED & Termos de Serviços §3.6 + Laudos Periciais Multi-Sessões & Relatório Consolidado CFP nº 006/2019 §3.5 + Encaminhamento Multidisciplinar Interoperável & Contra-Referência §3.5 + Marcadores Clínicos em Tempo Real §3.3 + Metas Terapêuticas SMART & Escalas Psicométricas PHQ-9/GAD-7 §3.4 + Agendamento Recorrente & Séries Clínicas §3.1 + Notificações & Lembretes Multicanal WhatsApp/Email CFP nº 011/2018 + Linha do Tempo Clínica Longitudinal do Paciente §3.4)** e a suíte completa de **1.305 testes automatizados (0 falhas em 131 arquivos)**, os próximos passos de evolução do roadmap são:
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
@@ -2141,8 +2166,10 @@ Com a **Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relató
 - [x] **Módulo de Planos Terapêuticos SMART & Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7 - RFC-001 §3.4 / CFP):** Definição de objetivos terapêuticos SMART com mensuração de progresso visual (0% a 100%), e avaliação clínica padronizada com cálculo automático de escores, níveis de severidade, detecção de ideação de autolesão (Item 9 do PHQ-9) com diretrizes éticas CFP imediatas, selo WORM de imutabilidade e análise de tendência longitudinal.
 - [x] **Módulo de Laudo Pericial Multi-Sessões & Relatório Consolidado (Resolução CFP nº 006/2019 & RFC-001 §3.5):** Compilação estruturada nas 5 seções canônicas (I - Identificação com CRP, II - Descrição da Demanda, III - Procedimento com sessões da timeline e testes, IV - Análise com evolução psicométrica longitudinal e metas SMART, V - Conclusão com parecer e CID-11) com hash SHA-256 canônico e assinatura digital ICP-Brasil em lote.
 - [x] **Módulo de Encaminhamento Multidisciplinar Interoperável & Contra-Referência (RFC-001 §3.5):** Comunicação multiprofissional ética sob o Art. 9º do Código de Ética do Psicólogo, níveis de urgência (ROUTINE, PRIORITY, EMERGENCY), resumo psicométrico objetivo, validação pública anônima sem login por token (iniciais do paciente mascaradas para LGPD/CFP) e registro de contra-referência médica/psiquiátrica.
+- [x] **Módulo de Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio/DMED com Assinatura Digital e Termo de Honorários (RFC-001 §3.6).**
 - [ ] **Módulo de Teleconsulta Nativa WebRTC P2P com Gravação Cifrada Ponta a Ponta e Transcrição Local em Tempo Real (RFC-001 §3.2, §3.3).**
-- [ ] **Módulo de Faturamento Clínico, Emissão de Recibos para Reembolso de Convênio com Assinatura Digital e Termo de Honorários (RFC-001 §3.6).**
+- [ ] **Módulo de Telemetria & Qualidade de Chamada Clínica WebRTC com Diagnósticos de Conexão e Alertas Éticos CFP (RFC-001 §3.2).**
+- [ ] **Módulo de Assinatura Avançada ICP-Brasil com Certificado A1/A3 em Lote para Fechamento de Ciclos de Prontuário (RFC-001 §3.5).**
 
 #### 🛡️ Governança, Hardening & Proteção em Tempo Real
 - [x] **Exportação Automática de Métricas OpenTelemetry OTLP via HTTP/JSON para Datadog/NewRelic:** Coleta remota de traces e métricas em lote com buffer em memória.
@@ -2202,7 +2229,7 @@ Com a **Evolução de Produto RFC-001 (Laudos Periciais Multi-Sessões & Relató
 # 1. Verificar status do git
 git status
 
-# 2. Executar suíte completa de testes (1.270 testes)
+# 2. Executar suíte completa de testes (1.305 testes)
 make test
 
 # 3. Iniciar todos os serviços em desenvolvimento (Landing :5173, Frontend :5174, Backend :3000)
