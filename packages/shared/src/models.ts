@@ -4724,6 +4724,176 @@ export interface Http2GuardOverview {
   recentSealsSample?: Http2ProofSeal[];
 }
 
+/**
+ * Nó de Dependência no Grafo de Módulos
+ */
+export interface DependencyNode {
+  name: string;
+  packageName?: string;
+  version: string;
+  scope?: import('./enums').DependencyRegistryScope | string;
+  integrity?: string;
+  integrityHash?: string; // SHA-512 SRI
+  hasLifecycleScripts?: boolean;
+  lifecycleScripts?: Record<string, string>;
+  resolvedRegistry?: string;
+  resolvedUrl?: string;
+  tarballHash?: string;
+  isDirect?: boolean;
+  isWhitelisted?: boolean;
+  status?: import('./enums').DependencyValidationAction | string;
+  auditTrail?: string[];
+}
+
+/**
+ * Ameaça de Supply Chain / Injeção de Dependência Detectada
+ */
+export interface DependencyThreat {
+  id: string;
+  category: import('./enums').DependencyThreatCategory;
+  severity: import('./enums').DependencyRiskSeverity;
+  cwe?: string;
+  target?: string;
+  packageName?: string;
+  description: string;
+  remediation: string;
+  detectedCodeOrScript?: string;
+}
+
+/**
+ * Selo Probatório Notarial WORM de Supply Chain (RFC 8785)
+ */
+export interface DependencyProofSeal {
+  sealToken: string; // dep_chain_seal_<hash>
+  timestamp?: string;
+  issuedAt?: string;
+  manifestHash?: string; // SHA-256 canônico JCS do lockfile / grafo
+  inspectionDigest?: string;
+  actionTaken?: import('./enums').DependencyValidationAction | string;
+  threatCount?: number;
+  analyzedCount?: number;
+  algorithm?: string;
+  hmacSignature?: string;
+  slsaProvenanceProof?: string;
+  auditAction?: string;
+}
+
+/**
+ * Resultado da Inspeção de Grafo de Dependências
+ */
+export interface DependencyInspectionResult {
+  isValid: boolean;
+  action: import('./enums').DependencyValidationAction;
+  threats: DependencyThreat[];
+  analyzedDependenciesCount?: number;
+  totalDependenciesScanned?: number;
+  verifiedChecksums?: number;
+  quarantinedCount?: number;
+  blockedCount?: number;
+  inspectionDurationUs?: number;
+  dependencies?: DependencyNode[];
+  compliantSlsaLevel?: string;
+  scannedAt?: string;
+  seal?: DependencyProofSeal;
+  summary?: string;
+}
+
+/**
+ * Resultado da Validação de Import Dinâmico (CWE-470)
+ */
+export interface DynamicImportInspectionResult {
+  isAllowed: boolean;
+  specifier: string;
+  action?: import('./enums').DependencyValidationAction;
+  threats: DependencyThreat[];
+  sanitizedPath?: string;
+  sanitizedSpecifier?: string;
+  inspectionDurationUs?: number;
+  message?: string;
+  callerContext?: string;
+  verifiedAt?: string;
+}
+
+/**
+ * Diretrizes de Hardening de Supply Chain & Módulos (SLSA L3)
+ */
+export interface DependencyGuardPolicy {
+  enforcePrivateScope?: boolean;      // Bloqueia pacotes internos sem escopo @terapiainfoco
+  enforceStrictWhitelisting?: boolean;
+  blockLifecycleScripts: boolean;    // Veta preinstall/postinstall com comandos externos
+  requireSriHashes?: boolean;         // Exige hashes SHA-512 SRI no lockfile
+  enforceSriIntegrity?: boolean;
+  blockDynamicReflection?: boolean;   // Veta imports dinâmicos não-whitelisted (CWE-470)
+  blockDynamicImportsWithVariables?: boolean;
+  blockUnscopedInternalCollisions?: boolean;
+  allowedScopes: string[];           // Whitelist de escopos homologados
+  allowedExternalPackages?: string[]; // Whitelist de pacotes externos prioritários
+  allowedRegistries?: string[];
+  whitelistedPackages?: string[];
+  quarantinedPackages?: string[];
+  maxCriticalVulnerabilities?: number;
+  maxLevenshteinDistance?: number;    // Sensibilidade para detecção de typosquatting
+}
+
+/**
+ * Métricas em Tempo Real de Proteção de Supply Chain
+ */
+export interface DependencyGuardMetrics {
+  totalDependenciesScanned?: number;
+  totalDependenciesAudited?: number;
+  cleanPackagesAllowed?: number;
+  cleanDependenciesApproved?: number;
+  maliciousImportsBlocked?: number;
+  confusionAttacksBlocked?: number;
+  dependencyConfusionBlocked?: number;
+  lifecycleBackdoorsBlocked?: number;
+  dynamicImportsBlocked?: number;
+  typosquatsIntercepted?: number;
+  typosquattingDetected?: number;
+  sriChecksumViolations?: number;
+  quarantinedPackages?: number;
+  blockedThreats?: number;
+  avgScanDurationUs?: number;
+  avgAuditDurationUs?: number;
+  threatsByCategory?: Record<string, number>;
+  slsaLevelAttained?: string;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro Forense de Incidente de Segurança em Dependência
+ */
+export interface DependencySecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  clientIp?: string;
+  userAgent?: string;
+  category: import('./enums').DependencyThreatCategory;
+  severity: import('./enums').DependencyRiskSeverity;
+  packageName: string;
+  threats: DependencyThreat[];
+  blocked: boolean;
+  remediationAction: string;
+  rawPayloadSnippet?: string;
+  seal?: DependencyProofSeal;
+}
+
+/**
+ * Visão Geral de Governança de Supply Chain Guard
+ */
+export interface SupplyChainGuardOverview {
+  metrics: DependencyGuardMetrics;
+  policy: DependencyGuardPolicy;
+  recentIncidents: DependencySecurityIncident[];
+  monorepoPackagesSample?: DependencyNode[];
+  recentSealsSample?: DependencyProofSeal[];
+  recentSeals?: DependencyProofSeal[];
+  sampleAttacks?: any[];
+  homologatedDependencies?: DependencyNode[];
+}
+
+
 
 
 

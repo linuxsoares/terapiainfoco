@@ -76,7 +76,10 @@ import {
   Braces,
   Terminal,
   FolderLock,
-  Code2
+  Code2,
+  PackageCheck,
+  PackageX,
+  Boxes
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { 
@@ -396,7 +399,15 @@ import {
   type Http2InspectionResult,
   type Http2SecurityIncident,
   type SimulateHttp2AttackResponse,
-  type VerifyHttp2SealResponse
+  type VerifyHttp2SealResponse,
+  DependencyThreatCategory,
+  type DependencyProofSeal,
+  type DependencyInspectionResult,
+  type DynamicImportInspectionResult,
+  type DependencySecurityIncident,
+  type SupplyChainGuardOverview,
+  type SimulateSupplyChainAttackResponse,
+  type VerifySupplyChainSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -6358,6 +6369,163 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 47. MÓDULO 73: PROTEÇÃO CONTRA INJEÇÃO DE DEPENDÊNCIAS DINÂMICAS & SUPPLY CHAIN GUARD (SLSA L3, CWE-470, CWE-912)
+  const [supplyChainOverview, setSupplyChainOverview] = useState<SupplyChainGuardOverview | null>(null);
+  const [loadingSupplyChain, setLoadingSupplyChain] = useState<boolean>(false);
+  const [activeSupplyChainTab, setActiveSupplyChainTab] = useState<'inspector' | 'homologated' | 'simulator' | 'policy'>('inspector');
+
+  // Aba 1: Inspetor de Imports Dinâmicos & Manifests (CWE-470 & CWE-912)
+  const [importSpecifierInput, setImportSpecifierInput] = useState<string>('./components/ClinicalDashboard.tsx');
+  const [manifestJsonInput, setManifestJsonInput] = useState<string>(
+    JSON.stringify(
+      {
+        name: '@terapiainfoco/telemedicine-client',
+        version: '1.2.0',
+        dependencies: {
+          '@terapiainfoco/shared': '^1.0.0',
+          'react': '^18.2.0',
+          'lucide-react': '^0.344.0'
+        }
+      },
+      null,
+      2
+    )
+  );
+  const [inspectingSupplyChain, setInspectingSupplyChain] = useState<boolean>(false);
+  const [lastSupplyChainInspection, setLastSupplyChainInspection] = useState<DependencyInspectionResult | null>(null);
+  const [lastDynamicImportInspection, setLastDynamicImportInspection] = useState<DynamicImportInspectionResult | null>(null);
+
+  // Aba 3: Simulador Adversarial de Supply Chain
+  const [simulatingSupplyChainAttack, setSimulatingSupplyChainAttack] = useState<boolean>(false);
+  const [supplyChainSimulationResult, setSupplyChainSimulationResult] = useState<SimulateSupplyChainAttackResponse | null>(null);
+
+  // Aba 4: Políticas de Supply Chain SLSA L3
+  const [supplyChainPolicyEnforceWhitelist, setSupplyChainPolicyEnforceWhitelist] = useState<boolean>(true);
+  const [supplyChainPolicyBlockDynamicVars, setSupplyChainPolicyBlockDynamicVars] = useState<boolean>(true);
+  const [supplyChainPolicyBlockLifecycleScripts, setSupplyChainPolicyBlockLifecycleScripts] = useState<boolean>(true);
+  const [supplyChainPolicyEnforceSri, setSupplyChainPolicyEnforceSri] = useState<boolean>(true);
+  const [supplyChainPolicyBlockUnscopedCollisions, setSupplyChainPolicyBlockUnscopedCollisions] = useState<boolean>(true);
+  const [updatingSupplyChainPolicy, setUpdatingSupplyChainPolicy] = useState<boolean>(false);
+
+  // Modal 55.A: Certidão Notarial Forense WORM de Supply Chain RFC 8785 (JCS)
+  const [selectedSupplyChainSealForModal, setSelectedSupplyChainSealForModal] = useState<DependencyProofSeal | null>(null);
+  const [supplyChainModalIncidentItem, setSupplyChainModalIncidentItem] = useState<DependencySecurityIncident | null>(null);
+  const [verifyingSupplyChainSeal, setVerifyingSupplyChainSeal] = useState<boolean>(false);
+  const [supplyChainSealVerifyResult, setSupplyChainSealVerifyResult] = useState<VerifySupplyChainSealResponse | null>(null);
+
+  const fetchSupplyChainData = async () => {
+    try {
+      setLoadingSupplyChain(true);
+      const res = await api.getSupplyChainOverview();
+      setSupplyChainOverview(res.overview);
+      if (res.overview?.policy) {
+        setSupplyChainPolicyEnforceWhitelist(Boolean(res.overview.policy.enforceStrictWhitelisting));
+        setSupplyChainPolicyBlockDynamicVars(Boolean(res.overview.policy.blockDynamicImportsWithVariables));
+        setSupplyChainPolicyBlockLifecycleScripts(Boolean(res.overview.policy.blockLifecycleScripts));
+        setSupplyChainPolicyEnforceSri(Boolean(res.overview.policy.enforceSriIntegrity));
+        setSupplyChainPolicyBlockUnscopedCollisions(Boolean(res.overview.policy.blockUnscopedInternalCollisions));
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar visão geral do Supply Chain Guard:', err);
+    } finally {
+      setLoadingSupplyChain(false);
+    }
+  };
+
+  const handleInspectManifestSubmit = async () => {
+    try {
+      setInspectingSupplyChain(true);
+      setLastSupplyChainInspection(null);
+      const res = await api.inspectDependencies({
+        manifestContent: manifestJsonInput
+      });
+      setLastSupplyChainInspection(res.result);
+      setFeedback({
+        type: res.result.isValid ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSupplyChainData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar manifesto de dependências.' });
+    } finally {
+      setInspectingSupplyChain(false);
+    }
+  };
+
+  const handleInspectDynamicImportSubmit = async () => {
+    try {
+      setInspectingSupplyChain(true);
+      setLastDynamicImportInspection(null);
+      const res = await api.inspectDynamicImport({
+        specifier: importSpecifierInput
+      });
+      setLastDynamicImportInspection(res.result);
+      setFeedback({
+        type: res.result.isAllowed ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSupplyChainData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao inspecionar import dinâmico.' });
+    } finally {
+      setInspectingSupplyChain(false);
+    }
+  };
+
+  const handleSimulateSupplyChainAttack = async (attackCategory: DependencyThreatCategory) => {
+    try {
+      setSimulatingSupplyChainAttack(true);
+      setSupplyChainSimulationResult(null);
+      const res = await api.simulateSupplyChainAttack({ attackCategory });
+      setSupplyChainSimulationResult(res);
+      setFeedback({
+        type: res.threatBlocked ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchSupplyChainData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque de supply chain.' });
+    } finally {
+      setSimulatingSupplyChainAttack(false);
+    }
+  };
+
+  const handleSaveSupplyChainPolicy = async () => {
+    try {
+      setUpdatingSupplyChainPolicy(true);
+      const res = await api.updateSupplyChainPolicy({
+        enforceStrictWhitelisting: supplyChainPolicyEnforceWhitelist,
+        blockDynamicImportsWithVariables: supplyChainPolicyBlockDynamicVars,
+        blockLifecycleScripts: supplyChainPolicyBlockLifecycleScripts,
+        enforceSriIntegrity: supplyChainPolicyEnforceSri,
+        blockUnscopedInternalCollisions: supplyChainPolicyBlockUnscopedCollisions
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchSupplyChainData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar diretrizes de supply chain.' });
+    } finally {
+      setUpdatingSupplyChainPolicy(false);
+    }
+  };
+
+  const handleVerifySupplyChainSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingSupplyChainSeal(true);
+      setSupplyChainSealVerifyResult(null);
+      const res = await api.verifySupplyChainSeal({ sealToken });
+      setSupplyChainSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo notarial de supply chain.' });
+    } finally {
+      setVerifyingSupplyChainSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -6404,6 +6572,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchExprGuardData();
       fetchGqlGuardData();
       fetchHttp2GuardData();
+      fetchSupplyChainData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -30684,6 +30853,700 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* 47. CARD 55: BLINDAGEM DE DEPENDÊNCIAS DINÂMICAS & SUPPLY CHAIN GUARD (SLSA L3, CWE-470, CWE-912) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+        {/* CABEÇALHO DO CARD 55 */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                MÓDULO 73
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                SLSA LEVEL 3
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                RFC SRI SHA-512
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                CWE-470 & CWE-912
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                WORM NOTARY RFC 8785
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Boxes className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+              Proteção contra Injeção de Dependências Dinâmicas e Hijacking de Módulos (Supply Chain Guard)
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Blindagem contra importação dinâmica arbitrária (CWE-470), Dependency Confusion (Mitre T1195.001), Typosquatting, Backdoors em lifecycle scripts (CWE-912) e verificação criptográfica de integridade SRI.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={loadingSupplyChain}
+            onClick={fetchSupplyChainData}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingSupplyChain ? 'animate-spin' : ''}`} />
+            Atualizar
+          </button>
+        </div>
+
+        {/* 5 KPIS DE GOVERNANÇA DE SUPPLY CHAIN */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+              Total Auditado
+            </span>
+            <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+              {supplyChainOverview?.metrics?.totalDependenciesAudited?.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Dependências & Módulos</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+              Conformidade SLSA
+            </span>
+            <span className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+              {supplyChainOverview?.metrics?.slsaLevelAttained || 'SLSA_LEVEL_3'}
+            </span>
+            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 block mt-0.5">Nível Máximo de Build</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+              Ameaças Bloqueadas
+            </span>
+            <span className="font-mono text-xl font-bold text-rose-600 dark:text-rose-400">
+              {supplyChainOverview?.metrics?.blockedThreats?.toLocaleString('pt-BR') || '0'}
+            </span>
+            <span className="text-[10px] text-rose-600/70 dark:text-rose-400/70 block mt-0.5">CWE-470 / CWE-912</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+              Pacotes Homologados
+            </span>
+            <span className="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400">
+              {supplyChainOverview?.homologatedDependencies?.length || 0}
+            </span>
+            <span className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 block mt-0.5">Whitelist Monorepo</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 block mb-1">
+              Latência de Auditoria
+            </span>
+            <span className="font-mono text-xl font-bold text-violet-600 dark:text-violet-400">
+              {supplyChainOverview?.metrics?.avgAuditDurationUs || '0'} μs
+            </span>
+            <span className="text-[10px] text-violet-600/70 dark:text-violet-400/70 block mt-0.5">Sub-milissegundo</span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS DO CARD 55 */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveSupplyChainTab('inspector')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeSupplyChainTab === 'inspector'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            Inspetor de Imports & Manifests
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSupplyChainTab('homologated')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeSupplyChainTab === 'homologated'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <PackageCheck className="w-3.5 h-3.5" />
+            Pacotes Homologados & SRI
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSupplyChainTab('simulator')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeSupplyChainTab === 'simulator'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Simulador Adversarial
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSupplyChainTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeSupplyChainTab === 'policy'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            Políticas SLSA L3 & Incidentes
+          </button>
+        </div>
+
+        {/* CONTEÚDO DA ABA 1: INSPETOR DE IMPORTS DINÂMICOS & MANIFESTS */}
+        {activeSupplyChainTab === 'inspector' && (
+          <div className="space-y-6">
+            {/* SUB-BLOCO A: VALIDADOR DE IMPORT DINÂMICO (CWE-470) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <FileCode className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    Validação de Especificador de Import Dinâmico (CWE-470 Unsafe Reflection)
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Analisa chamadas em tempo de execução para import() ou require() prevenindo interpolação de variáveis e path traversal.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={importSpecifierInput}
+                  onChange={(e) => setImportSpecifierInput(e.target.value)}
+                  placeholder="Ex: ./components/ClinicalDashboard.tsx ou `./modules/${userInput}`"
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <button
+                  type="button"
+                  disabled={inspectingSupplyChain || !importSpecifierInput.trim()}
+                  onClick={handleInspectDynamicImportSubmit}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {inspectingSupplyChain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                  Validar Especificador
+                </button>
+              </div>
+
+              {lastDynamicImportInspection && (
+                <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                  lastDynamicImportInspection.isAllowed
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-900 dark:text-rose-200'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {lastDynamicImportInspection.isAllowed ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      )}
+                      Resultado: {lastDynamicImportInspection.action}
+                    </span>
+                    <span className="font-mono text-[10px] opacity-75">
+                      {lastDynamicImportInspection.verifiedAt ? new Date(lastDynamicImportInspection.verifiedAt).toLocaleTimeString('pt-BR') : 'Recente'}
+                    </span>
+                  </div>
+
+                  {lastDynamicImportInspection.threats.length > 0 && (
+                    <div className="space-y-1 pt-1 border-t border-rose-200/50 dark:border-rose-800/50">
+                      <span className="font-bold text-[11px] block">Ameaças Detectadas:</span>
+                      {lastDynamicImportInspection.threats.map((t) => (
+                        <div key={t.id} className="p-2 rounded-lg bg-white/60 dark:bg-slate-900/60 font-mono text-[11px] space-y-0.5">
+                          <div className="font-bold text-rose-700 dark:text-rose-300">
+                            [{t.cwe || 'CWE-470'}] {t.category} ({t.severity})
+                          </div>
+                          <div className="text-slate-600 dark:text-slate-300">{t.description}</div>
+                          <div className="text-emerald-700 dark:text-emerald-400 text-[10px]">
+                            Remediação: {t.remediation}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* SUB-BLOCO B: INSPETOR DE MANIFESTOS (CWE-912 & DEPENDENCY CONFUSION) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Terminal className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  Auditoria de Manifesto / Lockfile (CWE-912 Backdoors & Dependency Confusion)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Submeta trechos de package.json ou bun.lock para verificar colisão de nomes, typosquatting e scripts de ciclo de vida.
+                </p>
+              </div>
+
+              <textarea
+                rows={6}
+                value={manifestJsonInput}
+                onChange={(e) => setManifestJsonInput(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Formato JSON canônico. Validação com selo WORM RFC 8785.
+                </span>
+                <button
+                  type="button"
+                  disabled={inspectingSupplyChain || !manifestJsonInput.trim()}
+                  onClick={handleInspectManifestSubmit}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {inspectingSupplyChain ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                  Auditar Manifesto
+                </button>
+              </div>
+
+              {lastSupplyChainInspection && (
+                <div className={`p-4 rounded-2xl border text-xs space-y-3 ${
+                  lastSupplyChainInspection.isValid
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-900 dark:text-rose-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">
+                        {lastSupplyChainInspection.isValid ? 'Conforme SLSA L3' : 'Ameaças Detectadas'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700">
+                        {lastSupplyChainInspection.action}
+                      </span>
+                    </div>
+
+                    {lastSupplyChainInspection.seal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSupplyChainSealForModal(lastSupplyChainInspection.seal || null);
+                          setSupplyChainModalIncidentItem(null);
+                          setSupplyChainSealVerifyResult(null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Stamp className="w-3.5 h-3.5" />
+                        Laudo Notarial WORM
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Total: <span className="font-bold">{lastSupplyChainInspection.totalDependenciesScanned ?? 0}</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Bloqueados: <span className="font-bold text-rose-600">{lastSupplyChainInspection.blockedCount ?? 0}</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                      Quarentena: <span className="font-bold text-amber-600">{lastSupplyChainInspection.quarantinedCount ?? 0}</span>
+                    </div>
+                  </div>
+
+                  {lastSupplyChainInspection.threats.length > 0 && (
+                    <div className="space-y-1.5 pt-2 border-t border-rose-200/50 dark:border-rose-800/50">
+                      {lastSupplyChainInspection.threats.map((t) => (
+                        <div key={t.id} className="p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/60 space-y-0.5">
+                          <div className="flex items-center justify-between font-mono font-bold text-rose-700 dark:text-rose-300">
+                            <span>[{t.cwe || 'CWE-912'}] {t.category}</span>
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200">
+                              {t.severity}
+                            </span>
+                          </div>
+                          <div className="text-slate-700 dark:text-slate-300 text-[11px]">{t.description}</div>
+                          <div className="text-emerald-700 dark:text-emerald-400 text-[10px] font-mono">
+                            Remediação: {t.remediation}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 2: PACOTES HOMOLOGADOS & SRI */}
+        {activeSupplyChainTab === 'homologated' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Dependências Homologadas com Integridade Subresource Integrity (SRI)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Pacotes homologados estritamente pelo monorepo, verificados com hash SHA-512 e assinaturas de proveniência SLSA L3.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold">
+                    <th className="px-3.5 py-2.5">Nome do Pacote</th>
+                    <th className="px-3.5 py-2.5">Versão</th>
+                    <th className="px-3.5 py-2.5">Escopo</th>
+                    <th className="px-3.5 py-2.5">Registry Homologado</th>
+                    <th className="px-3.5 py-2.5">SRI Hash (SHA-512)</th>
+                    <th className="px-3.5 py-2.5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+                  {(supplyChainOverview?.homologatedDependencies || []).map((pkg) => (
+                    <tr key={pkg.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-3.5 py-2.5 font-mono font-bold text-slate-900 dark:text-white">
+                        {pkg.name}
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono text-[11px]">{pkg.version}</td>
+                      <td className="px-3.5 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          pkg.name.startsWith('@terapiainfoco/')
+                            ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        }`}>
+                          {pkg.scope}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono text-[11px] text-slate-500">
+                        {pkg.resolvedRegistry}
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono text-[10px] text-slate-400 max-w-[160px] truncate" title={pkg.integrity}>
+                        {pkg.integrity || 'sha512-canonical...'}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-right">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                          HOMOLOGADO
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 3: SIMULADOR ADVERSARIAL DE SUPPLY CHAIN */}
+        {activeSupplyChainTab === 'simulator' && (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Crosshair className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                Simulador Adversarial de Ataques a Supply Chain (Pentest Educativo)
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Dispare simulações de ataques conhecidos de cadeia de suprimentos para validar a neutralização imediata em tempo real.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <button
+                type="button"
+                disabled={simulatingSupplyChainAttack}
+                onClick={() => handleSimulateSupplyChainAttack(DependencyThreatCategory.DYNAMIC_IMPORT_INJECTION)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                    CWE-470
+                  </span>
+                  <Code2 className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Injeção Dinâmica de Módulos</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Concatena variáveis em import() tentando carregar módulos não auditados.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingSupplyChainAttack}
+                onClick={() => handleSimulateSupplyChainAttack(DependencyThreatCategory.DEPENDENCY_CONFUSION)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    MITRE T1195.001
+                  </span>
+                  <Boxes className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Dependency Confusion</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Pacote público sem escopo suplantando dependência interna privada.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingSupplyChainAttack}
+                onClick={() => handleSimulateSupplyChainAttack(DependencyThreatCategory.MALICIOUS_LIFECYCLE_SCRIPT)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                    CWE-912
+                  </span>
+                  <Terminal className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Backdoor em Postinstall</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Hook de ciclo de vida executando download remoto e shell reverso (curl | bash).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingSupplyChainAttack}
+                onClick={() => handleSimulateSupplyChainAttack(DependencyThreatCategory.TYPOSQUATTING)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 text-left transition-all cursor-pointer group disabled:opacity-50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                    LEVENSHTEIN
+                  </span>
+                  <PackageX className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Ataque de Typosquatting</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Variações forjadas como "reacct" e "loadsh" simulando bibliotecas canônicas.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={simulatingSupplyChainAttack}
+                onClick={() => handleSimulateSupplyChainAttack(DependencyThreatCategory.SRI_CHECKSUM_MISMATCH)}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 text-left transition-all cursor-pointer group disabled:opacity-50 sm:col-span-2 lg:col-span-2"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    RFC SRI
+                  </span>
+                  <FileLock2 className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                </div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">Adulteração de Checksum SRI</h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Simulação de hash de integridade divergente prevenindo instalação de artefatos corrompidos.
+                </p>
+              </button>
+            </div>
+
+            {supplyChainSimulationResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
+                      supplyChainSimulationResult.threatBlocked
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                    }`}>
+                      {supplyChainSimulationResult.threatBlocked ? '🛡️ Ameaça Bloqueada' : 'Ameaça Permitida'}
+                    </span>
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      {supplyChainSimulationResult.attackSimulationName}
+                    </span>
+                  </div>
+
+                  {supplyChainSimulationResult.incident?.seal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSupplyChainSealForModal(supplyChainSimulationResult.incident?.seal || null);
+                        setSupplyChainModalIncidentItem(supplyChainSimulationResult.incident || null);
+                        setSupplyChainSealVerifyResult(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Stamp className="w-3.5 h-3.5" />
+                      Certidão WORM
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  {supplyChainSimulationResult.message}
+                </p>
+
+                {supplyChainSimulationResult.incident && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono space-y-1">
+                    <div className="text-slate-500 dark:text-slate-400">
+                      ID do Incidente: <span className="font-bold text-slate-800 dark:text-slate-200">{supplyChainSimulationResult.incident.incidentId}</span>
+                    </div>
+                    <div className="text-rose-600 dark:text-rose-400 font-bold">
+                      Ação Aplicada: {supplyChainSimulationResult.incident.remediationAction}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CONTEÚDO DA ABA 4: POLÍTICAS SLSA L3 & INCIDENTES */}
+        {activeSupplyChainTab === 'policy' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Scale className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                Diretrizes de Governança de Dependências SLSA Level 3
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={supplyChainPolicyEnforceWhitelist}
+                    onChange={(e) => setSupplyChainPolicyEnforceWhitelist(e.target.checked)}
+                    className="rounded text-violet-600 focus:ring-violet-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Whitelist Estrita de Pacotes</span>
+                    <span className="text-[11px] text-slate-500">Restringe pacotes não catalogados no monorepo.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={supplyChainPolicyBlockDynamicVars}
+                    onChange={(e) => setSupplyChainPolicyBlockDynamicVars(e.target.checked)}
+                    className="rounded text-violet-600 focus:ring-violet-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Bloquear Injeção em import() (CWE-470)</span>
+                    <span className="text-[11px] text-slate-500">Impede interpolação dinâmica de variáveis em módulos.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={supplyChainPolicyBlockLifecycleScripts}
+                    onChange={(e) => setSupplyChainPolicyBlockLifecycleScripts(e.target.checked)}
+                    className="rounded text-violet-600 focus:ring-violet-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Bloquear Scripts de Ciclo (CWE-912)</span>
+                    <span className="text-[11px] text-slate-500">Neutraliza postinstall, preinstall maliciosos.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={supplyChainPolicyEnforceSri}
+                    onChange={(e) => setSupplyChainPolicyEnforceSri(e.target.checked)}
+                    className="rounded text-violet-600 focus:ring-violet-500"
+                  />
+                  <div>
+                    <span className="font-bold block text-slate-900 dark:text-white">Exigir Integridade RFC SRI</span>
+                    <span className="text-[11px] text-slate-500">Obriga hashes criptográficos SHA-512 no lockfile.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={updatingSupplyChainPolicy}
+                  onClick={handleSaveSupplyChainPolicy}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {updatingSupplyChainPolicy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Salvar Diretrizes de Supply Chain
+                </button>
+              </div>
+            </div>
+
+            {/* TABELA DE INCIDENTES RECENTES DE SUPPLY CHAIN */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Histórico de Incidentes de Supply Chain (Trilha WORM Inviolável)
+              </h4>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold">
+                      <th className="px-3.5 py-2.5">Horário</th>
+                      <th className="px-3.5 py-2.5">Alvo / Pacote</th>
+                      <th className="px-3.5 py-2.5">Categoria</th>
+                      <th className="px-3.5 py-2.5">Severidade</th>
+                      <th className="px-3.5 py-2.5">IP de Origem</th>
+                      <th className="px-3.5 py-2.5 text-right">Laudo Notarial</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+                    {(!supplyChainOverview?.recentIncidents || supplyChainOverview.recentIncidents.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                          Nenhum incidente de supply chain registrado no período.
+                        </td>
+                      </tr>
+                    ) : (
+                      supplyChainOverview.recentIncidents.map((inc) => (
+                        <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">
+                            {new Date(inc.timestamp).toLocaleTimeString('pt-BR')}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono font-bold text-slate-900 dark:text-white">
+                            {inc.packageName}
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              {inc.category}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px] font-bold text-rose-600">
+                            {inc.severity}
+                          </td>
+                          <td className="px-3.5 py-2.5 font-mono text-[11px]">{inc.clientIp || '127.0.0.1'}</td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            {inc.seal ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSupplyChainSealForModal(inc.seal || null);
+                                  setSupplyChainModalIncidentItem(inc);
+                                  setSupplyChainSealVerifyResult(null);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:hover:bg-violet-900 dark:text-violet-300 font-bold text-[11px] transition-colors cursor-pointer"
+                              >
+                                Laudo WORM
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
 
       {showSimulateModal && (
@@ -37918,6 +38781,137 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedHttp2SealForModal(null);
                     setHttp2ModalIncidentItem(null);
                     setHttp2SealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 55.A: CERTIDÃO NOTARIAL FORENSE WORM DE SUPPLY CHAIN & SLSA L3 (RFC 8785 JCS) */}
+      {selectedSupplyChainSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                Certidão Notarial Forense WORM — Supply Chain & SLSA L3
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSupplyChainSealForModal(null);
+                  setSupplyChainModalIncidentItem(null);
+                  setSupplyChainSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* STATUS DO LAUDO */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Nível de Proveniência & Integridade
+                  </span>
+                  <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400">
+                    SLSA Level 3 / WORM Hash-Chain Notarized
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                  {selectedSupplyChainSealForModal.algorithm}
+                </span>
+              </div>
+
+              {/* TOKEN DO SELO */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Token do Selo WORM RFC 8785
+                </span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[11px] text-slate-900 dark:text-white break-all select-all font-bold">
+                  {selectedSupplyChainSealForModal.sealToken}
+                </div>
+              </div>
+
+              {/* DETALHES FORENSES */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Digest Canônico JCS</span>
+                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate block" title={selectedSupplyChainSealForModal.inspectionDigest}>
+                    {(selectedSupplyChainSealForModal.inspectionDigest || 'N/A').substring(0, 16)}...
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Prova SLSA</span>
+                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate block">
+                    {selectedSupplyChainSealForModal.slsaProvenanceProof}
+                  </span>
+                </div>
+              </div>
+
+              {/* INCIDENTE ASSOCIADO (SE HOUVER) */}
+              {supplyChainModalIncidentItem && (
+                <div className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">
+                      {supplyChainModalIncidentItem.id || supplyChainModalIncidentItem.incidentId}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 uppercase">
+                      {supplyChainModalIncidentItem.category}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Pacote: <span className="font-mono font-bold text-slate-900 dark:text-white">{supplyChainModalIncidentItem.packageName}</span> | IP: <span className="font-mono">{supplyChainModalIncidentItem.clientIp}</span>
+                  </div>
+                  <div className="text-[11px] text-rose-700 dark:text-rose-300 font-mono">
+                    Ação: {supplyChainModalIncidentItem.remediationAction}
+                  </div>
+                </div>
+              )}
+
+              {/* FEEDBACK DE VERIFICAÇÃO CRIPTOGRÁFICA */}
+              {supplyChainSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  supplyChainSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                }`}>
+                  {supplyChainSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {supplyChainSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {selectedSupplyChainSealForModal.issuedAt ? new Date(selectedSupplyChainSealForModal.issuedAt).toLocaleString('pt-BR') : 'Recente'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingSupplyChainSeal}
+                  onClick={() => handleVerifySupplyChainSealSubmit(selectedSupplyChainSealForModal.sealToken)}
+                  className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingSupplyChainSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSupplyChainSealForModal(null);
+                    setSupplyChainModalIncidentItem(null);
+                    setSupplyChainSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

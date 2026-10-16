@@ -4022,22 +4022,87 @@ export interface Http2GuardOverviewResponse {
   overview: import('./models').Http2GuardOverview;
 }
 
+/**
+ * 73. PROTEÇÃO CONTRA INJEÇÃO DE DEPENDÊNCIAS DINÂMICAS E HIJACKING DE MÓDULOS NODE/BUN (CWE-470, CWE-912, SLSA L3)
+ */
+export interface InspectDependenciesDTO {
+  manifestContent?: string | Record<string, any>;
+  lockfileContent?: string;
+  targetRegistry?: string;
+  strictMode?: boolean;
+  dependencies?: import('./models').DependencyNode[];
+}
 
+export interface InspectDependenciesResponse {
+  success: boolean;
+  result: import('./models').DependencyInspectionResult;
+  incident?: import('./models').DependencySecurityIncident;
+  seal?: import('./models').DependencyProofSeal;
+  message: string;
+}
 
+export interface InspectDynamicImportDTO {
+  specifier: string;
+  callerContext?: string;
+  executionScope?: string;
+}
 
+export interface InspectDynamicImportResponse {
+  success: boolean;
+  result: import('./models').DynamicImportInspectionResult;
+  incident?: import('./models').DependencySecurityIncident;
+  message: string;
+}
 
+export interface UpdateDependencyPolicyDTO {
+  enforceStrictWhitelisting?: boolean;
+  blockDynamicImportsWithVariables?: boolean;
+  blockLifecycleScripts?: boolean;
+  enforceSriIntegrity?: boolean;
+  blockUnscopedInternalCollisions?: boolean;
+  allowedRegistries?: string[];
+  allowedScopes?: string[];
+  whitelistedPackages?: string[];
+  quarantinedPackages?: string[];
+  maxCriticalVulnerabilities?: number;
+}
 
+export interface UpdateDependencyPolicyResponse {
+  success: boolean;
+  policy: import('./models').DependencyGuardPolicy;
+  message: string;
+}
 
+export interface SimulateSupplyChainAttackDTO {
+  attackCategory: import('./enums').DependencyThreatCategory;
+  customPayload?: string;
+  targetPackageName?: string;
+}
 
+export interface SimulateSupplyChainAttackResponse {
+  success: boolean;
+  attackCategory: import('./enums').DependencyThreatCategory;
+  threatBlocked: boolean;
+  attackSimulationName: string;
+  inspection: import('./models').DependencyInspectionResult | import('./models').DynamicImportInspectionResult;
+  incident?: import('./models').DependencySecurityIncident;
+  message: string;
+}
 
+export interface VerifySupplyChainSealDTO {
+  sealToken: string | import('./models').DependencyProofSeal;
+}
 
+export interface VerifySupplyChainSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').DependencyProofSeal;
+  message: string;
+  verifiedAt: string;
+}
 
-
-
-
-
-
-
-
-
+export interface SupplyChainOverviewResponse {
+  success: boolean;
+  overview: import('./models').SupplyChainGuardOverview;
+}
 
