@@ -65,6 +65,7 @@ import { therapeuticGoalsRouter } from './routes/therapeuticGoals';
 import { psychometricsRouter } from './routes/psychometrics';
 import { consolidatedReportsRouter } from './routes/consolidatedReports';
 import { clinicalReferralsRouter } from './routes/clinicalReferrals';
+import { billingReceiptsRouter } from './routes/billingReceipts';
 import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddleware';
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
@@ -226,6 +227,7 @@ app.route('/api/goals', therapeuticGoalsRouter);
 app.route('/api/psychometrics', psychometricsRouter);
 app.route('/api/reports/consolidated', consolidatedReportsRouter);
 app.route('/api/referrals', clinicalReferralsRouter);
+app.route('/api/billing', billingReceiptsRouter);
 
 
 

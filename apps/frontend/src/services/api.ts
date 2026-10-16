@@ -567,7 +567,16 @@ import type {
   ClinicalReferral,
   CreateClinicalReferralDTO,
   CounterReferralDTO,
-  ValidateReferralPublicResponse
+  ValidateReferralPublicResponse,
+  ClinicalReceipt,
+  CreateClinicalReceiptDTO,
+  ClinicalReceiptResponse,
+  ListClinicalReceiptsResponse,
+  CancelReceiptDTO,
+  ValidateReceiptPublicResponse,
+  FeeContract,
+  CreateFeeContractDTO,
+  FeeContractResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3483,6 +3492,40 @@ export const api = {
 
   async validateReferralPublic(token: string): Promise<ValidateReferralPublicResponse> {
     return await request<ValidateReferralPublicResponse>(`/referrals/validate/${token}`);
+  },
+
+  // 13. Faturamento Clínico, Recibos de Honorários & Contratos de Serviços (RFC-001 §3.6)
+  async createClinicalReceipt(dto: CreateClinicalReceiptDTO): Promise<ClinicalReceipt> {
+    const res = await request<ClinicalReceiptResponse>('/billing/receipts', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.receipt;
+  },
+
+  async cancelClinicalReceipt(dto: CancelReceiptDTO): Promise<ClinicalReceipt> {
+    const res = await request<ClinicalReceiptResponse>('/billing/receipts/cancel', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.receipt;
+  },
+
+  async listClinicalReceipts(patientId?: string): Promise<ListClinicalReceiptsResponse> {
+    const query = patientId ? `?patientId=${encodeURIComponent(patientId)}` : '';
+    return await request<ListClinicalReceiptsResponse>(`/billing/receipts${query}`);
+  },
+
+  async validateReceiptPublic(token: string): Promise<ValidateReceiptPublicResponse> {
+    return await request<ValidateReceiptPublicResponse>(`/billing/receipts/validate/${encodeURIComponent(token)}`);
+  },
+
+  async createFeeContract(dto: CreateFeeContractDTO): Promise<FeeContract> {
+    const res = await request<FeeContractResponse>('/billing/fee-contracts', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.contract;
   }
 };
 

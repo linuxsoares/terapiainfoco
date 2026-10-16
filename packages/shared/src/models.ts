@@ -16,6 +16,10 @@ import {
   ClinicalReportPurpose,
   ReferralUrgency,
   ReferralStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReceiptPurpose,
+  BillingModality,
   UserRole,
   AuditAction,
   AuditResourceType,
@@ -5201,6 +5205,97 @@ export interface StoredClinicalReferral extends Omit<ClinicalReferral, 'clinical
 }
 
 export type DecryptedClinicalReferral = ClinicalReferral;
+
+/**
+ * 13. RECIBO DE HONORÁRIOS PSICOLÓGICOS (RFC-001 §3.6 / Receita Federal DMED / IRPF / CFP)
+ */
+export interface ReceiptFinancialResponsible {
+  nome: string;
+  cpf: string;
+  parentesco?: string;
+}
+
+export interface ReceiptSessionCovered {
+  data: string; // YYYY-MM-DD
+  horario?: string; // HH:mm
+  modalidade: 'ONLINE' | 'PRESENCIAL';
+  appointmentId?: string;
+}
+
+export interface ClinicalReceipt {
+  id: string;
+  receiptNumber: string; // Ex: REC-2026-0001
+  patientId: string;
+  patientName: string;
+  patientCpf?: string; // CPF com máscara para exibição
+  financialResponsible?: ReceiptFinancialResponsible;
+  therapistId: string;
+  therapistName: string;
+  therapistCrp: string;
+  therapistCpfOrCnpj: string;
+  purpose: ReceiptPurpose;
+  modality: BillingModality;
+  sessionsCovered: ReceiptSessionCovered[];
+  amountCents: number; // Valor em centavos (ex: 25000 = R$ 250,00)
+  amountFormatted: string; // Ex: "R$ 250,00"
+  amountInWords: string; // Ex: "Duzentos e cinquenta reais"
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentDate: string; // YYYY-MM-DD
+  notes?: string;
+  validationToken: string; // Token público de validação (ex: rcb_...)
+  validationUrl: string;
+  documentHashSha256: string;
+  wormAuditId?: string;
+  signedAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface StoredClinicalReceipt extends Omit<ClinicalReceipt, 'patientName' | 'patientCpf' | 'financialResponsible' | 'notes'> {
+  encryptedPatientName: EncryptedPayload;
+  encryptedPatientCpf?: EncryptedPayload;
+  encryptedFinancialResponsible?: EncryptedPayload;
+  encryptedNotes?: EncryptedPayload;
+}
+
+export type DecryptedClinicalReceipt = ClinicalReceipt;
+
+/**
+ * 14. TERMO / CONTRATO DE HONORÁRIOS & PRESTAÇÃO DE SERVIÇOS PSICOLÓGICOS (RFC-001 §3.6 / CFP)
+ */
+export interface FeeContract {
+  id: string;
+  patientId: string;
+  patientName: string;
+  therapistId: string;
+  therapistName: string;
+  therapistCrp: string;
+  sessionPriceCents: number;
+  sessionPriceFormatted: string;
+  paymentDueDateRule: string; // Ex: "Até o 5º dia útil do mês subsequente" ou "Ao final de cada sessão"
+  cancellationPolicyHours: number; // Ex: 24 horas de antecedência
+  reajustRule: string; // Ex: "Reajuste anual conforme índice IPCA"
+  confidentialityTerms: string; // Cláusula padrão do Artigo 9º do Código de Ética do Psicólogo
+  status: 'ACTIVE' | 'TERMINATED' | 'REVISED';
+  signedByPatient: boolean;
+  signedByPatientAt?: string;
+  signedByTherapist: boolean;
+  signedByTherapistAt?: string;
+  contractHashSha256: string;
+  wormAuditId?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface StoredFeeContract extends Omit<FeeContract, 'confidentialityTerms'> {
+  encryptedConfidentialityTerms: EncryptedPayload;
+}
+
+export type DecryptedFeeContract = FeeContract;
+
 
 
 

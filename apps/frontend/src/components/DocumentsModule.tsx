@@ -18,7 +18,8 @@ import {
   Copy,
   Check,
   Layers,
-  Send
+  Send,
+  DollarSign
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { 
@@ -35,6 +36,7 @@ import {
   type CounterReferralDTO
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
+import { BillingReceiptsModule } from './BillingReceiptsModule';
 
 const CFP_TEMPLATES: Record<DocumentType, { title: string; defaultContent: string }> = {
   [DocumentType.DECLARACAO]: {
@@ -122,8 +124,8 @@ export function DocumentsModule() {
   const [validationResult, setValidationResult] = useState<ValidateDocumentResponse | null>(null);
   const [validating, setValidating] = useState(false);
 
-  // Navegação entre Abas Clínicas da RFC-001 §3.5 & Resolução CFP nº 006/2019
-  const [activeTab, setActiveTab] = useState<'single_docs' | 'consolidated_reports' | 'referrals'>('single_docs');
+  // Navegação entre Abas Clínicas da RFC-001 §3.5/§3.6 & Resolução CFP nº 006/2019
+  const [activeTab, setActiveTab] = useState<'single_docs' | 'consolidated_reports' | 'referrals' | 'billing_receipts'>('single_docs');
 
   // Relatórios Consolidados Multi-Sessões
   const [consolidatedReports, setConsolidatedReports] = useState<ConsolidatedClinicalReport[]>([]);
@@ -539,6 +541,18 @@ export function DocumentsModule() {
         >
           <Stethoscope className="w-4 h-4" />
           <span>Encaminhamentos & Contra-Referência ({referrals.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('billing_receipts')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'billing_receipts'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-500/20'
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          <span>Faturamento & Recibos de Honorários (RFC §3.6)</span>
         </button>
       </div>
 
@@ -1362,6 +1376,11 @@ export function DocumentsModule() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Conteúdo Aba 4: Faturamento & Recibos de Honorários (RFC-001 §3.6) */}
+      {activeTab === 'billing_receipts' && (
+        <BillingReceiptsModule patientId={patientId} />
       )}
 
       {/* Modal de Criação de Documento */}
