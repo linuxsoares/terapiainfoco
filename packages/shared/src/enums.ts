@@ -306,7 +306,13 @@ export enum AuditAction {
   INSECURE_DESERIALIZATION_BLOCKED = 'INSECURE_DESERIALIZATION_BLOCKED',
   SAFE_OBJECT_NORMALIZED = 'SAFE_OBJECT_NORMALIZED',
   POLLUTION_GUARD_POLICY_UPDATED = 'POLLUTION_GUARD_POLICY_UPDATED',
-  PROTOTYPE_GUARD_SEAL_VERIFIED = 'PROTOTYPE_GUARD_SEAL_VERIFIED'
+  PROTOTYPE_GUARD_SEAL_VERIFIED = 'PROTOTYPE_GUARD_SEAL_VERIFIED',
+  // Ações de Proteção contra Cache Poisoning & Cache Deception (RFC 7234, RFC 9111 & OWASP ASVS v4.0)
+  CACHE_POISONING_ATTEMPT_BLOCKED = 'CACHE_POISONING_ATTEMPT_BLOCKED',
+  CACHE_DECEPTION_ATTEMPT_BLOCKED = 'CACHE_DECEPTION_ATTEMPT_BLOCKED',
+  CANONICAL_CACHE_KEY_GENERATED = 'CANONICAL_CACHE_KEY_GENERATED',
+  CACHE_GUARD_POLICY_UPDATED = 'CACHE_GUARD_POLICY_UPDATED',
+  CACHE_GUARD_SEAL_VERIFIED = 'CACHE_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -357,7 +363,8 @@ export enum AuditResourceType {
   VISUAL_WATERMARK_SHIELD = 'VISUAL_WATERMARK_SHIELD',
   EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD',
   COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT',
-  PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD'
+  PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD',
+  CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD'
 }
 
 /**
@@ -1577,6 +1584,51 @@ export enum PayloadCategory {
   CONSENT_RECORD = 'CONSENT_RECORD',             // Termo e escopos de consentimento do paciente
   USER_PROFILE_EXT = 'USER_PROFILE_EXT'          // Metadados estendidos de perfil de usuário/terapeuta
 }
+
+/**
+ * Tipos de Ameaça de Poluição e Enganação de Cache HTTP (RFC 7234, RFC 9111 & OWASP ASVS v4.0)
+ */
+export enum CacheThreatType {
+  UNKEYED_HEADER_INJECTION = 'UNKEYED_HEADER_INJECTION',         // Injeção de cabeçalhos não-chaveados (ex: X-Forwarded-Host)
+  UNKEYED_PARAM_POISONING = 'UNKEYED_PARAM_POISONING',           // Parâmetros de query não incluídos na Cache Key refletidos na resposta
+  PATH_TRAVERSAL_DECEPTION = 'PATH_TRAVERSAL_DECEPTION',         // Manipulação de caminho (..%2f, dot-segments) para forçar cache de rota privada
+  EXTENSION_CONFUSION_DECEPTION = 'EXTENSION_CONFUSION_DECEPTION', // Sufixo de arquivo estático (.css, .js) em rota de dados clínicos privados
+  FAT_GET_POISONING = 'FAT_GET_POISONING',                       // Requisição GET com corpo/payload e Content-Length > 0
+  METHOD_OVERRIDE_POISONING = 'METHOD_OVERRIDE_POISONING',       // Cabeçalho X-HTTP-Method-Override mascarando mutação
+  SPLIT_REQUEST_POISONING = 'SPLIT_REQUEST_POISONING'            // Injeção de CRLF (\r\n) em cabeçalhos de requisição
+}
+
+/**
+ * Níveis de Severidade de Ameaça de Cache
+ */
+export enum CacheThreatSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Ações de Diretiva de Cache Aplicadas
+ */
+export enum CacheDirectiveAction {
+  FORCE_NO_STORE = 'FORCE_NO_STORE',                 // Injeta Cache-Control: no-store, no-cache, private
+  STRIP_UNKEYED_HEADERS = 'STRIP_UNKEYED_HEADERS',   // Remove cabeçalhos maliciosos antes do repasse ao upstream
+  KEY_INCLUDE_HEADERS = 'KEY_INCLUDE_HEADERS',       // Incorpora cabeçalhos na Cache Key canônica
+  BLOCK_REQUEST = 'BLOCK_REQUEST',                   // Intercepta e rejeita a requisição (HTTP 400/403)
+  ALLOW_CACHING = 'ALLOW_CACHING'                    // Permite cache seguro com TTL restrito e chave normalizada
+}
+
+/**
+ * Nível de Sensibilidade do Recurso Clínico
+ */
+export enum ResourceSensitivityLevel {
+  PUBLIC_STATIC = 'PUBLIC_STATIC',                     // Ativos públicos estáticos (logos, landing styles, termos públicos)
+  CLINICAL_AUTHENTICATED = 'CLINICAL_AUTHENTICATED',   // Prontuários, notas SOAP, dados de saúde mental (estritamente NO-STORE)
+  ADMIN_GOVERNANCE = 'ADMIN_GOVERNANCE',               // Relatórios forenses, WORM, KMS e telemetria
+  TELECONSULT_EPHEMERAL = 'TELECONSULT_EPHEMERAL'      // Tokens efêmeros, metadados WebRTC e links temporários
+}
+
 
 
 
