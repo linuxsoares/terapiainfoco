@@ -437,7 +437,16 @@ import type {
   SimulateCacheAttackResponseDTO,
   VerifyCacheSealDTO,
   VerifyCacheSealResponseDTO,
-  CacheGuardOverviewResponse
+  CacheGuardOverviewResponse,
+  ScanXmlPayloadDTO,
+  ScanXmlPayloadResponse,
+  SimulateXmlAttackDTO,
+  SimulateXmlAttackResponse,
+  UpdateXmlPolicyDTO,
+  UpdateXmlPolicyResponse,
+  VerifyXmlSealDTO,
+  VerifyXmlSealResponse,
+  XmlGuardOverviewResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -2760,6 +2769,39 @@ export const api = {
 
   async verifyCacheSeal(dto: VerifyCacheSealDTO): Promise<VerifyCacheSealResponseDTO> {
     return await request<VerifyCacheSealResponseDTO>('/cache-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  // 64. Detecção e Prevenção Ativa de Ataques XXE & XML Bombs (CWE-611, CWE-776 & HL7/FHIR XML)
+  async getXmlGuardOverview(): Promise<XmlGuardOverviewResponse> {
+    return await request<XmlGuardOverviewResponse>('/xml-guard/overview');
+  },
+
+  async scanXmlPayload(dto: ScanXmlPayloadDTO): Promise<ScanXmlPayloadResponse> {
+    return await request<ScanXmlPayloadResponse>('/xml-guard/scan', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateXmlPolicy(dto: UpdateXmlPolicyDTO): Promise<UpdateXmlPolicyResponse> {
+    return await request<UpdateXmlPolicyResponse>('/xml-guard/policy', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateXmlAttack(dto: SimulateXmlAttackDTO): Promise<SimulateXmlAttackResponse> {
+    return await request<SimulateXmlAttackResponse>('/xml-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifyXmlSeal(dto: VerifyXmlSealDTO): Promise<VerifyXmlSealResponse> {
+    return await request<VerifyXmlSealResponse>('/xml-guard/verify-seal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });

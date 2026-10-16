@@ -312,7 +312,14 @@ export enum AuditAction {
   CACHE_DECEPTION_ATTEMPT_BLOCKED = 'CACHE_DECEPTION_ATTEMPT_BLOCKED',
   CANONICAL_CACHE_KEY_GENERATED = 'CANONICAL_CACHE_KEY_GENERATED',
   CACHE_GUARD_POLICY_UPDATED = 'CACHE_GUARD_POLICY_UPDATED',
-  CACHE_GUARD_SEAL_VERIFIED = 'CACHE_GUARD_SEAL_VERIFIED'
+  CACHE_GUARD_SEAL_VERIFIED = 'CACHE_GUARD_SEAL_VERIFIED',
+  // Ações de Proteção contra XXE & XML Bombs (OWASP ASVS V5.5, CWE-611, CWE-776)
+  XXE_INJECTION_BLOCKED = 'XXE_INJECTION_BLOCKED',
+  XML_BOMB_EXPANSION_BLOCKED = 'XML_BOMB_EXPANSION_BLOCKED',
+  XINCLUDE_INJECTION_BLOCKED = 'XINCLUDE_INJECTION_BLOCKED',
+  SAFE_XML_NORMALIZED = 'SAFE_XML_NORMALIZED',
+  XML_GUARD_POLICY_UPDATED = 'XML_GUARD_POLICY_UPDATED',
+  XML_GUARD_SEAL_VERIFIED = 'XML_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -364,7 +371,8 @@ export enum AuditResourceType {
   EPHEMERAL_TOKEN_SHIELD = 'EPHEMERAL_TOKEN_SHIELD',
   COURT_ORDER_THRESHOLD_VAULT = 'COURT_ORDER_THRESHOLD_VAULT',
   PROTOTYPE_POLLUTION_GUARD = 'PROTOTYPE_POLLUTION_GUARD',
-  CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD'
+  CACHE_POISONING_GUARD = 'CACHE_POISONING_GUARD',
+  XML_SECURITY_GUARD = 'XML_SECURITY_GUARD'
 }
 
 /**
@@ -1628,6 +1636,50 @@ export enum ResourceSensitivityLevel {
   ADMIN_GOVERNANCE = 'ADMIN_GOVERNANCE',               // Relatórios forenses, WORM, KMS e telemetria
   TELECONSULT_EPHEMERAL = 'TELECONSULT_EPHEMERAL'      // Tokens efêmeros, metadados WebRTC e links temporários
 }
+
+/**
+ * Vetores de Ameaça em Documentos XML Clínicos (OWASP ASVS V5.5, CWE-611, CWE-776)
+ */
+export enum XmlThreatType {
+  EXTERNAL_ENTITY_SYSTEM = 'EXTERNAL_ENTITY_SYSTEM',             // <!ENTITY ... SYSTEM "file://" / "http://">
+  EXTERNAL_ENTITY_PUBLIC = 'EXTERNAL_ENTITY_PUBLIC',             // <!ENTITY ... PUBLIC "..." "...">
+  PARAMETER_ENTITY_INJECTION = 'PARAMETER_ENTITY_INJECTION',     // <!ENTITY % pe SYSTEM "..."> (Blind/OOB XXE)
+  BILLION_LAUGHS_BOMB = 'BILLION_LAUGHS_BOMB',                   // Expansão recursiva exponencial (XML Bomb DoS)
+  QUADRATIC_BLOWUP = 'QUADRATIC_BLOWUP',                         // Multiplicação linear massiva de entidade
+  XINCLUDE_ATTACK = 'XINCLUDE_ATTACK',                           // Tags <xi:include href="...">
+  EXTERNAL_SCHEMA_REDIRECTION = 'EXTERNAL_SCHEMA_REDIRECTION',   // xsi:schemaLocation apontando para URLs externas
+  EXCESSIVE_NESTING_DEPTH = 'EXCESSIVE_NESTING_DEPTH'            // Profundidade excessiva de nós XML (> limite)
+}
+
+/**
+ * Severidade de Ameaça XML
+ */
+export enum XmlThreatSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Modo de Sanitização e Processamento do XML Clínico
+ */
+export enum XmlSanitizationMode {
+  STRICT_REJECT = 'STRICT_REJECT',               // Rejeita sumariamente se qualquer DTD/entidade estiver presente
+  STRIP_DTD_AND_PARSE = 'STRIP_DTD_AND_PARSE',   // Remove DTDs, declarações de entidade e xinclude, parseando conteúdo limpo
+  SANITIZE_AND_EXTRACT = 'SANITIZE_AND_EXTRACT'  // Higieniza recursivamente e extrai estrutura de nós segura
+}
+
+/**
+ * Padrões de Schema XML Clínicos Suportados em Saúde Mental
+ */
+export enum XmlClinicalSchemaType {
+  HL7_CDA_R2 = 'HL7_CDA_R2',                 // Padrão HL7 Clinical Document Architecture Release 2
+  FHIR_XML_R4 = 'FHIR_XML_R4',               // Padrão HL7 FHIR R4 XML Bundle/Resource
+  TISS_CLINICAL_GUIDE = 'TISS_CLINICAL_GUIDE', // Guia de Consulta / Solicitação TISS ANS Brasil
+  CUSTOM_EMR_EXPORT = 'CUSTOM_EMR_EXPORT'    // Exportação interoperável de prontuário eletrônico
+}
+
 
 
 

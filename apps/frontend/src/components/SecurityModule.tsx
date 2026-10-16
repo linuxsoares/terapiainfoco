@@ -314,7 +314,16 @@ import {
   type CacheSecurityIncident,
   type CacheGuardOverview,
   type SimulateCacheAttackResponseDTO,
-  type VerifyCacheSealResponseDTO
+  type VerifyCacheSealResponseDTO,
+  XmlThreatType,
+  XmlSanitizationMode,
+  XmlClinicalSchemaType,
+  type XmlProofSeal,
+  type XmlSanitizationResult,
+  type XmlSecurityIncident,
+  type XmlGuardOverview,
+  type SimulateXmlAttackResponse,
+  type VerifyXmlSealResponse
 } from '@terapiainfoco/shared';
 
 interface SecurityModuleProps {
@@ -4872,6 +4881,156 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     }
   };
 
+  // 64. DETECÇÃO E PREVENÇÃO DE XXE E XML BOMBS (CWE-611 / CWE-776 & HL7/FHIR)
+  const [xmlOverview, setXmlOverview] = useState<XmlGuardOverview | null>(null);
+  const [loadingXmlGuard, setLoadingXmlGuard] = useState<boolean>(false);
+  const [xmlActiveTab, setXmlActiveTab] = useState<'scan' | 'simulate' | 'policy'>('scan');
+
+  // Aba 1: Scanner & Higienizador
+  const [xmlSchemaType, setXmlSchemaType] = useState<XmlClinicalSchemaType>(XmlClinicalSchemaType.HL7_CDA_R2);
+  const [xmlSanitizationMode, setXmlSanitizationMode] = useState<XmlSanitizationMode>(XmlSanitizationMode.STRIP_DTD_AND_PARSE);
+  const [xmlPayloadInput, setXmlPayloadInput] = useState<string>(`<?xml version="1.0" encoding="UTF-8"?>
+<ClinicalDocument xmlns="urn:hl7-org:v3">
+  <id extension="HL7-2026-091" root="2.16.840.1.113883.3.72"/>
+  <code code="34133-9" displayName="Summarization of Episode Note"/>
+  <title>Evolução Psicológica Semanal</title>
+  <component>
+    <structuredBody>
+      <section>
+        <text>Paciente compareceu à sessão pontualmente. Relato de melhora significativa nos episódios de ansiedade após reestruturação cognitiva.</text>
+      </section>
+    </structuredBody>
+  </component>
+</ClinicalDocument>`);
+  const [scanningXml, setScanningXml] = useState<boolean>(false);
+  const [lastXmlScanResult, setLastXmlScanResult] = useState<XmlSanitizationResult | null>(null);
+
+  // Aba 2: Simulador Adversarial
+  const [simXmlAttackType, setSimXmlAttackType] = useState<XmlThreatType>(XmlThreatType.EXTERNAL_ENTITY_SYSTEM);
+  const [simXmlSchemaType, setSimXmlSchemaType] = useState<XmlClinicalSchemaType>(XmlClinicalSchemaType.HL7_CDA_R2);
+  const [simulatingXmlAttack, setSimulatingXmlAttack] = useState<boolean>(false);
+  const [simXmlAttackResult, setSimXmlAttackResult] = useState<SimulateXmlAttackResponse | null>(null);
+
+  // Aba 3: Políticas
+  const [policyDisallowDoctype, setPolicyDisallowDoctype] = useState<boolean>(true);
+  const [policyDisallowExternalEntities, setPolicyDisallowExternalEntities] = useState<boolean>(true);
+  const [policyDisallowXInclude, setPolicyDisallowXInclude] = useState<boolean>(true);
+  const [policyMaxXmlSizeBytes, setPolicyMaxXmlSizeBytes] = useState<number>(2097152); // 2 MB
+  const [policyMaxNestingDepth, setPolicyMaxNestingDepth] = useState<number>(20);
+  const [policyMaxEntityExpansions, setPolicyMaxEntityExpansions] = useState<number>(50);
+  const [updatingXmlPolicy, setUpdatingXmlPolicy] = useState<boolean>(false);
+
+  // Modal 46.A: Certidão Notarial Forense WORM
+  const [selectedXmlSealForModal, setSelectedXmlSealForModal] = useState<XmlProofSeal | null>(null);
+  const [xmlModalIncidentItem, setXmlModalIncidentItem] = useState<XmlSecurityIncident | null>(null);
+  const [verifyingXmlSeal, setVerifyingXmlSeal] = useState<boolean>(false);
+  const [xmlSealVerifyResult, setXmlSealVerifyResult] = useState<VerifyXmlSealResponse | null>(null);
+
+  const fetchXmlGuardData = async () => {
+    try {
+      setLoadingXmlGuard(true);
+      const res = await api.getXmlGuardOverview();
+      setXmlOverview(res.overview);
+      if (res.overview?.policy) {
+        setPolicyDisallowDoctype(res.overview.policy.disallowDoctype);
+        setPolicyDisallowExternalEntities(res.overview.policy.disallowExternalEntities);
+        setPolicyDisallowXInclude(res.overview.policy.disallowXInclude);
+        setPolicyMaxXmlSizeBytes(res.overview.policy.maxXmlSizeBytes);
+        setPolicyMaxNestingDepth(res.overview.policy.maxNestingDepth);
+        setPolicyMaxEntityExpansions(res.overview.policy.maxEntityExpansions);
+      }
+    } catch (err: any) {
+      console.error('Falha ao carregar governança de XML Guard:', err);
+    } finally {
+      setLoadingXmlGuard(false);
+    }
+  };
+
+  const handleScanXmlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setScanningXml(true);
+      setLastXmlScanResult(null);
+      const res = await api.scanXmlPayload({
+        xmlPayload: xmlPayloadInput,
+        schemaType: xmlSchemaType,
+        mode: xmlSanitizationMode
+      });
+      setLastXmlScanResult(res.result);
+      setFeedback({
+        type: res.result.isSafe ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchXmlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao escanear documento XML.' });
+    } finally {
+      setScanningXml(false);
+    }
+  };
+
+  const handleSimulateXmlAttackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSimulatingXmlAttack(true);
+      setSimXmlAttackResult(null);
+      const res = await api.simulateXmlAttack({
+        attackType: simXmlAttackType,
+        schemaType: simXmlSchemaType
+      });
+      setSimXmlAttackResult(res);
+      setFeedback({
+        type: res.threatDetected ? 'success' : 'error',
+        message: res.message
+      });
+      await fetchXmlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao simular ataque XML.' });
+    } finally {
+      setSimulatingXmlAttack(false);
+    }
+  };
+
+  const handleUpdateXmlPolicySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setUpdatingXmlPolicy(true);
+      const res = await api.updateXmlPolicy({
+        policy: {
+          disallowDoctype: policyDisallowDoctype,
+          disallowExternalEntities: policyDisallowExternalEntities,
+          disallowXInclude: policyDisallowXInclude,
+          maxXmlSizeBytes: policyMaxXmlSizeBytes,
+          maxNestingDepth: policyMaxNestingDepth,
+          maxEntityExpansions: policyMaxEntityExpansions
+        }
+      });
+      setFeedback({ type: 'success', message: res.message });
+      await fetchXmlGuardData();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao atualizar política XML.' });
+    } finally {
+      setUpdatingXmlPolicy(false);
+    }
+  };
+
+  const handleVerifyXmlSealSubmit = async (sealToken: string) => {
+    try {
+      setVerifyingXmlSeal(true);
+      setXmlSealVerifyResult(null);
+      const res = await api.verifyXmlSeal({ sealToken });
+      setXmlSealVerifyResult(res);
+      setFeedback({
+        type: res.isValid ? 'success' : 'error',
+        message: res.message
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Falha ao validar selo XML WORM.' });
+    } finally {
+      setVerifyingXmlSeal(false);
+    }
+  };
+
   React.useEffect(() => {
     if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
       fetchWebrtcSessions();
@@ -4909,6 +5068,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       fetchCourtOrderThresholdData();
       fetchPrototypePollutionData();
       fetchCacheGuardData();
+      fetchXmlGuardData();
     }
     if (currentUser.role === UserRole.ADMIN) {
       fetchInfraStatus();
@@ -23397,6 +23557,621 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       </div>
 
+      {/* ============================================================================
+          64. CARD 46: DETECÇÃO E PREVENÇÃO DE XXE & XML BOMBS (CWE-611 / CWE-776)
+          ============================================================================ */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+              <FileCode className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Blindagem contra Injeção XXE & Expansão de Entidades XML (XML Bombs)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                  CWE-611 / CWE-776 & HL7/FHIR
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Proteção criptográfica contra External Entity Injection (SYSTEM, PUBLIC, OOB), Billion Laughs, Quadratic Blowup DoS, XInclude e redirecionamento malicioso de esquemas em saúde mental.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchXmlGuardData()}
+              disabled={loadingXmlGuard}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Atualizar Telemetria XML"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingXmlGuard ? 'animate-spin text-orange-500' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* 5 KPIs Operacionais */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Documentos Auditados
+            </span>
+            <p className="text-lg font-black text-slate-900 dark:text-white">
+              {xmlOverview?.metrics?.totalXmlDocumentsScanned ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Intercâmbios HL7 / FHIR / TISS
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 block">
+              Ataques XXE Bloqueados
+            </span>
+            <p className="text-lg font-black text-rose-600 dark:text-rose-400">
+              {xmlOverview?.metrics?.xxeAttacksBlocked ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              SYSTEM / PUBLIC / OOB
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500 block">
+              XML Bombs Desarmados
+            </span>
+            <p className="text-lg font-black text-orange-600 dark:text-orange-400">
+              {xmlOverview?.metrics?.xmlBombsDefused ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Billion Laughs / Quadratic DoS
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block">
+              Documentos Íntegros
+            </span>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+              {xmlOverview?.metrics?.cleanDocumentsProcessed ?? 0}
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Normalizados com fé pública
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">
+              Latência de Varredura
+            </span>
+            <p className="text-lg font-black text-amber-600 dark:text-amber-400">
+              {xmlOverview?.metrics?.averageScanLatencyMs ?? 0.8} ms
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium block">
+              Overhead ultrabaixo sub-milissegundo
+            </span>
+          </div>
+        </div>
+
+        {/* Abas Operacionais */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl w-fit">
+          <button
+            type="button"
+            onClick={() => setXmlActiveTab('scan')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              xmlActiveTab === 'scan'
+                ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Scanner & Higienizador XML
+          </button>
+          <button
+            type="button"
+            onClick={() => setXmlActiveTab('simulate')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              xmlActiveTab === 'simulate'
+                ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Simulador Adversarial CWE-611/776
+          </button>
+          <button
+            type="button"
+            onClick={() => setXmlActiveTab('policy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              xmlActiveTab === 'policy'
+                ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Políticas DTD & Limites Estruturais
+          </button>
+        </div>
+
+        {/* Conteúdo Aba 1: Scanner & Higienizador */}
+        {xmlActiveTab === 'scan' && (
+          <form onSubmit={handleScanXmlSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Padrão do Esquema Clínico:
+                </label>
+                <select
+                  value={xmlSchemaType}
+                  onChange={(e) => setXmlSchemaType(e.target.value as XmlClinicalSchemaType)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                >
+                  <option value={XmlClinicalSchemaType.HL7_CDA_R2}>HL7 CDA R2 (Clinical Document Architecture)</option>
+                  <option value={XmlClinicalSchemaType.FHIR_XML_R4}>HL7 FHIR R4 XML Bundle</option>
+                  <option value={XmlClinicalSchemaType.TISS_CLINICAL_GUIDE}>TISS ANS Brasil (Guia de Consulta/SP-SADT)</option>
+                  <option value={XmlClinicalSchemaType.CUSTOM_EMR_EXPORT}>Exportação Customizada de Prontuário EMR</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Modo Operacional de Sanitização:
+                </label>
+                <select
+                  value={xmlSanitizationMode}
+                  onChange={(e) => setXmlSanitizationMode(e.target.value as XmlSanitizationMode)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                >
+                  <option value={XmlSanitizationMode.STRIP_DTD_AND_PARSE}>STRIP_DTD_AND_PARSE (Remove DTDs e extrai nó seguro)</option>
+                  <option value={XmlSanitizationMode.STRICT_REJECT}>STRICT_REJECT (Rejeita sumariamente se houver ameaça)</option>
+                  <option value={XmlSanitizationMode.SANITIZE_AND_EXTRACT}>SANITIZE_AND_EXTRACT (Higienização em profundidade)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Payload XML do Documento Clínico:
+              </label>
+              <textarea
+                rows={6}
+                value={xmlPayloadInput}
+                onChange={(e) => setXmlPayloadInput(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Inspeciona injeção SYSTEM, PUBLIC, expansão exponencial (Billion Laughs) e emite selo RFC 8785 WORM.
+              </span>
+              <button
+                type="submit"
+                disabled={scanningXml}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5" />
+                {scanningXml ? 'Examinando...' : 'Escanear & Higienizar Documento XML'}
+              </button>
+            </div>
+
+            {/* Resultado do Escaneamento */}
+            {lastXmlScanResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      lastXmlScanResult.isSafe
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                    }`}>
+                      {lastXmlScanResult.isSafe ? '✅ Documento 100% Seguro' : `⚠️ ${lastXmlScanResult.threats.length} Ameaça(s) Neutralizada(s)`}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      Hash Canônico: {lastXmlScanResult.seal.canonicalXmlHash.substring(0, 16)}...
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedXmlSealForModal(lastXmlScanResult.seal);
+                      setXmlModalIncidentItem(null);
+                      setXmlSealVerifyResult(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                    Certidão Notarial WORM
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Profundidade de Aninhamento
+                    </span>
+                    <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Nível {lastXmlScanResult.maxNestingDepth} (Máx: {xmlOverview?.policy?.maxNestingDepth || 20})
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Fator de Expansão Léxica
+                    </span>
+                    <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {lastXmlScanResult.expansionMultiplier}x (Entidades: {lastXmlScanResult.detectedEntitiesCount})
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Hash do Payload Higienizado
+                    </span>
+                    <p className="font-mono text-xs font-bold text-orange-600 dark:text-orange-400 truncate">
+                      {lastXmlScanResult.seal.cleanDigest.substring(0, 18)}...
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lista de Ameaças Detectadas */}
+                {lastXmlScanResult.threats.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                      Ameaças Identificadas & Neutralizadas:
+                    </span>
+                    {lastXmlScanResult.threats.map((th, idx) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono">
+                            {th.threatType}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            Severidade: {th.severity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          {th.description}
+                        </p>
+                        <p className="text-[10px] font-mono text-slate-500 break-all">
+                          Gatilho: {th.triggerSnippet} | Evidência: {th.evidence}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* XML Higienizado */}
+                {lastXmlScanResult.sanitizedXml && (
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Payload Clínico Higienizado (Seguro para Parser):
+                    </span>
+                    <pre className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
+                      {lastXmlScanResult.sanitizedXml}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 2: Simulador Adversarial */}
+        {xmlActiveTab === 'simulate' && (
+          <form onSubmit={handleSimulateXmlAttackSubmit} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <span className="font-bold block">Laboratório de Testes Adversariais Controlados (CWE-611 / CWE-776):</span>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Dispara probes sintéticos de injeção de entidades locais, exfiltração remota out-of-band, bombas de recursão exponencial Billion Laughs e inclusões externas XInclude em um ambiente estritamente isolado.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Vetor Adversarial a Simular:
+                </label>
+                <select
+                  value={simXmlAttackType}
+                  onChange={(e) => setSimXmlAttackType(e.target.value as XmlThreatType)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                >
+                  <option value={XmlThreatType.EXTERNAL_ENTITY_SYSTEM}>EXTERNAL_ENTITY_SYSTEM (XXE Local / Exfiltração de Arquivos)</option>
+                  <option value={XmlThreatType.PARAMETER_ENTITY_INJECTION}>PARAMETER_ENTITY_INJECTION (Blind XXE / Exfiltração Out-of-Band)</option>
+                  <option value={XmlThreatType.BILLION_LAUGHS_BOMB}>BILLION_LAUGHS_BOMB (Expansão Recursiva Catastrófica DoS)</option>
+                  <option value={XmlThreatType.QUADRATIC_BLOWUP}>QUADRATIC_BLOWUP (Quadratic Blowup XML DoS)</option>
+                  <option value={XmlThreatType.XINCLUDE_ATTACK}>XINCLUDE_ATTACK (Inclusão Não Autorizada via xi:include)</option>
+                  <option value={XmlThreatType.EXTERNAL_SCHEMA_REDIRECTION}>EXTERNAL_SCHEMA_REDIRECTION (Schema Poisoning & SSRF)</option>
+                  <option value={XmlThreatType.EXCESSIVE_NESTING_DEPTH}>EXCESSIVE_NESTING_DEPTH (Nesting Depth Bomb / Stack Overflow)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Esquema Clínico de Destino:
+                </label>
+                <select
+                  value={simXmlSchemaType}
+                  onChange={(e) => setSimXmlSchemaType(e.target.value as XmlClinicalSchemaType)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                >
+                  <option value={XmlClinicalSchemaType.HL7_CDA_R2}>HL7 CDA R2 (Prontuário Eletrônico)</option>
+                  <option value={XmlClinicalSchemaType.FHIR_XML_R4}>HL7 FHIR R4 XML</option>
+                  <option value={XmlClinicalSchemaType.TISS_CLINICAL_GUIDE}>Guia de Consulta TISS ANS</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                A simulação intercepta o probe, higieniza o payload e grava incidente probatório no WORM.
+              </span>
+              <button
+                type="submit"
+                disabled={simulatingXmlAttack}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {simulatingXmlAttack ? 'Simulando...' : 'Disparar Probe Adversarial Controlado'}
+              </button>
+            </div>
+
+            {/* Resultado da Simulação */}
+            {simXmlAttackResult && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      simXmlAttackResult.threatDetected
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    }`}>
+                      {simXmlAttackResult.threatDetected ? '⚠️ Ameaça Interceptada com Sucesso' : 'ℹ️ Nenhuma ameaça disparada'}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      {simXmlAttackResult.message}
+                    </span>
+                  </div>
+
+                  {simXmlAttackResult.incident && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setXmlModalIncidentItem(simXmlAttackResult.incident!);
+                        setSelectedXmlSealForModal(simXmlAttackResult.incident!.seal);
+                        setXmlSealVerifyResult(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <BadgeCheck className="w-3.5 h-3.5" />
+                      Certidão Notarial WORM
+                    </button>
+                  )}
+                </div>
+
+                {simXmlAttackResult.incident && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold font-mono text-rose-600 dark:text-rose-400">
+                        {simXmlAttackResult.incident.threatType} (Severidade: {simXmlAttackResult.incident.severity})
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        ID: {simXmlAttackResult.incident.id}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Evidência: {simXmlAttackResult.incident.evidence}
+                    </p>
+                    <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      Ação Aplicada: {simXmlAttackResult.incident.actionTaken}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Conteúdo Aba 3: Políticas DTD & Limites Estruturais */}
+        {xmlActiveTab === 'policy' && (
+          <form onSubmit={handleUpdateXmlPolicySubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyDisallowDoctype}
+                    onChange={(e) => setPolicyDisallowDoctype(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Proibir Declarações DOCTYPE (Disallow DOCTYPE)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Prática recomendada OWASP ASVS V5.5 para eliminação total de vetores DTD
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyDisallowExternalEntities}
+                    onChange={(e) => setPolicyDisallowExternalEntities(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Bloquear Entidades Externas Gerais & de Parâmetro
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Impede resolução de URIs externas (SYSTEM, PUBLIC, %pe)
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyDisallowXInclude}
+                    onChange={(e) => setPolicyDisallowXInclude(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block">
+                      Bloquear Inclusões XInclude (xi:include)
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Impede injeção de arquivos e recursos remotos via tags XInclude
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tamanho Máximo do XML (Bytes):
+                  </label>
+                  <input
+                    type="number"
+                    min={1024}
+                    max={20971520}
+                    value={policyMaxXmlSizeBytes}
+                    onChange={(e) => setPolicyMaxXmlSizeBytes(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Padrão: 2 MB ({policyMaxXmlSizeBytes} bytes)
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Profundidade Máxima de Nós (Nesting Depth Bomb Defense):
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={100}
+                    value={policyMaxNestingDepth}
+                    onChange={(e) => setPolicyMaxNestingDepth(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Limite máximo de aninhamento recursivo de tags
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Multiplicador Máximo de Expansão de Entidades:
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={1000}
+                    value={policyMaxEntityExpansions}
+                    onChange={(e) => setPolicyMaxEntityExpansions(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Teto para desarme automático de ataques Billion Laughs
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={updatingXmlPolicy}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {updatingXmlPolicy ? 'Salvando...' : 'Salvar Políticas de Proteção XML'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tabela de Incidentes Forenses Recentes */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              Histórico Forense de Ameaças XML Neutralizadas
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Trilha WORM com Selo RFC 8785
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <th className="p-3">Data/Hora</th>
+                  <th className="p-3">Vetor de Ameaça</th>
+                  <th className="p-3">Esquema Clínico</th>
+                  <th className="p-3">IP Origem</th>
+                  <th className="p-3">Mitigação do Enclave</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {!xmlOverview?.recentIncidents || xmlOverview.recentIncidents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-slate-400 font-medium">
+                      Nenhum incidente de injeção XXE ou XML bomb registrado.
+                    </td>
+                  </tr>
+                ) : (
+                  xmlOverview.recentIncidents.map((inc) => (
+                    <tr key={inc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <td className="p-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono">
+                        {new Date(inc.timestamp).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          {inc.threatType}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.schemaType}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                        {inc.clientIp}
+                      </td>
+                      <td className="p-3 font-mono text-[10px] text-orange-600 dark:text-orange-400 truncate max-w-xs">
+                        {inc.actionTaken}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setXmlModalIncidentItem(inc);
+                            setSelectedXmlSealForModal(inc.seal);
+                            setXmlSealVerifyResult(null);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[10px] cursor-pointer"
+                        >
+                          Certidão WORM
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       {showSimulateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
@@ -29096,6 +29871,163 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                     setSelectedCacheSealForModal(null);
                     setCacheModalIncidentItem(null);
                     setCacheSealVerifyResult(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 46.A: CERTIDÃO NOTARIAL FORENSE DE INTEGRIDADE XML WORM (RFC 8785, CWE-611 / CWE-776) */}
+      {selectedXmlSealForModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                  <BadgeCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Certidão Notarial Forense de Integridade XML
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    RFC 8785 Deterministic Canonical Form & WORM Seal
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedXmlSealForModal(null);
+                  setXmlModalIncidentItem(null);
+                  setXmlSealVerifyResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Veredito e ID do Selo */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Veredito Estrutural
+                  </span>
+                  <p className="text-xs font-black text-slate-900 dark:text-white">
+                    {selectedXmlSealForModal.threatsCount === 0 ? 'Limpo & Sem Vetores' : `${selectedXmlSealForModal.threatsCount} Ameaça(s) Neutralizada(s)`}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    ID Notarial do Selo
+                  </span>
+                  <p className="text-xs font-mono font-bold text-orange-600 dark:text-orange-400 truncate">
+                    {selectedXmlSealForModal.sealId}
+                  </p>
+                </div>
+              </div>
+
+              {/* Esquema Clínico */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Padrão do Esquema Clínico Interoperável:
+                </span>
+                <p className="font-mono text-xs text-slate-800 dark:text-slate-200 font-bold">
+                  {selectedXmlSealForModal.schemaType}
+                </p>
+              </div>
+
+              {/* Detalhes do Incidente se houver */}
+              {xmlModalIncidentItem && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 block">
+                    Incidente Forense Associado:
+                  </span>
+                  <p className="font-mono text-xs text-rose-900 dark:text-rose-200 font-bold">
+                    {xmlModalIncidentItem.threatType} (Severidade: {xmlModalIncidentItem.severity})
+                  </p>
+                  <p className="text-[11px] text-rose-800 dark:text-rose-300">
+                    Evidência: {xmlModalIncidentItem.evidence}
+                  </p>
+                  <p className="text-[10px] font-mono text-rose-600 dark:text-rose-400">
+                    Ação: {xmlModalIncidentItem.actionTaken} | IP Origem: {xmlModalIncidentItem.clientIp}
+                  </p>
+                </div>
+              )}
+
+              {/* Hash Canônico Original */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do XML Original (Pre-Sanitization)
+                </span>
+                <p className="font-mono text-[10px] text-orange-400 break-all select-all">
+                  {selectedXmlSealForModal.canonicalXmlHash}
+                </p>
+              </div>
+
+              {/* Hash Canônico Higienizado */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Digest SHA-256 do XML Higienizado (Safe Canonical XML)
+                </span>
+                <p className="font-mono text-[10px] text-emerald-400 break-all select-all">
+                  {selectedXmlSealForModal.cleanDigest}
+                </p>
+              </div>
+
+              {/* Selo Criptográfico WORM HMAC-SHA256 */}
+              <div className="p-3 rounded-2xl bg-slate-900 text-white space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Selo Probatório HMAC-SHA256 WORM (Assinatura Inviolável do Enclave)
+                </span>
+                <p className="font-mono text-[10px] text-amber-300 break-all select-all">
+                  {selectedXmlSealForModal.hmacSignature}
+                </p>
+              </div>
+
+              {/* Resultado da Validação Notarial */}
+              {xmlSealVerifyResult && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                  xmlSealVerifyResult.isValid
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {xmlSealVerifyResult.isValid ? '✅ ' : '❌ '}
+                  {xmlSealVerifyResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Emitido em: {new Date(selectedXmlSealForModal.timestamp).toLocaleString('pt-BR')}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={verifyingXmlSeal}
+                  onClick={() => handleVerifyXmlSealSubmit(JSON.stringify(selectedXmlSealForModal))}
+                  className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {verifyingXmlSeal ? 'Auditando...' : 'Validar Integridade WORM'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedXmlSealForModal(null);
+                    setXmlModalIncidentItem(null);
+                    setXmlSealVerifyResult(null);
                   }}
                   className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >

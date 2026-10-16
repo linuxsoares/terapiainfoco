@@ -3603,6 +3603,106 @@ export interface CacheGuardOverview {
   }>;
 }
 
+/**
+ * ============================================================================
+ * 64. DEFESA ATIVA CONTRA XXE & EXPANSÃO DE ENTIDADES XML (CWE-611 / CWE-776)
+ * ============================================================================
+ */
+
+/**
+ * Detecção de Ameaça em Documento XML Clínico
+ */
+export interface XmlThreatDetection {
+  threatType: import('./enums').XmlThreatType;
+  severity: import('./enums').XmlThreatSeverity;
+  description: string;
+  triggerSnippet: string;
+  evidence: string;
+  mitigationAction: string;
+}
+
+/**
+ * Selo Probatório Notarial WORM RFC 8785 de Higienização XML
+ */
+export interface XmlProofSeal {
+  version: '1.0.0';
+  sealId: string; // xml_guard_v1_<base64url>
+  timestamp: string;
+  canonicalXmlHash: string;
+  cleanDigest: string;
+  threatsCount: number;
+  schemaType: import('./enums').XmlClinicalSchemaType;
+  hmacSignature: string;
+}
+
+/**
+ * Resultado da Varredura e Sanitização XML
+ */
+export interface XmlSanitizationResult {
+  isSafe: boolean;
+  sanitizedXml: string;
+  parsedData: Record<string, any> | null;
+  threats: XmlThreatDetection[];
+  detectedEntitiesCount: number;
+  maxNestingDepth: number;
+  expansionMultiplier: number;
+  seal: XmlProofSeal;
+}
+
+/**
+ * Política de Segurança e Limites Operacionais de XML
+ */
+export interface XmlGuardPolicy {
+  disallowDoctype: boolean;
+  disallowExternalEntities: boolean;
+  disallowXInclude: boolean;
+  maxXmlSizeBytes: number;
+  maxNestingDepth: number;
+  maxEntityExpansions: number;
+  allowedUriSchemes: string[];
+  enableWormSeal: boolean;
+}
+
+/**
+ * Métricas e Telemetria de Proteção XML
+ */
+export interface XmlGuardMetrics {
+  totalXmlDocumentsScanned: number;
+  xxeAttacksBlocked: number;
+  xmlBombsDefused: number;
+  cleanDocumentsProcessed: number;
+  averageScanLatencyMs: number;
+  activePolicy: XmlGuardPolicy;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente Forense de Ameaça XML
+ */
+export interface XmlSecurityIncident {
+  id: string;
+  timestamp: string;
+  threatType: import('./enums').XmlThreatType;
+  severity: import('./enums').XmlThreatSeverity;
+  schemaType: import('./enums').XmlClinicalSchemaType;
+  clientIp: string;
+  actorId: string;
+  evidence: string;
+  actionTaken: string;
+  seal: XmlProofSeal;
+}
+
+/**
+ * Visão Geral de Governança de Proteção XML
+ */
+export interface XmlGuardOverview {
+  metrics: XmlGuardMetrics;
+  policy: XmlGuardPolicy;
+  recentIncidents: XmlSecurityIncident[];
+  supportedSchemas: import('./enums').XmlClinicalSchemaType[];
+}
+
+
 
 
 

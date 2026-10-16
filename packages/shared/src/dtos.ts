@@ -3393,6 +3393,67 @@ export interface CacheGuardOverviewResponse {
   overview: import('./models').CacheGuardOverview;
 }
 
+/**
+ * ============================================================================
+ * 64. DTOs DE PROTEÇÃO CONTRA XXE & XML BOMBS (CWE-611 / CWE-776)
+ * ============================================================================
+ */
+
+export interface ScanXmlPayloadDTO {
+  xmlPayload: string;
+  schemaType?: import('./enums').XmlClinicalSchemaType;
+  mode?: import('./enums').XmlSanitizationMode;
+}
+
+export interface ScanXmlPayloadResponse {
+  success: boolean;
+  result: import('./models').XmlSanitizationResult;
+  message: string;
+}
+
+export interface SimulateXmlAttackDTO {
+  attackType: import('./enums').XmlThreatType;
+  schemaType?: import('./enums').XmlClinicalSchemaType;
+  customPayload?: string;
+}
+
+export interface SimulateXmlAttackResponse {
+  success: boolean;
+  threatDetected: boolean;
+  incident?: import('./models').XmlSecurityIncident;
+  result: import('./models').XmlSanitizationResult;
+  message: string;
+  timestamp: string;
+}
+
+export interface UpdateXmlPolicyDTO {
+  policy: Partial<import('./models').XmlGuardPolicy>;
+}
+
+export interface UpdateXmlPolicyResponse {
+  success: boolean;
+  policy: import('./models').XmlGuardPolicy;
+  message: string;
+}
+
+export interface VerifyXmlSealDTO {
+  sealToken: string;
+}
+
+export interface VerifyXmlSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').XmlProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface XmlGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').XmlGuardOverview;
+}
+
+
 
 
 
