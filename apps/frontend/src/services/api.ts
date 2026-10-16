@@ -531,7 +531,19 @@ import type {
   SimulateHttp2AttackResponse,
   VerifyHttp2SealDTO,
   VerifyHttp2SealResponse,
-  Http2GuardOverviewResponse
+  Http2GuardOverviewResponse,
+  InspectDependenciesDTO,
+  InspectDependenciesResponse,
+  InspectDynamicImportDTO,
+  InspectDynamicImportResponse,
+  UpdateDependencyPolicyDTO,
+  UpdateDependencyPolicyResponse,
+  SimulateSupplyChainAttackDTO,
+  SimulateSupplyChainAttackResponse,
+  VerifySupplyChainSealDTO,
+  VerifySupplyChainSealResponse,
+  SupplyChainOverviewResponse,
+  DependencyNode
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -3200,6 +3212,50 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto)
     });
+  },
+
+  // 73. Supply Chain Guard & Dynamic Dependency Shield (SLSA L3, CWE-470, CWE-912)
+  async getSupplyChainOverview(): Promise<SupplyChainOverviewResponse> {
+    return await request<SupplyChainOverviewResponse>('/supply-chain-guard/overview');
+  },
+
+  async inspectDependencies(dto: InspectDependenciesDTO): Promise<InspectDependenciesResponse> {
+    return await request<InspectDependenciesResponse>('/supply-chain-guard/inspect', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async inspectDynamicImport(dto: InspectDynamicImportDTO): Promise<InspectDynamicImportResponse> {
+    return await request<InspectDynamicImportResponse>('/supply-chain-guard/inspect-import', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async updateSupplyChainPolicy(dto: UpdateDependencyPolicyDTO): Promise<UpdateDependencyPolicyResponse> {
+    return await request<UpdateDependencyPolicyResponse>('/supply-chain-guard/policy', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async simulateSupplyChainAttack(dto: SimulateSupplyChainAttackDTO): Promise<SimulateSupplyChainAttackResponse> {
+    return await request<SimulateSupplyChainAttackResponse>('/supply-chain-guard/simulate', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async verifySupplyChainSeal(dto: VerifySupplyChainSealDTO): Promise<VerifySupplyChainSealResponse> {
+    return await request<VerifySupplyChainSealResponse>('/supply-chain-guard/verify-seal', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+  },
+
+  async getHomologatedDependencies(): Promise<{ success: boolean; packages: DependencyNode[] }> {
+    return await request<{ success: boolean; packages: DependencyNode[] }>('/supply-chain-guard/homologated');
   }
 };
 

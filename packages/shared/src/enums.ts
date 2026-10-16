@@ -371,7 +371,13 @@ export enum AuditAction {
   GRPC_METADATA_TAMPERING_BLOCKED = 'GRPC_METADATA_TAMPERING_BLOCKED',
   HTTP2_FRAME_ANALYZED = 'HTTP2_FRAME_ANALYZED',
   HTTP2_GUARD_POLICY_UPDATED = 'HTTP2_GUARD_POLICY_UPDATED',
-  HTTP2_DESYNC_SEAL_VERIFIED = 'HTTP2_DESYNC_SEAL_VERIFIED'
+  HTTP2_DESYNC_SEAL_VERIFIED = 'HTTP2_DESYNC_SEAL_VERIFIED',
+  // Ações de Proteção contra Injeção de Dependências Dinâmicas e Supply Chain Hijacking (CWE-470, CWE-912 & SLSA L3)
+  DEPENDENCY_INJECTION_BLOCKED = 'DEPENDENCY_INJECTION_BLOCKED',
+  DEPENDENCY_CONFUSION_DETECTED = 'DEPENDENCY_CONFUSION_DETECTED',
+  SRI_INTEGRITY_VERIFIED = 'SRI_INTEGRITY_VERIFIED',
+  DEPENDENCY_POLICY_UPDATED = 'DEPENDENCY_POLICY_UPDATED',
+  SUPPLY_CHAIN_SEAL_VERIFIED = 'SUPPLY_CHAIN_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -432,7 +438,8 @@ export enum AuditResourceType {
   PATH_TRAVERSAL_GUARD = 'PATH_TRAVERSAL_GUARD',
   CODE_EXPRESSION_GUARD = 'CODE_EXPRESSION_GUARD',
   GRAPHQL_QUERY_GUARD = 'GRAPHQL_QUERY_GUARD',
-  HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD'
+  HTTP2_GRPC_GUARD = 'HTTP2_GRPC_GUARD',
+  SUPPLY_CHAIN_GUARD = 'SUPPLY_CHAIN_GUARD'
 }
 
 /**
@@ -2078,6 +2085,59 @@ export enum Http2ProtocolTarget {
   GRPC_STREAM = 'GRPC_STREAM',                                   // Streams e Unary calls gRPC (application/grpc)
   HTTP2_WEBRTC_SIGNAL = 'HTTP2_WEBRTC_SIGNAL'                    // Sinalização de teleconsulta WebRTC multiplexada
 }
+
+/**
+ * Severidade de Risco de Dependências e Imports Dinâmicos (CWE-470, CWE-912)
+ */
+export enum DependencyRiskSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Categorias de Ameaças em Dependências de Terceiros e Supply Chain (SLSA L3, SCVS v1.0, CWE-470, CWE-912)
+ */
+export enum DependencyThreatCategory {
+  DYNAMIC_IMPORT_INJECTION = 'DYNAMIC_IMPORT_INJECTION',         // Injeção dinâmica de módulos / reflexão insegura (CWE-470)
+  UNTRUSTED_DYNAMIC_IMPORT = 'DYNAMIC_IMPORT_INJECTION',         // Alias
+  UNSAFE_SPECIFIER_MANIPULATION = 'UNSAFE_SPECIFIER_MANIPULATION', // Path traversal ou manipulação de specifier
+  DEPENDENCY_CONFUSION = 'DEPENDENCY_CONFUSION',                 // Colisão entre pacote privado do monorepo e pacote público
+  TYPOSQUATTING = 'TYPOSQUATTING',                               // Pacote com nome maliciosamente similar a dependências críticas
+  PACKAGE_TYPOSQUATTING = 'TYPOSQUATTING',                       // Alias
+  SRI_CHECKSUM_MISMATCH = 'SRI_CHECKSUM_MISMATCH',               // Hash criptográfico divergente do manifesto (RFC SRI)
+  SRI_INTEGRITY_MISMATCH = 'SRI_CHECKSUM_MISMATCH',              // Alias
+  MALICIOUS_LIFECYCLE_SCRIPT = 'MALICIOUS_LIFECYCLE_SCRIPT',     // Scripts preinstall/postinstall contendo comandos suspeitos (CWE-912)
+  LIFECYCLE_SCRIPT_INJECTION = 'MALICIOUS_LIFECYCLE_SCRIPT',     // Alias
+  UNTRUSTED_REGISTRY = 'UNTRUSTED_REGISTRY',                     // Registry externo não homologado
+  KNOWN_VULNERABILITY = 'KNOWN_VULNERABILITY',                   // Pacote com CVE crítica ou em quarentena
+  UNVERIFIED_MAINTAINER_TAKEOVER = 'UNVERIFIED_MAINTAINER_TAKEOVER' // Pacote de fonte não confiável ou com anomalia de autoria
+}
+
+/**
+ * Ações de Validação de Supply Chain e Resolução de Módulos
+ */
+export enum DependencyValidationAction {
+  ALLOW = 'ALLOW',                                               // Pacote homologado, assinado e em conformidade
+  WARN = 'WARN',                                                 // Alerta sob ressalva / auditoria WORM mandatória
+  WARN_AUDIT = 'WARN',                                           // Alias
+  QUARANTINE = 'QUARANTINE',                                     // Quarentena técnica preventiva
+  BLOCK = 'BLOCK',                                               // Bloqueio imediato de importação / instalação
+  QUARANTINE_BLOCK = 'BLOCK'                                     // Alias
+}
+
+/**
+ * Escopo de Registro de Pacotes
+ */
+export enum DependencyRegistryScope {
+  INTERNAL_PRIVATE = 'INTERNAL_PRIVATE',                         // Pacotes internos do monorepo (@terapiainfoco/*)
+  WHITELISTED_PUBLIC = 'WHITELISTED_PUBLIC',                     // Pacotes públicos auditados e homologados no lockfile
+  APPROVED_PUBLIC = 'WHITELISTED_PUBLIC',                         // Alias
+  UNSCOPED_PUBLIC = 'UNSCOPED_PUBLIC',                           // Pacote público sem escopo oficial
+  UNVERIFIED_THIRD_PARTY = 'UNVERIFIED_THIRD_PARTY'              // Pacotes desconhecidos de registros externos
+}
+
 
 
 
