@@ -4028,6 +4028,145 @@ export interface SstiGuardOverview {
   recentSealsSample: SstiProofSeal[];
 }
 
+/**
+ * Ameaça detectada em inspeção de comando de sistema operacional (CWE-78)
+ */
+export interface CommandThreat {
+  vector: import('./enums').CommandThreatVector;
+  severity: import('./enums').CommandRiskSeverity;
+  argumentIndex?: number;
+  suspiciousToken: string;
+  description: string;
+  remediationHint: string;
+}
+
+/**
+ * Selo Probatório Notarial WORM RFC 8785 de Execução de Comandos
+ */
+export interface CommandProofSeal {
+  sealId: string;
+  timestamp: string;
+  executable: string;
+  sanitizedArgs: string[];
+  canonicalDigest: string;
+  hmacSignature: string;
+  isCompliant: boolean;
+  actionTaken?: import('./enums').CommandExecutionPolicyAction;
+  riskSeverity?: import('./enums').CommandRiskSeverity;
+}
+
+/**
+ * Resultado da Inspeção Léxica e AST de Comando e Argumentos
+ */
+export interface CommandInspectionResult {
+  isValid: boolean;
+  riskSeverity: import('./enums').CommandRiskSeverity;
+  action: import('./enums').CommandExecutionPolicyAction;
+  executable: string;
+  rawArgs: string[];
+  sanitizedArgs: string[];
+  threats: CommandThreat[];
+  proofSeal?: CommandProofSeal;
+  analyzedAt: string;
+  durationUs: number;
+}
+
+/**
+ * Resultado de Execução em Enclave Sandboxed
+ */
+export interface SandboxedExecutionResult {
+  jobId: string;
+  jobType: import('./enums').ClinicalConverterJobType;
+  executable: string;
+  args: string[];
+  status: 'SUCCESS' | 'BLOCKED' | 'SIMULATED_FAILURE';
+  exitCode: number;
+  stdoutPreview: string;
+  stderrPreview: string;
+  executionDurationMs: number;
+  sandboxEnforced: boolean;
+  isolatedEnvironment: boolean;
+  proofSeal: CommandProofSeal;
+  timestamp: string;
+}
+
+/**
+ * Política de Enclave e Sandboxing de Comandos
+ */
+export interface CommandGuardPolicy {
+  id: string;
+  blockShellMetacharacters: boolean;
+  enforceBinaryWhitelist: boolean;
+  allowedBinaries: string[];
+  disallowDangerousFlags: boolean;
+  forbiddenFlagPrefixes: string[];
+  maxArgumentLength: number;
+  maxTotalArguments: number;
+  executionTimeoutMs: number;
+  sanitizeEnvironment: boolean;
+  updatedAt: string;
+}
+
+/**
+ * Pipeline de Conversão Clínica Autorizado
+ */
+export interface ClinicalConverterPipeline {
+  jobType: import('./enums').ClinicalConverterJobType;
+  label: string;
+  defaultBinary: string;
+  description: string;
+  sampleArgs: string[];
+  allowedOutputFormats: string[];
+}
+
+/**
+ * Métricas do Módulo de Proteção contra OS Command Injection
+ */
+export interface CommandGuardMetrics {
+  totalCommands: number;
+  totalCommandsEvaluated?: number;
+  safeCommandsExecuted: number;
+  threatsBlocked: number;
+  argumentsSanitized: number;
+  avgExecutionDurationMs: number;
+  avgLatencyUs?: number;
+  lastIncidentTimestamp: string | null;
+}
+
+/**
+ * Registro de Incidente de Injeção de Comando
+ */
+export interface CommandSecurityIncident {
+  id: string;
+  incidentId?: string;
+  timestamp: string;
+  vector: import('./enums').CommandThreatVector;
+  threatVector?: import('./enums').CommandThreatVector;
+  severity: import('./enums').CommandRiskSeverity;
+  riskSeverity?: import('./enums').CommandRiskSeverity;
+  attemptedCommand: string;
+  rawCommand?: string;
+  executable: string;
+  argumentsList: string[];
+  clientIp: string;
+  userAgent: string;
+  blocked: boolean;
+  remediationAction: string;
+  seal?: CommandProofSeal;
+}
+
+/**
+ * Visão Geral Operacional e Telemetria de OS Command Guard
+ */
+export interface CommandGuardOverview {
+  metrics: CommandGuardMetrics;
+  policy: CommandGuardPolicy;
+  recentIncidents: CommandSecurityIncident[];
+  converterPipelines: ClinicalConverterPipeline[];
+  recentSealsSample?: CommandProofSeal[];
+}
+
+
 
 
 

@@ -3683,6 +3683,80 @@ export interface SstiGuardOverviewResponse {
   overview: import('./models').SstiGuardOverview;
 }
 
+/**
+ * 68. BLINDAGEM CONTRA OS COMMAND INJECTION & SECURE ENCLAVE SANDBOX
+ * (OWASP ASVS v4.0 V5.3, CWE-78 & CWE-88)
+ */
+
+export interface InspectCommandInputDTO {
+  executable: string;
+  args: string[];
+  jobType?: import('./enums').ClinicalConverterJobType;
+}
+
+export interface InspectCommandInputResponse {
+  success: boolean;
+  inspection: import('./models').CommandInspectionResult;
+  message: string;
+}
+
+export interface ExecuteSandboxedCommandDTO {
+  jobType: import('./enums').ClinicalConverterJobType;
+  executable: string;
+  args: string[];
+  documentId?: string;
+}
+
+export interface ExecuteSandboxedCommandResponse {
+  success: boolean;
+  result: import('./models').SandboxedExecutionResult;
+  seal?: import('./models').CommandProofSeal;
+  message: string;
+}
+
+export interface UpdateCommandPolicyDTO {
+  policy: Partial<import('./models').CommandGuardPolicy>;
+}
+
+export interface UpdateCommandPolicyResponse {
+  success: boolean;
+  policy: import('./models').CommandGuardPolicy;
+  message: string;
+}
+
+export interface SimulateCommandAttackDTO {
+  threatVector: import('./enums').CommandThreatVector;
+  targetJob?: import('./enums').ClinicalConverterJobType;
+}
+
+export interface SimulateCommandAttackResponse {
+  success: boolean;
+  threatBlocked: boolean;
+  attackPayload: string;
+  inspection: import('./models').CommandInspectionResult;
+  executionResult?: import('./models').SandboxedExecutionResult;
+  incident?: import('./models').CommandSecurityIncident;
+  message: string;
+}
+
+export interface VerifyCommandSealDTO {
+  sealToken: string | import('./models').CommandProofSeal;
+}
+
+export interface VerifyCommandSealResponse {
+  success: boolean;
+  isValid: boolean;
+  seal?: import('./models').CommandProofSeal;
+  message: string;
+  verifiedAt: string;
+}
+
+export interface CommandGuardOverviewResponse {
+  success: boolean;
+  overview: import('./models').CommandGuardOverview;
+}
+
+
 
 
 

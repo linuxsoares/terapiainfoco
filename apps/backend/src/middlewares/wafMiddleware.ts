@@ -8,9 +8,9 @@ import { WafMode } from '@terapiainfoco/shared';
  */
 export function wafMiddleware(): MiddlewareHandler {
   return async (c, next) => {
-    // Pula rotas internas de health probes e rotas de teste/inspeção do próprio WAF, XML Guard, ReDoS Guard e SSTI Guard
+    // Pula rotas internas de health probes e rotas de teste/inspeção do próprio WAF, XML Guard, ReDoS Guard, SSTI Guard e OS Command Guard
     const path = c.req.path;
-    if (path.startsWith('/health') || path === '/api/security/waf/inspect' || path.startsWith('/api/xml-guard') || path.startsWith('/api/redos-guard') || path.startsWith('/api/ssti-guard')) {
+    if (path.startsWith('/health') || path === '/api/security/waf/inspect' || path.startsWith('/api/xml-guard') || path.startsWith('/api/redos-guard') || path.startsWith('/api/ssti-guard') || path.startsWith('/api/os-command-guard')) {
       return next();
     }
 

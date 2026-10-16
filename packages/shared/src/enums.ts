@@ -339,7 +339,13 @@ export enum AuditAction {
   SSTI_TEMPLATE_SANITIZED = 'SSTI_TEMPLATE_SANITIZED',
   SSTI_SANDBOX_RENDER_SUCCESS = 'SSTI_SANDBOX_RENDER_SUCCESS',
   SSTI_POLICY_UPDATED = 'SSTI_POLICY_UPDATED',
-  SSTI_SEAL_VERIFIED = 'SSTI_SEAL_VERIFIED'
+  SSTI_SEAL_VERIFIED = 'SSTI_SEAL_VERIFIED',
+  // Ações de Detecção e Prevenção de OS Command Injection (OWASP ASVS V5.3 & CWE-78)
+  OS_COMMAND_ATTEMPT_BLOCKED = 'OS_COMMAND_ATTEMPT_BLOCKED',
+  COMMAND_ARGUMENTS_SANITIZED = 'COMMAND_ARGUMENTS_SANITIZED',
+  SANDBOX_PROCESS_EXECUTED = 'SANDBOX_PROCESS_EXECUTED',
+  COMMAND_GUARD_POLICY_UPDATED = 'COMMAND_GUARD_POLICY_UPDATED',
+  COMMAND_GUARD_SEAL_VERIFIED = 'COMMAND_GUARD_SEAL_VERIFIED'
 }
 
 export enum AuditResourceType {
@@ -395,7 +401,8 @@ export enum AuditResourceType {
   XML_SECURITY_GUARD = 'XML_SECURITY_GUARD',
   SESSION_HIJACKING_GUARD = 'SESSION_HIJACKING_GUARD',
   REDOS_GUARD = 'REDOS_GUARD',
-  SSTI_GUARD = 'SSTI_GUARD'
+  SSTI_GUARD = 'SSTI_GUARD',
+  OS_COMMAND_GUARD = 'OS_COMMAND_GUARD'
 }
 
 /**
@@ -1822,6 +1829,55 @@ export enum ClinicalDocumentTemplateType {
   PARECER_TECNICO = 'PARECER_TECNICO',                 // Parecer Técnico fundamentado
   TERMO_CONSENTIMENTO = 'TERMO_CONSENTIMENTO'          // Termo de Consentimento Livre e Esclarecido (TCLE)
 }
+
+export enum IncidentSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+/**
+ * Níveis de Gravidade de Risco de Execução de Comandos (CWE-78 & OWASP ASVS V5.3)
+ */
+export enum CommandRiskSeverity {
+  SAFE_WHITELISTED = 'SAFE_WHITELISTED',                           // Binário e argumentos em conformidade estrita com a allowlist
+  POTENTIAL_ARGUMENT_INJECTION = 'POTENTIAL_ARGUMENT_INJECTION',   // Argumentos contendo flags perigosas ou delimitadores suspeitos
+  SUSPICIOUS_SHELL_METACHARD = 'SUSPICIOUS_SHELL_METACHARD',       // Contém metacaracteres de controle de shell (;, |, &, $, `, etc.)
+  CRITICAL_OS_INJECTION = 'CRITICAL_OS_INJECTION'                  // Injeção explícita de comando de sistema operacional ou binário não autorizado
+}
+
+/**
+ * Vetor de Ameaça de Injeção de Comandos de Sistema Operacional
+ */
+export enum CommandThreatVector {
+  SHELL_METASYMBOL_INJECTION = 'SHELL_METASYMBOL_INJECTION',       // Operadores de encadeamento ou pipes de shell (;, |, &&, ||, `, $(...))
+  ARGUMENT_FLAG_INJECTION = 'ARGUMENT_FLAG_INJECTION',             // Injeção de flags maliciosas (--eval, --exec, -o para sobrescrever arquivos)
+  UNAPPROVED_BINARY_EXECUTION = 'UNAPPROVED_BINARY_EXECUTION',     // Invocação de binário fora da allowlist estrita do enclave
+  ENVIRONMENT_VARIABLE_TAMPERING = 'ENVIRONMENT_VARIABLE_TAMPERING', // Manipulação de PATH, LD_PRELOAD ou variáveis de ambiente de subprocesso
+  PATH_TRAVERSAL_COMMAND = 'PATH_TRAVERSAL_COMMAND'                // Tentativa de invocar executáveis fora dos diretórios autorizados via ../ ou caminhos absolutos arbitrários
+}
+
+/**
+ * Ação de Política de Execução do Enclave Sandboxed
+ */
+export enum CommandExecutionPolicyAction {
+  ALLOWED_SANDBOXED = 'ALLOWED_SANDBOXED',                         // Permitido em enclave isolado com ambiente sanitizado
+  STRIPPED_NORMALIZED = 'STRIPPED_NORMALIZED',                     // Argumentos sanitizados e normalizados antes da execução
+  BLOCKED_VULNERABLE = 'BLOCKED_VULNERABLE'                        // Execução terminantemente bloqueada por violação de segurança
+}
+
+/**
+ * Tipos de Jobs de Conversão Clínica e Renderização de Documentos
+ */
+export enum ClinicalConverterJobType {
+  PDF_LAUDO_GENERATION = 'PDF_LAUDO_GENERATION',                   // Geração e conversão de Laudo Pericial em PDF
+  CFP_CERTIFICATE_EXPORT = 'CFP_CERTIFICATE_EXPORT',               // Exportação de Atestado Psicológico timbrado
+  CLINICAL_RECORD_ARCHIVAL = 'CLINICAL_RECORD_ARCHIVAL',           // Arquivamento de Prontuário Clínico PAdES com metadados
+  ANAMNESIS_REPORT_COMPILATION = 'ANAMNESIS_REPORT_COMPILATION',   // Compilação de Relatório Biopsicossocial de Anamnese
+  WATERMARKED_PAGES_MERGE = 'WATERMARKED_PAGES_MERGE'              // Mesclagem de páginas com marca d'água forense esteganográfica
+}
+
 
 
 
