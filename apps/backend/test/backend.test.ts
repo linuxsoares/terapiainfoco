@@ -2,17 +2,30 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { authService } from '../src/services/authService';
 import { AppointmentStatus } from '@terapiainfoco/shared';
 
 describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
-  beforeEach(() => {
+  let accessToken: string;
+
+  beforeEach(async () => {
     db.clear();
     globalRateLimitStore.reset();
+    const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
+    ({ accessToken } = await authService.issueTokens(psicologa, '127.0.0.1'));
   });
+
+  /** Requisição autenticada como a psicóloga titular demo */
+  function staffRequest(path: string, init: RequestInit = {}) {
+    return app.request(path, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${accessToken}` }
+    });
+  }
 
 
   it('GET /health deve retornar status OK e metadados de conformidade', async () => {
-    const res = await app.request('/health');
+    const res = await staffRequest('/health');
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -23,7 +36,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Fluxo de Paciente com Field-Level Encryption e Blind Indexing', async () => {
     // 1. Cadastra paciente
-    const createRes = await app.request('/api/patients', {
+    const createRes = await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,7 +61,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(stored?.encryptedEmail.ciphertext).not.toBe('mariana.silva@email.com');
 
     // 3. Busca por CPF usando Blind Index (HMAC-SHA256)
-    const searchRes = await app.request('/api/patients/search/cpf?cpf=123.456.789-00');
+    const searchRes = await staffRequest('/api/patients/search/cpf?cpf=123.456.789-00');
     expect(searchRes.status).toBe(200);
     const searchData = await searchRes.json();
     expect(searchData.patient.name).toBe('Mariana Silva');
@@ -57,7 +70,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Fluxo de Agendamento, Buffer Obrigatório e Google Meet (Módulo 1 & 2)', async () => {
     // Cria paciente primeiro
-    const patientRes = await app.request('/api/patients', {
+    const patientRes = await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -74,7 +87,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const end1 = new Date(start1.getTime() + 50 * 60 * 1000); // 50 min de sessão
 
     // 1. Agenda sessão 1
-    const appRes1 = await app.request('/api/appointments', {
+    const appRes1 = await staffRequest('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -96,7 +109,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const invalidStart = new Date(end1.getTime() + 5 * 60 * 1000); // apenas 5 min após (buffer exige 10)
     const invalidEnd = new Date(invalidStart.getTime() + 50 * 60 * 1000);
 
-    const appResConflict = await app.request('/api/appointments', {
+    const appResConflict = await staffRequest('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,7 +128,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Fluxo SOAP, Human-in-the-Loop compulsório e Imutabilidade (Módulo 3 & 4)', async () => {
     // 1. Salva rascunho de nota clínica SOAP
-    const draftRes = await app.request('/api/clinical-records/draft', {
+    const draftRes = await staffRequest('/api/clinical-records/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -138,7 +151,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(record.isSigned).toBe(false);
 
     // 2. Tenta assinar sem confirmação humana (deve falhar por exigência da RFC §3.3)
-    const invalidSignRes = await app.request('/api/clinical-records/sign', {
+    const invalidSignRes = await staffRequest('/api/clinical-records/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -149,7 +162,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(invalidSignRes.status).toBe(400);
 
     // 3. Assina com confirmação humana explícita (Human-in-the-Loop aprovado)
-    const validSignRes = await app.request('/api/clinical-records/sign', {
+    const validSignRes = await staffRequest('/api/clinical-records/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -164,7 +177,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(signedData.record.signatureHash).toBeDefined();
 
     // 4. Tenta editar registro assinado (deve falhar por Imutabilidade do CFP 001/2009)
-    const tamperRes = await app.request('/api/clinical-records/draft', {
+    const tamperRes = await staffRequest('/api/clinical-records/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -188,7 +201,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Trilha de Auditoria Imutável (WORM - Seção 4.4)', async () => {
     // Cadastra paciente e consulta
-    await app.request('/api/patients', {
+    await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -200,17 +213,18 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
       })
     });
 
-    const auditRes = await app.request('/api/audit');
+    const auditRes = await staffRequest('/api/audit');
     expect(auditRes.status).toBe(200);
     const auditData = await auditRes.json();
     expect(auditData.count).toBeGreaterThan(0);
-    expect(auditData.logs[0].action).toBe('CREATE');
-    expect(auditData.logs[0].resourceType).toBe('PATIENT');
+    const creation = auditData.logs.find((log: any) => log.resourceType === 'PATIENT');
+    expect(creation.action).toBe('CREATE');
+    expect(creation.actorId).toBe('00000000-0000-0000-0000-000000000001');
   });
 
   it('Emissão, Assinatura Digital e Validação Pública de Documentos Psicológicos (Módulo 5 - CFP nº 006/2019)', async () => {
     // 1. Cadastra paciente para o documento
-    const patientRes = await app.request('/api/patients', {
+    const patientRes = await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -226,7 +240,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const patientId = patientData.patient.id;
 
     // 2. Emite rascunho de Atestado Psicológico
-    const draftRes = await app.request('/api/documents/draft', {
+    const draftRes = await staffRequest('/api/documents/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -244,11 +258,11 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(doc.isSigned).toBe(false);
 
     // 3. Validação pública antes da assinatura deve falhar
-    const invalidValidateRes = await app.request(`/api/documents/validate/${doc.validationToken}`);
+    const invalidValidateRes = await staffRequest(`/api/documents/validate/${doc.validationToken}`);
     expect(invalidValidateRes.status).toBe(404);
 
     // 4. Assina digitalmente o documento
-    const signRes = await app.request('/api/documents/sign', {
+    const signRes = await staffRequest('/api/documents/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ documentId: doc.id })
@@ -260,7 +274,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(signedDoc.signaturePadesHash).toBeDefined();
 
     // 5. Tentativa de re-assinar documento já assinado deve falhar
-    const reSignRes = await app.request('/api/documents/sign', {
+    const reSignRes = await staffRequest('/api/documents/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ documentId: doc.id })
@@ -268,7 +282,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(reSignRes.status).toBe(400);
 
     // 6. Validação pública via Token / QR Code (Zero-Knowledge)
-    const publicValidateRes = await app.request(`/api/documents/validate/${doc.validationToken}`);
+    const publicValidateRes = await staffRequest(`/api/documents/validate/${doc.validationToken}`);
     expect(publicValidateRes.status).toBe(200);
     const validation = await publicValidateRes.json();
     expect(validation.valid).toBe(true);
@@ -282,7 +296,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Pipeline de Transcrição, Diarização, Sanitização LGPD Art. 11 e IA SOAP (Módulo 3 - RFC §3.3)', async () => {
     // 1. Cadastra paciente SEM consentimento de transcrição
-    const patientNoConsentRes = await app.request('/api/patients', {
+    const patientNoConsentRes = await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -297,7 +311,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const patientNoConsentId = patientNoConsentData.patient.id;
 
     // Cria agendamento para este paciente
-    const apptNoConsentRes = await app.request('/api/appointments', {
+    const apptNoConsentRes = await staffRequest('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -310,7 +324,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const apptNoConsentData = await apptNoConsentRes.json();
 
     // Tentativa de upload de áudio DEVE FALHAR por falta de TCLE (LGPD Art. 11)
-    const blockedUploadRes = await app.request('/api/transcriptions/upload', {
+    const blockedUploadRes = await staffRequest('/api/transcriptions/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -323,7 +337,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(blockedData.error).toContain('consentimento para gravação e transcrição');
 
     // 2. Cadastra paciente COM consentimento de transcrição (TCLE)
-    const patientWithConsentRes = await app.request('/api/patients', {
+    const patientWithConsentRes = await staffRequest('/api/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -339,7 +353,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const patientId = patientWithConsentData.patient.id;
 
     // Cria agendamento
-    const apptRes = await app.request('/api/appointments', {
+    const apptRes = await staffRequest('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -353,7 +367,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const appointmentId = apptData.appointment.id;
 
     // 3. Upload e Diarização de Áudio (RFC §3.3)
-    const uploadRes = await app.request('/api/transcriptions/upload', {
+    const uploadRes = await staffRequest('/api/transcriptions/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -371,13 +385,13 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(uploadData.transcription.utterances[1].speaker).toBe('PACIENTE');
 
     // 4. Consulta da transcrição decifrada
-    const getTranscriptionRes = await app.request(`/api/transcriptions/appointment/${appointmentId}`);
+    const getTranscriptionRes = await staffRequest(`/api/transcriptions/appointment/${appointmentId}`);
     expect(getTranscriptionRes.status).toBe(200);
     const getTranscriptionData = await getTranscriptionRes.json();
     expect(getTranscriptionData.transcription.utterances.length).toBe(uploadData.transcription.utterances.length);
 
     // 5. Endpoint isolado de sanitização de PII
-    const sanitizeRes = await app.request('/api/transcriptions/sanitize', {
+    const sanitizeRes = await staffRequest('/api/transcriptions/sanitize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -393,7 +407,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(sanitizeData.result.replacedCount).toBeGreaterThanOrEqual(3);
 
     // 6. Geração assistida de SOAP com IA (RFC §3.3)
-    const aiSoapRes = await app.request('/api/transcriptions/generate-soap', {
+    const aiSoapRes = await staffRequest('/api/transcriptions/generate-soap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -411,7 +425,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(aiSoapData.proposal.disclaimer).toContain('Human-in-the-Loop');
 
     // 7. Salva a minuta gerada pela IA e assina com Human-in-the-Loop
-    const draftSoapRes = await app.request('/api/clinical-records/draft', {
+    const draftSoapRes = await staffRequest('/api/clinical-records/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -425,7 +439,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(draftSoapRes.status).toBe(201);
     const recordData = await draftSoapRes.json();
 
-    const signSoapRes = await app.request('/api/clinical-records/sign', {
+    const signSoapRes = await staffRequest('/api/clinical-records/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -441,7 +455,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Experiência do Paciente & Agendamento Público na Landing Page (RFC §3.1)', async () => {
     // 1. Consulta horários disponíveis
-    const slotsRes = await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2026-10-20');
+    const slotsRes = await staffRequest('/api/appointments/available-slots?therapistId=therapist-001&date=2026-10-20');
     expect(slotsRes.status).toBe(200);
     const slotsData = await slotsRes.json();
     expect(slotsData.slots.length).toBeGreaterThan(0);
@@ -450,7 +464,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(firstOpenSlot).toBeDefined();
 
     // 2. Tentativa de agendamento SEM aceite do TCLE deve falhar
-    const noTcleRes = await app.request('/api/appointments/public/book', {
+    const noTcleRes = await staffRequest('/api/appointments/public/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -468,7 +482,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(noTcleData.error).toContain('Termo de Consentimento');
 
     // 3. Agendamento com TCLE aceito deve ter sucesso e gerar sala Meet
-    const bookingRes = await app.request('/api/appointments/public/book', {
+    const bookingRes = await staffRequest('/api/appointments/public/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -491,7 +505,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(bookingData.booking.instructions.length).toBeGreaterThanOrEqual(3);
 
     // 4. Tentativa de agendamento no mesmo horário deve falhar por conflito/buffer
-    const conflictRes = await app.request('/api/appointments/public/book', {
+    const conflictRes = await staffRequest('/api/appointments/public/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

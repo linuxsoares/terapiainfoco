@@ -1,7 +1,7 @@
 import type { Context, Next } from 'hono';
 import { authService } from '../services/authService';
 import { db } from '../db/memoryDb';
-import type { SafeUser, UserRole } from '@terapiainfoco/shared';
+import { UserRole, type SafeUser } from '@terapiainfoco/shared';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -10,8 +10,16 @@ declare module 'hono' {
   }
 }
 
+/** Equipe do consultório: acessa agenda e pacientes do próprio psicólogo */
+export const PRACTICE_STAFF_ROLES: UserRole[] = [
+  UserRole.PSICOLOGO_TITULAR,
+  UserRole.SUPERVISOR_CLINICO,
+  UserRole.RECEPCAO_SECRETARIA
+];
+
 export interface AuthMiddlewareOptions {
   optional?: boolean;
+  /** @deprecated a autenticação agora é sempre obrigatória (exceto com `optional`) */
   strict?: boolean;
 }
 
@@ -39,25 +47,12 @@ export function authMiddleware(options: AuthMiddlewareOptions = {}) {
       }
     }
 
-    // Se a rota for explicitamente estrita ou a flag strict for definida
-    if (options.strict || c.req.header('X-Strict-Auth') === 'true') {
-      return c.json({ success: false, error: 'Autenticação obrigatória. Header Authorization ausente.' }, 401);
-    }
-
     // Se opcional, continua sem anexar usuário
     if (options.optional) {
       return await next();
     }
 
-    // Modo de demonstração / testes legados: se nenhum token for passado, provê o psicólogo titular padrão
-    const defaultUser = Array.from(db.users.values()).find(u => u.id === '00000000-0000-0000-0000-000000000001');
-    if (defaultUser) {
-      const safe = authService.toSafeUser(defaultUser);
-      c.set('user', safe);
-      c.set('userId', safe.id);
-    }
-
-    return await next();
+    return c.json({ success: false, error: 'Autenticação obrigatória. Header Authorization ausente.' }, 401);
   };
 }
 

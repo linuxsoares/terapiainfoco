@@ -9,6 +9,7 @@ import {
   MeetAccessType 
 } from '@terapiainfoco/shared';
 import { config } from '../src/config';
+import { authService } from '../src/services/authService';
 
 describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', () => {
   const originalFetch = globalThis.fetch;
@@ -223,9 +224,11 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
     }) as any;
 
     // 1. Cria agendamento via API
+    const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
+    const { accessToken } = await authService.issueTokens(psicologa, '127.0.0.1');
     const apptRes = await app.request('/api/appointments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         therapistId: 'therapist-001',
         patientId: 'patient-test-01',
@@ -243,7 +246,8 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
 
     // 2. Encerra a reunião via rota POST /api/appointments/:id/end-meet
     const endRes = await app.request(`/api/appointments/${apptData.appointment.id}/end-meet`, {
-      method: 'POST'
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` }
     });
 
     expect(endRes.status).toBe(200);

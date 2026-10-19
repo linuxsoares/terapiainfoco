@@ -80,6 +80,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setFeedback(null);
   }, [initialMode, preselectedRole, isOpen]);
 
+  // Contas Admin/DPO são criadas apenas por um administrador (não há cadastro público)
+  useEffect(() => {
+    if (mode === 'register' && selectedRole === UserRole.ADMIN) {
+      setSelectedRole(UserRole.PACIENTE);
+    }
+  }, [mode, selectedRole]);
+
   if (!isOpen) return null;
 
   const handleTraditionalLogin = async (e: React.FormEvent) => {
@@ -298,9 +305,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Seletor de Perfil (Paciente, Psicólogo, Admin) comum para Login Social e Cadastro */}
           <div className="space-y-2">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              1. Escolha o Perfil de Acesso (Paciente, Psicólogo ou Admin):
+              {mode === 'register'
+                ? '1. Escolha o Perfil (Paciente ou Psicólogo):'
+                : '1. Escolha o Perfil de Acesso (Paciente, Psicólogo ou Admin):'}
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className={`grid grid-cols-1 gap-2.5 ${mode === 'register' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
               {[
                 {
                   role: UserRole.PACIENTE,
@@ -323,7 +332,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   emailPreset: 'admin@terapiainfoco.com.br',
                   icon: ShieldCheck
                 }
-              ].map(item => {
+              ].filter(item => mode === 'login' || item.role !== UserRole.ADMIN).map(item => {
                 const IconComp = item.icon;
                 const active = selectedRole === item.role;
                 return (

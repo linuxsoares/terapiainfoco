@@ -33,6 +33,9 @@ function maskCpfForProfile(cpf?: string): string | undefined {
   return '***.***.***-**';
 }
 
+/** Perfis que podem ser criados pelo cadastro público (e-mail/senha ou login social) */
+const SELF_SERVICE_ROLES: UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR];
+
 export class AuthService {
   /**
    * Remove campos sensíveis como hash de senha e segredo 2FA
@@ -68,7 +71,15 @@ export class AuthService {
   /**
    * Cadastro de novo profissional, paciente ou administrador com validação e Argon2id hash
    */
-  public async register(dto: RegisterDTO, ipAddress: string = '127.0.0.1'): Promise<SafeUser> {
+  public async register(
+    dto: RegisterDTO,
+    ipAddress: string = '127.0.0.1',
+    options: { allowPrivilegedRole?: boolean } = {}
+  ): Promise<SafeUser> {
+    if (!options.allowPrivilegedRole && !SELF_SERVICE_ROLES.includes(dto.role)) {
+      throw new Error('Perfil não disponível para cadastro público. Contas administrativas e da equipe são criadas por um administrador.');
+    }
+
     const existing = Array.from(db.users.values()).find(
       u => u.email.toLowerCase() === dto.email.toLowerCase().trim()
     );
@@ -108,8 +119,9 @@ export class AuthService {
           therapistId: 'therapist-001',
           emailBindex: hashEmail(emailNormalized),
           cpfBindex: dto.cpf ? hashCpf(dto.cpf) : undefined,
-          consentTranscriptionSigned: true,
-          consentSignedAt: new Date(),
+          // Consentimento de transcrição exige aceite explícito posterior (LGPD Art. 11)
+          consentTranscriptionSigned: false,
+          consentSignedAt: null,
           createdAt: new Date(),
           encryptedName: encryptField(dto.name.trim()),
           encryptedEmail: encryptField(emailNormalized),

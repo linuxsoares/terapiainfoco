@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { authService } from '../src/services/authService';
 import { generateTotpCode } from '@terapiainfoco/crypto';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -334,10 +335,13 @@ describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () =
 
   it('Rate Limiting: proteção contra enumeração em busca por Blind Index e validação de documento', async () => {
     // 1. Proteção de Blind Index em /api/patients/search/cpf (limite de 30)
+    const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
+    const { accessToken } = await authService.issueTokens(psicologa, '127.0.0.1');
+    const searchInit = { headers: { Authorization: `Bearer ${accessToken}` } };
     for (let i = 0; i < 30; i++) {
-      await app.request('/api/patients/search/cpf?cpf=123.456.789-00');
+      await app.request('/api/patients/search/cpf?cpf=123.456.789-00', searchInit);
     }
-    const rateLimitedSearch = await app.request('/api/patients/search/cpf?cpf=123.456.789-00');
+    const rateLimitedSearch = await app.request('/api/patients/search/cpf?cpf=123.456.789-00', searchInit);
     expect(rateLimitedSearch.status).toBe(429);
     const searchBody = await rateLimitedSearch.json();
     expect(searchBody.error).toContain('Blind Index');

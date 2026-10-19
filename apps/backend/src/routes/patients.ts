@@ -4,7 +4,7 @@ import { PortabilityService } from '../services/portabilityService';
 import { AnamnesisService } from '../services/anamnesisService';
 import { webhookService } from '../services/webhookService';
 import { searchRateLimiter } from '../middlewares/rateLimiter';
-import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
 import type { CreatePatientDTO, SaveAnamnesisDTO } from '@terapiainfoco/shared';
 
@@ -16,16 +16,21 @@ patientsRoute.use('*', authMiddleware());
 
 
 // Cadastrar paciente com FLE e Blind Indexing (§4.1, §4.3)
-patientsRoute.post('/', async (c) => {
-  const body = await c.req.json<CreatePatientDTO & { therapistId: string }>();
+patientsRoute.post('/', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
+  const body = await c.req.json<CreatePatientDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
+  const therapistId = c.get('user').therapistId;
+  if (!therapistId) {
+    return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
+  }
 
   try {
+    // O paciente pertence sempre ao consultório de quem o cadastra
     const patient = PatientService.createPatient(
-      body.therapistId || 'therapist-001',
+      therapistId,
       body,
-      { actorId: body.therapistId || 'therapist-001', ipAddress: ip, userAgent }
+      { actorId: c.get('userId'), ipAddress: ip, userAgent }
     );
     return c.json({ success: true, patient }, 201);
   } catch (err: any) {
@@ -34,13 +39,13 @@ patientsRoute.post('/', async (c) => {
 });
 
 // Buscar paciente por ID
-patientsRoute.get('/:id', async (c) => {
+patientsRoute.get('/:id', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
   const patient = PatientService.getPatientById(id, {
-    actorId: 'therapist-001',
+    actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
   });
@@ -53,7 +58,7 @@ patientsRoute.get('/:id', async (c) => {
 });
 
 // Busca cega por CPF via HMAC-SHA256 Blind Index (§4.3) com proteção contra ataques de enumeração
-patientsRoute.get('/search/cpf', searchRateLimiter, async (c) => {
+patientsRoute.get('/search/cpf', searchRateLimiter, requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
   const cpf = c.req.query('cpf');
   if (!cpf) {
     return c.json({ success: false, error: 'Parâmetro cpf é obrigatório' }, 400);
@@ -63,7 +68,7 @@ patientsRoute.get('/search/cpf', searchRateLimiter, async (c) => {
   const userAgent = c.req.header('user-agent');
 
   const patient = PatientService.findByCpf(cpf, {
-    actorId: 'therapist-001',
+    actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
   });
@@ -83,7 +88,7 @@ patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, 
   const userAgent = c.req.header('user-agent');
 
   const success = PatientService.quarantinePatient(id, {
-    actorId: 'dpo-or-patient',
+    actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
   });
@@ -117,7 +122,7 @@ patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR, User
       patientId: id,
       dto: body,
       context: {
-        actorId: user?.id || 'therapist-001',
+        actorId: user.id,
         ipAddress: ip,
         userAgent
       }
@@ -125,7 +130,7 @@ patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR, User
 
     webhookService.notifyEvent('DATA_EXPORT_LGPD', {
       patientId: id,
-      actorId: user?.id || 'therapist-001',
+      actorId: user.id,
       format: response.format,
       checksumSha256: response.checksumSha256
     }).catch(() => {});
@@ -156,7 +161,7 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
       patientId: id,
       dto: body,
       context: {
-        actorId: user?.id || 'therapist-001',
+        actorId: user.id,
         ipAddress: ip,
         userAgent
       }
@@ -164,7 +169,7 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
 
     webhookService.notifyEvent('CONSENT_REVOKED', {
       patientId: id,
-      actorId: user?.id || 'therapist-001',
+      actorId: user.id,
       reason: body.reason,
       quarantined: response.quarantined
     }).catch(() => {});
@@ -184,7 +189,7 @@ patientsRoute.get('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, Us
   const user = c.get('user');
 
   const anamnesis = AnamnesisService.getAnamnesisByPatientId(id, {
-    actorId: user?.id || 'therapist-001',
+    actorId: user.id,
     ipAddress: ip,
     userAgent
   });
@@ -212,10 +217,10 @@ patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, U
   try {
     const anamnesis = AnamnesisService.saveAnamnesis({
       patientId: id,
-      therapistId: user?.therapistId || user?.id || 'therapist-001',
+      therapistId: user?.therapistId || user.id,
       dto: body,
       context: {
-        actorId: user?.id || 'therapist-001',
+        actorId: user.id,
         ipAddress: ip,
         userAgent
       }
@@ -237,7 +242,7 @@ patientsRoute.get('/:id/timeline', requireRoles([UserRole.PSICOLOGO_TITULAR, Use
 
   try {
     const timeline = PatientService.getPatientTimeline(id, {
-      actorId: user?.id || 'therapist-001',
+      actorId: user.id,
       ipAddress: ip,
       userAgent
     });
