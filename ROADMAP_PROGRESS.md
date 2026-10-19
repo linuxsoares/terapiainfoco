@@ -2346,6 +2346,7 @@ terapiainfoco/
 | `feat/durable-entity-store` | Persistência durável de todas as coleções no PostgreSQL via `entity_store` (ADR-004): flush transacional por requisição, hidratação no boot e importação legada | [PR #106](https://github.com/linuxsoares/terapiainfoco/pull/106) | Merged |
 | `fix/authz-require-authentication` | Autenticação obrigatória (fim da personificação sem token), agenda/pacientes escopados ao consultório, cadastro público sem Admin e `admin:create` | [PR #107](https://github.com/linuxsoares/terapiainfoco/pull/107) | Merged |
 | `fix/authz-ownership-and-clinical-access` | Posse por consultório (`accessPolicy`) em pacientes, consultas e prontuários; Admin/DPO sem acesso clínico; matriz de acesso no RFC-001 §4.5 | [PR #108](https://github.com/linuxsoares/terapiainfoco/pull/108) | Merged |
+| `fix/authz-clinical-modules-ownership` | Posse por consultório e restrição clínica em documentos CFP, transcrições (clássica/IA), marcadores, metas e escalas | [PR #109](https://github.com/linuxsoares/terapiainfoco/pull/109) | Merged |
 
 ---
 
