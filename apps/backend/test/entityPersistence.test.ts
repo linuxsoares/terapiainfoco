@@ -153,4 +153,26 @@ describe('Persistência durável do entity_store (ADR-004)', () => {
     await Promise.all(flushes);
     expect(await countRows('patients')).toBe(20);
   });
+
+  it('refreshMissing traz entidades gravadas por outro processo sem sobrescrever as locais', async () => {
+    store.patients.set('local', { id: 'local', status: 'ORIGINAL' });
+    await persistence.flush();
+
+    // Outro processo (ex.: script de admin) grava no mesmo banco
+    const other = createStore();
+    const otherPersistence = createPersistence(other);
+    await otherPersistence.load(db);
+    await otherPersistence.attach(db, { intervalMs: 60_000 });
+    other.patients.set('externo', { id: 'externo', createdAt: new Date('2026-10-19T00:00:00Z') });
+    other.patients.get('local').status = 'ALTERADO_POR_OUTRO';
+    await otherPersistence.flush();
+    await otherPersistence.detach();
+
+    store.patients.get('local').status = 'ALTERACAO_LOCAL_PENDENTE';
+    expect(await persistence.refreshMissing('patients')).toBe(1);
+    expect(store.patients.get('externo').createdAt).toBeInstanceOf(Date);
+    expect(store.patients.get('local').status).toBe('ALTERACAO_LOCAL_PENDENTE');
+    expect(await persistence.refreshMissing('patients')).toBe(0);
+  });
 });
+

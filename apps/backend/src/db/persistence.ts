@@ -35,6 +35,8 @@ export interface CollectionSource {
   entries(): Iterable<[string, unknown]>;
   /** Substitui o conteúdo em memória pelas entidades persistidas */
   load(entries: [string, unknown][]): void;
+  /** Acrescenta entidades ausentes da memória (sem sobrescrever as existentes); devolve as acrescentadas */
+  merge?(entries: [string, unknown][]): [string, unknown][];
 }
 
 /** Map que sinaliza qualquer acesso, permitindo pular o diff de coleções intocadas */
@@ -97,6 +99,12 @@ export function mapSource(name: string, getMap: () => TrackedMap<string, any>): 
       Map.prototype.clear.call(map);
       for (const [id, value] of entries) Map.prototype.set.call(map, id, value);
       map.touched = false;
+    },
+    merge(entries) {
+      const map = getMap();
+      const added = entries.filter(([id]) => !Map.prototype.has.call(map, id));
+      for (const [id, value] of added) Map.prototype.set.call(map, id, value);
+      return added;
     }
   };
 }
@@ -247,6 +255,26 @@ export class EntityPersistence {
       loaded[name] = entries.length;
     }
     return loaded;
+  }
+
+  /**
+   * Traz do banco entidades gravadas por outro processo (ex.: `bun run admin:create`) que ainda
+   * não estão em memória. Nunca sobrescreve o que já está carregado.
+   */
+  async refreshMissing(name: string): Promise<number> {
+    const source = this.sources.get(name);
+    if (!this.db || !source?.merge) return 0;
+    const rows: { id: string; data: unknown }[] = await (this.db as any)
+      .select({ id: entityStore.id, data: entityStore.data })
+      .from(entityStore)
+      .where(eq(entityStore.collection, name));
+    const snapshot = this.snapshots.get(name)!;
+    const candidates = rows
+      .filter((row) => !snapshot.has(row.id))
+      .map((row): [string, unknown] => [row.id, revive(typeof row.data === 'string' ? JSON.parse(row.data) : row.data)]);
+    const added = source.merge(candidates);
+    for (const [id, value] of added) snapshot.set(id, encode(value));
+    return added.length;
   }
 
   /** Ativa a gravação: persiste o estado atual e inicia o flush periódico */

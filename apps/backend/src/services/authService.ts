@@ -1,5 +1,5 @@
 import { sign, verify } from 'hono/jwt';
-import { db } from '../db/memoryDb';
+import { db, persistence } from '../db/memoryDb';
 import { config } from '../config';
 import { 
   generateTotpSecret, 
@@ -162,6 +162,10 @@ export class AuthService {
   public async login(dto: LoginDTO, ipAddress: string = '127.0.0.1'): Promise<LoginResponse> {
     const email = dto.email.toLowerCase().trim();
     let user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
+    // Conta criada por outro processo (ex.: admin:create) depois do boot deste servidor
+    if (!user && (await persistence.refreshMissing('users')) > 0) {
+      user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
+    }
 
     let passwordValid = false;
     if (user) {
