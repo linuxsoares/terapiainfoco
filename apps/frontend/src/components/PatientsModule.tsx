@@ -1197,7 +1197,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
               </div>
 
               <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs">
-                A revogação cancela imediatamente a permissão para novas gravações ou transcrições por IA, sem prejudicar a validade dos atos clínicos praticados sob a vigência do consentimento prévio.
+                A revogação cancela imediatamente a permissão para novas transcrições da fala nas teleconsultas, sem prejudicar a validade dos atos clínicos praticados sob a vigência do consentimento prévio.
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -1862,8 +1862,8 @@ export function PatientsModule({ role }: PatientsModuleProps) {
 
                   const scopeMeta = {
                     [ConsentScope.TELECONSULTATION_AUDIO_RECORDING]: {
-                      title: 'Gravação e Transmissão de Áudio (Teleconsulta)',
-                      desc: 'Captura audiovisual segura de sessões remotas conforme diretrizes éticas da Resolução CFP nº 011/2018.',
+                      title: 'Transcrição da Fala na Teleconsulta',
+                      desc: 'O áudio da sessão é convertido em texto para o prontuário e descartado em seguida; a chamada nunca é gravada (Resolução CFP nº 011/2018).',
                       basis: 'CFP 011/2018 & LGPD Art. 11, I'
                     },
                     [ConsentScope.AI_CLINICAL_SYNTHESIS]: {

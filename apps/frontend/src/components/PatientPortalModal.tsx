@@ -864,7 +864,7 @@ export const PatientPortalModal: React.FC<PatientPortalModalProps> = ({
                       <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                         <div>
                           <span className="text-xs font-bold block text-slate-800 dark:text-slate-200">
-                            Gravação Consentida & Transcrição Assistida (LGPD Art. 11)
+                            Transcrição Consentida da Sessão, sem Gravação (LGPD Art. 11)
                           </span>
                           <span className="text-[11px] text-slate-500">
                             Armazenamento em repouso criptografado com destruição programada pós-sessão.

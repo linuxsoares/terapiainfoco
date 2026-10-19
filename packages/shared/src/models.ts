@@ -5389,8 +5389,6 @@ export interface TeleconsultationRoom {
   startedAt?: string;
   endedAt?: string;
   durationSeconds?: number;
-  isRecordingActive: boolean;
-  recordingConsentConfirmed: boolean;
   waitingParticipants: WaitingParticipant[];
   metrics: TeleconsultationCallMetrics;
   peerConnectionFingerprint?: string;

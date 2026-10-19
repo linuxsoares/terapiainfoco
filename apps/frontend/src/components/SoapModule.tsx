@@ -548,7 +548,7 @@ export function SoapModule() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Gravação & Transcrição Diarizada da Teleconsulta
+                  Transcrição Diarizada da Teleconsulta (sem gravação)
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
                   <UserCheck className="w-3 h-3" />

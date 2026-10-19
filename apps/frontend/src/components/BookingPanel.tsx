@@ -107,7 +107,7 @@ export function BookingPanel({ profile, onBooked }: BookingPanelProps) {
       <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
         <input type="checkbox" className="mt-0.5 w-4 h-4 accent-teal-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         Li e aceito o Termo de Consentimento Livre e Esclarecido para atendimento psicológico on-line (Res. CFP nº 011/2018 e LGPD Art. 11).
-        A gravação ou transcrição da sessão depende de um consentimento separado.
+        A sessão nunca é gravada; a transcrição da fala para o prontuário depende de um consentimento separado.
       </label>
 
       {error && <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>}

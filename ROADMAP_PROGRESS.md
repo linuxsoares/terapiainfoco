@@ -834,7 +834,7 @@ terapiainfoco/
   - Laudo pericial com score MOS colorido, submétricas acústicas (R-Factor, fonemas perdidos, atraso total, vídeo), diretriz ética CFP 011/2018 e digest probatório SHA-256.
   - Tabela forense de simulações recentes com suporte a Light Mode e Dark Mode.
 
-### 33. Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (*Crypto-Shredding*) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018)
+### 33. [Removido pelo ADR-005 — a teleconsulta não é gravada] Módulo de Gravação em Repouso com Cifragem Assíncrona, Sharding de Mídia (Envelope Encryption com DEKs Efêmeras por Shard), Validação Merkle Tree e Destruição Programada Pós-Transcrição (*Crypto-Shredding*) com Selo Probatório WORM (RFC-001 §3.2, §3.3, §4.2, LGPD Art. 11/16, CFP nº 011/2018)
 - [x] **Core Criptográfico (`packages/crypto/src/mediaSharding.ts`):**
   - **Particionamento em Chunks (`splitBufferIntoChunks`):** Fatiamento determinístico de áudios brutos em fragmentos de tamanho configurável (default 64KB).
   - **Envelope Encryption por Shard:** Geração de DEK simétrica de 32 bytes (`AES-256-GCM`) exclusiva e efêmera para cada shard, cifrada com KEK Mestre do KMS (`encryptDEK` / `decryptDEK`).
@@ -2395,7 +2395,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Remoção do Google Meet:** OAuth, criação de salas, diagnóstico e campos `meet*` removidos; cada consulta tem o link da sala própria (`PUBLIC_APP_URL/?sala=<id>`); RFC-001 v1.2.0 com §3.2/§3.3 reescritos e ADR-005 (substitui o ADR-001); landing page e vitrine atualizadas.
 - [x] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores (barramento efêmero com cursor `época:seq`, JOIN/OFFER/ANSWER/ICE/BYE com `sessionId`), sala de espera autenticada (identidade e nome vindos da sessão), paciente só sinaliza após admitido, abertura pelo link `?sala=`, STUN/TURN configuráveis (`/ice-servers`), telemetria real via `getStats()`; novo `TeleconsultationRoom` substitui o modal com loopback; E2E com dois Chrome (`bun run e2e:teleconsulta`).
 - [ ] **Acesso de convidado à sala** para pacientes de agendamentos anônimos da landing page (link assinado com validade).
-- [ ] **Remoção da gravação:** `MediaRecorder` na sala, rota de gravação e módulo de armazenamento de mídia.
+- [x] **Remoção da gravação:** sem `MediaRecorder` na sala, rota `/recording` e campos de gravação removidos, módulo de sharding/armazenamento de mídia (`/api/teleconsultation/media`, `packages/crypto/mediaSharding`) e seu card no painel de segurança removidos; escopo de consentimento rotulado como transcrição da fala.
 - [ ] **Transcrição ao vivo por STT no servidor:** trechos do microfone de cada participante → provedor de STT (OpenAI, configurável) → texto cifrado; áudio descartado; consentimento específico; integração com o rascunho SOAP.
 - [ ] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (hoje gera 403 em `/system/telemetry/*`) e seleção de paciente no agendamento (hoje é um campo de ID livre).
 
