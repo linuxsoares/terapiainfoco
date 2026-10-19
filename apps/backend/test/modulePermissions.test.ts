@@ -3,7 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { UserRole, APP_MODULES, canViewModule, defaultModule, visibleModules, type AppModule } from '@terapiainfoco/shared';
+import { UserRole, APP_MODULES, canViewModule, defaultModule, visibleModules, PATIENT_ACTION_ACCESS, canPerformPatientAction, type AppModule, type PatientAction } from '@terapiainfoco/shared';
 
 const DEMO_APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
 
@@ -63,6 +63,31 @@ describe('Menus dinâmicos por perfil (MODULE_ACCESS)', () => {
           // O backend ainda libera métricas agregadas ao Admin; demais módulos ocultos devem ser negados
           expect({ module, denied: status === 403 || status === 404 }).toEqual({ module, denied: true });
         }
+      }
+    });
+  }
+
+  // Ações do módulo de pacientes: rota de leitura correspondente (ou de escrita, só no sentido da negação)
+  const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
+  const ACTION_ENDPOINTS: Record<PatientAction, { path: string; method: string; readOnly: boolean }> = {
+    clinical: { path: `/api/patients/${DEMO_PATIENT_ID}/timeline`, method: 'GET', readOnly: true },
+    consent: { path: `/api/consent/patient/${DEMO_PATIENT_ID}`, method: 'GET', readOnly: true },
+    vault: { path: `/api/portability-vault/patients/${DEMO_PATIENT_ID}/history`, method: 'GET', readOnly: true },
+    export: { path: `/api/patients/${DEMO_PATIENT_ID}/export`, method: 'POST', readOnly: false },
+    revokeConsent: { path: `/api/patients/${DEMO_PATIENT_ID}/revoke-consent`, method: 'POST', readOnly: false },
+    quarantine: { path: `/api/patients/${DEMO_PATIENT_ID}/quarantine`, method: 'POST', readOnly: false }
+  };
+
+  for (const role of [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.RECEPCAO_SECRETARIA]) {
+    it(`ações de paciente exibidas para ${role} correspondem às permissões do backend`, async () => {
+      const headers = { Authorization: `Bearer ${await tokenForRole(role)}`, 'Content-Type': 'application/json' };
+      for (const action of Object.keys(PATIENT_ACTION_ACCESS) as PatientAction[]) {
+        const { path, method, readOnly } = ACTION_ENDPOINTS[action];
+        const allowed = canPerformPatientAction(role, action);
+        if (allowed && !readOnly) continue;
+        const { status } = await app.request(path, { method, headers, body: method === 'POST' ? '{}' : undefined });
+        const denied = status === 401 || status === 403 || status === 404;
+        expect({ action, denied }).toEqual({ action, denied: !allowed });
       }
     });
   }

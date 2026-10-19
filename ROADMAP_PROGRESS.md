@@ -2356,6 +2356,7 @@ terapiainfoco/
 | `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
 | `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
 | `fix/kms-rotation-durable` | Rotação de KEK durável: versões derivadas via HKDF da `KMS_MASTER_KEY` e estado do KMS (versão ativa/revogações) persistido | [PR #118](https://github.com/linuxsoares/terapiainfoco/pull/118) | Merged |
+| `feat/patient-actions-by-role` | Ações do módulo de pacientes por perfil (`PATIENT_ACTION_ACCESS`), recepção sem ações clínicas e contrato com o backend | [PR #119](https://github.com/linuxsoares/terapiainfoco/pull/119) | Merged |
 
 ---
 
@@ -2377,7 +2378,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Posse nos módulos de conteúdo clínico:** documentos CFP, transcrições (clássica e IA), marcadores, metas e escalas restritos a `CLINICAL_ROLES` com posse por paciente/consulta (`requireBodyOwnership`, `requireOwnedResource`); Admin/DPO sem acesso.
 - [x] **Posse nos módulos restantes:** encaminhamentos, laudos consolidados, recibos/contratos (listagem escopada ao consultório), teleconsulta (paciente e psicólogo da própria consulta), árvore diagnóstica e encaminhamento psiquiátrico (antes abertos a qualquer perfil), lote ICP (só titular), exercícios atribuídos, consentimento (com acesso do DPO) e cofre de portabilidade (agora também para o próprio paciente).
 - [x] **Menus dinâmicos por perfil:** `MODULE_ACCESS` em `@terapiainfoco/shared` dirige sidebar, menu mobile e barra inferior (sem cadeados nem tela de "acesso restrito"); módulo "Meu Espaço" para o paciente (que deixa de ver a agenda do consultório); backups restritos ao Admin; `GET /api/appointments/mine` corrige a agenda que pedia o id do usuário no lugar do consultório; teste de contrato menu ↔ backend.
-- [ ] **Ações por perfil dentro dos módulos:** ocultar botões clínicos (metas, anamnese, escalas) da recepção no módulo de pacientes.
+- [x] **Ações por perfil dentro dos módulos:** `PATIENT_ACTION_ACCESS` (shared) controla os botões do módulo de pacientes (recepção sem ações clínicas, exportação/revogação/quarentena só do titular), com teste de contrato contra o backend; leitura do histórico de consentimento alinhada a quem pode registrá-lo.
 - [x] **Trilha de auditoria do psicólogo filtrada pelo próprio consultório** (atores da equipe ou recursos clínicos do consultório) em listagem, relatório e exportações; governança, RIPD/DPIA e pentest exclusivos do Admin/DPO, com abas ocultas para o psicólogo.
 - [x] **"Minhas consultas" no Meu Espaço do paciente.**
 - [x] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
