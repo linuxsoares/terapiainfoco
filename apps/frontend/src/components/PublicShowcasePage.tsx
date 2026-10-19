@@ -24,7 +24,8 @@ import {
   Fingerprint,
   Layers,
   UserCheck,
-  Eye
+  Eye,
+  Search
 } from 'lucide-react';
 import { UserRole } from '@terapiainfoco/shared';
 import type { PublicPlatformShowcaseOverview } from '@terapiainfoco/shared';
@@ -34,10 +35,12 @@ import { ThemeToggle } from './ThemeToggle';
 interface PublicShowcasePageProps {
   onOpenAuth: (mode: 'login' | 'register', preselectedRole?: UserRole) => void;
   onQuickDemoLogin: (role: UserRole) => void;
+  onOpenDirectory: () => void;
 }
 
 export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
   onOpenAuth,
+  onOpenDirectory,
   onQuickDemoLogin
 }) => {
   const [showcase, setShowcase] = useState<PublicPlatformShowcaseOverview | null>(null);
@@ -369,6 +372,13 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           <button
+            onClick={onOpenDirectory}
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-800 dark:text-teal-200 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 transition-all"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>Encontrar Psicólogo</span>
+          </button>
+          <button
             onClick={() => onOpenAuth('login')}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all"
           >
@@ -432,6 +442,13 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                 >
                   <LogIn className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   <span>Fazer Login na Minha Conta</span>
+                </button>
+                <button
+                  onClick={onOpenDirectory}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-teal-800 dark:text-teal-200 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 transition-all"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Encontrar um Psicólogo</span>
                 </button>
               </div>
 

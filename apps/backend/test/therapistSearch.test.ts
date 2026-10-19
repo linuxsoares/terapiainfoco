@@ -112,6 +112,8 @@ describe('Busca de psicólogos (perfis públicos)', () => {
     expect((await search(`q=${marker}`)).total).toBe(0);
     const own = await (await app.request('/api/therapists/me/profile', { headers })).json() as any;
     expect(own.profile.published).toBe(false);
+    const queue = await (await app.request('/api/therapists/admin/pending', { headers: adminHeaders })).json() as any;
+    expect(queue.profiles.map((p: any) => p.therapistId)).not.toContain(user.therapistId);
   });
 
   it('valida catálogos e limites do perfil', async () => {

@@ -1,4 +1,9 @@
 import type {
+  TherapistSearchParams,
+  TherapistSearchResponse,
+  TherapistPublicProfile,
+  TherapistOwnProfile,
+  UpdateTherapistProfileDTO,
   CreatePatientDTO,
   DecryptedPatient,
   CreateAppointmentDTO,
@@ -684,6 +689,48 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 
 export const api = {
+  // 0. Diretório público de psicólogos (busca e perfis)
+  async searchTherapists(params: TherapistSearchParams): Promise<TherapistSearchResponse> {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.approach) query.set('approach', params.approach);
+    if (params.specialty) query.set('specialty', params.specialty);
+    if (params.maxFeeCents !== undefined) query.set('maxFeeCents', String(params.maxFeeCents));
+    if (params.page) query.set('page', String(params.page));
+    return request<TherapistSearchResponse>(`/therapists/search?${query.toString()}`);
+  },
+
+  async getTherapistPublicProfile(slug: string): Promise<TherapistPublicProfile> {
+    const res = await request<{ success: boolean; profile: TherapistPublicProfile }>(`/therapists/${encodeURIComponent(slug)}`);
+    return res.profile;
+  },
+
+  async getMyTherapistProfile(): Promise<TherapistOwnProfile | null> {
+    const res = await request<{ success: boolean; profile: TherapistOwnProfile | null }>('/therapists/me/profile');
+    return res.profile;
+  },
+
+  async updateMyTherapistProfile(dto: UpdateTherapistProfileDTO): Promise<TherapistOwnProfile> {
+    const res = await request<{ success: boolean; profile: TherapistOwnProfile }>('/therapists/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(dto)
+    });
+    return res.profile;
+  },
+
+  async listPendingCrpVerifications(): Promise<TherapistOwnProfile[]> {
+    const res = await request<{ success: boolean; profiles: TherapistOwnProfile[] }>('/therapists/admin/pending');
+    return res.profiles;
+  },
+
+  async verifyTherapistCrp(therapistId: string, approved: boolean): Promise<TherapistOwnProfile> {
+    const res = await request<{ success: boolean; profile: TherapistOwnProfile }>(`/therapists/admin/${encodeURIComponent(therapistId)}/verify-crp`, {
+      method: 'POST',
+      body: JSON.stringify({ approved })
+    });
+    return res.profile;
+  },
+
   // 1. Pacientes (FLE & Blind Index)
   async createPatient(dto: CreatePatientDTO, therapistId = '00000000-0000-0000-0000-000000000001'): Promise<DecryptedPatient> {
     const res = await request<{ success: boolean; patient: DecryptedPatient }>('/patients', {
