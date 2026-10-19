@@ -2355,6 +2355,7 @@ terapiainfoco/
 | `fix/authz-remaining-modules-ownership` | Posse por consultório nos módulos restantes: encaminhamentos, laudos, recibos, teleconsulta, árvore diagnóstica, psiquiátrico, ICP, consentimento e cofre | [PR #115](https://github.com/linuxsoares/terapiainfoco/pull/115) | Merged |
 | `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
 | `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
+| `fix/kms-rotation-durable` | Rotação de KEK durável: versões derivadas via HKDF da `KMS_MASTER_KEY` e estado do KMS (versão ativa/revogações) persistido | [PR #118](https://github.com/linuxsoares/terapiainfoco/pull/118) | Merged |
 
 ---
 
