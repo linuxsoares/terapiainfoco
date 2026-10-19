@@ -146,24 +146,11 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(participant?.status).toBe('REJECTED');
     });
 
-    it('deve alternar gravação consentida e atualizar telemetria em tempo real', () => {
+    it('deve atualizar telemetria da chamada em tempo real', () => {
       TeleconsultationService.getOrCreateRoom({
         appointmentId,
         context: therapistActor
       });
-
-      // Ativar gravação
-      const recordedRoom = TeleconsultationService.toggleRecording({
-        dto: {
-          appointmentId,
-          isRecordingActive: true,
-          recordingConsentConfirmed: true
-        },
-        context: therapistActor
-      });
-
-      expect(recordedRoom.isRecordingActive).toBe(true);
-      expect(recordedRoom.recordingConsentConfirmed).toBe(true);
 
       // Atualizar métricas
       const updatedRoom = TeleconsultationService.updateCallQuality({
@@ -198,7 +185,6 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(endedRoom.status).toBe(TeleconsultationRoomStatus.COMPLETED);
       expect(endedRoom.endedAt).toBeDefined();
       expect(endedRoom.durationSeconds).toBe(3120);
-      expect(endedRoom.isRecordingActive).toBe(false);
     });
   });
 
@@ -289,4 +275,20 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(body.iceServers[0].urls).toContain('stun:stun.l.google.com:19302');
     });
   });
+
+  describe('4. Sem gravação (ADR-005)', () => {
+    it('não existe rota nem estado de gravação na sala', async () => {
+      const { accessToken } = await authService.issueTokens(db.users.get(PSICOLOGA_ID)!, '127.0.0.1');
+      const res = await app.request('/api/teleconsultation/session/recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ appointmentId, isRecordingActive: true })
+      });
+      expect(res.status).toBe(404);
+      const room = TeleconsultationService.getOrCreateRoom({ appointmentId, context: therapistActor });
+      expect('isRecordingActive' in room).toBe(false);
+      expect((await app.request('/api/teleconsultation/media/recordings', { headers: { Authorization: `Bearer ${accessToken}` } })).status).toBe(404);
+    });
+  });
 });
+

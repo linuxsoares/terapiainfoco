@@ -3,7 +3,6 @@ import {
   type KnockWaitingRoomDTO,
   type AdmitParticipantDTO,
   type UpdateCallQualityDTO,
-  type ToggleRecordingDTO,
   type EndTeleconsultationDTO,
   type SendWebRtcSignalDTO,
   type SyncMediaHardwareDTO,
@@ -242,46 +241,6 @@ teleconsultationRoutes.post('/quality', authMiddleware(), requireBodyOwnership()
     return c.json({
       success: false,
       message: err.message || 'Erro ao atualizar telemetria de qualidade.'
-    }, 400);
-  }
-});
-
-/**
- * POST /api/teleconsultation/recording
- * Alterna estado de gravação consentida da sessão (LGPD / CFP nº 011/2018)
- */
-teleconsultationRoutes.post('/recording', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), requireBodyOwnership(), async (c) => {
-  try {
-    const body = await c.req.json<ToggleRecordingDTO>();
-    if (!body.appointmentId || body.isRecordingActive === undefined) {
-      return c.json({
-        success: false,
-        message: 'appointmentId e isRecordingActive são obrigatórios.'
-      }, 400);
-    }
-
-    const user = c.get('user');
-    const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
-    const userAgent = c.req.header('user-agent');
-
-    const room = TeleconsultationService.toggleRecording({
-      dto: body,
-      context: {
-        actorId: user.id,
-        ipAddress,
-        userAgent
-      }
-    });
-
-    return c.json({
-      success: true,
-      room,
-      message: body.isRecordingActive ? 'Gravação ativada com consentimento.' : 'Gravação pausada.'
-    }, 200);
-  } catch (err: any) {
-    return c.json({
-      success: false,
-      message: err.message || 'Erro ao alternar gravação.'
     }, 400);
   }
 });

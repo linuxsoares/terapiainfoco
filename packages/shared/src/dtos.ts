@@ -4545,12 +4545,6 @@ export interface UpdateCallQualityDTO {
   packetLoss: number;
 }
 
-export interface ToggleRecordingDTO {
-  appointmentId: string;
-  isRecordingActive: boolean;
-  recordingConsentConfirmed?: boolean;
-}
-
 export interface EndTeleconsultationDTO {
   appointmentId: string;
   durationSeconds?: number;

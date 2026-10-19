@@ -7,7 +7,6 @@ import {
   type KnockWaitingRoomResponse,
   type AdmitParticipantDTO,
   type UpdateCallQualityDTO,
-  type ToggleRecordingDTO,
   type EndTeleconsultationDTO,
   type SendWebRtcSignalDTO,
   type SyncMediaHardwareDTO,
@@ -132,8 +131,6 @@ export class TeleconsultationService {
       therapistId,
       therapistName,
       status: TeleconsultationRoomStatus.IDLE,
-      isRecordingActive: false,
-      recordingConsentConfirmed: true,
       waitingParticipants: [],
       metrics: initialMetrics,
       peerConnectionFingerprint: `dtls_${createHash('sha256').update(roomId + now).digest('hex').substring(0, 32)}`,
@@ -316,37 +313,6 @@ export class TeleconsultationService {
   }
 
   /**
-   * Alterna estado de gravação consentida da sessão (LGPD Art. 7º & CFP nº 011/2018)
-   */
-  static toggleRecording(params: {
-    dto: ToggleRecordingDTO;
-    context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): TeleconsultationRoom {
-    const { dto, context } = params;
-    const stored = db.teleconsultationRooms.get(dto.appointmentId);
-    if (!stored) {
-      throw new Error(`Sala de teleconsulta para agendamento ${dto.appointmentId} não encontrada.`);
-    }
-
-    stored.isRecordingActive = dto.isRecordingActive;
-    if (dto.recordingConsentConfirmed !== undefined) {
-      stored.recordingConsentConfirmed = dto.recordingConsentConfirmed;
-    }
-    stored.updatedAt = new Date().toISOString();
-
-    AuditService.log({
-      actorId: context.actorId,
-      resourceType: AuditResourceType.TELECONSULTATION_ROOM,
-      resourceId: dto.appointmentId,
-      action: AuditAction.TELECONSULTATION_RECORDING_TOGGLED,
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
-    });
-
-    return this.decryptStoredRoom(stored);
-  }
-
-  /**
    * Finaliza formalmente a teleconsulta clínica e consolida duração (RFC §3.2)
    */
   static endTeleconsultation(params: {
@@ -362,7 +328,6 @@ export class TeleconsultationService {
     const now = new Date().toISOString();
     stored.status = TeleconsultationRoomStatus.COMPLETED;
     stored.endedAt = now;
-    stored.isRecordingActive = false;
 
     if (dto.durationSeconds) {
       stored.durationSeconds = dto.durationSeconds;
