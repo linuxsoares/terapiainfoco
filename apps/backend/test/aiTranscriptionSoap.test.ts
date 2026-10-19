@@ -12,7 +12,7 @@ import {
 
 describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOAP (RFC-001 §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
-  const patientId = '00000000-0000-0000-0000-000000000001';
+  const patientId = '00000000-0000-0000-0000-000000000002';
   let token: string;
 
   beforeAll(async () => {
@@ -30,6 +30,7 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
 
   beforeEach(() => {
     db.clear();
+    db.seedDemoSession();
   });
 
   it('deve rejeitar ingestão de transcrição se consentConfirmed for false (CFP nº 011/2018 & LGPD Art. 7º)', async () => {

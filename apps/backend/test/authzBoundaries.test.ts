@@ -174,5 +174,38 @@ describe('Fronteiras de autenticação e perfis', () => {
       });
       expect(revoke.status).toBe(200);
     });
+
+    it('módulos clínicos (documentos, metas, escalas, marcadores, transcrição) respeitam a posse', async () => {
+      const ownHeaders = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}`, 'Content-Type': 'application/json' };
+      const docRes = await app.request('/api/documents/draft', {
+        method: 'POST',
+        headers: ownHeaders,
+        body: JSON.stringify({ patientId: DEMO_PATIENT_ID, type: 'DECLARACAO', title: 'Declaração', content: 'Compareceu.' })
+      });
+      expect(docRes.status).toBe(201);
+      const documentId = (await docRes.json() as any).document.id;
+      expect((await app.request(`/api/documents/${documentId}`, { headers: ownHeaders })).status).toBe(200);
+
+      const headers = await otherPsychologistHeaders();
+      const forbiddenReads = [
+        `/api/documents/${documentId}`,
+        `/api/goals/patient/${DEMO_PATIENT_ID}`,
+        `/api/psychometrics/patient/${DEMO_PATIENT_ID}`,
+        `/api/clinical-markers/appointment/${DEMO_APPOINTMENT_ID}`,
+        `/api/transcription/session/${DEMO_APPOINTMENT_ID}`,
+        `/api/transcriptions/appointment/${DEMO_APPOINTMENT_ID}`
+      ];
+      for (const path of forbiddenReads) {
+        expect({ path, status: (await app.request(path, { headers })).status }).toEqual({ path, status: 404 });
+      }
+      const goal = await app.request('/api/goals', {
+        method: 'POST', headers, body: JSON.stringify({ patientId: DEMO_PATIENT_ID, title: 'Meta alheia' })
+      });
+      expect(goal.status).toBe(404);
+
+      const adminHeaders = { Authorization: `Bearer ${await tokenFor(ADMIN_ID)}` };
+      expect((await app.request(`/api/goals/patient/${DEMO_PATIENT_ID}`, { headers: adminHeaders })).status).toBe(403);
+      expect((await app.request(`/api/documents/${documentId}`, { headers: adminHeaders })).status).toBe(403);
+    });
   });
 });

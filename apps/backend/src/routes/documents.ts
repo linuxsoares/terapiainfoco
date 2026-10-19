@@ -6,6 +6,8 @@ import { IcpBrasilService } from '../services/icpBrasilService';
 import { PatientService } from '../services/patientService';
 import { validationRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, canAccessEntity, requireBodyOwnership, requireOwnedResource } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 import { UserRole } from '@terapiainfoco/shared';
 
 export const documentsRoute = new Hono();
@@ -16,11 +18,11 @@ export const documentsRoute = new Hono();
  * Gera rascunho de documento clínico (Declaração, Atestado, Relatório, Laudo)
  * Restrito a Psicólogo Titular ou Administrador
  */
-documentsRoute.post('/draft', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+documentsRoute.post('/draft', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]), requireBodyOwnership(), async (c) => {
 
   try {
     const body = await c.req.json<GenerateDocumentDTO>();
-    const therapistId = 'therapist-001';
+    const therapistId = c.get('user').therapistId!;
 
     if (!body.patientId || !body.type || !body.title || !body.content) {
       return c.json({ error: 'Campos obrigatórios ausentes (patientId, type, title, content)' }, 400);
@@ -33,7 +35,7 @@ documentsRoute.post('/draft', authMiddleware(), requireRoles([UserRole.PSICOLOGO
       title: body.title,
       content: body.content,
       context: {
-        actorId: therapistId,
+        actorId: c.get('userId'),
         ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
         userAgent: c.req.header('user-agent')
       }
@@ -50,18 +52,21 @@ documentsRoute.post('/draft', authMiddleware(), requireRoles([UserRole.PSICOLOGO
  * Assina digitalmente o documento e gera hash SHA-256 / PAdES imutável
  * Restrito ao Psicólogo Titular ou Administrador
  */
-documentsRoute.post('/sign', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+documentsRoute.post('/sign', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]), async (c) => {
   try {
     const body = await c.req.json<SignDocumentDTO>();
 
     if (!body.documentId) {
       return c.json({ success: false, error: 'documentId é obrigatório' }, 400);
     }
+    if (!canAccessEntity(c.get('user'), db.documents.get(body.documentId))) {
+      return c.json({ success: false, error: 'Documento não encontrado.' }, 404);
+    }
 
     const signedDoc = DocumentService.signDocument({
       documentId: body.documentId,
       context: {
-        actorId: 'therapist-001',
+        actorId: c.get('userId'),
         ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
         userAgent: c.req.header('user-agent')
       }
@@ -77,11 +82,11 @@ documentsRoute.post('/sign', authMiddleware(), requireRoles([UserRole.PSICOLOGO_
  * GET /api/documents
  * Lista todos os documentos emitidos (restrito a equipe clínica)
  */
-documentsRoute.get('/', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+documentsRoute.get('/', authMiddleware(), requireRoles(CLINICAL_ROLES), async (c) => {
   try {
-    const therapistId = 'therapist-001';
+    const therapistId = c.get('user').therapistId!;
     const docs = DocumentService.listDocuments(therapistId, {
-      actorId: therapistId,
+      actorId: c.get('userId'),
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')
     });
@@ -112,7 +117,7 @@ documentsRoute.get('/validate/:token', validationRateLimiter, async (c) => {
  * GET /api/documents/:id
  * Retorna documento clínico decifrado específico
  */
-documentsRoute.get('/:id', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+documentsRoute.get('/:id', authMiddleware(), requireRoles(CLINICAL_ROLES), requireOwnedResource((id) => db.documents.get(id), 'Documento'), async (c) => {
   const id = c.req.param('id');
   const doc = DocumentService.getDocumentById(id);
   if (!doc) {
@@ -125,7 +130,7 @@ documentsRoute.get('/:id', authMiddleware({ strict: true }), requireRoles([UserR
  * GET /api/documents/:id/pdf
  * Gera e realiza streaming do arquivo PDF timbrado oficial A4 com QR Code e PAdES
  */
-documentsRoute.get('/:id/pdf', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+documentsRoute.get('/:id/pdf', authMiddleware(), requireRoles(CLINICAL_ROLES), requireOwnedResource((id) => db.documents.get(id), 'Documento'), async (c) => {
   try {
     const id = c.req.param('id');
     const doc = DocumentService.getDocumentById(id);
@@ -134,7 +139,7 @@ documentsRoute.get('/:id/pdf', authMiddleware({ strict: true }), requireRoles([U
     }
 
     const patient = PatientService.getPatientById(doc.patientId, {
-      actorId: 'pdf-streamer',
+      actorId: c.get('userId'),
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1'
     });
 
@@ -161,7 +166,7 @@ documentsRoute.get('/:id/pdf', authMiddleware({ strict: true }), requireRoles([U
  * POST /api/documents/:id/prepare-icp-signature
  * Prepara o documento e gera o digest SHA-256 para assinatura com token/nuvem ICP-Brasil
  */
-documentsRoute.post('/:id/prepare-icp-signature', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+documentsRoute.post('/:id/prepare-icp-signature', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]), requireOwnedResource((id) => db.documents.get(id), 'Documento'), async (c) => {
   try {
     const id = c.req.param('id');
     const response = await IcpBrasilService.prepareSignature(id);
@@ -175,7 +180,7 @@ documentsRoute.post('/:id/prepare-icp-signature', authMiddleware({ strict: true 
  * POST /api/documents/:id/sign-icp
  * Registra a assinatura qualificada com certificado digital ICP-Brasil e carimbo do tempo
  */
-documentsRoute.post('/:id/sign-icp', authMiddleware({ strict: true }), requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+documentsRoute.post('/:id/sign-icp', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]), requireOwnedResource((id) => db.documents.get(id), 'Documento'), async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json<SignIcpDTO>();
@@ -186,7 +191,7 @@ documentsRoute.post('/:id/sign-icp', authMiddleware({ strict: true }), requireRo
 
     const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
     const signedDoc = await IcpBrasilService.signWithIcp(id, body, {
-      actorId: 'therapist-001',
+      actorId: c.get('userId'),
       ipAddress: ip,
       userAgent: c.req.header('user-agent')
     });

@@ -1,21 +1,22 @@
 import { Hono } from 'hono';
 import { 
-  UserRole,
   type CreateTherapeuticGoalDTO,
   type UpdateTherapeuticGoalDTO
 } from '@terapiainfoco/shared';
 import { GoalService } from '../services/goalService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requireBodyOwnership, requireOwnedResource, requirePatientAccess } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 
 export const therapeuticGoalsRouter = new Hono();
 
-therapeuticGoalsRouter.use('*', authMiddleware());
+therapeuticGoalsRouter.use('*', authMiddleware(), requireRole(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/goals
  * Cria nova meta terapêutica SMART (RFC-001 §3.4)
  */
-therapeuticGoalsRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+therapeuticGoalsRouter.post('/', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CreateTherapeuticGoalDTO>();
@@ -40,7 +41,7 @@ therapeuticGoalsRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO
  * GET /api/goals/patient/:patientId
  * Lista metas terapêuticas do paciente
  */
-therapeuticGoalsRouter.get('/patient/:patientId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+therapeuticGoalsRouter.get('/patient/:patientId', requirePatientAccess('patientId'), async (c) => {
   try {
     const patientId = c.req.param('patientId');
     const goals = GoalService.getPatientGoals(patientId);
@@ -54,7 +55,7 @@ therapeuticGoalsRouter.get('/patient/:patientId', requireRole([UserRole.ADMIN, U
  * PATCH /api/goals/:id
  * Atualiza status, progresso ou detalhes da meta
  */
-therapeuticGoalsRouter.patch('/:id', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+therapeuticGoalsRouter.patch('/:id', requireOwnedResource((id) => db.therapeuticGoals.get(id), 'Meta'), async (c) => {
   try {
     const user = c.get('user');
     const id = c.req.param('id');
@@ -76,7 +77,7 @@ therapeuticGoalsRouter.patch('/:id', requireRole([UserRole.ADMIN, UserRole.PSICO
  * DELETE /api/goals/:id
  * Remove meta terapêutica
  */
-therapeuticGoalsRouter.delete('/:id', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+therapeuticGoalsRouter.delete('/:id', requireOwnedResource((id) => db.therapeuticGoals.get(id), 'Meta'), async (c) => {
   try {
     const user = c.get('user');
     const id = c.req.param('id');

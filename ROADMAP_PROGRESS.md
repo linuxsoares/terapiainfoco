@@ -2346,6 +2346,7 @@ terapiainfoco/
 | `feat/durable-entity-store` | Persistência durável de todas as coleções no PostgreSQL via `entity_store` (ADR-004): flush transacional por requisição, hidratação no boot e importação legada | [PR #106](https://github.com/linuxsoares/terapiainfoco/pull/106) | Merged |
 | `fix/authz-require-authentication` | Autenticação obrigatória (fim da personificação sem token), agenda/pacientes escopados ao consultório, cadastro público sem Admin e `admin:create` | [PR #107](https://github.com/linuxsoares/terapiainfoco/pull/107) | Merged |
 | `fix/authz-ownership-and-clinical-access` | Posse por consultório (`accessPolicy`) em pacientes, consultas e prontuários; Admin/DPO sem acesso clínico; matriz de acesso no RFC-001 §4.5 | [PR #108](https://github.com/linuxsoares/terapiainfoco/pull/108) | Merged |
+| `fix/authz-clinical-modules-ownership` | Posse por consultório e restrição clínica em documentos CFP, transcrições (clássica/IA), marcadores, metas e escalas | [PR #109](https://github.com/linuxsoares/terapiainfoco/pull/109) | Merged |
 
 ---
 
@@ -2363,7 +2364,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **Rotação de KEK do KMS persistente** (hoje as versões rotacionadas da KEK vivem só em memória; apenas a v1 vem de `KMS_MASTER_KEY`).
 - [x] **Separação de perfis (1/2) — autenticação real:** fim da personificação automática da psicóloga padrão em requisições sem token, agenda e cadastro/busca de pacientes restritos à equipe do consultório (`PRACTICE_STAFF_ROLES`) e escopados ao `therapistId` do usuário, `actorId` real na auditoria, cadastro público limitado a Paciente/Psicólogo, consentimento de transcrição não presumido e `bun run admin:create` para contas Admin/DPO.
 - [x] **Separação de perfis (2/2) — posse e conteúdo clínico (rotas centrais):** política `accessPolicy` (posse por `therapistId`, 404 para recursos alheios) em pacientes, consultas e prontuários; busca por CPF restrita ao consultório; Admin/DPO sem acesso a prontuário/anamnese/linha do tempo/exportação, mantendo revogação de consentimento e quarentena (LGPD Art. 18); matriz de acesso no RFC-001 §4.5.
-- [ ] **Posse nos módulos clínicos restantes:** documentos CFP, transcrições, marcadores, metas, escalas, encaminhamentos, laudos consolidados, recibos e teleconsulta ainda validam apenas o papel.
+- [x] **Posse nos módulos de conteúdo clínico:** documentos CFP, transcrições (clássica e IA), marcadores, metas e escalas restritos a `CLINICAL_ROLES` com posse por paciente/consulta (`requireBodyOwnership`, `requireOwnedResource`); Admin/DPO sem acesso.
+- [ ] **Posse nos módulos restantes:** encaminhamentos, laudos consolidados, recibos/contratos, teleconsulta, árvore diagnóstica, encaminhamento psiquiátrico, lote ICP e cofre de portabilidade.
+- [ ] **Menus dinâmicos por perfil:** o frontend exibe apenas os módulos permitidos ao perfil, derivados da mesma matriz de acesso do backend (RFC-001 §4.5).
 - [ ] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
 - [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.
