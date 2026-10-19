@@ -2360,6 +2360,7 @@ terapiainfoco/
 | `refactor/remove-google-meet` | Remoção do Google Meet: sala de teleconsulta própria por consulta (`roomUrl`), RFC-001 v1.2.0 com ADR-005 | [PR #120](https://github.com/linuxsoares/terapiainfoco/pull/120) | Merged |
 | `feat/teleconsulta-chamada-real` | Chamada real psicólogo ↔ paciente: sinalização WebRTC efêmera, sala de espera autenticada, `TeleconsultationRoom`, link `?sala=` e E2E com dois Chrome | [PR #121](https://github.com/linuxsoares/terapiainfoco/pull/121) | Merged |
 | `refactor/teleconsulta-sem-gravacao` | Remoção da gravação de sessões e do módulo de mídia gravada (ADR-005) | [PR #122](https://github.com/linuxsoares/terapiainfoco/pull/122) | Merged |
+| `feat/teleconsulta-transcricao-stt` | Transcrição ao vivo por STT no servidor (áudio descartado, texto cifrado), painel na sala e SOAP a partir da transcrição | [PR #123](https://github.com/linuxsoares/terapiainfoco/pull/123) | Merged |
 
 ---
 
