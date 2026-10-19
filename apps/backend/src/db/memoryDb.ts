@@ -30,6 +30,7 @@ import type {
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
+import { config } from '../config';
 
 /**
  * Banco em memória representando os esquemas relacionais da RFC-001 §5.2
@@ -69,9 +70,11 @@ export class MemoryDatabase {
 
 
   constructor() {
-    this.seedDefaultTherapist();
-    this.seedDefaultUsers();
-    this.seedDemoSession();
+    if (config.demoMode) {
+      this.seedDefaultTherapist();
+      this.seedDefaultUsers();
+      this.seedDemoSession();
+    }
   }
 
 

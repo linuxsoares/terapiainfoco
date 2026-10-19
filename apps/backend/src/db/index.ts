@@ -5,145 +5,151 @@ import postgres from 'postgres';
 import * as schema from './schema';
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
 import { migrate as migratePostgres } from 'drizzle-orm/postgres-js/migrator';
+import { readMigrationFiles } from 'drizzle-orm/migrator';
 import path from 'node:path';
 import fs from 'node:fs';
 import { seedAndSyncDatabase } from './sync';
+import { config } from '../config';
 
 
 export type AppDb = ReturnType<typeof drizzlePostgres<typeof schema>> | ReturnType<typeof drizzlePglite<typeof schema>>;
 
-let _dbInstance: AppDb | null = null;
-let _pgliteInstance: PGlite | null = null;
+/** Executa SQL bruto (múltiplos comandos) no driver subjacente */
+type RawExecutor = (statement: string) => Promise<unknown>;
 
-export async function getDb(): Promise<AppDb> {
-  if (_dbInstance) {
-    return _dbInstance;
+let _initPromise: Promise<AppDb> | null = null;
+
+/**
+ * Retorna a conexão única com o banco, inicializando-a (conexão, migrações e seed) na primeira chamada.
+ * Chamadas concorrentes compartilham a mesma inicialização.
+ */
+export function getDb(): Promise<AppDb> {
+  if (!_initPromise) {
+    _initPromise = initDatabase().catch((err) => {
+      _initPromise = null;
+      throw err;
+    });
   }
+  return _initPromise;
+}
 
+async function initDatabase(): Promise<AppDb> {
   const databaseUrl =
     process.env.DATABASE_URL ||
     process.env.SUPABASE_DATABASE_URL ||
     process.env.POSTGRES_URL ||
     process.env.POSTGRESQL_URL;
 
+  const migrationsFolder = resolveMigrationsFolder();
+  let db: AppDb;
+
   if (databaseUrl) {
     const isSupabase = databaseUrl.includes('supabase.co') || databaseUrl.includes('pooler.supabase.com');
     const sanitizedUrl = databaseUrl.replace(/:([^:@]+)@/, ':****@');
     console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL (${sanitizedUrl})...`);
-    if (isSupabase) {
-      console.log('⚡ Supabase detectado: ativando SSL e desabilitando prepared statements para compatibilidade com pooler.');
-    }
     const ssl = isSupabase || databaseUrl.includes('sslmode=require') ? 'require' : undefined;
     const client = postgres(databaseUrl, {
       max: 10,
       ssl,
-      prepare: isSupabase ? false : undefined
+      // Pooler transacional do Supabase não suporta prepared statements
+      prepare: isSupabase ? false : undefined,
+      // NOTICEs de "IF NOT EXISTS" a cada boot são ruído no log
+      onnotice: () => {}
     });
-    _dbInstance = drizzlePostgres(client, { schema });
-
-    const migrationsFolder = resolveMigrationsFolder();
-    console.log(`📂 Pasta de migrações Drizzle: ${migrationsFolder} (existe: ${fs.existsSync(migrationsFolder)})`);
-
-    try {
-      await migratePostgres(_dbInstance as any, { migrationsFolder });
-      console.log('✅ Migrações aplicadas com sucesso no PostgreSQL via Drizzle.');
-    } catch (err) {
-      console.warn('⚠️ Drizzle migrator reportou:', (err as Error).message);
-      console.log('🔄 Executando sincronização direta de schema SQL no Supabase/PostgreSQL...');
-      try {
-        if (fs.existsSync(migrationsFolder)) {
-          const sqlFiles = fs.readdirSync(migrationsFolder).filter(f => f.endsWith('.sql')).sort();
-          for (const sqlFile of sqlFiles) {
-            const sqlPath = path.resolve(migrationsFolder, sqlFile);
-            console.log(`📄 Aplicando arquivo de migração direta: ${sqlFile}...`);
-            const sqlContent = fs.readFileSync(sqlPath, 'utf-8');
-            const statements = sqlContent.split('--> statement-breakpoint');
-            for (const stmt of statements) {
-              const clean = stmt.trim();
-              if (clean) {
-                try {
-                  await client.unsafe(clean);
-                } catch (stmtErr: any) {
-                  const msg = stmtErr?.message || '';
-                  if (!msg.includes('already exists')) {
-                    console.warn(`⚠️ Nota de execução SQL: ${msg}`);
-                  }
-                }
-              }
-            }
-          }
-          console.log('✅ Schema e tabelas sincronizados diretamente via SQL.');
-        } else {
-          console.warn(`⚠️ Pasta de migrações não localizada em ${migrationsFolder}`);
-        }
-      } catch (sqlErr) {
-        console.warn('⚠️ Nota sobre execução SQL direta:', (sqlErr as Error).message);
-      }
+    db = drizzlePostgres(client, { schema });
+    await runMigrations(
+      () => migratePostgres(db as any, { migrationsFolder }),
+      (statement) => client.unsafe(statement),
+      migrationsFolder
+    );
+  } else {
+    if (config.isProduction && !config.allowEphemeralDatabase) {
+      throw new Error(
+        'DATABASE_URL não configurada em produção. Defina DATABASE_URL (ex: ${{Postgres.DATABASE_URL}} no Railway) ' +
+        'ou, apenas para ambientes de demonstração descartáveis, ALLOW_EPHEMERAL_DATABASE=true.'
+      );
     }
-
-    try {
-      await seedAndSyncDatabase(_dbInstance);
-      console.log('✅ Dados padrão e sincronização com Supabase/PostgreSQL concluídos.');
-    } catch (seedErr: any) {
-      console.warn('⚠️ Nota sobre seed/sync no PostgreSQL:', seedErr?.message || seedErr);
+    if (config.pgliteDataDir) {
+      console.log(`💾 PGlite persistente em ${config.pgliteDataDir}`);
+    } else if (config.isProduction) {
+      console.warn('⚠️ ALLOW_EPHEMERAL_DATABASE=true: dados serão PERDIDOS a cada restart.');
     }
-
-    return _dbInstance;
+    const pglite = config.pgliteDataDir ? new PGlite(config.pgliteDataDir) : new PGlite();
+    db = drizzlePglite(pglite, { schema });
+    await runMigrations(
+      () => migratePglite(db as any, { migrationsFolder }),
+      (statement) => pglite.exec(statement),
+      migrationsFolder
+    );
   }
 
-  // Notifica no log se SUPABASE_URL foi fornecida mas não a DATABASE_URL
-  if (process.env.SUPABASE_URL) {
-    console.warn('⚠️ AVISO IMPORTANTE: `SUPABASE_URL` está configurada, mas `DATABASE_URL` não foi definida!');
-    console.warn('⚠️ Para persistir no Supabase PostgreSQL, adicione `DATABASE_URL` no Railway (ex: postgresql://postgres.[ref]:[senha]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require).');
-    console.warn('⚠️ Executando temporariamente com PGlite em memória.');
-  }
-
-  // Fallback transparente para PostgreSQL embutido (PGlite) para execução local e testes imediatos
-  if (!_pgliteInstance) {
-    _pgliteInstance = new PGlite();
-    _dbInstance = drizzlePglite(_pgliteInstance, { schema });
-
-    const migrationsFolder = resolveMigrationsFolder();
-    // Executa migrações no banco local embutido
-    try {
-      await migratePglite(_dbInstance as any, { migrationsFolder });
-    } catch {
-      // Fallback SQL direto statement-by-statement
-      if (fs.existsSync(migrationsFolder)) {
-        const sqlFiles = fs.readdirSync(migrationsFolder).filter(f => f.endsWith('.sql')).sort();
-        for (const sqlFile of sqlFiles) {
-          const sqlPath = path.resolve(migrationsFolder, sqlFile);
-          const sqlContent = fs.readFileSync(sqlPath, 'utf-8');
-          const statements = sqlContent.split('--> statement-breakpoint');
-          for (const stmt of statements) {
-            const clean = stmt.trim();
-            if (clean) {
-              try {
-                await _pgliteInstance.exec(clean);
-              } catch (e: any) {
-                const msg = e?.message || '';
-                if (!msg.includes('already exists')) {
-                  // ignorar erro transitório
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Seed inicial e sincronização para desenvolvimento/testes
-    try {
-      await seedAndSyncDatabase(_dbInstance);
-    } catch {
-      // Ignora erro transitório em testes
-    }
-  }
-
-  return _dbInstance;
+  await seedAndSyncDatabase(db);
+  return db;
 }
 
-function resolveMigrationsFolder(): string {
+/**
+ * Aplica as migrações Drizzle. Se o schema já existir sem registro no journal do Drizzle
+ * (criado via `drizzle-kit push` ou SQL manual), aplica as migrações pendentes de forma idempotente,
+ * tolerando somente erros de "objeto já existe", e registra o baseline para as próximas execuções.
+ * Qualquer outro erro interrompe a inicialização.
+ */
+export async function runMigrations(migrate: () => Promise<void>, exec: RawExecutor, migrationsFolder: string): Promise<void> {
+  if (!fs.existsSync(path.join(migrationsFolder, 'meta/_journal.json'))) {
+    throw new Error(`Pasta de migrações Drizzle não encontrada: ${migrationsFolder}`);
+  }
+
+  try {
+    await migrate();
+    console.log('✅ Migrações Drizzle aplicadas.');
+    return;
+  } catch (err) {
+    if (!isAlreadyExistsError(err)) throw err;
+    console.warn('⚠️ Schema pré-existente sem journal Drizzle detectado; registrando baseline das migrações.');
+  }
+
+  await exec('CREATE SCHEMA IF NOT EXISTS drizzle');
+  await exec('CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)');
+  const recorded = await exec('SELECT hash FROM drizzle.__drizzle_migrations');
+  const recordedHashes = new Set(extractRows(recorded).map((row: any) => row.hash));
+
+  for (const migration of readMigrationFiles({ migrationsFolder })) {
+    if (recordedHashes.has(migration.hash)) continue;
+    for (const statement of migration.sql) {
+      const clean = statement.trim();
+      if (!clean) continue;
+      try {
+        await exec(clean);
+      } catch (err) {
+        if (!isAlreadyExistsError(err)) throw err;
+      }
+    }
+    await exec(
+      `INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('${migration.hash}', ${migration.folderMillis})`
+    );
+  }
+  console.log('✅ Baseline de migrações registrado.');
+}
+
+/** Códigos SQLSTATE de objetos duplicados: tabela, objeto, coluna, schema, tipo/índice duplicados */
+const ALREADY_EXISTS_CODES = new Set(['42P07', '42710', '42701', '42P06', '42P16']);
+
+function isAlreadyExistsError(err: unknown): boolean {
+  let current: any = err;
+  for (let depth = 0; current && depth < 5; depth++) {
+    if (ALREADY_EXISTS_CODES.has(current.code) || /already exists/i.test(current.message ?? '')) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+/** Normaliza o retorno de `client.unsafe` (array de linhas) e `pglite.exec` (array de resultados) */
+function extractRows(result: unknown): any[] {
+  if (!Array.isArray(result)) return [];
+  const last = result[result.length - 1];
+  return last && Array.isArray(last.rows) ? last.rows : result;
+}
+
+export function resolveMigrationsFolder(): string {
   const possibleFolders = [
     path.resolve(import.meta.dir || __dirname, '../../drizzle'),
     path.resolve(process.cwd(), 'apps/backend/drizzle'),
