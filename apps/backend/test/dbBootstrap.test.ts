@@ -96,7 +96,8 @@ describe('Bootstrap do banco de dados', () => {
         JWT_SECRET: 'x',
         BLIND_INDEX_SALT: 'y',
         FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
-        KMS_MASTER_KEY: Buffer.alloc(32, 2).toString('base64')
+        KMS_MASTER_KEY: Buffer.alloc(32, 2).toString('base64'),
+        PUBLIC_APP_URL: 'https://app.terapiainfoco.com.br'
       }
     });
     expect(proc.exitCode).not.toBe(0);

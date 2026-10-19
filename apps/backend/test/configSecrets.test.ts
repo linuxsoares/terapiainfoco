@@ -8,7 +8,8 @@ const validEnv = {
   JWT_SECRET: 'jwt-secret-de-teste',
   BLIND_INDEX_SALT: 'salt-de-teste',
   FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
-  KMS_MASTER_KEY: 'ab'.repeat(32)
+  KMS_MASTER_KEY: 'ab'.repeat(32),
+  PUBLIC_APP_URL: 'https://app.terapiainfoco.com.br/'
 };
 
 function loadConfig(env: Record<string, string>) {
@@ -26,7 +27,7 @@ describe('Configuração de segredos e chaves criptográficas', () => {
     expect(JSON.parse(result.stdout)).toEqual({ field: 32, kms: 32, demo: false });
   });
 
-  for (const name of ['JWT_SECRET', 'BLIND_INDEX_SALT', 'FIELD_ENCRYPTION_KEY', 'KMS_MASTER_KEY']) {
+  for (const name of ['JWT_SECRET', 'BLIND_INDEX_SALT', 'FIELD_ENCRYPTION_KEY', 'KMS_MASTER_KEY', 'PUBLIC_APP_URL']) {
     it(`recusa iniciar em produção sem ${name}`, () => {
       const env: Record<string, string> = { ...validEnv };
       delete env[name];
@@ -35,6 +36,12 @@ describe('Configuração de segredos e chaves criptográficas', () => {
       expect(result.stderr).toContain(name);
     });
   }
+
+  it('recusa PUBLIC_APP_URL apontando para localhost em produção', () => {
+    const result = loadConfig({ ...validEnv, PUBLIC_APP_URL: 'http://localhost:5174' });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('PUBLIC_APP_URL aponta para http://localhost:5174');
+  });
 
   it('recusa chave com tamanho diferente de 32 bytes', () => {
     const result = loadConfig({ ...validEnv, FIELD_ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') });

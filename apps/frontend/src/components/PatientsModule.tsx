@@ -59,6 +59,7 @@ import {
 } from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
+import { teleconsultationLink } from '../utils/teleconsultationLink';
 import { PatientPortalModal } from './PatientPortalModal';
 import { DiagnosticDecisionTreeModal } from './DiagnosticDecisionTreeModal';
 import { PsychiatricReferralModal } from './PsychiatricReferralModal';
@@ -2236,10 +2237,10 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                             </p>
 
                             {/* Metadados e Ações Diretas */}
-                            {ev.metadata?.roomUrl && (
+                            {ev.metadata?.appointmentId && ev.metadata?.roomUrl && (
                               <div className="pt-1 flex items-center gap-2">
                                 <a
-                                  href={ev.metadata.roomUrl}
+                                  href={teleconsultationLink(ev.metadata.appointmentId)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 hover:underline"

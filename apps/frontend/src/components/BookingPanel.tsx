@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarCheck, Loader2, Video } from 'lucide-react';
 import type { AvailableSlot, PatientAppointmentView, TherapistPublicProfile } from '@terapiainfoco/shared';
 import { api } from '../services/api';
+import { teleconsultationLink } from '../utils/teleconsultationLink';
 
 interface BookingPanelProps {
   profile: TherapistPublicProfile;
@@ -63,7 +64,7 @@ export function BookingPanel({ profile, onBooked }: BookingPanelProps) {
           <CalendarCheck className="w-5 h-5" /> Consulta agendada com {confirmed.therapistName}
         </p>
         <p className="text-sm text-emerald-900/80 dark:text-emerald-200/80">{dateTimeFormat.format(new Date(confirmed.scheduledStart))}</p>
-        <a href={confirmed.roomUrl}
+        <a href={teleconsultationLink(confirmed.id)}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 dark:text-teal-300 underline">
           <Video className="w-4 h-4" /> Abrir sala da teleconsulta
         </a>
