@@ -2362,6 +2362,7 @@ terapiainfoco/
 | `refactor/teleconsulta-sem-gravacao` | Remoção da gravação de sessões e do módulo de mídia gravada (ADR-005) | [PR #122](https://github.com/linuxsoares/terapiainfoco/pull/122) | Merged |
 | `feat/teleconsulta-transcricao-stt` | Transcrição ao vivo por STT no servidor (áudio descartado, texto cifrado), painel na sala e SOAP a partir da transcrição | [PR #123](https://github.com/linuxsoares/terapiainfoco/pull/123) | Merged |
 | `fix/admin-create-visivel-no-login` | Admin criado via `admin:create` loga sem reiniciar o servidor; script recusa banco temporário | [PR #124](https://github.com/linuxsoares/terapiainfoco/pull/124) | Merged |
+| `fix/link-sala-teleconsulta` | Link da sala usa a URL do site no painel; `PUBLIC_APP_URL` obrigatória em produção (sem localhost) | [PR #125](https://github.com/linuxsoares/terapiainfoco/pull/125) | Merged |
 
 ---
 
