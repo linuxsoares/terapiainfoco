@@ -115,6 +115,8 @@ consentRoutes.post(
 consentRoutes.get(
   '/patient/:patientId',
   authMiddleware({ strict: true }),
+  // Quem registra consentimento (e o próprio titular) consulta o histórico
+  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA, UserRole.ADMIN, UserRole.PACIENTE]),
   requirePatientAccess('patientId', { allowDpo: true }),
   async (c) => {
     const patientId = c.req.param('patientId');

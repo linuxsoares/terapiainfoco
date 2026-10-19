@@ -62,3 +62,22 @@ export function visibleModules(role: UserRole): AppModule[] {
 export function defaultModule(role: UserRole): AppModule {
   return visibleModules(role)[0] ?? 'security';
 }
+
+/**
+ * Ações sobre um paciente no módulo de pacientes, alinhadas aos papéis exigidos pelas rotas.
+ * A recepção cadastra, busca e registra consentimento, mas não acessa conteúdo clínico.
+ */
+export const PATIENT_ACTION_ACCESS = {
+  clinical: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
+  consent: [UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA],
+  vault: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
+  export: [UserRole.PSICOLOGO_TITULAR],
+  revokeConsent: [UserRole.PSICOLOGO_TITULAR],
+  quarantine: [UserRole.PSICOLOGO_TITULAR]
+} as const satisfies Record<string, readonly UserRole[]>;
+
+export type PatientAction = keyof typeof PATIENT_ACTION_ACCESS;
+
+export function canPerformPatientAction(role: UserRole, action: PatientAction): boolean {
+  return (PATIENT_ACTION_ACCESS[action] as readonly UserRole[]).includes(role);
+}

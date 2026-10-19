@@ -569,7 +569,7 @@ export default function App() {
                   {currentTab === 'crpVerification' && <CrpVerificationModule />}
                   {currentTab === 'dashboard' && <DashboardModule />}
                   {currentTab === 'agenda' && <AgendaModule />}
-                  {currentTab === 'patients' && <PatientsModule />}
+                  {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}
                   {currentTab === 'soap' && <SoapModule />}
                   {currentTab === 'documents' && <DocumentsModule />}
                   {currentTab === 'audit' && <AuditModule isDpo={currentUser.role === UserRole.ADMIN} />}

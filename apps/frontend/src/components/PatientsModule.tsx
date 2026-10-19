@@ -52,7 +52,10 @@ import {
   ConsentScope, 
   ConsentStatus,
   GoalStatus,
-  PsychometricScaleType
+  PsychometricScaleType,
+  UserRole,
+  canPerformPatientAction,
+  type PatientAction
 } from '@terapiainfoco/shared';
 import { MaskedField } from './MaskedField';
 import { api } from '../services/api';
@@ -61,7 +64,12 @@ import { DiagnosticDecisionTreeModal } from './DiagnosticDecisionTreeModal';
 import { PsychiatricReferralModal } from './PsychiatricReferralModal';
 import { PortabilityVaultModal } from './PortabilityVaultModal';
 
-export function PatientsModule() {
+interface PatientsModuleProps {
+  role: UserRole;
+}
+
+export function PatientsModule({ role }: PatientsModuleProps) {
+  const can = (action: PatientAction) => canPerformPatientAction(role, action);
   const [searchCpf, setSearchCpf] = useState('');
   const [searchResult, setSearchResult] = useState<DecryptedPatient | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -785,6 +793,7 @@ export function PatientsModule() {
 
             {/* Painel de Ações: Timeline, Anamnese, Portabilidade, Revogação & Quarentena */}
             <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+              {can('clinical') && (
               <button
                 onClick={() => handleOpenTimeline(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -792,7 +801,9 @@ export function PatientsModule() {
                 <History className="w-3.5 h-3.5" />
                 Linha do Tempo Clínica (RFC §3.4)
               </button>
+              )}
 
+              {can('consent') && (
               <button
                 onClick={() => handleOpenConsentModal(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -800,7 +811,9 @@ export function PatientsModule() {
                 <FileCheck2 className="w-3.5 h-3.5" />
                 Consentimento Granular (LGPD)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => handleOpenGoals(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -808,7 +821,9 @@ export function PatientsModule() {
                 <Target className="w-3.5 h-3.5" />
                 Metas SMART (RFC §3.4)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => {
                   setSelectedPortalPatientId(searchResult.id);
@@ -819,7 +834,9 @@ export function PatientsModule() {
                 <HeartHandshake className="w-3.5 h-3.5" />
                 Portal do Paciente & Exercícios (RFC §3.6, §3.7)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => {
                   setSelectedDiagnosticPatientId(searchResult.id);
@@ -831,7 +848,9 @@ export function PatientsModule() {
                 <GitBranch className="w-3.5 h-3.5" />
                 Árvore Diagnóstica (RFC §3.4)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => {
                   setSelectedPsychiatricPatientId(searchResult.id);
@@ -843,7 +862,9 @@ export function PatientsModule() {
                 <Pill className="w-3.5 h-3.5" />
                 Encaminhamento Psiquiátrico (RFC §3.5)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => handleOpenPsychometrics(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -851,7 +872,9 @@ export function PatientsModule() {
                 <Activity className="w-3.5 h-3.5" />
                 Psicometria (PHQ-9 / GAD-7)
               </button>
+              )}
 
+              {can('clinical') && (
               <button
                 onClick={() => handleOpenAnamnesis(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
@@ -859,7 +882,9 @@ export function PatientsModule() {
                 <ClipboardList className="w-3.5 h-3.5" />
                 Ficha de Anamnese Biopsicossocial
               </button>
+              )}
 
+              {can('export') && (
               <button
                 onClick={() => {
                   setExportResult(null);
@@ -870,7 +895,9 @@ export function PatientsModule() {
                 <DownloadCloud className="w-3.5 h-3.5" />
                 Portabilidade LGPD (Art. 18)
               </button>
+              )}
 
+              {can('vault') && (
               <button
                 onClick={() => {
                   setSelectedVaultPatientId(searchResult.id);
@@ -882,7 +909,9 @@ export function PatientsModule() {
                 <Lock className="w-3.5 h-3.5" />
                 Cofre Cifrado .enc Argon2id (RFC §3.3)
               </button>
+              )}
 
+              {can('revokeConsent') && (
               <button
                 onClick={() => setShowRevokeModal(true)}
                 className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -890,7 +919,9 @@ export function PatientsModule() {
                 <UserX className="w-3.5 h-3.5" />
                 Revogar Consentimento
               </button>
+              )}
 
+              {can('quarantine') && (
               <button
                 onClick={() => handleQuarantine(searchResult.id)}
                 className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -898,6 +929,7 @@ export function PatientsModule() {
                 <ShieldAlert className="w-3.5 h-3.5" />
                 Quarentena (5 Anos CFP)
               </button>
+              )}
             </div>
           </div>
         )}
