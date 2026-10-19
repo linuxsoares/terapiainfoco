@@ -2353,7 +2353,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 > Diagnóstico de 19/10/2026: o `memoryDb` (RAM) ainda é a fonte de verdade; só usuários, pacientes e agendamentos são copiados para o PostgreSQL (em fire-and-forget) e as chaves FLE/KMS eram aleatórias a cada boot. Nenhum novo módulo de segurança deve entrar antes desta fundação.
 
 - [x] **Chaves criptográficas estáveis entre deploys:** `FIELD_ENCRYPTION_KEY` e `KMS_MASTER_KEY` via ambiente; `JWT_SECRET`, `BLIND_INDEX_SALT` e chaves obrigatórios em produção (fail-fast).
-- [ ] **Bootstrap explícito do banco:** `DATABASE_URL` obrigatório em produção, migrações sem engolir erros, seed de demonstração restrito a `DEMO_MODE`.
+- [x] **Bootstrap explícito do banco:** `DATABASE_URL` obrigatório em produção, migrações sem engolir erros (baseline controlado para schemas pré-existentes), inicialização única concorrente, seed de demonstração restrito a `DEMO_MODE` e `PGLITE_DATA_DIR` para dev local persistente.
 - [ ] **Persistência durável de todas as coleções no PostgreSQL** (entity store + flush por requisição) — ADR-004 do RFC-001.
 - [ ] **Separação de perfis:** autenticação em todas as rotas de agenda, verificação de posse (psicólogo ↔ paciente), Admin/DPO sem acesso a conteúdo clínico, cadastro público sem perfil Admin.
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.

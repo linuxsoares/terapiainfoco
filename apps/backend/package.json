@@ -24,6 +24,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite-socket": "^0.2.13",
     "@types/bun": "^1.4.3",
     "@types/ioredis": "^5.0.0",
     "@types/node": "^24.13.3",

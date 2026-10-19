@@ -47,6 +47,15 @@ export const config = {
   fieldEncryptionKey: symmetricKey('FIELD_ENCRYPTION_KEY'),
   /** KEK mestre v1 do KMS local (Envelope Encryption). Precisa ser estável entre deploys. */
   kmsMasterKey: symmetricKey('KMS_MASTER_KEY'),
+  /**
+   * Modo demonstração: cria contas e paciente fictícios com senha conhecida (Senha@123456).
+   * Padrão ligado em dev/testes e desligado em produção; nunca habilite com dados reais.
+   */
+  demoMode: process.env.DEMO_MODE ? process.env.DEMO_MODE === 'true' : !isProduction,
+  /** Permite subir produção sem DATABASE_URL (PGlite em memória, dados perdidos no restart) */
+  allowEphemeralDatabase: process.env.ALLOW_EPHEMERAL_DATABASE === 'true',
+  /** Diretório para persistir o PGlite em disco no desenvolvimento local (ex: ./.data/pglite) */
+  pgliteDataDir: process.env.PGLITE_DATA_DIR || '',
   /** Intervalo padrão de buffer entre consultas em minutos (RFC §3.1) */
   defaultBufferMinutes: 10,
   /** Antecedência mínima para cancelamento sem penalidade em horas */

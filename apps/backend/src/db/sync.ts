@@ -10,73 +10,76 @@ import { config } from '../config';
  * Garante registros padrão no banco de dados e sincroniza registros existentes para a memória RAM
  */
 export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
-  // 1. Garante Terapeuta padrão
-  try {
-    await (sqlDb as any)
-      .insert(schema.therapists)
-      .values({
-        id: '00000000-0000-0000-0000-000000000001',
-        crp: '06/142980',
-        crpRegion: 'SP',
-        status: 'ACTIVE',
-        encryptedDek: 'mock-encrypted-dek-base64'
-      })
-      .onConflictDoNothing();
-  } catch (err: any) {
-    console.warn('⚠️ Nota ao inserir terapeuta padrão:', err?.message || err);
-  }
-
-  // 2. Garante Usuários padrão (Psicóloga e Admin)
-  try {
-    const defaultPasswordHash = Bun.password.hashSync('Senha@123456');
-    await (sqlDb as any)
-      .insert(schema.users)
-      .values([
-        {
+  // Contas e paciente de demonstração (senha conhecida) apenas em DEMO_MODE
+  if (config.demoMode) {
+    // 1. Garante Terapeuta padrão
+    try {
+      await (sqlDb as any)
+        .insert(schema.therapists)
+        .values({
           id: '00000000-0000-0000-0000-000000000001',
-          email: 'psicologo@terapiainfoco.com.br',
-          name: 'Dra. Beatriz Santos',
-          role: UserRole.PSICOLOGO_TITULAR,
           crp: '06/142980',
           crpRegion: 'SP',
-          therapistId: '00000000-0000-0000-0000-000000000001',
-          passwordHash: defaultPasswordHash,
-          twoFactorEnabled: false
-        },
-        {
-          id: '00000000-0000-0000-0000-000000000004',
-          email: 'admin@terapiainfoco.com.br',
-          name: 'Administrador do Sistema',
-          role: UserRole.ADMIN,
-          passwordHash: defaultPasswordHash,
-          twoFactorEnabled: false
-        }
-      ])
-      .onConflictDoNothing();
-  } catch (err: any) {
-    console.warn('⚠️ Nota ao inserir usuários padrão:', err?.message || err);
-  }
+          status: 'ACTIVE',
+          encryptedDek: 'mock-encrypted-dek-base64'
+        })
+        .onConflictDoNothing();
+    } catch (err: any) {
+      console.warn('⚠️ Nota ao inserir terapeuta padrão:', err?.message || err);
+    }
 
-  // 3. Garante Paciente demo (Mariana Silva)
-  try {
-    const demoPatientId = '00000000-0000-0000-0000-000000000002';
-    await (sqlDb as any)
-      .insert(schema.patients)
-      .values({
-        id: demoPatientId,
-        therapistId: '00000000-0000-0000-0000-000000000001',
-        encryptedName: encryptField('Mariana Silva de Oliveira'),
-        encryptedEmail: encryptField('mariana.silva@email.com'),
-        encryptedPhone: encryptField('(11) 98765-4321'),
-        encryptedCpf: encryptField('123.456.789-00'),
-        emailBindex: hashEmail('mariana.silva@email.com'),
-        cpfBindex: hashCpf('123.456.789-00'),
-        consentTranscriptionSigned: true,
-        consentSignedAt: new Date()
-      })
-      .onConflictDoNothing();
-  } catch (err: any) {
-    console.warn('⚠️ Nota ao inserir paciente demo:', err?.message || err);
+    // 2. Garante Usuários padrão (Psicóloga e Admin)
+    try {
+      const defaultPasswordHash = Bun.password.hashSync('Senha@123456');
+      await (sqlDb as any)
+        .insert(schema.users)
+        .values([
+          {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: 'psicologo@terapiainfoco.com.br',
+            name: 'Dra. Beatriz Santos',
+            role: UserRole.PSICOLOGO_TITULAR,
+            crp: '06/142980',
+            crpRegion: 'SP',
+            therapistId: '00000000-0000-0000-0000-000000000001',
+            passwordHash: defaultPasswordHash,
+            twoFactorEnabled: false
+          },
+          {
+            id: '00000000-0000-0000-0000-000000000004',
+            email: 'admin@terapiainfoco.com.br',
+            name: 'Administrador do Sistema',
+            role: UserRole.ADMIN,
+            passwordHash: defaultPasswordHash,
+            twoFactorEnabled: false
+          }
+        ])
+        .onConflictDoNothing();
+    } catch (err: any) {
+      console.warn('⚠️ Nota ao inserir usuários padrão:', err?.message || err);
+    }
+
+    // 3. Garante Paciente demo (Mariana Silva)
+    try {
+      const demoPatientId = '00000000-0000-0000-0000-000000000002';
+      await (sqlDb as any)
+        .insert(schema.patients)
+        .values({
+          id: demoPatientId,
+          therapistId: '00000000-0000-0000-0000-000000000001',
+          encryptedName: encryptField('Mariana Silva de Oliveira'),
+          encryptedEmail: encryptField('mariana.silva@email.com'),
+          encryptedPhone: encryptField('(11) 98765-4321'),
+          encryptedCpf: encryptField('123.456.789-00'),
+          emailBindex: hashEmail('mariana.silva@email.com'),
+          cpfBindex: hashCpf('123.456.789-00'),
+          consentTranscriptionSigned: true,
+          consentSignedAt: new Date()
+        })
+        .onConflictDoNothing();
+    } catch (err: any) {
+      console.warn('⚠️ Nota ao inserir paciente demo:', err?.message || err);
+    }
   }
 
   // 4. Carrega registros do SQL para o cache em memória

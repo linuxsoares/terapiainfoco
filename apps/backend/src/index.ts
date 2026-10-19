@@ -86,7 +86,9 @@ try {
   await getDb();
   console.log('✅ Banco de dados conectado e migrações aplicadas com sucesso no boot.');
 } catch (err) {
-  console.error('⚠️ Erro ao inicializar banco de dados no boot:', err);
+  console.error('❌ Erro ao inicializar banco de dados no boot:', err);
+  // Em produção não servimos requisições sem persistência confiável
+  if (config.isProduction) process.exit(1);
 }
 
 
