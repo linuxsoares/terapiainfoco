@@ -2343,6 +2343,7 @@ terapiainfoco/
 | `feat/webrtc-real-camera-microphone-signaling` | Captura Real de Câmera e Microfone via `getUserMedia`, Seletor de Hardware (`enumerateDevices`), Medidor de Voz em Tempo Real (`AudioContext` VU Meter), Compartilhamento de Tela (`getDisplayMedia`), Gravação Local (`MediaRecorder` `.webm`) e Loopback/Sinalização WebRTC P2P (`RTCPeerConnection`) | [PR #103](https://github.com/linuxsoares/terapiainfoco/pull/103) | Merged |
 | `fix/crypto-stable-keys` | Chaves FLE/KMS estáveis via ambiente (`FIELD_ENCRYPTION_KEY`, `KMS_MASTER_KEY`) e segredos obrigatórios em produção (fail-fast) | [PR #104](https://github.com/linuxsoares/terapiainfoco/pull/104) | Merged |
 | `feat/db-bootstrap-hardening` | Bootstrap explícito do banco: `DATABASE_URL` obrigatório em produção, migrações com baseline controlado, `DEMO_MODE` e `PGLITE_DATA_DIR` | [PR #105](https://github.com/linuxsoares/terapiainfoco/pull/105) | Merged |
+| `feat/durable-entity-store` | Persistência durável de todas as coleções no PostgreSQL via `entity_store` (ADR-004): flush transacional por requisição, hidratação no boot e importação legada | [PR #106](https://github.com/linuxsoares/terapiainfoco/pull/106) | Merged |
 
 ---
 
