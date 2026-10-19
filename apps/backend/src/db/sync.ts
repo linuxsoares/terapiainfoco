@@ -3,6 +3,7 @@ import * as schema from './schema';
 import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
 import { config } from '../config';
+import { kmsProvider } from '../services/cryptoContext';
 import { seedDemoTherapistProfile } from '../repositories/therapistProfileRepository';
 
 /**
@@ -14,6 +15,9 @@ import { seedDemoTherapistProfile } from '../repositories/therapistProfileReposi
  */
 export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
   const loaded = await persistence.load(sqlDb);
+  // Rotações e revogações de KEK feitas antes do restart
+  const kmsState = db.kmsState.get('local');
+  if (kmsState) kmsProvider.restoreState(kmsState);
   const summary = Object.entries(loaded).map(([name, count]) => `${name}=${count}`).join(', ');
   console.log(`⚡ entity_store carregado: ${summary || 'vazio'}`);
 

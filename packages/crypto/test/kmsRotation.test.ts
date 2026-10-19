@@ -147,3 +147,42 @@ describe('Ciclo de Vida de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RF
     expect(kms.decryptDataKey(fakeV1Key)).rejects.toThrow('Acesso negado: KEK versão 1 está REVOKED');
   });
 });
+
+describe('Rotação de KEK durável com chave mestre configurada', () => {
+  const master = Buffer.alloc(32, 7);
+
+  it('DEK cifrada com KEK rotacionada continua decifrável após restart (KEK derivada da mestre)', async () => {
+    const kms = new LocalKmsProvider(master);
+    const v1Dek = await kms.generateDataKey();
+    await kms.rotateMasterKey('rotação anual');
+    const v2Dek = await kms.generateDataKey();
+    expect(v2Dek.encryptedKey.startsWith('v2:')).toBe(true);
+
+    // Restart sem estado persistido: v1 e v2 continuam acessíveis
+    const restarted = new LocalKmsProvider(master);
+    expect((await restarted.decryptDataKey(v1Dek.encryptedKey)).equals(v1Dek.plaintextKey)).toBe(true);
+    expect((await restarted.decryptDataKey(v2Dek.encryptedKey)).equals(v2Dek.plaintextKey)).toBe(true);
+  });
+
+  it('estado exportado restaura versão ativa e revogações', async () => {
+    const kms = new LocalKmsProvider(master);
+    const v1Dek = await kms.generateDataKey();
+    await kms.rotateMasterKey();
+    await kms.revokeKeyVersion(1, 'comprometimento suspeito');
+
+    const restarted = new LocalKmsProvider(master);
+    restarted.restoreState(kms.exportState());
+    expect(restarted.getActiveKeyVersion()).toBe(2);
+    await expect(restarted.decryptDataKey(v1Dek.encryptedKey)).rejects.toThrow('REVOKED');
+    const fresh = await restarted.generateDataKey();
+    expect(fresh.encryptedKey.startsWith('v2:')).toBe(true);
+  });
+
+  it('chave mestre diferente não decifra DEKs de outra instalação', async () => {
+    const kms = new LocalKmsProvider(master);
+    await kms.rotateMasterKey();
+    const dek = await kms.generateDataKey();
+    const other = new LocalKmsProvider(Buffer.alloc(32, 9));
+    await expect(other.decryptDataKey(dek.encryptedKey)).rejects.toThrow();
+  });
+});

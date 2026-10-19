@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import {
   KmsKeyMetadata,
   KmsKeyStatus,
@@ -58,6 +58,12 @@ interface KeyEntry {
   metadata: KmsKeyMetadata;
 }
 
+/** Estado mínimo para reconstruir o KMS após um restart (versão ativa e metadados de cada KEK) */
+export interface LocalKmsState {
+  activeVersion: number;
+  keys: KmsKeyMetadata[];
+}
+
 /**
  * Provedor Local KMS com gerenciamento de ciclo de vida de chaves KEK
  * (NIST SP 800-57, RFC-001 §4.2, Envelope Encryption)
@@ -65,8 +71,11 @@ interface KeyEntry {
 export class LocalKmsProvider implements KmsProvider {
   private keysMap = new Map<number, KeyEntry>();
   private currentActiveVersion: number = 1;
+  /** Chave mestre configurada: permite derivar deterministicamente as KEKs rotacionadas */
+  private readonly masterKek?: Buffer;
 
   constructor(initialMasterKek?: Buffer) {
+    this.masterKek = initialMasterKek;
     const kek = initialMasterKek ?? randomBytes(32);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 ano de validade
@@ -93,6 +102,62 @@ export class LocalKmsProvider implements KmsProvider {
     return this.currentActiveVersion;
   }
 
+  /**
+   * KEK da versão N >= 2: derivada da chave mestre via HKDF-SHA256 quando ela foi configurada
+   * (reprodutível após restart); aleatória apenas sem chave mestre (dev/testes).
+   * A v1 é a própria chave mestre, preservando dados cifrados antes da rotação.
+   */
+  private kekForVersion(version: number): Buffer {
+    if (!this.masterKek) return randomBytes(32);
+    return Buffer.from(hkdfSync('sha256', this.masterKek, 'terapiainfoco-local-kms', `kek-v${version}`, 32));
+  }
+
+  /** Reconstrói sob demanda uma versão derivável ausente da memória (ex.: após restart) */
+  private entryForVersion(version: number): KeyEntry | undefined {
+    const existing = this.keysMap.get(version);
+    if (existing || !this.masterKek || version < 2 || version > 10_000) return existing;
+    const now = new Date().toISOString();
+    const entry: KeyEntry = {
+      kek: this.kekForVersion(version),
+      metadata: {
+        keyId: `kek-v${version}-recuperada`,
+        version,
+        algorithm: 'AES-256-GCM',
+        status: KmsKeyStatus.ROTATED,
+        providerType: KmsProviderType.LOCAL_MOCK,
+        createdAt: now,
+        rotatedAt: now,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        encryptedDeksCount: 0,
+        rotationReason: 'Versão reconstruída a partir da chave mestre'
+      }
+    };
+    this.keysMap.set(version, entry);
+    return entry;
+  }
+
+  /** Estado a persistir após rotação/revogação */
+  exportState(): LocalKmsState {
+    return {
+      activeVersion: this.currentActiveVersion,
+      keys: Array.from(this.keysMap.values()).map((entry) => ({ ...entry.metadata }))
+    };
+  }
+
+  /**
+   * Restaura versão ativa e metadados (inclusive revogações) persistidos. Só tem efeito com
+   * chave mestre configurada, pois as KEKs precisam ser rederivadas.
+   */
+  restoreState(state: LocalKmsState): void {
+    if (!this.masterKek) return;
+    this.currentActiveVersion = Math.max(1, state.activeVersion);
+    for (const metadata of state.keys) {
+      const kek = metadata.version === 1 ? this.masterKek : this.kekForVersion(metadata.version);
+      this.keysMap.set(metadata.version, { kek, metadata: { ...metadata } });
+    }
+  }
+
   async getKeyMetadata(version?: number): Promise<KmsKeyMetadata | null> {
     const ver = version ?? this.currentActiveVersion;
     const entry = this.keysMap.get(ver);
@@ -106,7 +171,7 @@ export class LocalKmsProvider implements KmsProvider {
   }
 
   async generateDataKey(): Promise<{ plaintextKey: Buffer; encryptedKey: string }> {
-    const activeEntry = this.keysMap.get(this.currentActiveVersion);
+    const activeEntry = this.entryForVersion(this.currentActiveVersion);
     if (!activeEntry || activeEntry.metadata.status !== KmsKeyStatus.ACTIVE) {
       throw new Error(`Nenhuma KEK em estado ACTIVE disponível no KMS (versão atual: ${this.currentActiveVersion})`);
     }
@@ -138,7 +203,7 @@ export class LocalKmsProvider implements KmsProvider {
       base64Payload = match[2];
     }
 
-    const entry = this.keysMap.get(version);
+    const entry = this.entryForVersion(version);
     if (!entry) {
       throw new Error(`KEK versão ${version} não foi encontrada no repositório de chaves do KMS`);
     }
@@ -173,7 +238,7 @@ export class LocalKmsProvider implements KmsProvider {
     }
 
     const nextVersion = this.currentActiveVersion + 1;
-    const newKek = randomBytes(32);
+    const newKek = this.kekForVersion(nextVersion);
     const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
     const newMetadata: KmsKeyMetadata = {
