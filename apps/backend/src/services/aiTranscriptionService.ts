@@ -21,6 +21,7 @@ import { db } from '../db/memoryDb';
 import { config } from '../config';
 import { LiveTranscriptionService } from './liveTranscriptionService';
 import { encryptField, decryptField } from './cryptoContext';
+import { getSoapSynthesizer } from './soap/soapSynthesizer';
 
 /**
  * -------------------------------------------------------------------------------------------------
@@ -111,7 +112,7 @@ export class AiTranscriptionService {
     const metrics = this.calculateConversationalMetrics(utterances);
 
     // 5. Síntese do Rascunho SOAP Assistida por IA (RFC-001 §3.3)
-    const soapDraft = this.generateAiSoapDraft(
+    const soapDraft = await this.generateAiSoapDraft(
       dto.appointmentId,
       dto.patientId,
       patientName,
@@ -281,7 +282,7 @@ export class AiTranscriptionService {
         encryptedObjective: encryptField(draft.objectiveText),
         encryptedAssessment: encryptField(draft.assessmentText),
         encryptedPlan: encryptField(draft.planText),
-        cid11Code: dto.finalCid11 || draft.suggestedCid11Codes[0] || '6A70',
+        cid11Code: dto.finalCid11 || draft.suggestedCid11Codes[0] || undefined,
         signedHash: crypto.createHash('sha256').update(
           `${draft.subjectiveText}|${draft.objectiveText}|${draft.assessmentText}|${draft.planText}`
         ).digest('hex'),
@@ -418,62 +419,30 @@ export class AiTranscriptionService {
   }
 
   /**
-   * Sintetizador de Rascunho SOAP Assistido por IA (RFC-001 §3.3)
+   * Rascunho SOAP sintetizado a partir das falas (RFC-001 §3.3). O alerta de segurança combina
+   * marcadores de crise, palavras-chave e o indício de risco apontado pelo sintetizador.
    */
-  private generateAiSoapDraft(
+  private async generateAiSoapDraft(
     appointmentId: string,
     patientId: string,
     patientName: string,
     therapistId: string,
     utterances: DiarizedUtterance[],
     markers: Array<any>
-  ): AiSoapDraft {
-    const patientUtterances = utterances.filter(u => u.speaker === TranscriptionSpeaker.PATIENT);
-    const fullPatientText = patientUtterances.map(u => u.text).join(' ');
-
-    // 1. Subjetivo (S): Relato afetivo e queixas
-    const subjectiveItems: string[] = [];
-    if (fullPatientText.toLowerCase().includes('ansiedade') || fullPatientText.toLowerCase().includes('nervos')) {
-      subjectiveItems.push('Paciente relata elevação nos níveis de ansiedade antecipatória, associada a pressões no ambiente profissional e sensação de sobrecarga.');
+  ): Promise<AiSoapDraft> {
+    const synthesizer = getSoapSynthesizer();
+    if (!synthesizer) {
+      throw new Error('A síntese do SOAP por IA não está configurada neste ambiente (OPENAI_API_KEY ausente).');
     }
-    if (fullPatientText.toLowerCase().includes('sono') || fullPatientText.toLowerCase().includes('dormir') || fullPatientText.toLowerCase().includes('insônia')) {
-      subjectiveItems.push('Queixa de fragmentação do sono e dificuldade para desacelerar o fluxo de pensamentos ao deitar.');
-    }
-    if (fullPatientText.toLowerCase().includes('triste') || fullPatientText.toLowerCase().includes('desânimo') || fullPatientText.toLowerCase().includes('vazio')) {
-      subjectiveItems.push('Expressa sentimentos de desânimo transitório e desmotivação nas atividades diárias habituais.');
-    }
-    if (subjectiveItems.length === 0) {
-      subjectiveItems.push(`Paciente ${patientName} trouxe reflexões sobre sua rotina semanal, relatando percepções sobre seus relacionamentos interpessoais e desafios de adaptação.`);
-    }
+    const sections = await synthesizer.synthesize(utterances.map(({ speaker, text }) => ({ speaker, text })));
 
-    // 2. Objetivo (O): Comportamento, afeto e linguagem não-verbal
-    const objectiveItems: string[] = [
-      'Apresentou-se pontual, comunicativo, com contato visual preservado durante a teleconsulta.',
-      'Modulação do afeto congruente com os temas relatados; momentos de hesitação e pausas reflexivas identificados durante a exploração de conflitos familiares.',
-      'Discurso coeso, lógico e organizado, sem evidências de desorganização do pensamento.'
-    ];
-
-    // 3. Avaliação (A): Hipóteses clínicas, dinâmicas e CID-11
-    const assessmentItems: string[] = [
-      'Padrão cognitivo com presença de distorções de pensamento (catastrofização e hipervigilância a demandas externas).',
-      'Boa capacidade de insight e adesão às propostas de reflexão do processo psicoterapêutico.',
-      'Hipótese preliminar compatível com quadro ansioso reativo moderado (CID-11: 6B00 / Transtorno de Ansiedade Generalizada).'
-    ];
-
-    // 4. Plano (P): Intervenções combinadas e tarefas
-    const planItems: string[] = [
-      'Continuidade do processo psicoterápico em frequência semanal na modalidade online (CFP nº 011/2018).',
-      'Orientação para registro em diário de pensamentos disfuncionais e identificação de gatilhos ansiogênicos durante a semana.',
-      'Treinamento em respiração diafragmática para manejo de picos de tensão somática.',
-      'Próxima sessão agendada com foco em estratégias de regulação emocional e estabelecimento de limites assertivos.'
-    ];
-
-    // 5. Alerta de Segurança e Crise
-    let safetyWarning: string | undefined;
+    const fullPatientText = utterances.filter(u => u.speaker === TranscriptionSpeaker.PATIENT).map(u => u.text).join(' ');
     const hasCrisisMarker = markers.some(m => m.category === 'CRISIS_ALERT' || m.markerType === 'CRISIS_ALERT');
     const hasCrisisKeywords = /suic[íi]|desesper|morr|acabar com tudo/i.test(fullPatientText);
-    if (hasCrisisMarker || hasCrisisKeywords) {
-      safetyWarning = 'ATENÇÃO ÉTICA CFP: Detectado relato ou marcador de vulnerabilidade aguda. Recomenda-se verificação imediata da rede de apoio e aplicação do protocolo de segurança.';
+    let safetyWarning: string | undefined;
+    if (hasCrisisMarker || hasCrisisKeywords || sections.safetyConcern) {
+      safetyWarning = 'ATENÇÃO ÉTICA CFP: Detectado relato ou marcador de vulnerabilidade aguda. Recomenda-se verificação imediata da rede de apoio e aplicação do protocolo de segurança.'
+        + (sections.safetyConcern ? ` ${sections.safetyConcern}` : '');
     }
 
     return {
@@ -483,20 +452,16 @@ export class AiTranscriptionService {
       patientName,
       therapistId,
       status: AiSoapDraftStatus.DRAFT_PENDING_REVIEW,
-      subjectiveText: subjectiveItems.join(' '),
-      objectiveText: objectiveItems.join(' '),
-      assessmentText: assessmentItems.join(' '),
-      planText: planItems.join(' '),
-      suggestedCid11Codes: ['6B00', '6A70'],
-      keyInsightsSummary: [
-        'Conexão entre sobrecarga de trabalho e insônia inicial.',
-        'Mecanismo de enfrentamento baseado em hipercontrole e esquiva experiencial.',
-        'Boa receptividade a técnicas de reestruturação cognitiva.'
-      ],
+      subjectiveText: sections.subjectiveText,
+      objectiveText: sections.objectiveText,
+      assessmentText: sections.assessmentText,
+      planText: sections.planText,
+      suggestedCid11Codes: sections.suggestedCid11Codes,
+      keyInsightsSummary: sections.keyInsightsSummary,
       safetyWarning,
       generatedAt: new Date().toISOString(),
-      modelIdentifier: 'clinical-llm-hipaa-compliant-v1',
-      zeroRetentionGuaranteed: true
+      modelIdentifier: synthesizer.modelIdentifier,
+      zeroRetentionGuaranteed: synthesizer.zeroRetention
     };
   }
 

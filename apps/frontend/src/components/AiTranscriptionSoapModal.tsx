@@ -27,6 +27,8 @@ import type {
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
+const KNOWN_CID11 = ['6B00', '6A70', '6B01', 'QE84'];
+
 interface AiTranscriptionSoapModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -57,7 +59,7 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
   const [objective, setObjective] = useState<string>('');
   const [assessment, setAssessment] = useState<string>('');
   const [plan, setPlan] = useState<string>('');
-  const [finalCid11, setFinalCid11] = useState<string>('6B00');
+  const [finalCid11, setFinalCid11] = useState<string>('');
   const [reviewNotes, setReviewNotes] = useState<string>('');
 
   // Formulário de Nova Ingestão
@@ -115,7 +117,7 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
     setObjective(d.objectiveText || '');
     setAssessment(d.assessmentText || '');
     setPlan(d.planText || '');
-    setFinalCid11(d.suggestedCid11Codes?.[0] || '6B00');
+    setFinalCid11(d.suggestedCid11Codes?.[0] || '');
     setReviewNotes(d.reviewNotes || '');
   };
 
@@ -178,7 +180,7 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
         reviewedObjective: objective,
         reviewedAssessment: assessment,
         reviewedPlan: plan,
-        finalCid11,
+        finalCid11: finalCid11 || undefined,
         reviewNotes,
         saveAsOfficialEhrNote: saveAsEhr
       });
@@ -422,6 +424,10 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
                         onChange={(e) => setFinalCid11(e.target.value)}
                         className="text-[11px] py-0.5 px-1.5 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200"
                       >
+                        <option value="">Sem CID-11</option>
+                        {draft?.suggestedCid11Codes
+                          ?.filter((code) => !KNOWN_CID11.includes(code))
+                          .map((code) => <option key={code} value={code}>CID-11: {code} (sugerido)</option>)}
                         <option value="6B00">CID-11: 6B00 (Ansiedade Generalizada)</option>
                         <option value="6A70">CID-11: 6A70 (Episódio Depressivo)</option>
                         <option value="6B01">CID-11: 6B01 (Transtorno de Pânico)</option>

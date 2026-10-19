@@ -101,6 +101,17 @@ export const config = {
     model: process.env.STT_MODEL || 'gpt-4o-mini-transcribe',
     language: process.env.STT_LANGUAGE || 'pt'
   },
+  /**
+   * Síntese do rascunho SOAP (RFC-001 §3.3). 'openai' usa a mesma OPENAI_API_KEY da transcrição;
+   * 'template' (apenas fora de produção e padrão nos testes) gera o rascunho por regras, sem terceiros.
+   */
+  soap: {
+    provider: (process.env.SOAP_PROVIDER
+      || (process.env.NODE_ENV === 'test' ? 'template' : process.env.OPENAI_API_KEY ? 'openai' : 'template')) as 'openai' | 'template' | 'disabled',
+    model: process.env.SOAP_MODEL || 'gpt-4o-mini',
+    /** Marque 'true' só com acordo de Zero Data Retention firmado com o provedor */
+    zeroRetention: process.env.OPENAI_ZERO_DATA_RETENTION === 'true'
+  },
   /** URL pública do painel (frontend): base do link da sala de teleconsulta própria */
   publicAppUrl: publicAppUrl(),
 };
