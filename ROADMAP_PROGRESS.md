@@ -2340,7 +2340,8 @@ terapiainfoco/
 | `feat/psychiatric-referral-and-drug-interactions` | Prescrição & Encaminhamento Psiquiátrico com Validação Cruzada de Medicamentos e Interações Farmacológicas (RFC-001 §3.5) | [PR #100](https://github.com/linuxsoares/terapiainfoco/pull/100) | Merged |
 | `feat/v0-encrypted-portability-and-websocket-guard` | Fechamento do Marco V0: Cofre de Portabilidade Cifrado `.enc` (Argon2id + AES-256-GCM + Merkle Tree LGPD Art. 18) e Proteção contra Injeção de Objetos & Desserialização WebSocket (RFC 6455 / CWE-502) | [PR #101](https://github.com/linuxsoares/terapiainfoco/pull/101) | Merged |
 | `feat/public-showcase-auth-social-and-profiles` | Vitrine Pública Sem Login, Login Unificado (OAuth Social Google/Gov.br/Apple/Passkey + E-mail/Senha 2FA), Criação de Perfil Com/Sem Login Social e Perfis Dedicados (Paciente, Psicólogo e Admin/DPO) | [PR #102](https://github.com/linuxsoares/terapiainfoco/pull/102) | Merged |
-| `feat/webrtc-real-camera-microphone-signaling` | Captura Real de Câmera e Microfone via `getUserMedia`, Seletor de Hardware (`enumerateDevices`), Medidor de Voz em Tempo Real (`AudioContext` VU Meter), Compartilhamento de Tela (`getDisplayMedia`), Gravação Local (`MediaRecorder` `.webm`) e Loopback/Sinalização WebRTC P2P (`RTCPeerConnection`) | [PR #103](https://github.com/linuxsoares/terapiainfoco/pull/103) | Open |
+| `feat/webrtc-real-camera-microphone-signaling` | Captura Real de Câmera e Microfone via `getUserMedia`, Seletor de Hardware (`enumerateDevices`), Medidor de Voz em Tempo Real (`AudioContext` VU Meter), Compartilhamento de Tela (`getDisplayMedia`), Gravação Local (`MediaRecorder` `.webm`) e Loopback/Sinalização WebRTC P2P (`RTCPeerConnection`) | [PR #103](https://github.com/linuxsoares/terapiainfoco/pull/103) | Merged |
+| `fix/crypto-stable-keys` | Chaves FLE/KMS estáveis via ambiente (`FIELD_ENCRYPTION_KEY`, `KMS_MASTER_KEY`) e segredos obrigatórios em produção (fail-fast) | [PR #104](https://github.com/linuxsoares/terapiainfoco/pull/104) | Merged |
 
 ---
 
@@ -2348,7 +2349,16 @@ terapiainfoco/
 
 Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsulta Real WebRTC V1** — contemplando a Vitrine Pública Sem Login, Login e Criação de Perfil Com/Sem Login Social (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`), Captura Real de Câmera e Microfone na Teleconsulta WebRTC P2P, todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.386 testes automatizados (0 falhas em 142 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
 
-#### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
+#### 🧱 Fundação de Produção V1 (Prioridade Máxima — Persistência Real, Perfis & Busca)
+> Diagnóstico de 19/10/2026: o `memoryDb` (RAM) ainda é a fonte de verdade; só usuários, pacientes e agendamentos são copiados para o PostgreSQL (em fire-and-forget) e as chaves FLE/KMS eram aleatórias a cada boot. Nenhum novo módulo de segurança deve entrar antes desta fundação.
+
+- [x] **Chaves criptográficas estáveis entre deploys:** `FIELD_ENCRYPTION_KEY` e `KMS_MASTER_KEY` via ambiente; `JWT_SECRET`, `BLIND_INDEX_SALT` e chaves obrigatórios em produção (fail-fast).
+- [ ] **Bootstrap explícito do banco:** `DATABASE_URL` obrigatório em produção, migrações sem engolir erros, seed de demonstração restrito a `DEMO_MODE`.
+- [ ] **Persistência durável de todas as coleções no PostgreSQL** (entity store + flush por requisição) — ADR-004 do RFC-001.
+- [ ] **Separação de perfis:** autenticação em todas as rotas de agenda, verificação de posse (psicólogo ↔ paciente), Admin/DPO sem acesso a conteúdo clínico, cadastro público sem perfil Admin.
+- [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
+- [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.
+
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
 - [x] **Notificações & Lembretes Multicanal de Teleconsulta (WhatsApp & E-mail - RFC-001 §3.1 / CFP nº 011/2018):** Disparo de mensagens éticas e acolhedoras com link direto wa.me, salas criptografadas com knocking (sala de espera) e auditoria WORM imutável.
 - [x] **Linha do Tempo Clínica Longitudinal do Paciente (Timeline - RFC-001 §3.4):** Agregação unificada de consultas, evoluções SOAP assinadas, fichas de anamnese, documentos CFP emitidos e termos TCLE, com taxa de assiduidade dinâmica (attendanceRate).

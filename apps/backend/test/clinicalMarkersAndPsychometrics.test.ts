@@ -265,9 +265,10 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
   describe('4. Rotas HTTP REST Integradas', () => {
     it('GET /api/psychometrics/definition/PHQ9 deve retornar a especificação da escala', async () => {
       // 1. Obter token do terapeuta
+      // IP dedicado: o rate limiter de login (5/min por IP) é compartilhado entre arquivos de teste
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.42.1' },
         body: JSON.stringify({
           email: 'psicologo@terapiainfoco.com.br',
           password: 'Senha@123456'
@@ -290,9 +291,10 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
     });
 
     it('POST /api/clinical-markers e GET /soap-proposal via HTTP REST', async () => {
+      // IP dedicado: o rate limiter de login (5/min por IP) é compartilhado entre arquivos de teste
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.42.1' },
         body: JSON.stringify({
           email: 'psicologo@terapiainfoco.com.br',
           password: 'Senha@123456'
