@@ -84,16 +84,19 @@ describe('Fronteiras de autenticação e perfis', () => {
     });
   }
 
-  it('paciente que se cadastra não tem consentimento de transcrição presumido', async () => {
+  it('cadastro de paciente não cria prontuário nem aceita vínculo a patientId alheio', async () => {
     const res = await register({
-      name: 'Paciente Consentimento',
-      email: 'consentimento@paciente.com.br',
+      name: 'Paciente Oportunista',
+      email: 'oportunista@paciente.com.br',
       password: 'SenhaPaciente@2026',
-      role: UserRole.PACIENTE
+      role: UserRole.PACIENTE,
+      patientId: DEMO_PATIENT_ID
     });
     expect(res.status).toBe(201);
     const { user } = await res.json() as any;
-    expect(db.patients.get(user.patientId)!.consentTranscriptionSigned).toBe(false);
+    expect(user.patientId).toBeUndefined();
+    const headers = { Authorization: `Bearer ${await tokenFor(user.id)}` };
+    expect((await app.request(`/api/patients/${DEMO_PATIENT_ID}`, { headers })).status).toBe(403);
   });
 
   describe('posse entre consultórios', () => {

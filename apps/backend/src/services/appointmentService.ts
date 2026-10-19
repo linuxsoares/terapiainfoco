@@ -13,6 +13,8 @@ import {
   type AvailableSlotsResponse,
   type PublicBookingDTO,
   type PublicBookingResponse,
+  type PatientBookingDTO,
+  type PatientAppointmentView,
   type CreateRecurrentAppointmentsResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
@@ -21,6 +23,7 @@ import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 import { GoogleMeetService, generateGoogleMeetCode } from './googleMeetService';
 import { config } from '../config';
+import { TherapistProfileRepository } from '../repositories/therapistProfileRepository';
 
 export { generateGoogleMeetCode };
 
@@ -265,13 +268,14 @@ export class AppointmentService {
     }
 
     const therapistId = dto.therapistId || 'therapist-001';
+    const profile = await this.requireBookableTherapist(therapistId);
 
-    // 1. Localiza paciente existente via Blind Index (se CPF informado) ou cria novo com FLE
+    // 1. Localiza paciente do mesmo consultório via Blind Index (se CPF informado) ou cria novo com FLE
     let patient = dto.patientCpf ? PatientService.findByCpf(dto.patientCpf, {
       actorId: therapistId,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
-    }) : null;
+    }, therapistId) : null;
 
     if (!patient) {
       patient = PatientService.createPatient(
@@ -281,7 +285,8 @@ export class AppointmentService {
           email: dto.patientEmail,
           phone: dto.patientPhone,
           cpf: dto.patientCpf,
-          consentTranscriptionSigned: true
+          // O TCLE de teleconsulta não implica consentimento de transcrição (LGPD Art. 11)
+          consentTranscriptionSigned: false
         },
         {
           actorId: therapistId,
@@ -309,7 +314,7 @@ export class AppointmentService {
     return {
       appointmentId: appointment.id,
       patientName: patient.name,
-      therapistName: 'Dra. Vanessa Andrade (CRP 06/142980)',
+      therapistName: `${profile.displayName} (CRP ${profile.crp})`,
       scheduledStart: appointment.scheduledStart.toString(),
       scheduledEnd: appointment.scheduledEnd.toString(),
       meetUrl: appointment.meetUrl,
@@ -322,6 +327,95 @@ export class AppointmentService {
         'Certifique-se de estar em um ambiente privativo, silencioso e com boa conexão à internet.'
       ]
     };
+  }
+
+  /** Só psicólogos com perfil publicado e CRP verificado recebem agendamentos externos */
+  private static async requireBookableTherapist(therapistId: string) {
+    const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
+    if (!profile || !profile.published || !profile.crpVerified) {
+      throw new Error('Psicólogo indisponível para agendamento online.');
+    }
+    return profile;
+  }
+
+  /**
+   * Agendamento pelo paciente autenticado a partir do perfil público do psicólogo.
+   * Reaproveita (ou cria) o registro do paciente no consultório escolhido, vinculado à conta.
+   */
+  static async bookForPatientUser(
+    userId: string,
+    dto: PatientBookingDTO,
+    context: { ipAddress: string; userAgent?: string }
+  ): Promise<PatientAppointmentView> {
+    if (!dto.consentTeleconsultationSigned) {
+      throw new Error(
+        'É obrigatório aceitar o Termo de Consentimento Livre e Esclarecido (TCLE) para agendamento de teleconsulta (Res. CFP nº 011/2018 e LGPD Art. 11).'
+      );
+    }
+    const user = db.users.get(userId);
+    if (!user) throw new Error('Usuário não encontrado.');
+    const profile = await this.requireBookableTherapist(dto.therapistId);
+    const actor = { actorId: userId, ipAddress: context.ipAddress, userAgent: context.userAgent };
+
+    let patientId = Array.from(db.patients.values()).find(
+      (p) => p.therapistId === dto.therapistId && (p.linkedUserId === userId || p.id === user.patientId)
+    )?.id;
+    if (!patientId) {
+      const created = PatientService.createPatient(dto.therapistId, {
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        consentTranscriptionSigned: false
+      }, actor);
+      db.patients.get(created.id)!.linkedUserId = userId;
+      patientId = created.id;
+      if (!user.patientId) user.patientId = created.id;
+    }
+
+    const appointment = await this.createAppointment(dto.therapistId, {
+      patientId,
+      scheduledStart: dto.scheduledStart,
+      scheduledEnd: dto.scheduledEnd
+    }, actor);
+
+    return {
+      id: appointment.id,
+      therapistId: dto.therapistId,
+      therapistName: profile.displayName,
+      scheduledStart: new Date(appointment.scheduledStart).toISOString(),
+      scheduledEnd: new Date(appointment.scheduledEnd).toISOString(),
+      status: appointment.status,
+      meetUrl: appointment.meetUrl
+    };
+  }
+
+  /** Consultas do paciente em todos os consultórios a que sua conta está vinculada */
+  static async getPatientUserAppointments(userId: string): Promise<PatientAppointmentView[]> {
+    const user = db.users.get(userId);
+    if (!user) return [];
+    const patientIds = new Set(
+      Array.from(db.patients.values())
+        .filter((p) => p.linkedUserId === userId || p.id === user.patientId)
+        .map((p) => p.id)
+    );
+    const appointments = Array.from(db.appointments.values())
+      .filter((a) => patientIds.has(a.patientId))
+      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+
+    const names = new Map<string, string>();
+    for (const therapistId of new Set(appointments.map((a) => a.therapistId))) {
+      const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
+      names.set(therapistId, profile?.displayName ?? 'Psicólogo(a)');
+    }
+    return appointments.map((a) => ({
+      id: a.id,
+      therapistId: a.therapistId,
+      therapistName: names.get(a.therapistId)!,
+      scheduledStart: new Date(a.scheduledStart).toISOString(),
+      scheduledEnd: new Date(a.scheduledEnd).toISOString(),
+      status: a.status,
+      meetUrl: decryptField(a.encryptedMeetUrl)
+    }));
   }
 
   private static validateScheduleConflicts(

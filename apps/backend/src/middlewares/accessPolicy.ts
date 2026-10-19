@@ -25,14 +25,15 @@ function isPracticeStaff(user: SafeUser): boolean {
 export function canAccessPatient(user: SafeUser, patientId: string): boolean {
   const patient = db.patients.get(patientId);
   if (!patient) return false;
-  if (user.role === UserRole.PACIENTE) return user.patientId === patientId;
+  // Paciente: registro principal da conta ou registros criados ao agendar pelo portal
+  if (user.role === UserRole.PACIENTE) return user.patientId === patientId || patient.linkedUserId === user.id;
   return isPracticeStaff(user) && patient.therapistId === user.therapistId;
 }
 
 export function canAccessAppointment(user: SafeUser, appointmentId: string): boolean {
   const appointment = db.appointments.get(appointmentId);
   if (!appointment) return false;
-  if (user.role === UserRole.PACIENTE) return user.patientId === appointment.patientId;
+  if (user.role === UserRole.PACIENTE) return canAccessPatient(user, appointment.patientId);
   return isPracticeStaff(user) && appointment.therapistId === user.therapistId;
 }
 

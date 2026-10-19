@@ -22,7 +22,6 @@ import type {
 } from '@terapiainfoco/shared';
 import { UserRole, SocialAuthProvider, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { auditService } from './auditService';
-import { encryptField, hashEmail, hashCpf } from './cryptoContext';
 
 function maskCpfForProfile(cpf?: string): string | undefined {
   if (!cpf) return undefined;
@@ -108,29 +107,10 @@ export class AuthService {
       });
     }
 
-    // Se for paciente, vincula ou cria registro cifrado em db.patients para acesso imediato ao Portal do Paciente
-    let patientId = dto.patientId;
-    if (dto.role === UserRole.PACIENTE) {
-      if (!patientId) {
-        patientId = crypto.randomUUID();
-        const emailNormalized = dto.email.toLowerCase().trim();
-        db.patients.set(patientId, {
-          id: patientId,
-          therapistId: 'therapist-001',
-          emailBindex: hashEmail(emailNormalized),
-          cpfBindex: dto.cpf ? hashCpf(dto.cpf) : undefined,
-          // Consentimento de transcrição exige aceite explícito posterior (LGPD Art. 11)
-          consentTranscriptionSigned: false,
-          consentSignedAt: null,
-          createdAt: new Date(),
-          encryptedName: encryptField(dto.name.trim()),
-          encryptedEmail: encryptField(emailNormalized),
-          encryptedPhone: encryptField(dto.phone || '(11) 99999-0000'),
-          encryptedCpf: dto.cpf ? encryptField(dto.cpf) : undefined
-        });
-      }
-      therapistId = 'therapist-001';
-    }
+    // O prontuário pertence a um consultório: o registro do paciente nasce no primeiro agendamento
+    // com um psicólogo, e nunca a partir de um patientId informado no cadastro (evita vincular
+    // a conta a um prontuário alheio)
+    const patientId: string | undefined = undefined;
 
     const providers: SocialAuthProvider[] = [SocialAuthProvider.EMAIL_PASSWORD];
     if (dto.socialProvider && !providers.includes(dto.socialProvider)) {
