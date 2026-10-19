@@ -2341,6 +2341,7 @@ terapiainfoco/
 | `feat/v0-encrypted-portability-and-websocket-guard` | Fechamento do Marco V0: Cofre de Portabilidade Cifrado `.enc` (Argon2id + AES-256-GCM + Merkle Tree LGPD Art. 18) e Proteção contra Injeção de Objetos & Desserialização WebSocket (RFC 6455 / CWE-502) | [PR #101](https://github.com/linuxsoares/terapiainfoco/pull/101) | Merged |
 | `feat/public-showcase-auth-social-and-profiles` | Vitrine Pública Sem Login, Login Unificado (OAuth Social Google/Gov.br/Apple/Passkey + E-mail/Senha 2FA), Criação de Perfil Com/Sem Login Social e Perfis Dedicados (Paciente, Psicólogo e Admin/DPO) | [PR #102](https://github.com/linuxsoares/terapiainfoco/pull/102) | Merged |
 | `feat/webrtc-real-camera-microphone-signaling` | Captura Real de Câmera e Microfone via `getUserMedia`, Seletor de Hardware (`enumerateDevices`), Medidor de Voz em Tempo Real (`AudioContext` VU Meter), Compartilhamento de Tela (`getDisplayMedia`), Gravação Local (`MediaRecorder` `.webm`) e Loopback/Sinalização WebRTC P2P (`RTCPeerConnection`) | [PR #103](https://github.com/linuxsoares/terapiainfoco/pull/103) | Merged |
+| `fix/crypto-stable-keys` | Chaves FLE/KMS estáveis via ambiente (`FIELD_ENCRYPTION_KEY`, `KMS_MASTER_KEY`) e segredos obrigatórios em produção (fail-fast) | [PR #104](https://github.com/linuxsoares/terapiainfoco/pull/104) | Merged |
 
 ---
 
