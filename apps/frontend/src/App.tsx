@@ -8,7 +8,6 @@ import {
   Lock,
   Activity,
   KeyRound,
-  ShieldAlert,
   ChevronDown,
   UserCheck,
   BarChart3,
@@ -20,7 +19,7 @@ import {
   LogOut,
   Eye,
   HeartHandshake,
-  FolderLock
+  type LucideIcon
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
 import { AgendaModule } from './components/AgendaModule';
@@ -30,6 +29,7 @@ import { DocumentsModule } from './components/DocumentsModule';
 import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
 import { BackupModule } from './components/BackupModule';
+import { PatientHomeModule } from './components/PatientHomeModule';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -39,8 +39,8 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { PrivacyProvider } from './contexts/PrivacyContext';
 import { PrivacyBanner, PrivacyToggleButton } from './components/PrivacyBanner';
 import { api } from './services/api';
-import type { SafeUser } from '@terapiainfoco/shared';
-import { UserRole } from '@terapiainfoco/shared';
+import type { SafeUser, AppModule } from '@terapiainfoco/shared';
+import { UserRole, canViewModule, defaultModule, visibleModules } from '@terapiainfoco/shared';
 
 const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; patientId?: string; roleName: string }> = {
   [UserRole.PSICOLOGO_TITULAR]: {
@@ -73,8 +73,23 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
   }
 };
 
+/** Itens de navegação; a visibilidade por perfil vem de MODULE_ACCESS (@terapiainfoco/shared) */
+const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
+  portal: { label: 'Meu Espaço', shortLabel: 'Início', icon: HeartHandshake, iconClass: 'text-indigo-600 dark:text-indigo-400' },
+  dashboard: { label: '0. Dashboard & Métricas', shortLabel: 'Início', icon: BarChart3, iconClass: 'text-teal-600 dark:text-teal-400' },
+  agenda: { label: '1. Agenda & Meet', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
+  patients: { label: '2. Pacientes & Portal', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
+  soap: { label: '3 & 4. SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
+  documents: { label: '5. Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },
+  audit: { label: 'Trilha WORM (Audit)', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
+  backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' }
+};
+
+const NAV_ITEM_ACTIVE = 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30';
+const NAV_ITEM_IDLE = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50';
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'patients' | 'soap' | 'documents' | 'audit' | 'security' | 'backups'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AppModule>('dashboard');
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
@@ -135,13 +150,7 @@ export default function App() {
     } finally {
       setRoleDropdownOpen(false);
       setShowPublicShowcase(false);
-      if (role === UserRole.PACIENTE) {
-        setActiveTab('agenda');
-      } else if (role === UserRole.ADMIN) {
-        setActiveTab('security');
-      } else {
-        setActiveTab('dashboard');
-      }
+      setActiveTab(defaultModule(role));
     }
   };
 
@@ -154,13 +163,7 @@ export default function App() {
   const handleAuthenticated = (user: SafeUser) => {
     setCurrentUser(user);
     setShowPublicShowcase(false);
-    if (user.role === UserRole.PACIENTE) {
-      setActiveTab('agenda');
-    } else if (user.role === UserRole.ADMIN) {
-      setActiveTab('security');
-    } else {
-      setActiveTab('dashboard');
-    }
+    setActiveTab(defaultModule(user.role));
   };
 
   const handleLogout = async () => {
@@ -173,12 +176,12 @@ export default function App() {
     setShowPublicShowcase(true);
   };
 
-  // Verificações RBAC para a UI
-  const isSecretary = currentUser.role === UserRole.RECEPCAO_SECRETARIA;
+  // Navegação dinâmica: só aparecem os módulos permitidos ao perfil (RFC-001 §4.5)
   const isPatient = currentUser.role === UserRole.PACIENTE;
-  const isBlockedClinicalTab =
-    (isSecretary || isPatient) &&
-    (activeTab === 'soap' || activeTab === 'audit' || activeTab === 'backups');
+  const navModules = visibleModules(currentUser.role).filter(
+    (module): module is Exclude<AppModule, 'security'> => module !== 'security'
+  );
+  const currentTab: AppModule = canViewModule(currentUser.role, activeTab) ? activeTab : defaultModule(currentUser.role);
 
   // Se estiver na Vitrine Pública Sem Login, exibe a página completa de apresentação da ferramenta
   if (showPublicShowcase) {
@@ -385,46 +388,6 @@ export default function App() {
         {/* Banner de Modo Anti-Shoulder Surfing */}
         <PrivacyBanner />
 
-        {/* Banner Dedicado de Jornada do Paciente quando autenticado como PACIENTE */}
-        {isPatient && (
-          <div className="bg-gradient-to-r from-indigo-600/10 via-teal-500/10 to-emerald-500/10 border-b border-indigo-500/20 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <HeartHandshake className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-900 dark:text-white">
-                  Olá, {currentUser.name}! Você está no seu Espaço do Paciente (Titular LGPD Art. 18)
-                </p>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Acesse seus exercícios terapêuticos (TCC/ACT/DBT), recibos para reembolso, termos TCLE e o seu Cofre de Portabilidade Cifrado (.enc).
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setPatientPortalModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all"
-              >
-                <HeartHandshake className="w-3.5 h-3.5" />
-                <span>Meus Exercícios, Recibos & TCLE</span>
-              </button>
-              <button
-                onClick={() => setPortabilityVaultModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-all"
-              >
-                <FolderLock className="w-3.5 h-3.5" />
-                <span>Meu Cofre .enc (LGPD Art. 18)</span>
-              </button>
-              <button
-                onClick={() => setProfileModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Meu Perfil</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Mobile Drawer (Menu Lateral Deslizante para Mobile) */}
         {mobileMenuOpen && (
           <div
@@ -463,104 +426,24 @@ export default function App() {
                 Módulos RFC-001
               </div>
 
-              <button
-                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'dashboard'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  <span>0. Dashboard & Métricas</span>
-                </div>
-                {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'agenda'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>1. Agenda & Meet</span>
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('patients'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'patients'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>2. Pacientes & FLE</span>
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('soap'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'soap'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span>3 & 4. SOAP & IA</span>
-                </div>
-                {(isSecretary || isPatient) && <Lock className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('documents'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'documents'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  <span>5. Documentos CFP</span>
-                </div>
-                {isSecretary && <Lock className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('audit'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'audit'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Trilha WORM (Audit)</span>
-                </div>
-                {(isSecretary || isPatient) && <Lock className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('backups'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'backups'
-                    ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Database className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  <span>Backups & DR (KMS)</span>
-                </div>
-                {(isSecretary || isPatient) && <Lock className="w-3.5 h-3.5 text-rose-500" />}
-              </button>
+              {[...navModules, 'security' as const].map((module) => {
+                const item = module === 'security'
+                  ? { label: 'Segurança & 2FA', icon: KeyRound, iconClass: 'text-emerald-600 dark:text-emerald-400' }
+                  : NAV_ITEMS[module];
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={module}
+                    onClick={() => { setActiveTab(module); setMobileMenuOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      currentTab === module ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${item.iconClass}`} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -590,130 +473,27 @@ export default function App() {
               Módulos RFC-001
             </div>
 
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>0. Dashboard & Métricas</span>
-              </div>
-              {isSecretary && (
-                <span title="Restrito a Psicólogos e Admin">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('agenda')}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'agenda'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>1. Agenda & Meet</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('patients')}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'patients'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              <span>2. Pacientes & Portal</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('soap')}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'soap'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                <span>3 & 4. SOAP & IA</span>
-              </div>
-              {(isSecretary || isPatient) && (
-                <span title="Restrito a Psicólogos">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'documents'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>5. Documentos & Recibos</span>
-              </div>
-              {isSecretary && (
-                <span title="Restrito a Psicólogos">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'audit'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Trilha WORM (Audit)</span>
-              </div>
-              {(isSecretary || isPatient) && (
-                <span title="Restrito a Psicólogos e Admin">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('backups')}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'backups'
-                  ? 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Database className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Backups & DR (KMS)</span>
-              </div>
-              {(isSecretary || isPatient) && (
-                <span title="Restrito a Psicólogos e Admin">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                </span>
-              )}
-            </button>
+            {navModules.map((module) => {
+              const { label, icon: Icon, iconClass } = NAV_ITEMS[module];
+              return (
+                <button
+                  key={module}
+                  onClick={() => setActiveTab(module)}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    currentTab === module ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${iconClass}`} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
 
             <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800/80 space-y-1">
               <button
                 onClick={() => setActiveTab('security')}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'security'
+                  currentTab === 'security'
                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
                 }`}
@@ -748,58 +528,32 @@ export default function App() {
           {/* Workspace Body */}
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-20 md:pb-8 overflow-y-auto overflow-x-hidden">
             <div className="max-w-5xl mx-auto">
-              {/* Bloqueio Amigável de Autorização RBAC para Recepção / Secretária ou Paciente em abas restritas */}
-              {isBlockedClinicalTab ? (
-                <div className="max-w-xl mx-auto my-12 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-rose-200 dark:border-rose-900/60 shadow-xl text-center space-y-4 animate-fade-in">
-                  <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
-                    <ShieldAlert className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Acesso Restrito pelo CFP nº 001/2009 e LGPD Art. 11
-                  </h2>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Prontuários eletrônicos de evolução SOAP com notas técnicas sigilosas, trilhas de auditoria interna e snapshots KMS são de acesso <strong>estritamente exclusivo do psicólogo responsável e supervisores clínicos</strong>.
-                  </p>
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                    Perfil atual: <strong className="text-slate-800 dark:text-slate-200">{DEMO_USERS[currentUser.role]?.roleName || currentUser.role}</strong>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {isPatient && (
-                      <button
-                        onClick={() => setPatientPortalModalOpen(true)}
-                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md transition-all"
-                      >
-                        Abrir Meu Portal do Paciente
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleSwitchRole(UserRole.PSICOLOGO_TITULAR)}
-                      className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-md transition-all active:scale-95"
-                    >
-                      Alternar para Perfil de Psicólogo Titular
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {activeTab === 'dashboard' && <DashboardModule />}
-                  {activeTab === 'agenda' && <AgendaModule />}
-                  {activeTab === 'patients' && <PatientsModule />}
-                  {activeTab === 'soap' && <SoapModule />}
-                  {activeTab === 'documents' && <DocumentsModule />}
-                  {activeTab === 'audit' && <AuditModule />}
-                  {activeTab === 'security' && (
+              <>
+                  {currentTab === 'portal' && (
+                    <PatientHomeModule
+                      currentUser={currentUser}
+                      onOpenPortal={() => setPatientPortalModalOpen(true)}
+                      onOpenPortabilityVault={() => setPortabilityVaultModalOpen(true)}
+                      onOpenProfile={() => setProfileModalOpen(true)}
+                    />
+                  )}
+                  {currentTab === 'dashboard' && <DashboardModule />}
+                  {currentTab === 'agenda' && <AgendaModule />}
+                  {currentTab === 'patients' && <PatientsModule />}
+                  {currentTab === 'soap' && <SoapModule />}
+                  {currentTab === 'documents' && <DocumentsModule />}
+                  {currentTab === 'audit' && <AuditModule />}
+                  {currentTab === 'security' && (
                     <SecurityModule
                       currentUser={currentUser}
                       onUserUpdated={setCurrentUser}
                       onSwitchRole={handleSwitchRole}
                     />
                   )}
-                  {activeTab === 'backups' && (
+                  {currentTab === 'backups' && (
                     <BackupModule currentUser={currentUser} />
                   )}
-                </>
-              )}
+              </>
             </div>
           </main>
         </div>
@@ -838,41 +592,23 @@ export default function App() {
 
         {/* Mobile Bottom Navigation Bar */}
         <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'text-teal-600 dark:text-teal-400 font-bold'
-                : 'text-slate-500 dark:text-slate-400'
-            }`}
-          >
-            <BarChart3 className="w-5 h-5 mb-0.5" />
-            <span>Início</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('agenda')}
-            className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
-              activeTab === 'agenda'
-                ? 'text-teal-600 dark:text-teal-400 font-bold'
-                : 'text-slate-500 dark:text-slate-400'
-            }`}
-          >
-            <Calendar className="w-5 h-5 mb-0.5" />
-            <span>Agenda</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('patients')}
-            className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
-              activeTab === 'patients'
-                ? 'text-teal-600 dark:text-teal-400 font-bold'
-                : 'text-slate-500 dark:text-slate-400'
-            }`}
-          >
-            <Users className="w-5 h-5 mb-0.5" />
-            <span>Pacientes</span>
-          </button>
+          {navModules.slice(0, 3).map((module) => {
+            const { shortLabel, icon: Icon } = NAV_ITEMS[module];
+            return (
+              <button
+                key={module}
+                onClick={() => setActiveTab(module)}
+                className={`flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer ${
+                  currentTab === module
+                    ? 'text-teal-600 dark:text-teal-400 font-bold'
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                <Icon className="w-5 h-5 mb-0.5" />
+                <span>{shortLabel}</span>
+              </button>
+            );
+          })}
 
           <button
             onClick={() => setProfileModalOpen(true)}

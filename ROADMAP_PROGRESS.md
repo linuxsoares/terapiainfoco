@@ -2366,7 +2366,10 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Separação de perfis (2/2) — posse e conteúdo clínico (rotas centrais):** política `accessPolicy` (posse por `therapistId`, 404 para recursos alheios) em pacientes, consultas e prontuários; busca por CPF restrita ao consultório; Admin/DPO sem acesso a prontuário/anamnese/linha do tempo/exportação, mantendo revogação de consentimento e quarentena (LGPD Art. 18); matriz de acesso no RFC-001 §4.5.
 - [x] **Posse nos módulos de conteúdo clínico:** documentos CFP, transcrições (clássica e IA), marcadores, metas e escalas restritos a `CLINICAL_ROLES` com posse por paciente/consulta (`requireBodyOwnership`, `requireOwnedResource`); Admin/DPO sem acesso.
 - [ ] **Posse nos módulos restantes:** encaminhamentos, laudos consolidados, recibos/contratos, teleconsulta, árvore diagnóstica, encaminhamento psiquiátrico, lote ICP e cofre de portabilidade.
-- [ ] **Menus dinâmicos por perfil:** o frontend exibe apenas os módulos permitidos ao perfil, derivados da mesma matriz de acesso do backend (RFC-001 §4.5).
+- [x] **Menus dinâmicos por perfil:** `MODULE_ACCESS` em `@terapiainfoco/shared` dirige sidebar, menu mobile e barra inferior (sem cadeados nem tela de "acesso restrito"); módulo "Meu Espaço" para o paciente (que deixa de ver a agenda do consultório); backups restritos ao Admin; `GET /api/appointments/mine` corrige a agenda que pedia o id do usuário no lugar do consultório; teste de contrato menu ↔ backend.
+- [ ] **Ações por perfil dentro dos módulos:** ocultar botões clínicos (metas, anamnese, escalas) da recepção no módulo de pacientes.
+- [ ] **Trilha de auditoria do psicólogo filtrada pelo próprio consultório** (hoje o psicólogo vê a trilha global).
+- [ ] **"Minhas consultas" no Meu Espaço do paciente** (depende do vínculo paciente ↔ psicólogo no agendamento).
 - [ ] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
 - [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.

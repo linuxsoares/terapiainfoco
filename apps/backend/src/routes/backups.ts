@@ -9,13 +9,13 @@ export const backupsRoute = new Hono();
 backupsRoute.use('*', authMiddleware());
 
 // 1. Visão geral, indicadores de RPO/RTO e histórico de snapshots
-backupsRoute.get('/', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+backupsRoute.get('/', requireRoles([UserRole.ADMIN]), async (c) => {
   const overview = BackupService.getBackupOverview();
   return c.json(overview, 200);
 });
 
 // 2. Disparar geração de novo snapshot de backup criptografado via KMS
-backupsRoute.post('/', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+backupsRoute.post('/', requireRoles([UserRole.ADMIN]), async (c) => {
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
   const user = c.get('user');
@@ -33,7 +33,7 @@ backupsRoute.post('/', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]
 });
 
 // 3. Download do arquivo completo do backup cifrado (.kms-backup.json)
-backupsRoute.get('/:id/download', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+backupsRoute.get('/:id/download', requireRoles([UserRole.ADMIN]), async (c) => {
   const id = c.req.param('id');
   const file = BackupService.getBackupFile(id);
 
@@ -47,7 +47,7 @@ backupsRoute.get('/:id/download', requireRoles([UserRole.PSICOLOGO_TITULAR, User
 });
 
 // 4. Simulação de Disaster Recovery e verificação criptográfica de integridade
-backupsRoute.post('/:id/verify', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+backupsRoute.post('/:id/verify', requireRoles([UserRole.ADMIN]), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');

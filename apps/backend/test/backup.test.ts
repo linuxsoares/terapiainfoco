@@ -70,7 +70,7 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     const backupRes = await app.request('/api/backups', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       }
     });
 
@@ -98,13 +98,13 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     // 1. Gera backup
     const backupRes = await app.request('/api/backups', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     const { backup } = await backupRes.json();
 
     // 2. Download do arquivo
     const downloadRes = await app.request(`/api/backups/${backup.id}/download`, {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     expect(downloadRes.status).toBe(200);
@@ -123,14 +123,14 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     // 1. Gera backup
     const backupRes = await app.request('/api/backups', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     const { backup } = await backupRes.json();
 
     // 2. Executa verificação do snapshot
     const verifyRes = await app.request(`/api/backups/${backup.id}/verify`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     expect(verifyRes.status).toBe(200);
@@ -144,7 +144,7 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
 
     // 3. Consulta histórico e valida status VERIFIED
     const overviewRes = await app.request('/api/backups', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     const overview = await overviewRes.json();
     const updated = overview.backups.find((b: any) => b.id === backup.id);
@@ -215,16 +215,16 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     // Gera 1 backup e verifica
     const backupRes = await app.request('/api/backups', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     const { backup } = await backupRes.json();
     await app.request(`/api/backups/${backup.id}/verify`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     const overviewRes = await app.request('/api/backups', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     expect(overviewRes.status).toBe(200);
@@ -259,6 +259,17 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
       headers: { Authorization: `Bearer ${secretaryToken}` }
     });
     expect(secCreateRes.status).toBe(403);
+
+    // Backups contêm dados de todos os consultórios: psicólogo não lista nem cria -> 403 Forbidden
+    const therapistListRes = await app.request('/api/backups', {
+      headers: { Authorization: `Bearer ${therapistToken}` }
+    });
+    expect(therapistListRes.status).toBe(403);
+    const therapistCreateRes = await app.request('/api/backups', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${therapistToken}` }
+    });
+    expect(therapistCreateRes.status).toBe(403);
 
     // Psicólogo Titular tentando executar Restore emergencial (apenas Admin) -> 403 Forbidden
     const therapistRestoreRes = await app.request(`/api/backups/${backup.id}/restore`, {
