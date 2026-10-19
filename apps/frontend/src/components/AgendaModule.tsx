@@ -20,6 +20,7 @@ import {
   RecurrenceFrequency,
   ReminderChannel,
   ReminderTiming,
+  UserRole,
   type DecryptedAppointment,
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
@@ -27,7 +28,12 @@ import { api } from '../services/api';
 import { TeleconsultationRoom } from './TeleconsultationRoom';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 
-export function AgendaModule() {
+/** A sala pode ser iniciada a partir de 15 minutos antes do horário (mesma regra do backend) */
+const SESSION_EARLY_START_MS = 15 * 60 * 1000;
+
+export function AgendaModule({ role }: { role: UserRole }) {
+  // Iniciar e concluir sessão são atos clínicos: a recepção só confirma, reagenda e cancela
+  const isClinician = role === UserRole.PSICOLOGO_TITULAR || role === UserRole.SUPERVISOR_CLINICO;
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -395,7 +401,8 @@ export function AgendaModule() {
                       Lembrete
                     </button>
 
-                    {app.status === AppointmentStatus.CONFIRMADA && (
+                    {isClinician && app.status === AppointmentStatus.CONFIRMADA &&
+                     Date.now() >= new Date(app.scheduledStart).getTime() - SESSION_EARLY_START_MS && (
                       <button
                         onClick={() => handleStatusChange(app.id, AppointmentStatus.EM_ANDAMENTO)}
                         className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -404,7 +411,7 @@ export function AgendaModule() {
                       </button>
                     )}
 
-                    {app.status === AppointmentStatus.EM_ANDAMENTO && (
+                    {isClinician && app.status === AppointmentStatus.EM_ANDAMENTO && (
                       <>
                         <button
                           onClick={() => handleStatusChange(app.id, AppointmentStatus.CONCLUIDA)}
@@ -428,9 +435,10 @@ export function AgendaModule() {
                     )}
 
                     {app.status !== AppointmentStatus.CONCLUIDA && 
-                     app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && (
+                     app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE &&
+                     app.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA && (
                       <button
-                        onClick={() => handleStatusChange(app.id, AppointmentStatus.CANCELADA_PELO_PACIENTE)}
+                        onClick={() => handleStatusChange(app.id, AppointmentStatus.CANCELADA_PELO_TERAPEUTA)}
                         className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 dark:bg-slate-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:text-slate-400 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5" /> Cancelar

@@ -4,6 +4,7 @@ import {
   AuditAction, 
   AuditResourceType,
   RecurrenceFrequency,
+  UserRole,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
   type DecryptedAppointment,
@@ -32,6 +33,9 @@ function utcOffsetMinutes(offset: string): number {
   const minutes = Number(match[2]) * 60 + Number(match[3]);
   return match[1] === '-' ? -minutes : minutes;
 }
+
+/** Antecedência máxima para iniciar a sessão (sala aberta antes do horário) */
+const SESSION_EARLY_START_MS = 15 * 60 * 1000;
 
 export class AppointmentService {
   /**
@@ -72,6 +76,39 @@ export class AppointmentService {
     });
 
     return toDecryptedAppointment(storedAppointment);
+  }
+
+  /**
+   * Regras de transição pedidas pela equipe do consultório. Iniciar, concluir e registrar falta
+   * são atos clínicos (psicólogo/supervisor) e dependem do horário: uma sessão de amanhã não
+   * pode constar como concluída nas métricas nem sumir da lista do paciente.
+   */
+  static assertStaffTransition(
+    appointmentId: string,
+    newStatus: AppointmentStatus,
+    role: UserRole,
+    now: Date = new Date()
+  ): void {
+    const appointment = db.appointments.get(appointmentId);
+    if (!appointment) throw new Error('Consulta não encontrada');
+
+    const clinicalStatuses = [AppointmentStatus.EM_ANDAMENTO, AppointmentStatus.CONCLUIDA, AppointmentStatus.NAO_COMPARECEU];
+    if (!clinicalStatuses.includes(newStatus)) return;
+
+    if (role !== UserRole.PSICOLOGO_TITULAR && role !== UserRole.SUPERVISOR_CLINICO) {
+      throw new Error('Apenas o psicólogo inicia, conclui ou registra falta em uma sessão.');
+    }
+    const start = new Date(appointment.scheduledStart).getTime();
+    if (newStatus === AppointmentStatus.EM_ANDAMENTO && now.getTime() < start - SESSION_EARLY_START_MS) {
+      throw new Error('A sessão só pode ser iniciada a partir de 15 minutos antes do horário marcado.');
+    }
+    // Concluir exige sessão em andamento ou já iniciada no horário (registro retroativo)
+    if (newStatus === AppointmentStatus.CONCLUIDA && appointment.status !== AppointmentStatus.EM_ANDAMENTO && now.getTime() < start) {
+      throw new Error('Só é possível concluir uma sessão em andamento ou cujo horário já começou.');
+    }
+    if (newStatus === AppointmentStatus.NAO_COMPARECEU && now.getTime() < start) {
+      throw new Error('A falta só pode ser registrada após o horário marcado.');
+    }
   }
 
   /**
