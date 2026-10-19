@@ -2365,6 +2365,7 @@ terapiainfoco/
 | `fix/link-sala-teleconsulta` | Link da sala usa a URL do site no painel; `PUBLIC_APP_URL` obrigatória em produção (sem localhost) | [PR #125](https://github.com/linuxsoares/terapiainfoco/pull/125) | Merged |
 | `fix/sessao-persistente-no-refresh` | Sessão persistente ao recarregar (última tela), renovação automática do access token com refresh rotacionado e E2E de sessão | [PR #126](https://github.com/linuxsoares/terapiainfoco/pull/126) | Merged |
 | `fix/consentimento-transcricao-na-sala` | Paciente autoriza a transcrição na sala; nova autorização limpa revogação; erros do SOAP e da OpenAI explicam o motivo | [PR #127](https://github.com/linuxsoares/terapiainfoco/pull/127) | Merged |
+| `fix/transcricao-preenchida-no-soap` | Transcrição da sala aparece preenchida no campo do SOAP (sem edição usa a original) | [PR #128](https://github.com/linuxsoares/terapiainfoco/pull/128) | Merged |
 
 ---
 
