@@ -71,6 +71,12 @@ appointmentsRoute.get('/patient/mine', authMiddleware(), requireRoles([UserRole.
   return c.json({ success: true, appointments });
 });
 
+// Psicólogos que já atendem o paciente (atalho para agendar a próxima sessão)
+appointmentsRoute.get('/patient/therapists', authMiddleware(), requireRoles([UserRole.PACIENTE]), async (c) => {
+  const therapists = await AppointmentService.getPatientUserTherapists(c.get('userId'));
+  return c.json({ success: true, therapists });
+});
+
 // Demais rotas da agenda exigem sessão autenticada da equipe do consultório.
 // Registrado após as rotas públicas acima: o Hono executa na ordem de registro.
 appointmentsRoute.use('*', authMiddleware(), requireRoles(PRACTICE_STAFF_ROLES), async (c, next) => {

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
+import { TherapistProfileRepository } from '../src/repositories/therapistProfileRepository';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
 
@@ -88,6 +89,40 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     const staff = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}`, 'Content-Type': 'application/json' };
     expect((await book(staff, { therapistId: 'therapist-001', ...slot(3, 15), consentTeleconsultationSigned: true })).status).toBe(403);
     expect((await app.request('/api/appointments/patient/mine')).status).toBe(401);
+  });
+
+  it('"Meus psicólogos" lista quem já atende o paciente, e só para ele', async () => {
+    const { headers } = await newPatient();
+    const empty = await app.request('/api/appointments/patient/therapists', { headers });
+    expect(empty.status).toBe(200);
+    expect((await empty.json() as any).therapists).toEqual([]);
+
+    expect((await book(headers, { therapistId: 'therapist-001', ...slot(4, 13), consentTeleconsultationSigned: true })).status).toBe(201);
+    const res = await app.request('/api/appointments/patient/therapists', { headers });
+    const { therapists } = await res.json() as any;
+    expect(therapists).toHaveLength(1);
+    expect(therapists[0].therapistId).toBe('therapist-001');
+    expect(therapists[0].displayName).toBe('Dra. Beatriz Santos');
+    expect(therapists[0].published).toBeUndefined();
+
+    const staff = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` };
+    expect((await app.request('/api/appointments/patient/therapists', { headers: staff })).status).toBe(403);
+    expect((await app.request('/api/appointments/patient/therapists')).status).toBe(401);
+  });
+
+  it('paciente do consultório agenda mesmo com o psicólogo fora da busca; paciente novo não', async () => {
+    const owner = { therapistId: 'therapist-001', userId: PSICOLOGA_ID, name: 'Dra. Beatriz Santos', crp: '06/142980' };
+    const current = await newPatient();
+    expect((await book(current.headers, { therapistId: 'therapist-001', ...slot(5, 13), consentTeleconsultationSigned: true })).status).toBe(201);
+
+    await TherapistProfileRepository.upsertOwnProfile(owner, { published: false });
+    try {
+      expect((await book(current.headers, { therapistId: 'therapist-001', ...slot(5, 15), consentTeleconsultationSigned: true })).status).toBe(201);
+      const newcomer = await newPatient();
+      expect((await book(newcomer.headers, { therapistId: 'therapist-001', ...slot(5, 17), consentTeleconsultationSigned: true })).status).toBe(400);
+    } finally {
+      await TherapistProfileRepository.upsertOwnProfile(owner, { published: true });
+    }
   });
 
   it('agendamento público anônimo também exige psicólogo verificado', async () => {
