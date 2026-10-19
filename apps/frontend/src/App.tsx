@@ -47,9 +47,9 @@ import { PortabilityVaultModal } from './components/PortabilityVaultModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { PrivacyProvider } from './contexts/PrivacyContext';
 import { PrivacyBanner, PrivacyToggleButton } from './components/PrivacyBanner';
-import { api } from './services/api';
+import { api, hasStoredSession } from './services/api';
 import type { SafeUser, AppModule } from '@terapiainfoco/shared';
-import { UserRole, canViewModule, defaultModule, visibleModules } from '@terapiainfoco/shared';
+import { UserRole, APP_MODULES, canViewModule, defaultModule, visibleModules } from '@terapiainfoco/shared';
 
 const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; patientId?: string; roleName: string }> = {
   [UserRole.PSICOLOGO_TITULAR]: {
@@ -82,6 +82,25 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
   }
 };
 
+const LAST_TAB_KEY = 'terapiainfoco_active_tab';
+
+function readLastTab(): AppModule | null {
+  try {
+    const value = localStorage.getItem(LAST_TAB_KEY);
+    return value && (APP_MODULES as readonly string[]).includes(value) ? (value as AppModule) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastTab(tab: AppModule): void {
+  try {
+    localStorage.setItem(LAST_TAB_KEY, tab);
+  } catch {
+    // Armazenamento indisponível (aba anônima/bloqueio): apenas não lembra a tela
+  }
+}
+
 /** Itens de navegação; a visibilidade por perfil vem de MODULE_ACCESS (@terapiainfoco/shared) */
 const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
   portal: { label: 'Meu Espaço', shortLabel: 'Início', icon: HeartHandshake, iconClass: 'text-indigo-600 dark:text-indigo-400' },
@@ -102,6 +121,8 @@ const NAV_ITEM_IDLE = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 da
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppModule>('dashboard');
+  // Sessão salva (ou link de sala) é verificada antes de decidir entre vitrine e painel
+  const [restoringSession, setRestoringSession] = useState<boolean>(() => hasStoredSession());
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
@@ -173,12 +194,31 @@ export default function App() {
     setActiveTab(defaultModule(user.role));
   };
 
-  // Com o link da sala, reaproveita a sessão salva; sem ela, pede login
+  /** Sessão recuperada após refresh: volta à última tela, se o perfil puder vê-la */
+  const restoreAuthenticated = (user: SafeUser) => {
+    setCurrentUser(user);
+    setShowPublicShowcase(false);
+    const lastTab = readLastTab();
+    setActiveTab(lastTab && canViewModule(user.role, lastTab) ? lastTab : defaultModule(user.role));
+  };
+
+  // Lembra a tela aberta para voltar a ela depois de um refresh
   useEffect(() => {
-    if (!roomAppointmentId) return;
+    if (!showPublicShowcase) writeLastTab(activeTab);
+  }, [activeTab, showPublicShowcase]);
+
+  // Recupera a sessão salva ao abrir/recarregar a página (o cliente renova o token expirado)
+  useEffect(() => {
+    if (!hasStoredSession()) {
+      if (roomAppointmentId) handleOpenAuth('login', UserRole.PACIENTE);
+      return;
+    }
     api.getMe()
-      .then(handleAuthenticated)
-      .catch(() => handleOpenAuth('login', UserRole.PACIENTE));
+      .then(restoreAuthenticated)
+      .catch(() => {
+        if (roomAppointmentId) handleOpenAuth('login', UserRole.PACIENTE);
+      })
+      .finally(() => setRestoringSession(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -207,6 +247,14 @@ export default function App() {
   const currentTab: AppModule = canViewModule(currentUser.role, activeTab) ? activeTab : defaultModule(currentUser.role);
 
   // Se estiver na Vitrine Pública Sem Login, exibe a página completa de apresentação da ferramenta
+  if (restoringSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-sm" role="status">
+        Carregando sua sessão...
+      </div>
+    );
+  }
+
   if (showPublicShowcase) {
     return (
       <PrivacyProvider>

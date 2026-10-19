@@ -2403,6 +2403,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [ ] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (hoje gera 403 em `/system/telemetry/*`) e seleção de paciente no agendamento (hoje é um campo de ID livre).
 
+#### 🔐 Sessão
+- [x] **Sessão persistente:** recarregar a página mantém o login e a última tela aberta; access token expirado é renovado com o refresh token (uma renovação em voo, compatível com a rotação); sessão inválida volta à vitrine; E2E `bun run e2e:sessao`.
+
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
 - [x] **Notificações & Lembretes Multicanal de Teleconsulta (WhatsApp & E-mail - RFC-001 §3.1 / CFP nº 011/2018):** Disparo de mensagens éticas e acolhedoras com link direto wa.me, salas criptografadas com knocking (sala de espera) e auditoria WORM imutável.

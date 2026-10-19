@@ -24,7 +24,8 @@
     "test": "bun test",
     "test:load": "bun scripts/load-test.ts",
     "admin:create": "bun run --cwd apps/backend admin:create",
-    "e2e:teleconsulta": "bun scripts/e2e/teleconsultation-call.ts"
+    "e2e:teleconsulta": "bun scripts/e2e/teleconsultation-call.ts",
+    "e2e:sessao": "bun scripts/e2e/session-persistence.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

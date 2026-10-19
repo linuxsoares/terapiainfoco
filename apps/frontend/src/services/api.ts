@@ -659,7 +659,48 @@ export const authStorage = {
   }
 };
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Renova o access token com o refresh token salvo. Uma única renovação em voo: o backend
+ * rotaciona o refresh token, então chamadas paralelas (ex.: polling) não podem usá-lo duas vezes.
+ */
+function refreshSession(): Promise<boolean> {
+  const currentRefreshToken = authStorage.getRefreshToken();
+  if (!currentRefreshToken) return Promise.resolve(false);
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: currentRefreshToken })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.accessToken) {
+          // Refresh expirado ou revogado: sessão encerrada
+          if (res.status === 401) authStorage.clear();
+          return false;
+        }
+        authStorage.setToken(data.accessToken);
+        if (data.refreshToken) authStorage.setRefreshToken(data.refreshToken);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+/** Há sessão salva neste navegador (access ou refresh token) */
+export function hasStoredSession(): boolean {
+  return Boolean(authStorage.getToken() || authStorage.getRefreshToken());
+}
+
+async function request<T>(endpoint: string, options?: RequestInit, retried = false): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>)
@@ -675,9 +716,16 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     headers
   });
 
+  // Access token expirado: renova uma vez e repete a requisição
+  const isAuthEndpoint = endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/refresh');
+  if (res.status === 401 && !retried && !isAuthEndpoint && authStorage.getRefreshToken() && (await refreshSession())) {
+    return request<T>(endpoint, options, true);
+  }
+
   const data = await res.json();
   if (!res.ok || data.success === false) {
-    throw new Error(data.error || 'Erro na requisição');
+    // Rotas usam 'error' ou 'message' para descrever a falha
+    throw new Error(data.error || data.message || 'Erro na requisição');
   }
 
   return data;
