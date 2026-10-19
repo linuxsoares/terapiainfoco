@@ -1,8 +1,5 @@
 import { sign, verify } from 'hono/jwt';
 import { db } from '../db/memoryDb';
-import { getDb, schema } from '../db';
-import { persistUserToDb } from '../db/sync';
-import { eq } from 'drizzle-orm';
 import { config } from '../config';
 import { 
   generateTotpSecret, 
@@ -154,15 +151,6 @@ export class AuthService {
 
     db.users.set(userId, newUser);
 
-    // Persistência assíncrona no PostgreSQL / Supabase e Supabase Auth Admin
-    getDb().then(async sqlDb => {
-      try {
-        await persistUserToDb(sqlDb, newUser, dto.password);
-        console.log(`✅ Usuário ${newUser.email} persistido no Supabase/PostgreSQL.`);
-      } catch (sqlErr) {
-        console.warn('⚠️ Falha ao persistir usuário no Supabase/PostgreSQL:', sqlErr);
-      }
-    }).catch(() => {});
 
     await auditService.logAccess({
       actorId: userId,
@@ -182,37 +170,6 @@ export class AuthService {
   public async login(dto: LoginDTO, ipAddress: string = '127.0.0.1'): Promise<LoginResponse> {
     const email = dto.email.toLowerCase().trim();
     let user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
-
-    // Se não encontrou na memória, busca no PostgreSQL / Supabase
-    if (!user) {
-      try {
-        const sqlDb = await getDb();
-        const [found] = await (sqlDb as any)
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.email, email));
-        if (found) {
-          user = {
-            id: found.id,
-            email: found.email,
-            name: found.name,
-            role: found.role as any,
-            crp: found.crp || undefined,
-            crpRegion: found.crpRegion || undefined,
-            therapistId: found.therapistId || undefined,
-            passwordHash: found.passwordHash,
-            twoFactorEnabled: found.twoFactorEnabled,
-            twoFactorSecret: found.twoFactorSecret || undefined,
-            twoFactorBackupCodes: found.twoFactorBackupCodes || undefined,
-            createdAt: found.createdAt,
-            lastLoginAt: found.lastLoginAt || undefined
-          };
-          db.users.set(user.id, user);
-        }
-      } catch {
-        // fallback
-      }
-    }
 
     let passwordValid = false;
     if (user) {

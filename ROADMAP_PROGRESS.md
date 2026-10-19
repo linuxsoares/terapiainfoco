@@ -2355,7 +2355,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 
 - [x] **Chaves criptográficas estáveis entre deploys:** `FIELD_ENCRYPTION_KEY` e `KMS_MASTER_KEY` via ambiente; `JWT_SECRET`, `BLIND_INDEX_SALT` e chaves obrigatórios em produção (fail-fast).
 - [x] **Bootstrap explícito do banco:** `DATABASE_URL` obrigatório em produção, migrações sem engolir erros (baseline controlado para schemas pré-existentes), inicialização única concorrente, seed de demonstração restrito a `DEMO_MODE` e `PGLITE_DATA_DIR` para dev local persistente.
-- [ ] **Persistência durável de todas as coleções no PostgreSQL** (entity store + flush por requisição) — ADR-004 do RFC-001.
+- [x] **Persistência durável de todas as coleções no PostgreSQL** (ADR-004 do RFC-001): tabela `entity_store` (JSONB), hidratação no boot, flush transacional antes de cada resposta (503 se falhar), flush periódico + varredura completa, gravação no `SIGTERM`, importação única das tabelas legadas e remoção das escritas fire-and-forget/PostgREST.
+- [ ] **[Fase 2 do ADR-004] Repositórios SQL assíncronos** para usuários, pacientes, agendamentos e prontuários (habilita múltiplas réplicas).
+- [ ] **Rotação de KEK do KMS persistente** (hoje as versões rotacionadas da KEK vivem só em memória; apenas a v1 vem de `KMS_MASTER_KEY`).
 - [ ] **Separação de perfis:** autenticação em todas as rotas de agenda, verificação de posse (psicólogo ↔ paciente), Admin/DPO sem acesso a conteúdo clínico, cadastro público sem perfil Admin.
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
 - [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.

@@ -78,6 +78,8 @@ import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddlewa
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
 import { getDb } from './db';
+import { persistence } from './db/memoryDb';
+import { persistenceMiddleware } from './middlewares/persistenceMiddleware';
 
 export const app = new Hono();
 
@@ -105,6 +107,7 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'traceparent', 'tracestate']
 }));
+app.use('*', persistenceMiddleware());
 app.use('*', securityHeadersMiddleware());
 app.use('*', honeypotMiddleware());
 app.use('*', wafMiddleware());
@@ -251,6 +254,14 @@ app.route('/api/portability-vault', portabilityVaultRouter);
 
 
 
+
+// Grava mudanças pendentes antes de encerrar (deploy/restart no Railway envia SIGTERM)
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, async () => {
+    await persistence.detach();
+    process.exit(0);
+  });
+}
 
 console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);
 
