@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { HeartHandshake, FolderLock, User, ShieldCheck, Search, Video, CalendarDays } from 'lucide-react';
-import type { PatientAppointmentView, SafeUser } from '@terapiainfoco/shared';
+import { AppointmentStatus, type PatientAppointmentView, type SafeUser } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
@@ -29,7 +29,17 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
       .finally(() => setLoadingAppointments(false));
   }, []);
 
-  const upcoming = appointments.filter((a) => new Date(a.scheduledEnd).getTime() > Date.now());
+  // Sessões encerradas, canceladas ou com falta não oferecem mais a sala
+  const CLOSED_STATUSES: string[] = [
+    AppointmentStatus.CONCLUIDA,
+    AppointmentStatus.CANCELADA_PELO_PACIENTE,
+    AppointmentStatus.CANCELADA_PELO_TERAPEUTA,
+    AppointmentStatus.NAO_COMPARECEU,
+    AppointmentStatus.REAGENDADA
+  ];
+  const upcoming = appointments.filter(
+    (a) => new Date(a.scheduledEnd).getTime() > Date.now() && !CLOSED_STATUSES.includes(a.status)
+  );
   // Portal e cofre dependem de um prontuário, que nasce no primeiro agendamento
   const hasRecord = !!currentUser.patientId;
 

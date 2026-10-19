@@ -110,6 +110,7 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
   const userAgent = c.req.header('user-agent');
 
   try {
+    AppointmentService.assertStaffTransition(id, body.status, c.get('user').role);
     const updated = AppointmentService.updateStatus(id, body.status, {
       actorId: c.get('userId'),
       ipAddress: ip,

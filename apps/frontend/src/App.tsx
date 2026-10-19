@@ -638,7 +638,7 @@ export default function App() {
                   {currentTab === 'publicProfile' && <TherapistProfileEditor />}
                   {currentTab === 'crpVerification' && <CrpVerificationModule />}
                   {currentTab === 'dashboard' && <DashboardModule />}
-                  {currentTab === 'agenda' && <AgendaModule />}
+                  {currentTab === 'agenda' && <AgendaModule role={currentUser.role} />}
                   {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}
                   {currentTab === 'soap' && <SoapModule />}
                   {currentTab === 'documents' && <DocumentsModule />}
