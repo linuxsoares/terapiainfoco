@@ -7,13 +7,17 @@ import {
   type SendWebRtcSignalDTO,
   type SyncMediaHardwareDTO,
   type IceServersResponse,
+  type LiveTranscriptChunkDTO,
+  type LiveTranscriptStatusResponse,
+  type LiveTranscriptResponse,
   TeleconsultationParticipantRole,
   UserRole
 } from '@terapiainfoco/shared';
 import { TeleconsultationService } from '../services/teleconsultationService';
 import { config } from '../config';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
-import { requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
+import { CLINICAL_ROLES, requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
+import { LiveTranscriptionService, LiveTranscriptionError } from '../services/liveTranscriptionService';
 
 export const teleconsultationRoutes = new Hono();
 
@@ -203,6 +207,41 @@ teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAp
     cursor: c.req.query('after') || undefined
   });
   return c.json(result, 200);
+});
+
+/**
+ * GET /api/teleconsultation/transcription/status/:appointmentId
+ * Indica se a sessão pode ser transcrita (consentimento vigente e STT configurado)
+ */
+teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), (c) => {
+  return c.json(LiveTranscriptionService.status(c.req.param('appointmentId') ?? '') satisfies LiveTranscriptStatusResponse);
+});
+
+/**
+ * POST /api/teleconsultation/transcription/chunk
+ * Trecho do microfone do participante: transcrito pelo STT e descartado (nunca gravado)
+ */
+teleconsultationRoutes.post('/transcription/chunk', authMiddleware(), requireBodyOwnership(), async (c) => {
+  try {
+    const body = await c.req.json<LiveTranscriptChunkDTO>();
+    const utterance = await LiveTranscriptionService.transcribeChunk(body, c.get('user'), {
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
+    return c.json({ success: true, utterance });
+  } catch (err: any) {
+    const status = err instanceof LiveTranscriptionError ? err.status : 502;
+    return c.json({ success: false, message: err.message || 'Falha na transcrição do trecho.' }, status);
+  }
+});
+
+/**
+ * GET /api/teleconsultation/transcription/:appointmentId
+ * Transcrição da sessão para o psicólogo/supervisor do consultório
+ */
+teleconsultationRoutes.get('/transcription/:appointmentId', authMiddleware(), requireRole(CLINICAL_ROLES), requireAppointmentAccess('appointmentId'), (c) => {
+  const utterances = LiveTranscriptionService.getTranscript(c.req.param('appointmentId') ?? '');
+  return c.json({ success: true, utterances } satisfies LiveTranscriptResponse);
 });
 
 /**

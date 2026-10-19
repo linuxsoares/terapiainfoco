@@ -63,10 +63,13 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
   // Formulário de Nova Ingestão
   const [rawText, setRawText] = useState<string>('');
   const [consentConfirmed, setConsentConfirmed] = useState<boolean>(true);
+  // Falas transcritas durante a teleconsulta (sem gravação)
+  const [liveUtterancesCount, setLiveUtterancesCount] = useState<number>(0);
 
   useEffect(() => {
     if (isOpen && appointmentId) {
       loadSession();
+      api.getLiveTranscript(appointmentId).then((u) => setLiveUtterancesCount(u.length)).catch(() => setLiveUtterancesCount(0));
     }
   }, [isOpen, appointmentId]);
 
@@ -624,8 +627,10 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
                   <span>Processamento de Transcrição Clínica</span>
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Insira o texto bruto da conversa (ou deixe em branco para simular a ingestão da transcrição da sala de teleconsulta).
-                  O sistema realizará a <strong>diarização estrita dos locutores</strong> e a <strong>síntese estruturada no modelo SOAP</strong>.
+                  {liveUtterancesCount > 0
+                    ? `A transcrição da teleconsulta está disponível (${liveUtterancesCount} falas). Deixe o campo abaixo em branco para usá-la, ou cole outro texto.`
+                    : 'Cole o texto da conversa com os locutores. Sessões realizadas na sala da plataforma com consentimento já chegam transcritas.'}
+                  {' '}O sistema realizará a <strong>diarização estrita dos locutores</strong> e a <strong>síntese estruturada no modelo SOAP</strong>.
                 </p>
 
                 <div>

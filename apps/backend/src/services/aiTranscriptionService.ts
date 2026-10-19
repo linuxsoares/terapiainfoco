@@ -18,6 +18,8 @@ import type {
   StoredClinicalRecord
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { config } from '../config';
+import { LiveTranscriptionService } from './liveTranscriptionService';
 import { encryptField, decryptField } from './cryptoContext';
 
 /**
@@ -67,8 +69,24 @@ export class AiTranscriptionService {
     } else if (dto.rawTranscriptText && dto.rawTranscriptText.trim().length > 0) {
       utterances = this.parseRawTranscriptToUtterances(dto.rawTranscriptText);
     } else {
-      // Cria diálogo clínico simulado padrão para fins de demonstração
-      utterances = this.createDefaultClinicalDialogue();
+      // Transcrição feita durante a teleconsulta (STT, sem gravação)
+      const live = LiveTranscriptionService.getTranscript(dto.appointmentId);
+      if (live.length > 0) {
+        utterances = live.map((u) => ({
+          id: u.id,
+          speaker: u.speaker,
+          startTimeMs: u.startTimeMs,
+          endTimeMs: u.endTimeMs,
+          text: u.text,
+          confidenceScore: 0.95,
+          sentimentPolarity: this.detectSentiment(u.text)
+        }));
+      } else if (config.demoMode) {
+        // Diálogo clínico de exemplo apenas em demonstração
+        utterances = this.createDefaultClinicalDialogue();
+      } else {
+        throw new Error('Nenhuma transcrição disponível para esta consulta. Cole o texto da sessão ou realize a teleconsulta com transcrição ativa.');
+      }
     }
 
     // 3. Vinculação com Marcadores Clínicos da Teleconsulta (se existirem)
