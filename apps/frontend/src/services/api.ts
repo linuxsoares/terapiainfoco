@@ -734,8 +734,9 @@ export const api = {
   },
 
   // 2. Agenda & Sessões (RFC §3.1, §3.2)
-  async getAppointments(therapistId = '00000000-0000-0000-0000-000000000001'): Promise<DecryptedAppointment[]> {
-    const res = await request<{ success: boolean; appointments: DecryptedAppointment[] }>(`/appointments/therapist/${therapistId}`);
+  /** Consultas do consultório do usuário autenticado */
+  async getAppointments(): Promise<DecryptedAppointment[]> {
+    const res = await request<{ success: boolean; appointments: DecryptedAppointment[] }>('/appointments/mine');
     return res.appointments;
   },
 

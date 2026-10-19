@@ -135,6 +135,12 @@ appointmentsRoute.post('/:id/end-meet', requireAppointmentAccess(), async (c) =>
 import { ReminderService } from '../services/reminderService';
 import { ReminderChannel } from '@terapiainfoco/shared';
 
+// Listar consultas do consultório do usuário autenticado
+appointmentsRoute.get('/mine', async (c) => {
+  const appointments = AppointmentService.getTherapistAppointments(c.get('user').therapistId!);
+  return c.json({ success: true, appointments });
+});
+
 // Listar consultas do terapeuta
 appointmentsRoute.get('/therapist/:therapistId', async (c) => {
   const therapistId = c.req.param('therapistId');
