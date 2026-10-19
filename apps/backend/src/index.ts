@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 import { config } from './config';
 import { patientsRoute } from './routes/patients';
 import { appointmentsRoute } from './routes/appointments';
+import { therapistsRoute } from './routes/therapists';
 import { clinicalRecordsRoute } from './routes/clinicalRecords';
 import { auditRoute } from './routes/audit';
 import { documentsRoute } from './routes/documents';
@@ -180,6 +181,7 @@ app.get('/health/startup', (c) => {
 app.route('/api/auth', authRoute);
 app.route('/api/patients', patientsRoute);
 app.route('/api/appointments', appointmentsRoute);
+app.route('/api/therapists', therapistsRoute);
 app.route('/api/clinical-records', clinicalRecordsRoute);
 app.route('/api/documents', documentsRoute);
 app.route('/api/transcriptions', transcriptionsRoute);

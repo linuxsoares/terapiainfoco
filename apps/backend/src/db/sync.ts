@@ -2,6 +2,8 @@ import type { AppDb } from './index';
 import * as schema from './schema';
 import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
+import { config } from '../config';
+import { seedDemoTherapistProfile } from '../repositories/therapistProfileRepository';
 
 /**
  * Carrega o cache de domínio a partir do PostgreSQL e ativa a persistência durável (ADR-004).
@@ -21,6 +23,10 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
   }
 
   await persistence.attach(sqlDb);
+
+  if (config.demoMode) {
+    await seedDemoTherapistProfile(sqlDb);
+  }
 }
 
 async function importLegacyRecords(sqlDb: AppDb): Promise<string[]> {

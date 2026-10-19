@@ -2348,6 +2348,7 @@ terapiainfoco/
 | `fix/authz-ownership-and-clinical-access` | Posse por consultório (`accessPolicy`) em pacientes, consultas e prontuários; Admin/DPO sem acesso clínico; matriz de acesso no RFC-001 §4.5 | [PR #108](https://github.com/linuxsoares/terapiainfoco/pull/108) | Merged |
 | `fix/authz-clinical-modules-ownership` | Posse por consultório e restrição clínica em documentos CFP, transcrições (clássica/IA), marcadores, metas e escalas | [PR #109](https://github.com/linuxsoares/terapiainfoco/pull/109) | Merged |
 | `feat/role-based-dynamic-menus` | Menus dinâmicos por perfil (`MODULE_ACCESS` compartilhado), módulo Meu Espaço do paciente, `/appointments/mine` e backups exclusivos do Admin | [PR #110](https://github.com/linuxsoares/terapiainfoco/pull/110) | Merged |
+| `feat/therapist-search-backend` | Busca pública de psicólogos (backend): `therapist_profiles` com full-text GIN, perfil público por slug, edição pelo psicólogo e verificação de CRP pelo Admin | [PR #111](https://github.com/linuxsoares/terapiainfoco/pull/111) | Merged |
 
 ---
 
@@ -2373,7 +2374,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **"Minhas consultas" no Meu Espaço do paciente** (depende do vínculo paciente ↔ psicólogo no agendamento).
 - [ ] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
-- [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.
+- [x] **Busca pública de psicólogos (backend):** tabela `therapist_profiles` com full-text (`tsvector` + GIN), `GET /api/therapists/search` (texto sem acento/por prefixo, abordagem, especialidade, valor máximo, paginação), página pública por slug, edição pelo psicólogo (`/me/profile`), verificação de CRP pelo Admin (`/admin/pending`, `/admin/:id/verify-crp`) e perfil demo em `DEMO_MODE`.
+- [ ] **Busca pública de psicólogos (frontend):** página de busca e perfil público na vitrine, editor de perfil do psicólogo e fila de verificação de CRP no painel do Admin.
+- [ ] **Agendamento a partir do perfil:** paciente agenda com o psicólogo escolhido, criando o vínculo paciente ↔ consultório.
 
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
 - [x] **Notificações & Lembretes Multicanal de Teleconsulta (WhatsApp & E-mail - RFC-001 §3.1 / CFP nº 011/2018):** Disparo de mensagens éticas e acolhedoras com link direto wa.me, salas criptografadas com knocking (sala de espera) e auditoria WORM imutável.
