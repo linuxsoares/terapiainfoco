@@ -2354,6 +2354,7 @@ terapiainfoco/
 | `feat/patient-booking-frontend` | Agendamento pelo paciente no perfil do psicólogo, Minhas consultas, fim do fallback para paciente demo e horários no fuso da clínica | [PR #114](https://github.com/linuxsoares/terapiainfoco/pull/114) | Merged |
 | `fix/authz-remaining-modules-ownership` | Posse por consultório nos módulos restantes: encaminhamentos, laudos, recibos, teleconsulta, árvore diagnóstica, psiquiátrico, ICP, consentimento e cofre | [PR #115](https://github.com/linuxsoares/terapiainfoco/pull/115) | Merged |
 | `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
+| `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
 
 ---
 
