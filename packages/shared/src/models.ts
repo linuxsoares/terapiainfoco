@@ -138,6 +138,8 @@ export interface DecryptedPatient extends Patient {
  * Representação armazenada no banco com Field-Level Encryption (FLE)
  */
 export interface StoredPatient extends Patient {
+  /** Conta de paciente vinculada a este registro (criada ao agendar pelo portal) */
+  linkedUserId?: string;
   encryptedName: EncryptedPayload;
   encryptedEmail: EncryptedPayload;
   encryptedPhone: EncryptedPayload;

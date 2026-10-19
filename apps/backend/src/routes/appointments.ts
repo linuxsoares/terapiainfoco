@@ -11,7 +11,9 @@ import {
   AuditResourceType,
   type CreateAppointmentDTO, 
   type UpdateAppointmentStatusDTO,
-  type PublicBookingDTO
+  type PublicBookingDTO,
+  type PatientBookingDTO,
+  UserRole
 } from '@terapiainfoco/shared';
 
 export const appointmentsRoute = new Hono();
@@ -44,6 +46,30 @@ appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
   }
+});
+
+// Paciente autenticado agenda com um psicólogo da busca pública e acompanha suas consultas
+appointmentsRoute.post('/patient/book', publicBookingRateLimiter, authMiddleware(), requireRoles([UserRole.PACIENTE]), async (c) => {
+  let body: PatientBookingDTO;
+  try {
+    body = await c.req.json<PatientBookingDTO>();
+  } catch {
+    return c.json({ success: false, error: 'Corpo da requisição inválido.' }, 400);
+  }
+  try {
+    const appointment = await AppointmentService.bookForPatientUser(c.get('userId'), body, {
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
+    return c.json({ success: true, appointment }, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+appointmentsRoute.get('/patient/mine', authMiddleware(), requireRoles([UserRole.PACIENTE]), async (c) => {
+  const appointments = await AppointmentService.getPatientUserAppointments(c.get('userId'));
+  return c.json({ success: true, appointments });
 });
 
 // Demais rotas da agenda exigem sessão autenticada da equipe do consultório.

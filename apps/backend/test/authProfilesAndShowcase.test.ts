@@ -28,7 +28,7 @@ describe('Vitrine Pública Sem Login, Criação de Perfil (Com/Sem Login Social)
     expect(body.showcase.clinicalModulesHighlight.length).toBeGreaterThanOrEqual(6);
   });
 
-  it('POST /api/auth/register - deve criar perfil de PACIENTE sem login social e vincular automaticamente ao registro criptografado de Paciente', async () => {
+  it('POST /api/auth/register - deve criar perfil de PACIENTE sem login social (registro clínico criado apenas no primeiro agendamento)', async () => {
     const res = await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,14 +48,11 @@ describe('Vitrine Pública Sem Login, Criação de Perfil (Com/Sem Login Social)
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.user.role).toBe(UserRole.PACIENTE);
-    expect(body.user.patientId).toBeDefined();
     expect(body.user.cpfMasked).toBe('***.654.987-**');
     expect(body.user.emergencyContactName).toBe('Fernanda Lima (Mãe)');
 
-    // Verifica que o registro cifrado foi criado em db.patients
-    const storedPatient = db.patients.get(body.user.patientId);
-    expect(storedPatient).toBeDefined();
-    expect(storedPatient?.encryptedName.ciphertext).toBeDefined();
+    // O prontuário pertence a um consultório: o registro cifrado só nasce no primeiro agendamento
+    expect(body.user.patientId).toBeUndefined();
   });
 
   it('POST /api/auth/social - deve criar perfil e autenticar via Login Social (Google, Gov.br e Apple) para Psicólogo, Paciente e Admin', async () => {

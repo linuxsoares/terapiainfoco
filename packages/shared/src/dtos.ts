@@ -305,6 +305,25 @@ export interface PublicBookingDTO {
   consentTeleconsultationSigned: boolean;
 }
 
+/** Agendamento feito pelo paciente autenticado a partir do perfil público do psicólogo */
+export interface PatientBookingDTO {
+  therapistId: string;
+  scheduledStart: string; // ISO
+  scheduledEnd: string;   // ISO
+  consentTeleconsultationSigned: boolean;
+}
+
+/** Consulta exibida ao paciente ("Minhas consultas") */
+export interface PatientAppointmentView {
+  id: string;
+  therapistId: string;
+  therapistName: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  status: string;
+  meetUrl: string;
+}
+
 export interface PublicBookingResponse {
   appointmentId: string;
   patientName: string;
