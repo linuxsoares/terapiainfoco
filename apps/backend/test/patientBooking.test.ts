@@ -105,4 +105,14 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('horários são gerados no fuso da clínica (UTC-3), independentemente do fuso do servidor', async () => {
+    const res = await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2027-03-15');
+    const data = await res.json() as any;
+    expect(data.slots[0].start).toBe('2027-03-15T12:00:00.000Z');
+    expect(data.slots[0].formattedTime).toBe('09:00 - 09:50');
+
+    const past = await (await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2020-01-06')).json() as any;
+    expect(past.slots.every((s: any) => s.available === false)).toBe(true);
+  });
 });

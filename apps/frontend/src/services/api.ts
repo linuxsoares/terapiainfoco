@@ -1,4 +1,7 @@
 import type {
+  AvailableSlotsResponse,
+  PatientBookingDTO,
+  PatientAppointmentView,
   TherapistSearchParams,
   TherapistSearchResponse,
   TherapistPublicProfile,
@@ -729,6 +732,23 @@ export const api = {
       body: JSON.stringify({ approved })
     });
     return res.profile;
+  },
+
+  async getAvailableSlots(therapistId: string, date: string): Promise<AvailableSlotsResponse> {
+    return request<AvailableSlotsResponse>(`/appointments/available-slots?therapistId=${encodeURIComponent(therapistId)}&date=${date}`);
+  },
+
+  async bookAppointmentAsPatient(dto: PatientBookingDTO): Promise<PatientAppointmentView> {
+    const res = await request<{ success: boolean; appointment: PatientAppointmentView }>('/appointments/patient/book', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.appointment;
+  },
+
+  async getMyPatientAppointments(): Promise<PatientAppointmentView[]> {
+    const res = await request<{ success: boolean; appointments: PatientAppointmentView[] }>('/appointments/patient/mine');
+    return res.appointments;
   },
 
   // 1. Pacientes (FLE & Blind Index)

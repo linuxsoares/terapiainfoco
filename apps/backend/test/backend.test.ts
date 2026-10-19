@@ -457,7 +457,9 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Experiência do Paciente & Agendamento Público na Landing Page (RFC §3.1)', async () => {
     // 1. Consulta horários disponíveis
-    const slotsRes = await staffRequest('/api/appointments/available-slots?therapistId=therapist-001&date=2026-10-20');
+    // Data sempre futura: horários passados não são oferecidos
+    const futureDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const slotsRes = await staffRequest(`/api/appointments/available-slots?therapistId=therapist-001&date=${futureDate}`);
     expect(slotsRes.status).toBe(200);
     const slotsData = await slotsRes.json();
     expect(slotsData.slots.length).toBeGreaterThan(0);
