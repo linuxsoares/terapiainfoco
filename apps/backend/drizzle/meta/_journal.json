@@ -22,6 +22,13 @@
       "when": 1792413824651,
       "tag": "0002_entity_store",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792416341314,
+      "tag": "0003_therapist_profiles",
+      "breakpoints": true
     }
   ]
 }

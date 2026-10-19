@@ -8,8 +8,11 @@ import {
   integer, 
   jsonb, 
   index,
-  primaryKey
+  uniqueIndex,
+  primaryKey,
+  customType
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import type { EncryptedPayload } from '@terapiainfoco/shared';
 
 /**
@@ -245,4 +248,42 @@ export const entityStore = pgTable('entity_store', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
   primaryKey({ columns: [table.collection, table.id] })
+]);
+
+const tsvector = customType<{ data: string }>({
+  dataType: () => 'tsvector'
+});
+
+/**
+ * 12. PERFIS PÚBLICOS DE PSICÓLOGOS & BUSCA (RFC-001 §3.1, ADR-004 fase 2)
+ * Dados profissionais públicos (não sensíveis). Só aparecem na busca perfis publicados
+ * pelo psicólogo e com CRP verificado por um administrador.
+ */
+export const therapistProfiles = pgTable('therapist_profiles', {
+  therapistId: text('therapist_id').primaryKey(),
+  userId: text('user_id').notNull(),
+  slug: varchar('slug', { length: 120 }).notNull(),
+  displayName: varchar('display_name', { length: 160 }).notNull(),
+  crp: varchar('crp', { length: 20 }).notNull(),
+  crpRegion: varchar('crp_region', { length: 10 }).notNull(),
+  crpVerified: boolean('crp_verified').notNull().default(false),
+  crpVerifiedAt: timestamp('crp_verified_at', { withTimezone: true }),
+  crpVerifiedBy: text('crp_verified_by'),
+  published: boolean('published').notNull().default(false),
+  headline: varchar('headline', { length: 200 }),
+  bio: text('bio'),
+  approaches: text('approaches').array().notNull().default(sql`'{}'::text[]`),
+  specialties: text('specialties').array().notNull().default(sql`'{}'::text[]`),
+  languages: text('languages').array().notNull().default(sql`'{}'::text[]`),
+  sessionFeeCents: integer('session_fee_cents'),
+  sessionDurationMinutes: integer('session_duration_minutes').notNull().default(50),
+  /** Texto normalizado (minúsculas, sem acentos) mantido pela aplicação para a busca */
+  searchText: text('search_text').notNull().default(''),
+  searchVector: tsvector('search_vector').generatedAlwaysAs(sql`to_tsvector('simple', search_text)`),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex('uq_therapist_profiles_slug').on(table.slug),
+  index('idx_therapist_profiles_search').using('gin', table.searchVector),
+  index('idx_therapist_profiles_listing').on(table.published, table.crpVerified)
 ]);
