@@ -1,4 +1,5 @@
 import { getDb } from '../db';
+import { config } from '../config';
 import { persistence } from '../db/memoryDb';
 import { authService } from '../services/authService';
 import { UserRole, type RegisterDTO } from '@terapiainfoco/shared';
@@ -16,6 +17,16 @@ if (!email || !name || !password) {
 }
 if (password.length < 12) {
   console.error('A senha de administrador deve ter no mínimo 12 caracteres.');
+  process.exit(1);
+}
+
+// Banco em memória (sem DATABASE_URL nem PGLITE_DATA_DIR) sumiria ao fim do script: o admin não existiria
+if (!process.env.DATABASE_URL && !config.pgliteDataDir) {
+  console.error(
+    'Sem DATABASE_URL: o administrador seria criado em um banco temporário e descartado.\n' +
+    '• Produção: rode este comando no shell do serviço backend no Railway (DATABASE_URL já configurada).\n' +
+    '• Local: use as contas demo (DEMO_MODE) ou exporte o mesmo DATABASE_URL do backend local.'
+  );
   process.exit(1);
 }
 
