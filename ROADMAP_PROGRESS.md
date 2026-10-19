@@ -2363,6 +2363,7 @@ terapiainfoco/
 | `feat/teleconsulta-transcricao-stt` | Transcrição ao vivo por STT no servidor (áudio descartado, texto cifrado), painel na sala e SOAP a partir da transcrição | [PR #123](https://github.com/linuxsoares/terapiainfoco/pull/123) | Merged |
 | `fix/admin-create-visivel-no-login` | Admin criado via `admin:create` loga sem reiniciar o servidor; script recusa banco temporário | [PR #124](https://github.com/linuxsoares/terapiainfoco/pull/124) | Merged |
 | `fix/link-sala-teleconsulta` | Link da sala usa a URL do site no painel; `PUBLIC_APP_URL` obrigatória em produção (sem localhost) | [PR #125](https://github.com/linuxsoares/terapiainfoco/pull/125) | Merged |
+| `fix/sessao-persistente-no-refresh` | Sessão persistente ao recarregar (última tela), renovação automática do access token com refresh rotacionado e E2E de sessão | [PR #126](https://github.com/linuxsoares/terapiainfoco/pull/126) | Merged |
 
 ---
 
@@ -2402,6 +2403,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Remoção da gravação:** sem `MediaRecorder` na sala, rota `/recording` e campos de gravação removidos, módulo de sharding/armazenamento de mídia (`/api/teleconsultation/media`, `packages/crypto/mediaSharding`) e seu card no painel de segurança removidos; escopo de consentimento rotulado como transcrição da fala.
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [ ] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (hoje gera 403 em `/system/telemetry/*`) e seleção de paciente no agendamento (hoje é um campo de ID livre).
+
+#### 🔐 Sessão
+- [x] **Sessão persistente:** recarregar a página mantém o login e a última tela aberta; access token expirado é renovado com o refresh token (uma renovação em voo, compatível com a rotação); sessão inválida volta à vitrine; E2E `bun run e2e:sessao`.
 
 #### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.

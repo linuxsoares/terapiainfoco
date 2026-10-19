@@ -4,6 +4,7 @@
  *
  * Pré-requisitos: backend (DEMO_MODE) e frontend rodando (`make dev`) e Google Chrome instalado.
  * Uso: bun run e2e:teleconsulta   (FRONTEND_URL, CHROME_PATH e SCREENSHOT_DIR opcionais)
+ * Para validar a transcrição sem custo, suba o backend com STT_PROVIDER=simulated.
  * Cada execução faz 2 logins: o limite anti-força-bruta (5/min por IP) permite 2 execuções por minuto.
  */
 import { chromium, type Page } from 'playwright-core';
@@ -89,6 +90,9 @@ try {
   if (/Transcrevendo/.test(indicator)) {
     await therapist.getByRole('button', { name: 'Ver transcrição da sessão' }).click();
     await waitFor(async () => {
+      // Falha do provedor de STT aparece na sala: reporta em vez de só esgotar o tempo
+      const providerError = await therapist.getByText(/^Transcrição: /).first().innerText({ timeout: 200 }).catch(() => null);
+      if (providerError) throw new Error(`Transcrição falhou na sala: ${providerError}`);
       const lines = await therapist.getByTestId('transcript-panel').locator('li').allInnerTexts();
       return lines.some((l) => l.startsWith('Você')) && lines.some((l) => !l.startsWith('Você'));
     }, 'falas dos dois participantes na transcrição', 40_000);
