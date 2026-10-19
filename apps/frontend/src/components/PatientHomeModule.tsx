@@ -11,13 +11,14 @@ interface PatientHomeModuleProps {
   onOpenPortabilityVault: () => void;
   onOpenProfile: () => void;
   onFindTherapist: () => void;
+  onJoinRoom: (appointmentId: string) => void;
 }
 
 /**
  * Espaço do paciente (titular LGPD Art. 18): ponto de entrada para exercícios,
  * recibos, termos TCLE, cofre de portabilidade e dados cadastrais.
  */
-export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortabilityVault, onOpenProfile, onFindTherapist }: PatientHomeModuleProps) {
+export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortabilityVault, onOpenProfile, onFindTherapist, onJoinRoom }: PatientHomeModuleProps) {
   const [appointments, setAppointments] = useState<PatientAppointmentView[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(true);
 
@@ -90,10 +91,10 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
                   <p className="font-medium text-slate-900 dark:text-white">{a.therapistName}</p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">{dateTimeFormat.format(new Date(a.scheduledStart))}</p>
                 </div>
-                <a href={a.roomUrl}
+                <button onClick={() => onJoinRoom(a.id)}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300 underline">
                   <Video className="w-3.5 h-3.5" /> Entrar na teleconsulta
-                </a>
+                </button>
               </li>
             ))}
           </ul>

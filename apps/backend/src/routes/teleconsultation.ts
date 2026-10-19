@@ -7,10 +7,12 @@ import {
   type EndTeleconsultationDTO,
   type SendWebRtcSignalDTO,
   type SyncMediaHardwareDTO,
+  type IceServersResponse,
   TeleconsultationParticipantRole,
   UserRole
 } from '@terapiainfoco/shared';
 import { TeleconsultationService } from '../services/teleconsultationService';
+import { config } from '../config';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
 import { requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
 
@@ -18,35 +20,38 @@ export const teleconsultationRoutes = new Hono();
 
 /**
  * POST /api/teleconsultation/knock
- * Paciente bate à porta da sala de espera (Knocking / Waiting Room - CFP nº 011/2018)
- * Endpoint acessível pelo link de teleconsulta do paciente
+ * Paciente autenticado bate à porta da sala de espera (Knocking - CFP nº 011/2018).
+ * Identidade e nome vêm da sessão e do cadastro, nunca do corpo da requisição.
  */
-teleconsultationRoutes.post('/knock', async (c) => {
+teleconsultationRoutes.post('/knock', authMiddleware(), requireRole([UserRole.PACIENTE]), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<KnockWaitingRoomDTO>();
-    if (!body.appointmentId || !body.patientName) {
-      return c.json({
-        success: false,
-        message: 'Identificação da consulta (appointmentId) e nome do paciente são obrigatórios.'
-      }, 400);
+    if (!body.appointmentId) {
+      return c.json({ success: false, message: 'Identificação da consulta (appointmentId) é obrigatória.' }, 400);
     }
-
-    const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
-    const userAgent = c.req.header('user-agent');
-
     const result = TeleconsultationService.knockWaitingRoom({
-      dto: body,
-      ipAddress,
-      userAgent
+      appointmentId: body.appointmentId,
+      userId: c.get('userId'),
+      clientFingerprint: body.clientFingerprint,
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
     });
-
     return c.json(result, 200);
   } catch (err: any) {
-    return c.json({
-      success: false,
-      message: err.message || 'Erro ao entrar na sala de espera.'
-    }, 400);
+    return c.json({ success: false, message: err.message || 'Erro ao entrar na sala de espera.' }, 400);
   }
+});
+
+/**
+ * GET /api/teleconsultation/ice-servers
+ * Servidores STUN/TURN configurados para a conexão WebRTC
+ */
+teleconsultationRoutes.get('/ice-servers', authMiddleware(), (c) => {
+  const { stunUrls, turnUrls, turnUsername, turnCredential } = config.webrtc;
+  const iceServers: IceServersResponse['iceServers'] = [];
+  if (stunUrls.length > 0) iceServers.push({ urls: stunUrls });
+  if (turnUrls.length > 0) iceServers.push({ urls: turnUrls, username: turnUsername, credential: turnCredential });
+  return c.json({ success: true, iceServers } satisfies IceServersResponse);
 });
 
 /**
@@ -165,71 +170,40 @@ teleconsultationRoutes.post('/hardware-sync', authMiddleware(), requireBodyOwner
 
 /**
  * POST /api/teleconsultation/signal
- * Envia sinal WebRTC P2P (SDP Offer, SDP Answer, ICE Candidate, Media State)
+ * Envia sinal WebRTC (JOIN, OFFER, ANSWER, ICE_CANDIDATE, BYE) para a outra parte
  */
 teleconsultationRoutes.post('/signal', authMiddleware(), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<SendWebRtcSignalDTO>();
     if (!body.appointmentId || !body.signalType) {
-      return c.json({
-        success: false,
-        message: 'appointmentId e signalType são obrigatórios.'
-      }, 400);
+      return c.json({ success: false, message: 'appointmentId e signalType são obrigatórios.' }, 400);
     }
-
-    const user = c.get('user');
-    const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
-    const userAgent = c.req.header('user-agent');
-
-    const senderRole = body.senderRole || (user.role === UserRole.PACIENTE ? TeleconsultationParticipantRole.PATIENT : TeleconsultationParticipantRole.THERAPIST);
-
     const result = TeleconsultationService.sendSignal({
-      dto: { ...body, senderRole },
+      dto: body,
+      user: c.get('user'),
       context: {
-        actorId: user.id,
-        ipAddress,
-        userAgent
+        actorId: c.get('userId'),
+        ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+        userAgent: c.req.header('user-agent')
       }
     });
-
-    return c.json({
-      success: true,
-      signal: result.signal,
-      room: result.room
-    }, 200);
+    return c.json({ success: true, ...result }, 200);
   } catch (err: any) {
-    return c.json({
-      success: false,
-      message: err.message || 'Erro ao enviar sinal WebRTC.'
-    }, 400);
+    return c.json({ success: false, message: err.message || 'Erro ao enviar sinal WebRTC.' }, 403);
   }
 });
 
 /**
- * GET /api/teleconsultation/signal/:appointmentId
- * Lista sinais WebRTC P2P da sala
+ * GET /api/teleconsultation/signal/:appointmentId?after=<cursor>
+ * Polling: sinais da outra parte desde o cursor e situação da sala de espera
  */
-teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
-  try {
-    const appointmentId = c.req.param('appointmentId');
-    const excludeSelf = c.req.query('excludeSelf') === 'true';
-    const user = c.get('user');
-
-    const signals = TeleconsultationService.getSignals({
-      appointmentId,
-      excludeSenderId: excludeSelf ? user.id : undefined
-    });
-
-    return c.json({
-      success: true,
-      signals
-    }, 200);
-  } catch (err: any) {
-    return c.json({
-      success: false,
-      message: err.message || 'Erro ao buscar sinais WebRTC.'
-    }, 400);
-  }
+teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), (c) => {
+  const result = TeleconsultationService.poll({
+    appointmentId: c.req.param('appointmentId') ?? '',
+    user: c.get('user'),
+    cursor: c.req.query('after') || undefined
+  });
+  return c.json(result, 200);
 });
 
 /**

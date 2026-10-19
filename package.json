@@ -23,7 +23,8 @@
     "db:push": "bun run --cwd apps/backend db:push",
     "test": "bun test",
     "test:load": "bun scripts/load-test.ts",
-    "admin:create": "bun run --cwd apps/backend admin:create"
+    "admin:create": "bun run --cwd apps/backend admin:create",
+    "e2e:teleconsulta": "bun scripts/e2e/teleconsultation-call.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

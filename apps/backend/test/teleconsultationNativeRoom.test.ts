@@ -8,9 +8,12 @@ import {
 import { db } from '../src/db/memoryDb';
 import { TeleconsultationService } from '../src/services/teleconsultationService';
 import { app } from '../src/index';
+import { authService } from '../src/services/authService';
 
 describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Espera (§3.2, §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
+  const PATIENT_USER_ID = '00000000-0000-0000-0000-000000000005';
+  const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
   const therapistActor = {
     actorId: '00000000-0000-0000-0000-000000000001',
     ipAddress: '127.0.0.1',
@@ -81,11 +84,9 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
     it('deve permitir knocking do paciente na sala de espera alterando status para WAITING_ROOM', () => {
       const knockRes = TeleconsultationService.knockWaitingRoom({
-        dto: {
-          appointmentId,
-          patientName: 'Mariana Silva de Oliveira',
-          clientFingerprint: 'browser_mac_chrome_123'
-        },
+        appointmentId,
+        userId: PATIENT_USER_ID,
+        clientFingerprint: 'browser_mac_chrome_123',
         ipAddress: '200.180.10.5'
       });
 
@@ -105,10 +106,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
     it('deve permitir ao psicólogo admitir o paciente iniciando a sessão clínica (IN_PROGRESS)', () => {
       const knockRes = TeleconsultationService.knockWaitingRoom({
-        dto: {
-          appointmentId,
-          patientName: 'Mariana Silva de Oliveira'
-        },
+        appointmentId,
+        userId: PATIENT_USER_ID,
         ipAddress: '200.180.10.5'
       });
 
@@ -129,10 +128,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
     it('deve permitir ao psicólogo rejeitar um participante indevido', () => {
       const knockRes = TeleconsultationService.knockWaitingRoom({
-        dto: {
-          appointmentId,
-          patientName: 'Pessoa Desconhecida'
-        },
+        appointmentId,
+        userId: PATIENT_USER_ID,
         ipAddress: '200.180.10.99'
       });
 
@@ -206,158 +203,90 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
   });
 
   describe('3. Rotas HTTP REST (/api/teleconsultation/session)', () => {
-    it('deve executar o fluxo completo via HTTP: POST /knock -> GET /room -> POST /admit -> POST /quality -> POST /end', async () => {
-      // 1. Login do psicólogo
-      const loginRes = await app.request('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'psicologo@terapiainfoco.com.br',
-          password: 'Senha@123456'
-        })
-      });
-      expect(loginRes.status).toBe(200);
-      const loginData = await loginRes.json() as any;
-      const token = loginData.accessToken;
+    async function headersFor(userId: string) {
+      const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+      return { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` };
+    }
+    const post = (path: string, headers: Record<string, string>, body: unknown) =>
+      app.request(`/api/teleconsultation/session${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    const poll = async (headers: Record<string, string>, after = '') =>
+      (await app.request(`/api/teleconsultation/session/signal/${appointmentId}?after=${after}`, { headers })).json() as Promise<any>;
 
-      // 2. Paciente bate na sala de espera via endpoint público
-      const knockRes = await app.request('/api/teleconsultation/session/knock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appointmentId,
-          patientName: 'Mariana Silva de Oliveira',
-          clientFingerprint: 'fp_http_test_1'
-        })
-      });
+    it('fluxo completo: paciente bate -> psicólogo admite -> telemetria -> encerramento', async () => {
+      const therapist = await headersFor(PSICOLOGA_ID);
+      const patient = await headersFor(PATIENT_USER_ID);
+
+      const knockRes = await post('/knock', patient, { appointmentId, patientName: 'Nome forjado pelo cliente' });
       expect(knockRes.status).toBe(200);
       const knockData = await knockRes.json() as any;
-      expect(knockData.success).toBe(true);
       expect(knockData.status).toBe('WAITING');
-      const participantId = knockData.participantId;
 
-      // 3. Terapeuta consulta a sala autenticado
-      const roomRes = await app.request(`/api/teleconsultation/session/room/${appointmentId}`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      expect(roomRes.status).toBe(200);
-      const roomData = await roomRes.json() as any;
-      expect(roomData.room.waitingParticipants).toHaveLength(1);
+      // O psicólogo vê a fila com o nome do cadastro, não o enviado pelo cliente
+      const queue = await poll(therapist);
+      expect(queue.waitingParticipants).toEqual([
+        expect.objectContaining({ participantId: knockData.participantId, name: 'Mariana Silva de Oliveira', status: 'WAITING' })
+      ]);
+      expect((await poll(patient)).myStatus).toBe('WAITING');
 
-      // 4. Terapeuta admite o paciente
-      const admitRes = await app.request('/api/teleconsultation/session/admit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          appointmentId,
-          participantId,
-          action: 'ADMIT'
-        })
-      });
+      const admitRes = await post('/admit', therapist, { appointmentId, participantId: knockData.participantId, action: 'ADMIT' });
       expect(admitRes.status).toBe(200);
-      const admitData = await admitRes.json() as any;
-      expect(admitData.room.status).toBe(TeleconsultationRoomStatus.IN_PROGRESS);
+      expect((await admitRes.json() as any).room.status).toBe(TeleconsultationRoomStatus.IN_PROGRESS);
+      expect((await poll(patient)).myStatus).toBe('ADMITTED');
 
-      // 5. Atualização de telemetria
-      const qualityRes = await app.request('/api/teleconsultation/session/quality', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          appointmentId,
-          rttMs: 30,
-          jitterMs: 5,
-          packetLoss: 0.1
-        })
-      });
-      expect(qualityRes.status).toBe(200);
-      const qualityData = await qualityRes.json() as any;
-      expect(qualityData.metrics.qualityState).toBe(CallQualityState.EXCELLENT);
+      // Recarregar a página do paciente não o devolve à fila
+      expect((await (await post('/knock', patient, { appointmentId })).json() as any).status).toBe('ADMITTED');
 
-      // 6. Encerrar sessão
-      const endRes = await app.request('/api/teleconsultation/session/end', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          appointmentId,
-          durationSeconds: 3000
-        })
-      });
-      expect(endRes.status).toBe(200);
-      const endData = await endRes.json() as any;
-      expect(endData.room.status).toBe(TeleconsultationRoomStatus.COMPLETED);
+      const qualityRes = await post('/quality', therapist, { appointmentId, rttMs: 30, jitterMs: 5, packetLoss: 0.1 });
+      expect((await qualityRes.json() as any).metrics.qualityState).toBe(CallQualityState.EXCELLENT);
+
+      const endRes = await post('/end', therapist, { appointmentId, durationSeconds: 3000 });
+      expect((await endRes.json() as any).room.status).toBe(TeleconsultationRoomStatus.COMPLETED);
+      // O encerramento avisa o paciente (BYE) e a sala não aceita mais sinais
+      expect((await poll(patient)).signals.map((sig: any) => sig.signalType)).toContain('BYE');
+      expect((await post('/signal', patient, { appointmentId, signalType: 'JOIN' })).status).toBe(403);
     });
 
-    it('deve sincronizar dispositivos reais de hardware (câmera/microfone) e sinalização WebRTC P2P (SDP Offer/Answer/ICE)', async () => {
-      const loginRes = await app.request('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'psicologo@terapiainfoco.com.br',
-          password: 'Senha@123456'
-        })
-      });
-      const { accessToken: token } = await loginRes.json() as any;
+    it('sinalização entre as duas partes com cursor, sem eco e só após a admissão', async () => {
+      const therapist = await headersFor(PSICOLOGA_ID);
+      const patient = await headersFor(PATIENT_USER_ID);
+      const { participantId } = await (await post('/knock', patient, { appointmentId })).json() as any;
 
-      const hwRes = await app.request('/api/teleconsultation/session/hardware-sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          appointmentId,
-          cameraActive: true,
-          microphoneActive: true,
-          screenShareActive: false,
-          cameraLabel: 'FaceTime HD Camera (Built-in)',
-          microphoneLabel: 'MacBook Pro Microphone',
-          resolution: '1280x720 @ 30fps',
-          frameRate: 30,
-          audioSampleRate: 48000
-        })
-      });
-      expect(hwRes.status).toBe(200);
-      const hwData = await hwRes.json() as any;
-      expect(hwData.success).toBe(true);
-      expect(hwData.room.therapistMediaState.cameraActive).toBe(true);
-      expect(hwData.room.therapistMediaState.cameraLabel).toBe('FaceTime HD Camera (Built-in)');
-      expect(hwData.room.therapistMediaState.microphoneLabel).toBe('MacBook Pro Microphone');
+      // Antes da admissão o paciente não sinaliza nem recebe sinais
+      expect((await post('/signal', patient, { appointmentId, signalType: 'JOIN' })).status).toBe(403);
+      await post('/admit', therapist, { appointmentId, participantId, action: 'ADMIT' });
 
-      const sigRes = await app.request('/api/teleconsultation/session/signal', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          appointmentId,
-          signalType: 'OFFER',
-          sdp: 'v=0\r\no=- 12345 2 IN IP4 127.0.0.1\r\na=fingerprint:sha-256 AA:BB:CC:DD'
-        })
-      });
-      expect(sigRes.status).toBe(200);
-      const sigData = await sigRes.json() as any;
-      expect(sigData.success).toBe(true);
-      expect(sigData.signal.signalType).toBe('OFFER');
+      expect((await post('/signal', patient, { appointmentId, signalType: 'JOIN', senderRole: 'THERAPIST' })).status).toBe(200);
+      const therapistFirst = await poll(therapist);
+      expect(therapistFirst.signals).toEqual([expect.objectContaining({ signalType: 'JOIN', senderRole: 'PATIENT', senderId: PATIENT_USER_ID })]);
 
-      const listSigRes = await app.request(`/api/teleconsultation/session/signal/${appointmentId}?excludeSelf=false`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      expect(listSigRes.status).toBe(200);
-      const listSigData = await listSigRes.json() as any;
-      expect(listSigData.signals).toHaveLength(1);
-      expect(listSigData.signals[0].sdp).toContain('fingerprint:sha-256');
+      await post('/signal', therapist, { appointmentId, signalType: 'OFFER', sessionId: 's1', sdp: 'v=0 offer' });
+      await post('/signal', therapist, { appointmentId, signalType: 'ICE_CANDIDATE', sessionId: 's1', candidate: { candidate: 'candidate:1', sdpMid: '0', sdpMLineIndex: 0 } });
+      const patientView = await poll(patient);
+      expect(patientView.signals.map((sig: any) => sig.signalType)).toEqual(['OFFER', 'ICE_CANDIDATE']);
+      expect(patientView.signals.every((sig: any) => sig.sessionId === 's1')).toBe(true);
+
+      await post('/signal', patient, { appointmentId, signalType: 'ANSWER', sessionId: 's1', sdp: 'v=0 answer' });
+      // Com o cursor, o psicólogo recebe só o que veio depois (e nunca os próprios sinais)
+      const therapistNext = await poll(therapist, therapistFirst.cursor);
+      expect(therapistNext.signals.map((sig: any) => sig.signalType)).toEqual(['ANSWER']);
+      expect((await poll(therapist, therapistNext.cursor)).signals).toHaveLength(0);
+      // Cursor de outra época (restart do servidor) recomeça do início
+      expect((await poll(therapist, 'epoca-antiga:999')).signals.map((sig: any) => sig.signalType)).toEqual(['JOIN', 'ANSWER']);
+    });
+
+    it('knock exige paciente autenticado dono da consulta', async () => {
+      expect((await post('/knock', { 'Content-Type': 'application/json' }, { appointmentId })).status).toBe(401);
+      const outsider = await authService.register({
+        name: 'Outro Paciente', email: `outro.${crypto.randomUUID().slice(0, 6)}@x.com`, password: 'SenhaPaciente@2026', role: UserRole.PACIENTE
+      } as any);
+      expect((await post('/knock', await headersFor(outsider.id), { appointmentId })).status).toBe(404);
+      expect((await post('/knock', await headersFor(PSICOLOGA_ID), { appointmentId })).status).toBe(403);
+    });
+
+    it('servidores ICE vêm da configuração do ambiente', async () => {
+      const res = await app.request('/api/teleconsultation/session/ice-servers', { headers: await headersFor(PATIENT_USER_ID) });
+      const body = await res.json() as any;
+      expect(body.iceServers[0].urls).toContain('stun:stun.l.google.com:19302');
     });
   });
 });

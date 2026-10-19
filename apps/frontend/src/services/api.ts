@@ -1,4 +1,6 @@
 import type {
+  TeleconsultationPollResponse,
+  IceServersResponse,
   AvailableSlotsResponse,
   PatientBookingDTO,
   PatientAppointmentView,
@@ -597,7 +599,6 @@ import type {
   TeleconsultationRoomResponse,
   SendWebRtcSignalDTO,
   SyncMediaHardwareDTO,
-  WebRtcSignalEnvelope,
   TranscriptionSession,
   AiSoapDraft,
   IngestTranscriptionDTO,
@@ -3724,18 +3725,23 @@ export const api = {
     return res.room;
   },
 
-  async sendTeleconsultationSignal(dto: SendWebRtcSignalDTO): Promise<{ signal: WebRtcSignalEnvelope; room: TeleconsultationRoom }> {
-    return await request<{ success: boolean; signal: WebRtcSignalEnvelope; room: TeleconsultationRoom }>('/teleconsultation/session/signal', {
+  async sendTeleconsultationSignal(dto: SendWebRtcSignalDTO): Promise<{ seq: number }> {
+    return await request<{ success: boolean; seq: number }>('/teleconsultation/session/signal', {
       method: 'POST',
       body: JSON.stringify(dto)
     });
   },
 
-  async getTeleconsultationSignals(appointmentId: string, excludeSelf = true): Promise<WebRtcSignalEnvelope[]> {
-    const res = await request<{ success: boolean; signals: WebRtcSignalEnvelope[] }>(
-      `/teleconsultation/session/signal/${encodeURIComponent(appointmentId)}?excludeSelf=${excludeSelf ? 'true' : 'false'}`
+  /** Polling da sala: sinais da outra parte desde o cursor e situação da sala de espera */
+  async pollTeleconsultation(appointmentId: string, cursor = ''): Promise<TeleconsultationPollResponse> {
+    return await request<TeleconsultationPollResponse>(
+      `/teleconsultation/session/signal/${encodeURIComponent(appointmentId)}?after=${encodeURIComponent(cursor)}`
     );
-    return res.signals || [];
+  },
+
+  async getTeleconsultationIceServers(): Promise<RTCIceServer[]> {
+    const res = await request<IceServersResponse>('/teleconsultation/session/ice-servers');
+    return res.iceServers;
   },
 
   // 15. Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)

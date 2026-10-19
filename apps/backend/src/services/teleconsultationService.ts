@@ -4,7 +4,6 @@ import {
   type StoredTeleconsultationRoom,
   type WaitingParticipant,
   type TeleconsultationCallMetrics,
-  type KnockWaitingRoomDTO,
   type KnockWaitingRoomResponse,
   type AdmitParticipantDTO,
   type UpdateCallQualityDTO,
@@ -12,8 +11,10 @@ import {
   type EndTeleconsultationDTO,
   type SendWebRtcSignalDTO,
   type SyncMediaHardwareDTO,
-  type WebRtcSignalEnvelope,
   type MediaHardwareState,
+  type SafeUser,
+  type TeleconsultationPollResponse,
+  UserRole,
   TeleconsultationRoomStatus,
   TeleconsultationParticipantRole,
   CallQualityState,
@@ -25,6 +26,15 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
+import { TeleconsultationSignalBus } from './teleconsultationSignalBus';
+
+/** Perfis que conduzem a sessão do lado do consultório */
+const CLINICIAN_ROLES: UserRole[] = [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO];
+
+/** Leitura sem marcar a coleção como alterada: o polling roda a cada segundo e não muda nada */
+function peekRoom(appointmentId: string): StoredTeleconsultationRoom | undefined {
+  return Map.prototype.get.call(db.teleconsultationRooms, appointmentId) as StoredTeleconsultationRoom | undefined;
+}
 
 export class TeleconsultationService {
   /**
@@ -82,22 +92,16 @@ export class TeleconsultationService {
       return this.decryptStoredRoom(existing);
     }
 
-    // Busca detalhes da consulta e paciente
     const appointment = db.appointments.get(appointmentId);
-    let patientId = appointment?.patientId || '00000000-0000-0000-0000-000000000002';
-    let patientName = 'Mariana Silva de Oliveira';
-    let therapistId = appointment?.therapistId || 'therapist-001';
-    let therapistName = 'Dra. Beatriz Santos';
-
-    const patient = PatientService.getPatientById(patientId, context);
-    if (patient) {
-      patientName = patient.name;
+    if (!appointment) {
+      throw new Error('Consulta não encontrada.');
     }
-
-    const therapist = db.therapists.get(therapistId);
-    const user = db.users.get(context.actorId);
-    if (user?.name) therapistName = user.name;
-    else if (therapist) therapistName = 'Dra. Vanessa Andrade';
+    const { patientId, therapistId } = appointment;
+    const patientName = PatientService.getPatientById(patientId, context)?.name ?? 'Paciente';
+    // Nome do psicólogo titular do consultório (a sala pode ser aberta primeiro pelo paciente)
+    const therapistName = Array.from(db.users.values()).find(
+      (u) => u.therapistId === therapistId && u.role === UserRole.PSICOLOGO_TITULAR
+    )?.name ?? 'Psicólogo(a)';
 
     const initialMetrics: TeleconsultationCallMetrics = {
       rttMs: 24,
@@ -140,6 +144,8 @@ export class TeleconsultationService {
     };
 
     db.teleconsultationRooms.set(appointmentId, stored);
+    // Sala nova começa sem sinais de negociações anteriores
+    TeleconsultationSignalBus.clear(appointmentId);
 
     AuditService.log({
       actorId: context.actorId,
@@ -154,57 +160,64 @@ export class TeleconsultationService {
   }
 
   /**
-   * Paciente bate à porta da sala de espera (Knocking - CFP nº 011/2018)
+   * Paciente autenticado bate à porta da sala de espera (Knocking - CFP nº 011/2018).
+   * Um participante por conta: recarregar a página mantém a admissão já concedida.
    */
   static knockWaitingRoom(params: {
-    dto: KnockWaitingRoomDTO;
+    appointmentId: string;
+    userId: string;
+    clientFingerprint?: string;
     ipAddress: string;
     userAgent?: string;
   }): KnockWaitingRoomResponse {
-    const { dto, ipAddress, userAgent } = params;
-    let stored = db.teleconsultationRooms.get(dto.appointmentId);
-    if (!stored) {
-      // Cria a sala em estado de espera
-      const dummyContext = { actorId: 'system_knocker', ipAddress, userAgent };
-      this.getOrCreateRoom({ appointmentId: dto.appointmentId, context: dummyContext });
-      stored = db.teleconsultationRooms.get(dto.appointmentId)!;
+    const { appointmentId, userId, ipAddress, userAgent } = params;
+    const context = { actorId: userId, ipAddress, userAgent };
+    this.getOrCreateRoom({ appointmentId, context });
+    const stored = db.teleconsultationRooms.get(appointmentId)!;
+    if (stored.status === TeleconsultationRoomStatus.COMPLETED) {
+      throw new Error('Esta teleconsulta já foi encerrada.');
     }
 
-    const participantId = `part_${randomUUID()}`;
     const now = new Date().toISOString();
+    let participant = stored.waitingParticipants.find((p) => p.userId === userId);
+    if (!participant) {
+      participant = {
+        participantId: `part_${randomUUID()}`,
+        userId,
+        name: decryptField(stored.encryptedPatientName),
+        role: TeleconsultationParticipantRole.PATIENT,
+        knockedAt: now,
+        status: 'WAITING',
+        clientFingerprint: params.clientFingerprint
+      };
+      stored.waitingParticipants.push(participant);
+    } else if (participant.status === 'REJECTED') {
+      participant.status = 'WAITING';
+      participant.knockedAt = now;
+    }
 
-    const participant: WaitingParticipant = {
-      participantId,
-      name: dto.patientName,
-      role: TeleconsultationParticipantRole.PATIENT,
-      knockedAt: now,
-      status: 'WAITING',
-      clientFingerprint: dto.clientFingerprint || `fp_${randomUUID().substring(0, 8)}`
-    };
-
-    // Remove eventual knocking anterior duplicado
-    stored.waitingParticipants = stored.waitingParticipants.filter(p => p.name !== dto.patientName);
-    stored.waitingParticipants.push(participant);
-    
     if (stored.status === TeleconsultationRoomStatus.IDLE) {
       stored.status = TeleconsultationRoomStatus.WAITING_ROOM;
     }
     stored.updatedAt = now;
 
     AuditService.log({
-      actorId: participantId,
+      actorId: userId,
       resourceType: AuditResourceType.TELECONSULTATION_ROOM,
-      resourceId: dto.appointmentId,
+      resourceId: appointmentId,
       action: AuditAction.TELECONSULTATION_KNOCK,
       ipAddress,
       userAgent
     });
 
+    const admitted = participant.status === 'ADMITTED';
     return {
       success: true,
-      participantId,
-      status: 'WAITING',
-      message: 'Você está na sala de espera. O terapeuta foi notificado e já irá admitir seu atendimento.',
+      participantId: participant.participantId,
+      status: admitted ? 'ADMITTED' : 'WAITING',
+      message: admitted
+        ? 'Você já foi admitido(a) na teleconsulta.'
+        : 'Você está na sala de espera. O psicólogo foi notificado e irá admiti-lo(a) em instantes.',
       roomStatus: stored.status
     };
   }
@@ -361,6 +374,12 @@ export class TeleconsultationService {
     }
 
     stored.updatedAt = now;
+    TeleconsultationSignalBus.publish({
+      appointmentId: dto.appointmentId,
+      senderId: context.actorId,
+      senderRole: TeleconsultationParticipantRole.THERAPIST,
+      signalType: 'BYE'
+    });
 
     AuditService.log({
       actorId: context.actorId,
@@ -421,40 +440,34 @@ export class TeleconsultationService {
   }
 
   /**
-   * Registra mensagem de sinalização WebRTC P2P (SDP Offer, Answer, ICE Candidate)
+   * Sinal WebRTC (SDP / ICE / JOIN / BYE) da parte autenticada. Remetente e papel vêm da
+   * sessão; o paciente só sinaliza depois de admitido pelo psicólogo.
    */
   static sendSignal(params: {
     dto: SendWebRtcSignalDTO;
+    user: SafeUser;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): { signal: WebRtcSignalEnvelope; room: TeleconsultationRoom } {
-    const { dto, context } = params;
-    let stored = db.teleconsultationRooms.get(dto.appointmentId);
-    if (!stored) {
-      this.getOrCreateRoom({ appointmentId: dto.appointmentId, context });
-      stored = db.teleconsultationRooms.get(dto.appointmentId)!;
+  }): { seq: number } {
+    const { dto, user, context } = params;
+    const stored = peekRoom(dto.appointmentId);
+    if (!stored || stored.status === TeleconsultationRoomStatus.COMPLETED) {
+      throw new Error('A sala de teleconsulta não está ativa.');
+    }
+    const role = this.participantRole(stored, user);
+    if (!role) {
+      throw new Error('Aguarde a admissão pelo psicólogo para entrar na chamada.');
     }
 
-    const now = new Date().toISOString();
-    const signal: WebRtcSignalEnvelope = {
-      id: `sig_${randomUUID().substring(0, 12)}`,
+    const signal = TeleconsultationSignalBus.publish({
       appointmentId: dto.appointmentId,
-      senderId: context.actorId,
-      senderRole: dto.senderRole || TeleconsultationParticipantRole.THERAPIST,
+      senderId: user.id,
+      senderRole: role,
       signalType: dto.signalType,
+      sessionId: dto.sessionId,
       sdp: dto.sdp,
       candidate: dto.candidate,
-      mediaState: dto.mediaState,
-      createdAt: now
-    };
-
-    if (!stored.signals) {
-      stored.signals = [];
-    }
-    stored.signals.push(signal);
-    if (stored.signals.length > 50) {
-      stored.signals = stored.signals.slice(-50);
-    }
-    stored.updatedAt = now;
+      mediaState: dto.mediaState
+    });
 
     if (dto.signalType === 'OFFER' || dto.signalType === 'ANSWER') {
       AuditService.log({
@@ -466,35 +479,54 @@ export class TeleconsultationService {
         userAgent: context.userAgent
       });
     }
-
-    return {
-      signal,
-      room: this.decryptStoredRoom(stored)
-    };
+    return { seq: signal.seq };
   }
 
   /**
-   * Lista sinais WebRTC P2P da sala
+   * Polling da sala: sinais da outra parte desde o cursor e situação da sala de espera
+   * (fila para o psicólogo; status próprio para o paciente).
    */
-  static getSignals(params: {
-    appointmentId: string;
-    excludeSenderId?: string;
-  }): WebRtcSignalEnvelope[] {
-    const stored = db.teleconsultationRooms.get(params.appointmentId);
-    if (!stored || !stored.signals) return [];
-    if (params.excludeSenderId) {
-      return stored.signals.filter(s => s.senderId !== params.excludeSenderId);
+  static poll(params: { appointmentId: string; user: SafeUser; cursor?: string }): TeleconsultationPollResponse {
+    const { appointmentId, user } = params;
+    const stored = peekRoom(appointmentId);
+    if (!stored) {
+      return { success: true, signals: [], cursor: params.cursor ?? '', roomStatus: TeleconsultationRoomStatus.IDLE, myStatus: null };
     }
-    return stored.signals;
+    const role = this.participantRole(stored, user);
+    const { signals, cursor } = role
+      ? TeleconsultationSignalBus.since(appointmentId, params.cursor, user.id)
+      : { signals: [], cursor: params.cursor ?? '' };
+
+    if (user.role === UserRole.PACIENTE) {
+      const mine = stored.waitingParticipants.find((p) => p.userId === user.id);
+      return { success: true, signals, cursor, roomStatus: stored.status, myStatus: mine?.status ?? null };
+    }
+    return {
+      success: true,
+      signals,
+      cursor,
+      roomStatus: stored.status,
+      waitingParticipants: stored.waitingParticipants.map(({ participantId, name, knockedAt, status }) => ({ participantId, name, knockedAt, status }))
+    };
+  }
+
+  /** Papel na chamada: psicólogo/supervisor do consultório ou paciente já admitido */
+  private static participantRole(stored: StoredTeleconsultationRoom, user: SafeUser): TeleconsultationParticipantRole | null {
+    if (CLINICIAN_ROLES.includes(user.role) && user.therapistId === stored.therapistId) {
+      return user.role === UserRole.SUPERVISOR_CLINICO ? TeleconsultationParticipantRole.SUPERVISOR : TeleconsultationParticipantRole.THERAPIST;
+    }
+    const admitted = stored.waitingParticipants.some((p) => p.userId === user.id && p.status === 'ADMITTED');
+    return user.role === UserRole.PACIENTE && admitted ? TeleconsultationParticipantRole.PATIENT : null;
   }
 
   /**
    * Decripta dados em memória para retorno seguro
    */
   private static decryptStoredRoom(stored: StoredTeleconsultationRoom): TeleconsultationRoom {
+    const { signals: _legacySignals, encryptedPatientName, ...room } = stored as StoredTeleconsultationRoom & { signals?: unknown };
     return {
-      ...stored,
-      patientName: decryptField(stored.encryptedPatientName)
+      ...room,
+      patientName: decryptField(encryptedPatientName)
     };
   }
 }

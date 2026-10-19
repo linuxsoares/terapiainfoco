@@ -5322,6 +5322,8 @@ export type DecryptedFeeContract = FeeContract;
  */
 export interface WaitingParticipant {
   participantId: string;
+  /** Conta do paciente que bateu à porta (identidade vem da sessão, não do cliente) */
+  userId?: string;
   name: string;
   role: TeleconsultationParticipantRole;
   knockedAt: string;
@@ -5350,12 +5352,22 @@ export interface MediaHardwareState {
   updatedAt: string;
 }
 
+/**
+ * Sinais da chamada: o psicólogo oferta (OFFER), o paciente responde (ANSWER), ambos trocam
+ * candidatos ICE; JOIN pede uma nova oferta (entrada/reconexão do paciente) e BYE encerra.
+ */
+export type WebRtcSignalType = 'JOIN' | 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'MEDIA_STATE_SYNC' | 'BYE';
+
 export interface WebRtcSignalEnvelope {
   id: string;
+  /** Sequência crescente por sala: cursor do polling */
+  seq: number;
   appointmentId: string;
   senderId: string;
   senderRole: TeleconsultationParticipantRole;
-  signalType: 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'MEDIA_STATE_SYNC' | 'BYE';
+  signalType: WebRtcSignalType;
+  /** Sessão de negociação: sinais de sessões antigas são descartados após reconexão */
+  sessionId?: string;
   sdp?: string;
   candidate?: {
     candidate: string;

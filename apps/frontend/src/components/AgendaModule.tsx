@@ -24,7 +24,7 @@ import {
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
-import { TeleconsultationRoomModal } from './TeleconsultationRoomModal';
+import { TeleconsultationRoom } from './TeleconsultationRoom';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 
 export function AgendaModule() {
@@ -835,9 +835,9 @@ export function AgendaModule() {
 
       {/* Modal de Teleconsulta Nativa WebRTC & Sala de Espera (RFC-001 §3.2, §3.3) */}
       {selectedTeleconsultationApp && (
-        <TeleconsultationRoomModal
+        <TeleconsultationRoom
           appointmentId={selectedTeleconsultationApp.id}
-          patientName="Mariana Silva de Oliveira"
+          role="THERAPIST"
           onClose={() => setSelectedTeleconsultationApp(null)}
           onProceedToSoap={() => {
             const currentApp = selectedTeleconsultationApp;
