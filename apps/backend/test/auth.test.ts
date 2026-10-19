@@ -9,6 +9,7 @@ import { UserRole } from '@terapiainfoco/shared';
 describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () => {
   beforeEach(() => {
     db.clear();
+    db.seedDemoSession();
     globalRateLimitStore.reset();
   });
 

@@ -2361,7 +2361,9 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **[Fase 2 do ADR-004] Repositórios SQL assíncronos** para usuários, pacientes, agendamentos e prontuários (habilita múltiplas réplicas).
 - [ ] **Rotação de KEK do KMS persistente** (hoje as versões rotacionadas da KEK vivem só em memória; apenas a v1 vem de `KMS_MASTER_KEY`).
 - [x] **Separação de perfis (1/2) — autenticação real:** fim da personificação automática da psicóloga padrão em requisições sem token, agenda e cadastro/busca de pacientes restritos à equipe do consultório (`PRACTICE_STAFF_ROLES`) e escopados ao `therapistId` do usuário, `actorId` real na auditoria, cadastro público limitado a Paciente/Psicólogo, consentimento de transcrição não presumido e `bun run admin:create` para contas Admin/DPO.
-- [ ] **Separação de perfis (2/2) — posse e conteúdo clínico:** verificação de posse em todas as rotas por paciente/consulta/prontuário (psicólogo ↔ paciente), Admin/DPO sem acesso a conteúdo clínico (RFC §2.1/§4) e vínculo paciente ↔ psicólogo criado no agendamento (fim do `therapist-001` fixo).
+- [x] **Separação de perfis (2/2) — posse e conteúdo clínico (rotas centrais):** política `accessPolicy` (posse por `therapistId`, 404 para recursos alheios) em pacientes, consultas e prontuários; busca por CPF restrita ao consultório; Admin/DPO sem acesso a prontuário/anamnese/linha do tempo/exportação, mantendo revogação de consentimento e quarentena (LGPD Art. 18); matriz de acesso no RFC-001 §4.5.
+- [ ] **Posse nos módulos clínicos restantes:** documentos CFP, transcrições, marcadores, metas, escalas, encaminhamentos, laudos consolidados, recibos e teleconsulta ainda validam apenas o papel.
+- [ ] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
 - [ ] **Busca pública de psicólogos:** perfil público verificado (CRP), busca full-text por nome/abordagem/especialidade/valor e agendamento com o psicólogo escolhido.
 

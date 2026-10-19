@@ -5,6 +5,7 @@ import { AnamnesisService } from '../services/anamnesisService';
 import { webhookService } from '../services/webhookService';
 import { searchRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requirePatientAccess } from '../middlewares/accessPolicy';
 import { UserRole } from '@terapiainfoco/shared';
 import type { CreatePatientDTO, SaveAnamnesisDTO } from '@terapiainfoco/shared';
 
@@ -39,7 +40,7 @@ patientsRoute.post('/', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
 });
 
 // Buscar paciente por ID
-patientsRoute.get('/:id', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
+patientsRoute.get('/:id', requireRoles(PRACTICE_STAFF_ROLES), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -71,7 +72,7 @@ patientsRoute.get('/search/cpf', searchRateLimiter, requireRoles(PRACTICE_STAFF_
     actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
-  });
+  }, c.get('user').therapistId);
 
   if (!patient) {
     return c.json({ success: false, error: 'Nenhum paciente localizado' }, 404);
@@ -81,7 +82,7 @@ patientsRoute.get('/search/cpf', searchRateLimiter, requireRoles(PRACTICE_STAFF_
 });
 
 // Solicitação de Quarentena LGPD Art. 18 vs. Guarda CFP (§2.2) - restrito a Psicólogo Titular ou Admin
-patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), requirePatientAccess('id', { allowDpo: true }), async (c) => {
 
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
@@ -104,7 +105,7 @@ patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, 
 });
 
 // Exportação de Prontuário Completo e Portabilidade de Dados (LGPD Art. 18, V & CFP nº 001/2009)
-patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR]), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -143,7 +144,7 @@ patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR, User
 });
 
 // Revogação Formal de Consentimento (LGPD Art. 18, IX & Resolução CFP nº 001/2009)
-patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), requirePatientAccess('id', { allowDpo: true }), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -182,7 +183,7 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
 });
 
 // 5. Ficha de Admissão & Anamnese Biopsicossocial (RFC §3.4, CFP nº 001/2009)
-patientsRoute.get('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+patientsRoute.get('/:id/anamnesis', requireRoles(CLINICAL_ROLES), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -201,7 +202,7 @@ patientsRoute.get('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, Us
   return c.json({ success: true, anamnesis }, 200);
 });
 
-patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR]), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -234,7 +235,7 @@ patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR, U
 });
 
 // Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.4)
-patientsRoute.get('/:id/timeline', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+patientsRoute.get('/:id/timeline', requireRoles(CLINICAL_ROLES), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
