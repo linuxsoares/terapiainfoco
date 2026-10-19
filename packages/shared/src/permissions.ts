@@ -5,12 +5,15 @@ import { UserRole } from './enums';
  */
 export const APP_MODULES = [
   'portal',
+  'directory',
   'dashboard',
   'agenda',
   'patients',
   'soap',
   'documents',
+  'publicProfile',
   'audit',
+  'crpVerification',
   'backups',
   'security'
 ] as const;
@@ -24,13 +27,18 @@ export type AppModule = (typeof APP_MODULES)[number];
 export const MODULE_ACCESS: Record<AppModule, readonly UserRole[]> = {
   // Espaço do paciente: exercícios, recibos, TCLE e cofre de portabilidade
   portal: [UserRole.PACIENTE],
+  // Busca de psicólogos (também pública, sem login, na vitrine)
+  directory: [UserRole.PACIENTE],
   dashboard: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
   // Agenda do consultório (o paciente vê apenas as próprias consultas, no portal)
   agenda: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.RECEPCAO_SECRETARIA],
   patients: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.RECEPCAO_SECRETARIA],
   soap: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
   documents: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
+  // Perfil exibido na busca de psicólogos
+  publicProfile: [UserRole.PSICOLOGO_TITULAR],
   audit: [UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN],
+  crpVerification: [UserRole.ADMIN],
   backups: [UserRole.ADMIN],
   // Segurança pessoal (2FA, passkeys) vale para todos os perfis
   security: [

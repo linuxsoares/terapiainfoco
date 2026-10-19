@@ -19,6 +19,9 @@ import {
   LogOut,
   Eye,
   HeartHandshake,
+  UserSearch,
+  Globe,
+  BadgeCheck,
   type LucideIcon
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
@@ -30,6 +33,10 @@ import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
 import { BackupModule } from './components/BackupModule';
 import { PatientHomeModule } from './components/PatientHomeModule';
+import { TherapistDirectory } from './components/TherapistDirectory';
+import { TherapistProfileEditor } from './components/TherapistProfileEditor';
+import { CrpVerificationModule } from './components/CrpVerificationModule';
+import { PublicDirectoryPage } from './components/PublicDirectoryPage';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -76,12 +83,15 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
 /** Itens de navegação; a visibilidade por perfil vem de MODULE_ACCESS (@terapiainfoco/shared) */
 const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
   portal: { label: 'Meu Espaço', shortLabel: 'Início', icon: HeartHandshake, iconClass: 'text-indigo-600 dark:text-indigo-400' },
+  directory: { label: 'Encontrar Psicólogo', shortLabel: 'Buscar', icon: UserSearch, iconClass: 'text-teal-600 dark:text-teal-400' },
   dashboard: { label: '0. Dashboard & Métricas', shortLabel: 'Início', icon: BarChart3, iconClass: 'text-teal-600 dark:text-teal-400' },
   agenda: { label: '1. Agenda & Meet', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
   patients: { label: '2. Pacientes & Portal', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
   soap: { label: '3 & 4. SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
   documents: { label: '5. Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },
+  publicProfile: { label: 'Meu Perfil Público', shortLabel: 'Perfil Público', icon: Globe, iconClass: 'text-teal-600 dark:text-teal-400' },
   audit: { label: 'Trilha WORM (Audit)', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
+  crpVerification: { label: 'Verificação de CRP', shortLabel: 'CRP', icon: BadgeCheck, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' }
 };
 
@@ -93,6 +103,7 @@ export default function App() {
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
+  const [publicView, setPublicView] = useState<'showcase' | 'directory'>('showcase');
 
   // Modais de Autenticação, Criação de Perfil, Meu Perfil e Atalhos do Paciente
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
@@ -187,10 +198,15 @@ export default function App() {
   if (showPublicShowcase) {
     return (
       <PrivacyProvider>
-        <PublicShowcasePage
-          onOpenAuth={handleOpenAuth}
-          onQuickDemoLogin={handleSwitchRole}
-        />
+        {publicView === 'directory' ? (
+          <PublicDirectoryPage onBack={() => setPublicView('showcase')} onOpenAuth={handleOpenAuth} />
+        ) : (
+          <PublicShowcasePage
+            onOpenAuth={handleOpenAuth}
+            onQuickDemoLogin={handleSwitchRole}
+            onOpenDirectory={() => setPublicView('directory')}
+          />
+        )}
         <AuthModal
           isOpen={authModalOpen}
           initialMode={authModalMode}
@@ -537,6 +553,14 @@ export default function App() {
                       onOpenProfile={() => setProfileModalOpen(true)}
                     />
                   )}
+                  {currentTab === 'directory' && (
+                    <div className="space-y-4">
+                      <h1 className="text-xl font-bold text-slate-900 dark:text-white">Encontre um psicólogo</h1>
+                      <TherapistDirectory />
+                    </div>
+                  )}
+                  {currentTab === 'publicProfile' && <TherapistProfileEditor />}
+                  {currentTab === 'crpVerification' && <CrpVerificationModule />}
                   {currentTab === 'dashboard' && <DashboardModule />}
                   {currentTab === 'agenda' && <AgendaModule />}
                   {currentTab === 'patients' && <PatientsModule />}

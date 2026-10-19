@@ -2375,7 +2375,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
 - [x] **Busca pública de psicólogos (backend):** tabela `therapist_profiles` com full-text (`tsvector` + GIN), `GET /api/therapists/search` (texto sem acento/por prefixo, abordagem, especialidade, valor máximo, paginação), página pública por slug, edição pelo psicólogo (`/me/profile`), verificação de CRP pelo Admin (`/admin/pending`, `/admin/:id/verify-crp`) e perfil demo em `DEMO_MODE`.
-- [ ] **Busca pública de psicólogos (frontend):** página de busca e perfil público na vitrine, editor de perfil do psicólogo e fila de verificação de CRP no painel do Admin.
+- [x] **Busca pública de psicólogos (frontend):** diretório sem login na vitrine ("Encontrar Psicólogo") com filtros e perfil detalhado; módulos dinâmicos "Encontrar Psicólogo" (paciente), "Meu Perfil Público" (psicólogo, com status de verificação e publicação) e "Verificação de CRP" (Admin); fila de CRP restrita a perfis que pediram publicação.
 - [ ] **Agendamento a partir do perfil:** paciente agenda com o psicólogo escolhido, criando o vínculo paciente ↔ consultório.
 
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.

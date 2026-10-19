@@ -208,11 +208,14 @@ export const TherapistProfileRepository = {
     return { results: rows.map(toPublic), total: count, page, pageSize };
   },
 
-  /** Perfis aguardando verificação de CRP pelo administrador */
+  /**
+   * Fila de verificação: perfis que pediram publicação e ainda não têm CRP verificado.
+   * Reprovados saem da fila (são despublicados) até o psicólogo publicar novamente.
+   */
   async listPendingVerification(): Promise<TherapistOwnProfile[]> {
     const db: any = await getDb();
     const rows: ProfileRow[] = await db.select().from(schema.therapistProfiles)
-      .where(eq(schema.therapistProfiles.crpVerified, false))
+      .where(and(eq(schema.therapistProfiles.crpVerified, false), eq(schema.therapistProfiles.published, true)))
       .orderBy(asc(schema.therapistProfiles.createdAt));
     return rows.map(toOwn);
   },
