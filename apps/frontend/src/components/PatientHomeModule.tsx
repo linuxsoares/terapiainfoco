@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
-import { HeartHandshake, FolderLock, User, ShieldCheck, Search, Video, CalendarDays } from 'lucide-react';
-import { AppointmentStatus, type PatientAppointmentView, type SafeUser } from '@terapiainfoco/shared';
+import { HeartHandshake, FolderLock, User, ShieldCheck, Search, Video, CalendarDays, CalendarPlus, BadgeCheck } from 'lucide-react';
+import { AppointmentStatus, type PatientAppointmentView, type SafeUser, type TherapistPublicProfile } from '@terapiainfoco/shared';
 import { api } from '../services/api';
+import { BookingPanel } from './BookingPanel';
 
 const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
+
+// Sessões encerradas, canceladas ou com falta não oferecem mais a sala
+const CLOSED_STATUSES: string[] = [
+  AppointmentStatus.CONCLUIDA,
+  AppointmentStatus.CANCELADA_PELO_PACIENTE,
+  AppointmentStatus.CANCELADA_PELO_TERAPEUTA,
+  AppointmentStatus.NAO_COMPARECEU,
+  AppointmentStatus.REAGENDADA
+];
 
 interface PatientHomeModuleProps {
   currentUser: SafeUser;
@@ -21,22 +31,21 @@ interface PatientHomeModuleProps {
 export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortabilityVault, onOpenProfile, onFindTherapist, onJoinRoom }: PatientHomeModuleProps) {
   const [appointments, setAppointments] = useState<PatientAppointmentView[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(true);
+  const [therapists, setTherapists] = useState<TherapistPublicProfile[]>([]);
+  // Psicólogo com o painel de agendamento aberto
+  const [bookingWith, setBookingWith] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadAppointments = () =>
     api.getMyPatientAppointments()
       .then(setAppointments)
       .catch(() => setAppointments([]))
       .finally(() => setLoadingAppointments(false));
+
+  useEffect(() => {
+    loadAppointments();
+    api.getMyTherapists().then(setTherapists).catch(() => setTherapists([]));
   }, []);
 
-  // Sessões encerradas, canceladas ou com falta não oferecem mais a sala
-  const CLOSED_STATUSES: string[] = [
-    AppointmentStatus.CONCLUIDA,
-    AppointmentStatus.CANCELADA_PELO_PACIENTE,
-    AppointmentStatus.CANCELADA_PELO_TERAPEUTA,
-    AppointmentStatus.NAO_COMPARECEU,
-    AppointmentStatus.REAGENDADA
-  ];
   const upcoming = appointments.filter(
     (a) => new Date(a.scheduledEnd).getTime() > Date.now() && !CLOSED_STATUSES.includes(a.status)
   );
@@ -77,6 +86,42 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
         </p>
       </div>
 
+      {therapists.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+            <HeartHandshake className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            {therapists.length === 1 ? 'Meu psicólogo' : 'Meus psicólogos'}
+          </h2>
+          <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+            {therapists.map((t) => {
+              const next = upcoming.find((a) => a.therapistId === t.therapistId);
+              const open = bookingWith === t.therapistId;
+              return (
+                <li key={t.therapistId} className="py-3 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 dark:text-white">{t.displayName}</p>
+                      <p className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
+                        <BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        CRP {t.crp}{t.headline ? ` • ${t.headline}` : ''}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        {next ? `Próxima sessão: ${dateTimeFormat.format(new Date(next.scheduledStart))}` : 'Nenhuma sessão agendada'}
+                      </p>
+                    </div>
+                    <button onClick={() => setBookingWith(open ? null : t.therapistId)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-teal-600 text-teal-700 hover:bg-teal-50 dark:border-teal-500 dark:text-teal-300 dark:hover:bg-teal-950/40">
+                      <CalendarPlus className="w-3.5 h-3.5" /> {open ? 'Fechar' : 'Agendar nova sessão'}
+                    </button>
+                  </div>
+                  {open && <BookingPanel profile={t} onBooked={() => loadAppointments()} />}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
@@ -84,7 +129,7 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
           </h2>
           <button onClick={onFindTherapist}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white">
-            <Search className="w-3.5 h-3.5" /> Encontrar psicólogo
+            <Search className="w-3.5 h-3.5" /> {therapists.length > 0 ? 'Buscar outro psicólogo' : 'Encontrar psicólogo'}
           </button>
         </div>
         {loadingAppointments ? (

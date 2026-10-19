@@ -794,6 +794,11 @@ export const api = {
     return res.appointments;
   },
 
+  async getMyTherapists(): Promise<TherapistPublicProfile[]> {
+    const res = await request<{ success: boolean; therapists: TherapistPublicProfile[] }>('/appointments/patient/therapists');
+    return res.therapists;
+  },
+
   // 1. Pacientes (FLE & Blind Index)
   async createPatient(dto: CreatePatientDTO, therapistId = '00000000-0000-0000-0000-000000000001'): Promise<DecryptedPatient> {
     const res = await request<{ success: boolean; patient: DecryptedPatient }>('/patients', {

@@ -14,6 +14,7 @@ import {
   type PublicBookingResponse,
   type PatientBookingDTO,
   type PatientAppointmentView,
+  type TherapistPublicProfile,
   type CreateRecurrentAppointmentsResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
@@ -293,9 +294,13 @@ export class AppointmentService {
   }
 
   /** Só psicólogos com perfil publicado e CRP verificado recebem agendamentos externos */
-  private static async requireBookableTherapist(therapistId: string) {
+  /**
+   * Novos pacientes só agendam com perfil publicado e CRP verificado. Quem já é paciente do
+   * consultório continua agendando mesmo que o psicólogo saia da busca pública.
+   */
+  private static async requireBookableTherapist(therapistId: string, existingPatient = false) {
     const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
-    if (!profile || !profile.published || !profile.crpVerified) {
+    if (!profile || !profile.crpVerified || (!profile.published && !existingPatient)) {
       throw new Error('Psicólogo indisponível para agendamento online.');
     }
     return profile;
@@ -317,12 +322,10 @@ export class AppointmentService {
     }
     const user = db.users.get(userId);
     if (!user) throw new Error('Usuário não encontrado.');
-    const profile = await this.requireBookableTherapist(dto.therapistId);
+    let patientId = this.linkedPatientRecords(userId).find((p) => p.therapistId === dto.therapistId)?.id;
+    const profile = await this.requireBookableTherapist(dto.therapistId, !!patientId);
     const actor = { actorId: userId, ipAddress: context.ipAddress, userAgent: context.userAgent };
 
-    let patientId = Array.from(db.patients.values()).find(
-      (p) => p.therapistId === dto.therapistId && (p.linkedUserId === userId || p.id === user.patientId)
-    )?.id;
     if (!patientId) {
       const created = PatientService.createPatient(dto.therapistId, {
         name: user.name,
@@ -352,15 +355,29 @@ export class AppointmentService {
     };
   }
 
-  /** Consultas do paciente em todos os consultórios a que sua conta está vinculada */
-  static async getPatientUserAppointments(userId: string): Promise<PatientAppointmentView[]> {
+  /** Registros de paciente vinculados à conta (um por consultório) */
+  private static linkedPatientRecords(userId: string) {
     const user = db.users.get(userId);
     if (!user) return [];
-    const patientIds = new Set(
-      Array.from(db.patients.values())
-        .filter((p) => p.linkedUserId === userId || p.id === user.patientId)
-        .map((p) => p.id)
-    );
+    return Array.from(db.patients.values()).filter((p) => p.linkedUserId === userId || p.id === user.patientId);
+  }
+
+  /** Psicólogos que já atendem o paciente, para agendar a próxima sessão sem passar pela busca */
+  static async getPatientUserTherapists(userId: string): Promise<TherapistPublicProfile[]> {
+    const therapistIds = new Set(this.linkedPatientRecords(userId).map((p) => p.therapistId));
+    const profiles: TherapistPublicProfile[] = [];
+    for (const therapistId of therapistIds) {
+      const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
+      if (!profile?.crpVerified) continue;
+      const { published: _published, crpVerifiedAt: _verifiedAt, ...publicProfile } = profile;
+      profiles.push(publicProfile);
+    }
+    return profiles.sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR'));
+  }
+
+  /** Consultas do paciente em todos os consultórios a que sua conta está vinculada */
+  static async getPatientUserAppointments(userId: string): Promise<PatientAppointmentView[]> {
+    const patientIds = new Set(this.linkedPatientRecords(userId).map((p) => p.id));
     const appointments = Array.from(db.appointments.values())
       .filter((a) => patientIds.has(a.patientId))
       .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
