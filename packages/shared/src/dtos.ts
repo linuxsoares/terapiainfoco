@@ -23,6 +23,18 @@ import type {
 } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
+/** Resultado da busca de pacientes por nome ou e-mail (restrita ao consultório) */
+export interface PatientSearchItem {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface PatientSearchResponse {
+  success: boolean;
+  patients: PatientSearchItem[];
+}
+
 export interface CreatePatientDTO {
   name: string;
   email: string;

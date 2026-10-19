@@ -6,7 +6,8 @@ import type {
   PatientClinicalTimelineResponse,
   PatientTimelineEvent,
   StoredAppointment,
-  DecryptedAppointment
+  DecryptedAppointment,
+  PatientSearchItem
 } from '@terapiainfoco/shared';
 import { AuditAction, AuditResourceType, AppointmentStatus } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
@@ -18,6 +19,13 @@ import {
   hashCpf 
 } from './cryptoContext';
 import { AuditService } from './auditService';
+
+const QUARANTINED_NAME = '[PACIENTE EM QUARENTENA LGPD]';
+
+/** Minúsculas e sem acentos, para a busca por nome */
+function normalizeForSearch(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
 
 export class PatientService {
   /**
@@ -128,6 +136,46 @@ export class PatientService {
   }
 
   /**
+   * Busca por nome ou e-mail dentro do consultório. Nome e e-mail são cifrados (FLE), então a
+   * comparação é feita em memória após decifrar apenas os pacientes do próprio consultório.
+   * Ignora acentos e caixa; todos os termos precisam aparecer no nome ou no e-mail.
+   */
+  static searchByNameOrEmail(
+    query: string,
+    therapistId: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string },
+    limit = 20
+  ): PatientSearchItem[] {
+    const terms = normalizeForSearch(query).split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+
+    const matches: PatientSearchItem[] = [];
+    for (const patient of db.patients.values()) {
+      if (patient.therapistId !== therapistId) continue;
+      const name = decryptField(patient.encryptedName);
+      if (name === QUARANTINED_NAME) continue;
+      const email = decryptField(patient.encryptedEmail);
+      const haystack = `${normalizeForSearch(name)} ${email.toLowerCase()}`;
+      if (terms.every((term) => haystack.includes(term))) {
+        matches.push({ id: patient.id, name, email });
+      }
+    }
+
+    const results = matches.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).slice(0, limit);
+    for (const result of results) {
+      AuditService.log({
+        actorId: context.actorId,
+        resourceType: AuditResourceType.PATIENT,
+        resourceId: result.id,
+        action: AuditAction.DECRYPT_READ,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      });
+    }
+    return results;
+  }
+
+  /**
    * Busca paciente por E-mail usando Blind Index (HMAC-SHA256) sem expor e-mail no banco (§4.3)
    */
   static findByEmail(
@@ -155,7 +203,7 @@ export class PatientService {
     if (!stored) return false;
 
     // Pseudonimização dos dados de contato ativos
-    stored.encryptedName = encryptField('[PACIENTE EM QUARENTENA LGPD]');
+    stored.encryptedName = encryptField(QUARANTINED_NAME);
     stored.encryptedEmail = encryptField('quarentena@anonimizado.local');
     stored.encryptedPhone = encryptField('00000000000');
     stored.emailBindex = hashEmail(`quarentena-${id}@anonimizado.local`);

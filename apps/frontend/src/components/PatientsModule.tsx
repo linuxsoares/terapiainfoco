@@ -35,7 +35,8 @@ import {
   Pill
 } from 'lucide-react';
 import type { 
-  DecryptedPatient, 
+  DecryptedPatient,
+  PatientSearchItem,
   CreatePatientDTO, 
   ExportPatientDataResponse, 
   DecryptedAnamnesisRecord,
@@ -69,9 +70,16 @@ interface PatientsModuleProps {
   role: UserRole;
 }
 
+/** CPF: só dígitos e pontuação, com 11 dígitos */
+function looksLikeCpf(value: string): boolean {
+  return /^[\d.\-\s]+$/.test(value) && value.replace(/\D/g, '').length === 11;
+}
+
 export function PatientsModule({ role }: PatientsModuleProps) {
   const can = (action: PatientAction) => canPerformPatientAction(role, action);
   const [searchCpf, setSearchCpf] = useState('');
+  // Vários pacientes encontrados por nome/e-mail: o psicólogo escolhe um
+  const [searchMatches, setSearchMatches] = useState<PatientSearchItem[] | null>(null);
   const [searchResult, setSearchResult] = useState<DecryptedPatient | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -418,16 +426,41 @@ export function PatientsModule({ role }: PatientsModuleProps) {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchCpf.trim()) return;
+    const query = searchCpf.trim();
+    if (!query) return;
 
     try {
       setSearchLoading(true);
       setSearchError(null);
       setSearchResult(null);
-      const patient = await api.searchPatientByCpf(searchCpf);
-      setSearchResult(patient);
+      setSearchMatches(null);
+      if (looksLikeCpf(query)) {
+        setSearchResult(await api.searchPatientByCpf(query));
+        return;
+      }
+      const matches = await api.searchPatients(query);
+      if (matches.length === 0) {
+        setSearchError('Nenhum paciente encontrado com esse nome ou e-mail.');
+      } else if (matches.length === 1) {
+        setSearchResult(await api.getPatient(matches[0].id));
+      } else {
+        setSearchMatches(matches);
+      }
     } catch (err: any) {
-      setSearchError(err.message || 'Paciente não localizado pelo Blind Index.');
+      setSearchError(err.message || 'Paciente não localizado.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const selectSearchMatch = async (id: string) => {
+    try {
+      setSearchLoading(true);
+      setSearchError(null);
+      setSearchResult(await api.getPatient(id));
+      setSearchMatches(null);
+    } catch (err: any) {
+      setSearchError(err.message || 'Não foi possível abrir o paciente.');
     } finally {
       setSearchLoading(false);
     }
@@ -678,11 +711,11 @@ export function PatientsModule({ role }: PatientsModuleProps) {
         </div>
       </div>
 
-      {/* Caixa de Busca por CPF */}
+      {/* Busca por nome, e-mail ou CPF */}
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none space-y-4">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Localizar Paciente via Blind Index
+          Localizar Paciente
         </h2>
 
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-xl">
@@ -690,10 +723,11 @@ export function PatientsModule({ role }: PatientsModuleProps) {
             <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Digite o CPF (ex: 123.456.789-00)..."
+              placeholder="Nome, e-mail ou CPF do paciente..."
               value={searchCpf}
               onChange={(e) => setSearchCpf(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-500 font-mono"
+              aria-label="Buscar paciente por nome, e-mail ou CPF"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
             />
           </div>
           <button
@@ -710,6 +744,30 @@ export function PatientsModule({ role }: PatientsModuleProps) {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{searchError}</span>
           </div>
+        )}
+
+        {searchMatches && (
+          <ul data-testid="patient-search-matches" className="max-w-xl divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {searchMatches.map((match) => (
+              <li key={match.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-900 dark:text-white">
+                    <MaskedField type="name" value={match.name} resourceType={AuditResourceType.PATIENT} resourceId={match.id} fieldName="name" />
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    <MaskedField type="email" value={match.email} resourceType={AuditResourceType.PATIENT} resourceId={match.id} fieldName="email" />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => selectSearchMatch(match.id)}
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Abrir
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
 
         {/* Resultado Encontrado */}

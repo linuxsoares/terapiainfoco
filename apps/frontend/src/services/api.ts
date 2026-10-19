@@ -15,6 +15,8 @@ import type {
   UpdateTherapistProfileDTO,
   CreatePatientDTO,
   DecryptedPatient,
+  PatientSearchItem,
+  PatientSearchResponse,
   CreateAppointmentDTO,
   CreateRecurrentAppointmentsResponse,
   DecryptedAppointment,
@@ -804,6 +806,11 @@ export const api = {
   async getPatient(id: string): Promise<DecryptedPatient> {
     const res = await request<{ success: boolean; patient: DecryptedPatient }>(`/patients/${id}`);
     return res.patient;
+  },
+
+  async searchPatients(query: string): Promise<PatientSearchItem[]> {
+    const res = await request<PatientSearchResponse>(`/patients/search?q=${encodeURIComponent(query)}`);
+    return res.patients;
   },
 
   async searchPatientByCpf(cpf: string): Promise<DecryptedPatient> {

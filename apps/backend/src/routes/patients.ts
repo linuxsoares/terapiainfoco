@@ -39,6 +39,25 @@ patientsRoute.post('/', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
   }
 });
 
+// Busca por nome ou e-mail no próprio consultório (registrada antes de /:id)
+patientsRoute.get('/search', searchRateLimiter, requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
+  const query = (c.req.query('q') ?? '').trim();
+  if (query.length < 2) {
+    return c.json({ success: false, error: 'Digite ao menos 2 caracteres do nome ou e-mail.' }, 400);
+  }
+  const therapistId = c.get('user').therapistId;
+  if (!therapistId) {
+    return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
+  }
+
+  const patients = PatientService.searchByNameOrEmail(query, therapistId, {
+    actorId: c.get('userId'),
+    ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+    userAgent: c.req.header('user-agent')
+  });
+  return c.json({ success: true, patients });
+});
+
 // Buscar paciente por ID
 patientsRoute.get('/:id', requireRoles(PRACTICE_STAFF_ROLES), requirePatientAccess(), async (c) => {
   const id = c.req.param('id');

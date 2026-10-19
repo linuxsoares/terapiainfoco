@@ -2367,6 +2367,7 @@ terapiainfoco/
 | `fix/consentimento-transcricao-na-sala` | Paciente autoriza a transcrição na sala; nova autorização limpa revogação; erros do SOAP e da OpenAI explicam o motivo | [PR #127](https://github.com/linuxsoares/terapiainfoco/pull/127) | Merged |
 | `fix/transcricao-preenchida-no-soap` | Transcrição da sala aparece preenchida no campo do SOAP (sem edição usa a original) | [PR #128](https://github.com/linuxsoares/terapiainfoco/pull/128) | Merged |
 | `fix/soap-sintetizado-por-ia` | Rascunho SOAP sintetizado pela OpenAI a partir das falas (sem conteúdo fixo, sem CID padrão) | [PR #129](https://github.com/linuxsoares/terapiainfoco/pull/129) | Merged |
+| `feat/busca-paciente-nome-email` | Busca de pacientes por nome ou e-mail (sem acento, restrita ao consultório, auditada) | [PR #130](https://github.com/linuxsoares/terapiainfoco/pull/130) | Merged |
 
 ---
 
