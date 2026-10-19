@@ -2356,6 +2356,7 @@ terapiainfoco/
 | `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
 | `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
 | `fix/kms-rotation-durable` | Rotação de KEK durável: versões derivadas via HKDF da `KMS_MASTER_KEY` e estado do KMS (versão ativa/revogações) persistido | [PR #118](https://github.com/linuxsoares/terapiainfoco/pull/118) | Merged |
+| `feat/patient-actions-by-role` | Ações do módulo de pacientes por perfil (`PATIENT_ACTION_ACCESS`), recepção sem ações clínicas e contrato com o backend | [PR #119](https://github.com/linuxsoares/terapiainfoco/pull/119) | Merged |
 
 ---
 
