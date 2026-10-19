@@ -79,6 +79,7 @@ export class KmsService {
 
     // Executa a rotação criptográfica no provedor KMS
     const newKey = await kmsProvider.rotateMasterKey(reason);
+    db.kmsState.set('local', kmsProvider.exportState());
     const previousKey = await kmsProvider.getKeyMetadata(previousVersion);
 
     // Atualiza política de agendamento
@@ -211,6 +212,7 @@ export class KmsService {
     ipAddress: string = '127.0.0.1'
   ): Promise<KmsKeyMetadata> {
     const revokedKey = await kmsProvider.revokeKeyVersion(version, reason);
+    db.kmsState.set('local', kmsProvider.exportState());
 
     this.lastAuditAction = `KEK v${version} revogada: ${reason}`;
 

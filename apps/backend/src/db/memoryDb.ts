@@ -30,6 +30,7 @@ import type {
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
+import type { LocalKmsState } from '@terapiainfoco/crypto';
 import { config } from '../config';
 import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, appendOnlySource } from './persistence';
 
@@ -68,6 +69,8 @@ export class MemoryDatabase {
   public passkeys: TrackedMap<string, PasskeyCredential> = new TrackedMap();
   public webauthnChallenges: TrackedMap<string, WebAuthnChallengeSession> = new TrackedMap();
   public dpiaReports: TrackedMap<string, DPIAReport> = new TrackedMap();
+  /** Estado do KMS local (versão ativa e revogações de KEK), persistido para sobreviver a restarts */
+  public kmsState: TrackedMap<string, LocalKmsState> = new TrackedMap();
 
 
   constructor() {
@@ -262,7 +265,7 @@ const MAP_COLLECTIONS = [
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',
   'therapeuticExercises', 'diagnosticReports', 'psychiatricReferrals', 'patientAccessCodes', 'users',
-  'passkeys', 'webauthnChallenges', 'dpiaReports'
+  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState'
 ] as const satisfies readonly (keyof MemoryDatabase)[];
 
 /** Persistência durável do cache de domínio no PostgreSQL (ADR-004) */
