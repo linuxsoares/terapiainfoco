@@ -22,7 +22,8 @@
     "db:migrate": "bun run --cwd apps/backend db:migrate",
     "db:push": "bun run --cwd apps/backend db:push",
     "test": "bun test",
-    "test:load": "bun scripts/load-test.ts"
+    "test:load": "bun scripts/load-test.ts",
+    "admin:create": "bun run --cwd apps/backend admin:create"
   },
   "devDependencies": {
     "@types/node": "^26.6.5"

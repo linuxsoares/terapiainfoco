@@ -4,6 +4,7 @@ import { GoogleMeetService } from '../services/googleMeetService';
 import { db } from '../db/memoryDb';
 import { AuditService } from '../services/auditService';
 import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
+import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
 import { 
   AuditAction, 
   AuditResourceType,
@@ -44,6 +45,16 @@ appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
   }
 });
 
+// Demais rotas da agenda exigem sessão autenticada da equipe do consultório.
+// Registrado após as rotas públicas acima: o Hono executa na ordem de registro.
+appointmentsRoute.use('*', authMiddleware(), requireRoles(PRACTICE_STAFF_ROLES), async (c, next) => {
+  // A agenda é sempre a do consultório do usuário autenticado
+  if (!c.get('user').therapistId) {
+    return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
+  }
+  await next();
+});
+
 // Criar agendamento com validação de buffer e geração do Google Meet (§3.1, §3.2)
 appointmentsRoute.post('/', async (c) => {
   const body = await c.req.json<CreateAppointmentDTO & { therapistId: string }>();
@@ -52,9 +63,9 @@ appointmentsRoute.post('/', async (c) => {
 
   try {
     const appointment = await AppointmentService.createAppointment(
-      body.therapistId || 'therapist-001',
+      c.get('user').therapistId!,
       body,
-      { actorId: body.therapistId || 'therapist-001', ipAddress: ip, userAgent }
+      { actorId: c.get('userId'), ipAddress: ip, userAgent }
     );
     return c.json({ success: true, appointment }, 201);
   } catch (err: any) {
@@ -71,7 +82,7 @@ appointmentsRoute.patch('/:id/status', async (c) => {
 
   try {
     const updated = AppointmentService.updateStatus(id, body.status, {
-      actorId: 'therapist-001',
+      actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
     });
@@ -98,7 +109,7 @@ appointmentsRoute.post('/:id/end-meet', async (c) => {
   }
 
   AuditService.log({
-    actorId: 'therapist-001',
+    actorId: c.get('userId'),
     resourceType: AuditResourceType.MEET,
     resourceId: appt.meetSpaceName || id,
     action: AuditAction.MEET_CONFERENCE_ENDED,
@@ -123,6 +134,9 @@ import { ReminderChannel } from '@terapiainfoco/shared';
 // Listar consultas do terapeuta
 appointmentsRoute.get('/therapist/:therapistId', async (c) => {
   const therapistId = c.req.param('therapistId');
+  if (therapistId !== c.get('user').therapistId) {
+    return c.json({ success: false, error: 'Acesso negado: agenda de outro profissional.' }, 403);
+  }
   const appointments = AppointmentService.getTherapistAppointments(therapistId);
   return c.json({ success: true, appointments });
 });
@@ -135,9 +149,9 @@ appointmentsRoute.post('/recurrent', async (c) => {
 
   try {
     const result = await AppointmentService.createRecurrentAppointments(
-      body.therapistId || 'therapist-001',
+      c.get('user').therapistId!,
       body,
-      { actorId: body.therapistId || 'therapist-001', ipAddress: ip, userAgent }
+      { actorId: c.get('userId'), ipAddress: ip, userAgent }
     );
     return c.json(result, 201);
   } catch (err: any) {
@@ -153,7 +167,7 @@ appointmentsRoute.delete('/series/:seriesId', async (c) => {
 
   try {
     const result = AppointmentService.cancelSeries(seriesId, {
-      actorId: 'therapist-001',
+      actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
     });
@@ -176,7 +190,7 @@ appointmentsRoute.post('/:id/reminders', async (c) => {
       channel: body.channel || ReminderChannel.WHATSAPP,
       customMessage: body.customMessage
     }, {
-      actorId: 'therapist-001',
+      actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
     });

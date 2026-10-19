@@ -9,7 +9,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "db:migrate": "bun src/db/migrate.ts",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "admin:create": "bun src/scripts/createAdmin.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
