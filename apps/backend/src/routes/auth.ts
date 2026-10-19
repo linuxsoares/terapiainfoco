@@ -19,6 +19,14 @@ import type {
 export const authRoute = new Hono();
 
 /**
+ * GET /api/auth/public-config
+ * Configuração pública do ambiente: o frontend só exibe atalhos de contas demo em DEMO_MODE
+ */
+authRoute.get('/public-config', (c) => {
+  return c.json({ success: true, demoMode: config.demoMode });
+});
+
+/**
  * GET /api/auth/public-showcase
  * Vitrine pública da plataforma (sem necessidade de login)
  */
