@@ -31,42 +31,43 @@ import type {
 import { UserRole } from '@terapiainfoco/shared';
 import { encryptField } from '../services/cryptoContext';
 import { config } from '../config';
+import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, appendOnlySource } from './persistence';
 
 /**
  * Banco em memória representando os esquemas relacionais da RFC-001 §5.2
  * Permite isolamento em testes e execução local instantânea com Bun
  */
 export class MemoryDatabase {
-  public therapists: Map<string, Therapist> = new Map();
-  public patients: Map<string, StoredPatient> = new Map();
-  public appointments: Map<string, StoredAppointment> = new Map();
-  public clinicalRecords: Map<string, StoredClinicalRecord> = new Map();
-  public documents: Map<string, StoredPsychologicalDocument> = new Map();
-  public sessionTranscriptions: Map<string, StoredSessionTranscription> = new Map();
-  public anamnesisRecords: Map<string, StoredAnamnesisRecord> = new Map();
-  public clinicalRecordRectifications: Map<string, StoredClinicalRecordRectification> = new Map();
-  public reminders: Map<string, StoredAppointmentReminder> = new Map();
-  public clinicalMarkers: Map<string, StoredClinicalSessionMarker> = new Map();
-  public therapeuticGoals: Map<string, StoredTherapeuticGoal> = new Map();
-  public psychometricAssessments: Map<string, PsychometricAssessment> = new Map();
-  public consolidatedReports: Map<string, StoredConsolidatedClinicalReport> = new Map();
-  public clinicalReferrals: Map<string, StoredClinicalReferral> = new Map();
-  public receipts: Map<string, StoredClinicalReceipt> = new Map();
-  public feeContracts: Map<string, StoredFeeContract> = new Map();
-  public teleconsultationRooms: Map<string, StoredTeleconsultationRoom> = new Map();
-  public transcriptionSessions: Map<string, StoredTranscriptionSession> = new Map();
-  public aiSoapDrafts: Map<string, AiSoapDraft> = new Map();
-  public batchClosingManifests: Map<string, IcpBatchClosingManifest> = new Map();
-  public therapeuticExercises: Map<string, TherapeuticExercise> = new Map();
-  public diagnosticReports: Map<string, DiagnosticAssessmentReport> = new Map();
-  public psychiatricReferrals: Map<string, PsychiatricReferralGuide> = new Map();
-  public patientAccessCodes: Map<string, { code: string; patientId: string; expiresAt: Date }> = new Map();
-  public users: Map<string, User> = new Map();
-  public revokedTokens: Set<string> = new Set();
+  public therapists: TrackedMap<string, Therapist> = new TrackedMap();
+  public patients: TrackedMap<string, StoredPatient> = new TrackedMap();
+  public appointments: TrackedMap<string, StoredAppointment> = new TrackedMap();
+  public clinicalRecords: TrackedMap<string, StoredClinicalRecord> = new TrackedMap();
+  public documents: TrackedMap<string, StoredPsychologicalDocument> = new TrackedMap();
+  public sessionTranscriptions: TrackedMap<string, StoredSessionTranscription> = new TrackedMap();
+  public anamnesisRecords: TrackedMap<string, StoredAnamnesisRecord> = new TrackedMap();
+  public clinicalRecordRectifications: TrackedMap<string, StoredClinicalRecordRectification> = new TrackedMap();
+  public reminders: TrackedMap<string, StoredAppointmentReminder> = new TrackedMap();
+  public clinicalMarkers: TrackedMap<string, StoredClinicalSessionMarker> = new TrackedMap();
+  public therapeuticGoals: TrackedMap<string, StoredTherapeuticGoal> = new TrackedMap();
+  public psychometricAssessments: TrackedMap<string, PsychometricAssessment> = new TrackedMap();
+  public consolidatedReports: TrackedMap<string, StoredConsolidatedClinicalReport> = new TrackedMap();
+  public clinicalReferrals: TrackedMap<string, StoredClinicalReferral> = new TrackedMap();
+  public receipts: TrackedMap<string, StoredClinicalReceipt> = new TrackedMap();
+  public feeContracts: TrackedMap<string, StoredFeeContract> = new TrackedMap();
+  public teleconsultationRooms: TrackedMap<string, StoredTeleconsultationRoom> = new TrackedMap();
+  public transcriptionSessions: TrackedMap<string, StoredTranscriptionSession> = new TrackedMap();
+  public aiSoapDrafts: TrackedMap<string, AiSoapDraft> = new TrackedMap();
+  public batchClosingManifests: TrackedMap<string, IcpBatchClosingManifest> = new TrackedMap();
+  public therapeuticExercises: TrackedMap<string, TherapeuticExercise> = new TrackedMap();
+  public diagnosticReports: TrackedMap<string, DiagnosticAssessmentReport> = new TrackedMap();
+  public psychiatricReferrals: TrackedMap<string, PsychiatricReferralGuide> = new TrackedMap();
+  public patientAccessCodes: TrackedMap<string, { code: string; patientId: string; expiresAt: Date }> = new TrackedMap();
+  public users: TrackedMap<string, User> = new TrackedMap();
+  public revokedTokens: TrackedSet<string> = new TrackedSet();
   public auditLogs: AuditLog[] = [];
-  public passkeys: Map<string, PasskeyCredential> = new Map();
-  public webauthnChallenges: Map<string, WebAuthnChallengeSession> = new Map();
-  public dpiaReports: Map<string, DPIAReport> = new Map();
+  public passkeys: TrackedMap<string, PasskeyCredential> = new TrackedMap();
+  public webauthnChallenges: TrackedMap<string, WebAuthnChallengeSession> = new TrackedMap();
+  public dpiaReports: TrackedMap<string, DPIAReport> = new TrackedMap();
 
 
   constructor() {
@@ -251,3 +252,26 @@ export class MemoryDatabase {
 
 
 export const db = new MemoryDatabase();
+
+/** Nomes das coleções chave-valor do cache de domínio persistidas no entity_store */
+const MAP_COLLECTIONS = [
+  'therapists', 'patients', 'appointments', 'clinicalRecords', 'documents', 'sessionTranscriptions',
+  'anamnesisRecords', 'clinicalRecordRectifications', 'reminders', 'clinicalMarkers', 'therapeuticGoals',
+  'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
+  'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',
+  'therapeuticExercises', 'diagnosticReports', 'psychiatricReferrals', 'patientAccessCodes', 'users',
+  'passkeys', 'webauthnChallenges', 'dpiaReports'
+] as const satisfies readonly (keyof MemoryDatabase)[];
+
+/** Persistência durável do cache de domínio no PostgreSQL (ADR-004) */
+export const persistence = new EntityPersistence();
+for (const name of MAP_COLLECTIONS) {
+  persistence.register(mapSource(name, () => db[name] as TrackedMap<string, any>));
+}
+persistence.register(setSource('revokedTokens', () => db.revokedTokens));
+persistence.register(appendOnlySource(
+  'auditLogs',
+  () => db.auditLogs,
+  (list) => { db.auditLogs = list; },
+  (log) => new Date(log.timestamp).getTime()
+));

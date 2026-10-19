@@ -7,7 +7,8 @@ import {
   timestamp, 
   integer, 
   jsonb, 
-  index 
+  index,
+  primaryKey
 } from 'drizzle-orm/pg-core';
 import type { EncryptedPayload } from '@terapiainfoco/shared';
 
@@ -232,4 +233,16 @@ export const clinicalRecordRectifications = pgTable('clinical_record_rectificati
   index('idx_rectifications_record').on(table.clinicalRecordId)
 ]);
 
-
+/**
+ * 11. ARMAZENAMENTO DURÁVEL DAS COLEÇÕES DE DOMÍNIO (ADR-004)
+ * Cada entidade do cache de domínio é persistida como documento JSONB, preservando
+ * os campos cifrados (FLE) exatamente como estão em memória.
+ */
+export const entityStore = pgTable('entity_store', {
+  collection: varchar('collection', { length: 64 }).notNull(),
+  id: text('id').notNull(),
+  data: jsonb('data').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  primaryKey({ columns: [table.collection, table.id] })
+]);

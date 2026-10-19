@@ -1,96 +1,39 @@
 import type { AppDb } from './index';
 import * as schema from './schema';
-import { db } from './memoryDb';
-import { encryptField, hashEmail, hashCpf } from '../services/cryptoContext';
-import { UserRole } from '@terapiainfoco/shared';
+import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
-import { config } from '../config';
 
 /**
- * Garante registros padrão no banco de dados e sincroniza registros existentes para a memória RAM
+ * Carrega o cache de domínio a partir do PostgreSQL e ativa a persistência durável (ADR-004).
+ *
+ * Usuários, pacientes e agendamentos gravados nas tabelas relacionais legadas (antes do
+ * entity_store) são importados uma única vez: apenas enquanto o entity_store ainda não
+ * possui nenhum registro da coleção correspondente.
  */
 export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
-  // Contas e paciente de demonstração (senha conhecida) apenas em DEMO_MODE
-  if (config.demoMode) {
-    // 1. Garante Terapeuta padrão
-    try {
-      await (sqlDb as any)
-        .insert(schema.therapists)
-        .values({
-          id: '00000000-0000-0000-0000-000000000001',
-          crp: '06/142980',
-          crpRegion: 'SP',
-          status: 'ACTIVE',
-          encryptedDek: 'mock-encrypted-dek-base64'
-        })
-        .onConflictDoNothing();
-    } catch (err: any) {
-      console.warn('⚠️ Nota ao inserir terapeuta padrão:', err?.message || err);
-    }
+  const loaded = await persistence.load(sqlDb);
+  const summary = Object.entries(loaded).map(([name, count]) => `${name}=${count}`).join(', ');
+  console.log(`⚡ entity_store carregado: ${summary || 'vazio'}`);
 
-    // 2. Garante Usuários padrão (Psicóloga e Admin)
-    try {
-      const defaultPasswordHash = Bun.password.hashSync('Senha@123456');
-      await (sqlDb as any)
-        .insert(schema.users)
-        .values([
-          {
-            id: '00000000-0000-0000-0000-000000000001',
-            email: 'psicologo@terapiainfoco.com.br',
-            name: 'Dra. Beatriz Santos',
-            role: UserRole.PSICOLOGO_TITULAR,
-            crp: '06/142980',
-            crpRegion: 'SP',
-            therapistId: '00000000-0000-0000-0000-000000000001',
-            passwordHash: defaultPasswordHash,
-            twoFactorEnabled: false
-          },
-          {
-            id: '00000000-0000-0000-0000-000000000004',
-            email: 'admin@terapiainfoco.com.br',
-            name: 'Administrador do Sistema',
-            role: UserRole.ADMIN,
-            passwordHash: defaultPasswordHash,
-            twoFactorEnabled: false
-          }
-        ])
-        .onConflictDoNothing();
-    } catch (err: any) {
-      console.warn('⚠️ Nota ao inserir usuários padrão:', err?.message || err);
-    }
-
-    // 3. Garante Paciente demo (Mariana Silva)
-    try {
-      const demoPatientId = '00000000-0000-0000-0000-000000000002';
-      await (sqlDb as any)
-        .insert(schema.patients)
-        .values({
-          id: demoPatientId,
-          therapistId: '00000000-0000-0000-0000-000000000001',
-          encryptedName: encryptField('Mariana Silva de Oliveira'),
-          encryptedEmail: encryptField('mariana.silva@email.com'),
-          encryptedPhone: encryptField('(11) 98765-4321'),
-          encryptedCpf: encryptField('123.456.789-00'),
-          emailBindex: hashEmail('mariana.silva@email.com'),
-          cpfBindex: hashCpf('123.456.789-00'),
-          consentTranscriptionSigned: true,
-          consentSignedAt: new Date()
-        })
-        .onConflictDoNothing();
-    } catch (err: any) {
-      console.warn('⚠️ Nota ao inserir paciente demo:', err?.message || err);
-    }
+  const imported = await importLegacyRecords(sqlDb);
+  if (imported.length > 0) {
+    console.log(`📥 Registros legados importados para o entity_store: ${imported.join(', ')}`);
   }
 
-  // 4. Carrega registros do SQL para o cache em memória
-  try {
-    const userRows = await (sqlDb as any).select().from(schema.users);
-    for (const u of userRows) {
-      db.users.set(u.id, {
+  await persistence.attach(sqlDb);
+}
+
+async function importLegacyRecords(sqlDb: AppDb): Promise<string[]> {
+  const imported: string[] = [];
+
+  if (!persistence.hasPersisted('users')) {
+    const rows = await (sqlDb as any).select().from(schema.users);
+    for (const u of rows) {
+      const user: User = {
         id: u.id,
         email: u.email,
         name: u.name,
-        role: u.role as any,
+        role: u.role,
         crp: u.crp || undefined,
         crpRegion: u.crpRegion || undefined,
         therapistId: u.therapistId || undefined,
@@ -100,12 +43,16 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
         twoFactorBackupCodes: u.twoFactorBackupCodes || undefined,
         createdAt: u.createdAt,
         lastLoginAt: u.lastLoginAt || undefined
-      });
+      };
+      db.users.set(user.id, user);
     }
+    if (rows.length > 0) imported.push(`users=${rows.length}`);
+  }
 
-    const patientRows = await (sqlDb as any).select().from(schema.patients);
-    for (const p of patientRows) {
-      db.patients.set(p.id, {
+  if (!persistence.hasPersisted('patients')) {
+    const rows = await (sqlDb as any).select().from(schema.patients);
+    for (const p of rows) {
+      const patient: StoredPatient = {
         id: p.id,
         therapistId: p.therapistId,
         emailBindex: p.emailBindex,
@@ -119,232 +66,31 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
         encryptedEmail: p.encryptedEmail,
         encryptedPhone: p.encryptedPhone,
         encryptedCpf: p.encryptedCpf || undefined
-      });
+      };
+      db.patients.set(patient.id, patient);
     }
-
-    console.log(`⚡ Supabase/PostgreSQL sincronizado com memória: ${userRows.length} usuários e ${patientRows.length} pacientes carregados.`);
-  } catch (err: any) {
-    console.warn('⚠️ Nota ao sincronizar registros do banco para a memória:', err?.message || err);
+    if (rows.length > 0) imported.push(`patients=${rows.length}`);
   }
-}
 
-/**
- * Persiste um paciente no PostgreSQL / Supabase
- */
-export async function persistPatientToDb(sqlDb: AppDb, patient: StoredPatient): Promise<void> {
-  const validTherapistId = (patient.therapistId && !patient.therapistId.startsWith('therapist-'))
-    ? patient.therapistId
-    : '00000000-0000-0000-0000-000000000001';
-
-  await (sqlDb as any)
-    .insert(schema.patients)
-    .values({
-      id: patient.id,
-      therapistId: validTherapistId,
-      encryptedName: patient.encryptedName,
-      encryptedEmail: patient.encryptedEmail,
-      encryptedPhone: patient.encryptedPhone,
-      encryptedCpf: patient.encryptedCpf,
-      emailBindex: patient.emailBindex,
-      cpfBindex: patient.cpfBindex,
-      consentTranscriptionSigned: patient.consentTranscriptionSigned,
-      consentSignedAt: patient.consentSignedAt,
-      consentRevokedAt: patient.consentRevokedAt,
-      consentRevokeReason: patient.consentRevokeReason,
-      createdAt: patient.createdAt
-    })
-    .onConflictDoNothing();
-
-  // Sincronização direta via PostgREST do Supabase (quando SUPABASE_URL e SECRET_KEY configurados)
-  if (config.supabase.url && config.supabase.secretKey) {
-    try {
-      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/patients`, {
-        method: 'POST',
-        headers: {
-          'apikey': config.supabase.secretKey,
-          'Authorization': `Bearer ${config.supabase.secretKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=ignore-duplicates'
-        },
-        body: JSON.stringify({
-          id: patient.id,
-          therapist_id: validTherapistId,
-          encrypted_name: patient.encryptedName,
-          encrypted_email: patient.encryptedEmail,
-          encrypted_phone: patient.encryptedPhone,
-          encrypted_cpf: patient.encryptedCpf || null,
-          email_bindex: patient.emailBindex,
-          cpf_bindex: patient.cpfBindex || null,
-          consent_transcription_signed: patient.consentTranscriptionSigned,
-          consent_signed_at: patient.consentSignedAt,
-          consent_revoked_at: patient.consentRevokedAt || null,
-          consent_revoke_reason: patient.consentRevokeReason || null,
-          created_at: patient.createdAt
-        })
-      });
-    } catch {
-      // Ignora erro se PostgREST estiver inacessível ou tabela não sincronizada
+  if (!persistence.hasPersisted('appointments')) {
+    const rows = await (sqlDb as any).select().from(schema.appointments);
+    for (const a of rows) {
+      const appointment: StoredAppointment = {
+        id: a.id,
+        therapistId: a.therapistId,
+        patientId: a.patientId,
+        scheduledStart: a.scheduledStart,
+        scheduledEnd: a.scheduledEnd,
+        status: a.status,
+        googleEventId: a.googleEventId || undefined,
+        encryptedMeetUrl: a.encryptedMeetUrl,
+        meetAccessCode: a.meetAccessCode || undefined,
+        createdAt: a.createdAt
+      };
+      db.appointments.set(appointment.id, appointment);
     }
-  }
-}
-
-/**
- * Persiste um usuário no PostgreSQL / Supabase e opcionalmente no Supabase Auth
- */
-export async function persistUserToDb(sqlDb: AppDb, user: User, rawPassword?: string): Promise<void> {
-  let therapistUuid = user.therapistId;
-  if (therapistUuid && therapistUuid.startsWith('therapist-')) {
-    therapistUuid = '00000000-0000-0000-0000-000000000001';
+    if (rows.length > 0) imported.push(`appointments=${rows.length}`);
   }
 
-  if (user.role === UserRole.PSICOLOGO_TITULAR && user.crp) {
-    const tId = therapistUuid || crypto.randomUUID();
-    therapistUuid = tId;
-    await (sqlDb as any)
-      .insert(schema.therapists)
-      .values({
-        id: tId,
-        crp: user.crp,
-        crpRegion: user.crpRegion || 'SP',
-        status: 'ACTIVE',
-        encryptedDek: 'mock-encrypted-dek-base64'
-      })
-      .onConflictDoNothing();
-  }
-
-  await (sqlDb as any)
-    .insert(schema.users)
-    .values({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      crp: user.crp,
-      crpRegion: user.crpRegion,
-      therapistId: therapistUuid,
-      passwordHash: user.passwordHash,
-      twoFactorEnabled: user.twoFactorEnabled,
-      twoFactorSecret: user.twoFactorSecret,
-      twoFactorBackupCodes: user.twoFactorBackupCodes,
-      createdAt: user.createdAt,
-      lastLoginAt: user.lastLoginAt
-    })
-    .onConflictDoNothing();
-
-  // Sincronização via Supabase Auth Admin (/auth/v1/admin/users)
-  if (config.supabase.url && config.supabase.secretKey && rawPassword) {
-    try {
-      const res = await fetch(`${config.supabase.url.replace(/\/+$/, '')}/auth/v1/admin/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': config.supabase.secretKey,
-          'Authorization': `Bearer ${config.supabase.secretKey}`
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          password: rawPassword,
-          email_confirm: true,
-          user_metadata: {
-            name: user.name,
-            role: user.role,
-            crp: user.crp,
-            crpRegion: user.crpRegion
-          }
-        })
-      });
-      if (res.ok) {
-        console.log(`✅ Usuário ${user.email} sincronizado no Supabase Auth.`);
-      } else {
-        const txt = await res.text();
-        console.warn(`⚠️ Supabase Auth Admin API (${res.status}):`, txt);
-      }
-    } catch (err: any) {
-      console.warn('⚠️ Falha ao criar usuário no Supabase Auth Admin:', err?.message || err);
-    }
-  }
-
-  // Sincronização via PostgREST do Supabase para tabela public.users
-  if (config.supabase.url && config.supabase.secretKey) {
-    try {
-      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/users`, {
-        method: 'POST',
-        headers: {
-          'apikey': config.supabase.secretKey,
-          'Authorization': `Bearer ${config.supabase.secretKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=ignore-duplicates'
-        },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          crp: user.crp || null,
-          crp_region: user.crpRegion || null,
-          therapist_id: therapistUuid || null,
-          password_hash: user.passwordHash,
-          two_factor_enabled: user.twoFactorEnabled,
-          created_at: user.createdAt
-        })
-      });
-    } catch {
-      // Ignora erro se PostgREST estiver inacessível
-    }
-  }
-}
-
-/**
- * Persiste um agendamento no PostgreSQL / Supabase
- */
-export async function persistAppointmentToDb(sqlDb: AppDb, appt: StoredAppointment): Promise<void> {
-  const validTherapistId = (appt.therapistId && !appt.therapistId.startsWith('therapist-'))
-    ? appt.therapistId
-    : '00000000-0000-0000-0000-000000000001';
-
-  await (sqlDb as any)
-    .insert(schema.appointments)
-    .values({
-      id: appt.id,
-      therapistId: validTherapistId,
-      patientId: appt.patientId,
-      scheduledStart: appt.scheduledStart,
-      scheduledEnd: appt.scheduledEnd,
-      status: appt.status,
-      googleEventId: appt.googleEventId,
-      encryptedMeetUrl: appt.encryptedMeetUrl,
-      meetAccessCode: appt.meetAccessCode,
-      createdAt: appt.createdAt
-    })
-    .onConflictDoNothing();
-
-  // Sincronização direta via PostgREST
-  if (config.supabase.url && config.supabase.secretKey) {
-    try {
-      await fetch(`${config.supabase.url.replace(/\/+$/, '')}/rest/v1/appointments`, {
-        method: 'POST',
-        headers: {
-          'apikey': config.supabase.secretKey,
-          'Authorization': `Bearer ${config.supabase.secretKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=ignore-duplicates'
-        },
-        body: JSON.stringify({
-          id: appt.id,
-          therapist_id: validTherapistId,
-          patient_id: appt.patientId,
-          scheduled_start: appt.scheduledStart,
-          scheduled_end: appt.scheduledEnd,
-          status: appt.status,
-          google_event_id: appt.googleEventId || null,
-          encrypted_meet_url: appt.encryptedMeetUrl,
-          meet_access_code: appt.meetAccessCode || null,
-          created_at: appt.createdAt
-        })
-      });
-    } catch {
-      // Ignora erro se PostgREST falhar
-    }
-  }
+  return imported;
 }
