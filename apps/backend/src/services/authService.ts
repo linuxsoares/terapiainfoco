@@ -720,11 +720,11 @@ export class AuthService {
         {
           role: UserRole.PSICOLOGO_TITULAR,
           title: 'Perfil Psicólogo(a) Clínico(a)',
-          subtitle: 'Prontuário SOAP, Teleconsulta WebRTC/Meet, IA Ética e Documentos CFP',
+          subtitle: 'Prontuário SOAP, Teleconsulta própria, IA Ética e Documentos CFP',
           badge: 'CRP Ativo & e-Psi',
           demoEmail: 'psicologo@terapiainfoco.com.br',
           highlights: [
-            'Agenda com Séries Recorrentes, Lembretes WhatsApp/E-mail e Teleconsulta WebRTC P2P + Google Meet API v2',
+            'Agenda com Séries Recorrentes, Lembretes WhatsApp/E-mail e Teleconsulta própria (WebRTC P2P, sem gravação)',
             'Transcrição Assistida por IA com Diarização de Voz, Taxa de Escuta Ativa e Rascunho SOAP Human-in-the-Loop',
             'Anamnese Interativa com Árvore de Decisão CID-11, Escalas PHQ-9/GAD-7/PSS-10/ASRS e Planos SMART',
             'Laudos CFP nº 006/2019, Encaminhamento Psiquiátrico com Interações Medicamentosas e Assinatura ICP-Brasil em Lote'
@@ -748,7 +748,7 @@ export class AuthService {
         {
           id: 'mod-agenda-teleconsulta',
           section: 'RFC-001 §3.1 & §3.2',
-          title: 'Agendamento Recorrente, Lembretes Multicanal & Teleconsulta WebRTC P2P / Google Meet',
+          title: 'Agendamento Recorrente, Lembretes Multicanal & Teleconsulta Própria WebRTC P2P',
           description: 'Séries semanais/quinzenais, sala de espera ética com knocking (CFP 011/2018), monitoramento de qualidade MOS ITU-T G.107 e reconexão automática.',
           normativeBasis: 'Resolução CFP nº 011/2018',
           targetRoles: [UserRole.PSICOLOGO_TITULAR, UserRole.PACIENTE]

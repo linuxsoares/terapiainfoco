@@ -73,7 +73,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       role: UserRole.PSICOLOGO_TITULAR,
       badge: 'Profissional da Psicologia • CRP & e-Psi',
       title: 'Para Psicólogos(as) Clínicos(as) & Neuropsicólogos',
-      subtitle: 'Automação ética do consultório, teleconsulta P2P/Meet, síntese SOAP assistida por IA e fé pública ICP-Brasil.',
+      subtitle: 'Automação ética do consultório, teleconsulta própria sem gravação, síntese SOAP assistida por IA e fé pública ICP-Brasil.',
       description:
         'Gerencie toda a jornada clínica sem abrir mão do sigilo profissional (Art. 9º do Código de Ética do Psicólogo). Seus prontuários são cifrados com uma chave DEK exclusiva sua (Envelope Encryption KMS).',
       demoLabel: 'Entrar como Psicóloga (Dra. Beatriz Santos)',
@@ -85,7 +85,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
           norm: 'RFC-001 §3.1 & CFP nº 011/2018'
         },
         {
-          title: 'Teleconsulta WebRTC P2P + Google Meet API v2 & Sala de Espera Ética',
+          title: 'Teleconsulta Própria (WebRTC P2P, sem gravação) & Sala de Espera Ética',
           desc: 'Salas criptografadas com knocking obrigatório, monitoramento de qualidade MOS ITU-T G.107, marcadores clínicos em tempo real e reconexão automática.',
           norm: 'RFC-001 §3.2 & CFP nº 011/2018'
         },
@@ -197,7 +197,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
     {
       num: '03',
       category: 'CLINICAL',
-      title: 'Teleconsulta WebRTC P2P & Google Meet v2',
+      title: 'Teleconsulta Própria WebRTC P2P (sem gravação)',
       desc: 'Vídeo criptografado DTLS-SRTP, sala de espera com knocking manual e telemetria MOS ITU-T G.107.',
       badge: 'RFC §3.2',
       icon: Video
@@ -424,7 +424,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                 oferece para Psicólogos, Pacientes e Clínicas.
               </h1>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
-                Explore livremente todas as funcionalidades da plataforma antes de fazer login: prontuário SOAP com criptografia em nível de campo, teleconsulta ética WebRTC/Google Meet, anamnese com árvore de decisão CID-11, interações medicamentosas, Portal do Paciente e 74 camadas de defesa cibernética.
+                Explore livremente todas as funcionalidades da plataforma antes de fazer login: prontuário SOAP com criptografia em nível de campo, teleconsulta ética própria (WebRTC, sem gravação), anamnese com árvore de decisão CID-11, interações medicamentosas, Portal do Paciente e 74 camadas de defesa cibernética.
               </p>
 
               {/* Main CTA Buttons */}

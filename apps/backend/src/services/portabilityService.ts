@@ -63,23 +63,13 @@ export class PortabilityService {
     const patientAppointments = Array.from(db.appointments.values())
       .filter(a => a.patientId === params.patientId)
       .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime())
-      .map(a => {
-        let meetUrl: string | undefined;
-        try {
-          meetUrl = decryptField(a.encryptedMeetUrl);
-        } catch {
-          meetUrl = undefined;
-        }
-        return {
-          id: a.id,
-          scheduledStart: new Date(a.scheduledStart).toISOString(),
-          scheduledEnd: new Date(a.scheduledEnd).toISOString(),
-          status: a.status as AppointmentStatus,
-          meetUrl,
-          meetAccessCode: a.meetAccessCode,
-          createdAt: new Date(a.createdAt).toISOString()
-        };
-      });
+      .map(a => ({
+        id: a.id,
+        scheduledStart: new Date(a.scheduledStart).toISOString(),
+        scheduledEnd: new Date(a.scheduledEnd).toISOString(),
+        status: a.status as AppointmentStatus,
+        createdAt: new Date(a.createdAt).toISOString()
+      }));
 
     // 4. Prontuários e evoluções SOAP assinados (CFP nº 001/2009)
     const patientRecords = Array.from(db.clinicalRecords.values())

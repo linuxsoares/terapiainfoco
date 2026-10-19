@@ -128,8 +128,8 @@ export const BookingWidget: React.FC = () => {
   };
 
   const handleCopyLink = () => {
-    if (!bookingConfirmation?.meetUrl) return;
-    navigator.clipboard.writeText(bookingConfirmation.meetUrl);
+    if (!bookingConfirmation?.roomUrl) return;
+    navigator.clipboard.writeText(bookingConfirmation.roomUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
@@ -151,7 +151,7 @@ export const BookingWidget: React.FC = () => {
             Agendamento Online de Teleconsulta
           </h2>
           <p className="mt-3 text-base text-slate-600 leading-relaxed">
-            Consulte horários em tempo real, confirme sua sessão em menos de 2 minutos e receba o link direto do Google Meet com criptografia de ponta a ponta.
+            Consulte horários em tempo real, confirme sua sessão em menos de 2 minutos e receba o link da sala de teleconsulta, cifrada de ponta a ponta e sem gravação.
           </p>
         </div>
 
@@ -172,12 +172,12 @@ export const BookingWidget: React.FC = () => {
               </div>
             </div>
 
-            {/* Dados da Sala Google Meet */}
+            {/* Dados da sala de teleconsulta */}
             <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
                   <Video className="w-4 h-4 text-teal-600" />
-                  Sala Virtual Google Meet
+                  Sala de Teleconsulta
                 </span>
                 <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
                   Teleconsulta Criptografada
@@ -186,7 +186,7 @@ export const BookingWidget: React.FC = () => {
 
               <div className="flex items-center justify-between gap-3 bg-white p-3 rounded-xl border border-teal-200/80">
                 <span className="font-mono text-sm text-slate-800 font-medium truncate">
-                  {bookingConfirmation.meetUrl}
+                  {bookingConfirmation.roomUrl}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
@@ -198,7 +198,7 @@ export const BookingWidget: React.FC = () => {
                     {copiedLink ? 'Copiado!' : 'Copiar'}
                   </button>
                   <a
-                    href={bookingConfirmation.meetUrl}
+                    href={bookingConfirmation.roomUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
@@ -362,7 +362,7 @@ export const BookingWidget: React.FC = () => {
                   Seus Dados para o Atendimento
                 </h4>
                 <p className="text-xs text-slate-500 mb-6">
-                  Preencha os campos para emissão do link Google Meet e registro de consentimento.
+                  Preencha os campos para emissão do link da sala e registro de consentimento.
                 </p>
 
                 {error && (
@@ -472,7 +472,7 @@ export const BookingWidget: React.FC = () => {
                     className="w-full py-3.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold tracking-wide uppercase shadow-lg shadow-teal-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    {submitting ? 'Agendando Consulta...' : 'Confirmar & Receber Link do Google Meet'}
+                    {submitting ? 'Agendando Consulta...' : 'Confirmar & Receber Link da Sala'}
                   </button>
                 </form>
               </div>

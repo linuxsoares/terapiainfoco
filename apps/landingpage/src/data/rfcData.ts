@@ -26,7 +26,7 @@ export const THERAPY_CASES: TherapyCase[] = [
     id: 'case-1',
     name: 'Mariana S. (32 anos)',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    modality: 'Teleconsulta (Google Meet Seguro)',
+    modality: 'Teleconsulta (sala própria, sem gravação)',
     approach: 'Terapia Cognitivo-Comportamental (TCC)',
     sessionNumber: 8,
     duration: '50 min',
@@ -75,7 +75,7 @@ export const THERAPY_CASES: TherapyCase[] = [
     id: 'case-2',
     name: 'Carlos E. (45 anos)',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    modality: 'Teleconsulta (Google Meet Seguro)',
+    modality: 'Teleconsulta (sala própria, sem gravação)',
     approach: 'Psicologia Humanista / Fenomenológica',
     sessionNumber: 14,
     duration: '50 min',
@@ -156,15 +156,15 @@ export const RFC_MODULES = [
   {
     id: 'modulo-2',
     badge: 'Módulo 2 • RFC-001 §3.2',
-    title: 'Teleconsulta Integrada ao Google Meet',
-    description: 'Elimine links manuais e servidores WebRTC instáveis. Crie salas corporativas do Google Meet com proteção de acesso direto na sua agenda.',
+    title: 'Teleconsulta Própria, sem Gravação',
+    description: 'Sala de vídeo da própria plataforma, criada para cada consulta: só o psicólogo e o paciente da sessão entram, nada é gravado e a transcrição alimenta o prontuário.',
     highlights: [
-      'Geração de link dinâmico associado ao Google Calendar do profissional',
+      'Link exclusivo da sala gerado automaticamente para cada consulta',
       'Sala de espera (Knocking) mandatória: nenhum paciente entra na sessão anterior',
-      'Zero custo de infraestrutura própria de vídeo com a máxima confiabilidade global do Google',
+      'Sem gravação de áudio ou vídeo: só a transcrição da fala segue para o prontuário',
       'Acesso seguro e sem necessidade de instalação de aplicativos pesados pelo paciente'
     ],
-    tag: 'Google Workspace Partner API'
+    tag: 'WebRTC ponta a ponta'
   },
   {
     id: 'modulo-3',
@@ -321,7 +321,7 @@ export const COMPARISON_DATA = [
     iaGenerica: false
   },
   {
-    feature: 'Google Meet sem atrito com Sala de Espera Automática',
+    feature: 'Teleconsulta própria com Sala de Espera, sem gravação',
     terapiaInFoco: true,
     whatsappZoom: false,
     prontuarioGenerico: false,
@@ -367,9 +367,9 @@ export const FAQS = [
     answer: 'O TerapiaInFoco implementa o fluxo de Quarentena e Harmonização Legal previsto no RFC-001: o direito ao esquecimento da LGPD encontra limite no cumprimento de obrigação legal do CFP (Resolução nº 001/2009 exige guarda de 5 anos). Quando o paciente solicita exclusão, o sistema anonimiza/pseudonimiza os dados de contato ativos e coloca o prontuário em cofre criptográfico trancado até o cumprimento do prazo de 5 anos, garantindo a proteção jurídica do psicólogo.'
   },
   {
-    category: 'Google Meet & Prática',
-    question: 'Por que usar o Google Meet em vez de salas de videoconferência próprias?',
-    answer: 'Conforme detalhado no ADR-001 do nosso RFC, o Google Meet possui a maior estabilidade de banda do mundo, funciona perfeitamente no celular do paciente sem exigir instalações complexas e conta com infraestrutura nativa de transcrição. Além disso, nossas salas geradas configuram regras de knocking (sala de espera), impedindo que um paciente entre por acidente no atendimento de outro.'
+    category: 'Teleconsulta & Prática',
+    question: 'Por que a teleconsulta acontece em uma sala própria e não no Google Meet ou Zoom?',
+    answer: 'Conforme o ADR-005 do nosso RFC, a sessão acontece em uma sala própria (WebRTC ponta a ponta), criada para cada consulta: só entram o psicólogo e o paciente daquela sessão, com sala de espera, e nenhuma gravação de áudio ou vídeo é feita. A fala é transcrita durante a sessão e o áudio é descartado logo em seguida, então os dados de saúde não passam por ferramentas de videoconferência de terceiros.'
   },
   {
     category: 'Prontuário & Documentos',
@@ -388,7 +388,7 @@ export const PRICING_PLANS = [
     popular: false,
     features: [
       'Até 40 sessões por mês',
-      'Integração Google Meet com link automático',
+      'Sala de teleconsulta própria com link automático',
       'Transcrição & Diarização com IA (20 horas/mês)',
       'Geração de notas SOAP com Human-in-the-Loop',
       'Prontuário eletrônico imutável (CFP nº 001/2009)',
@@ -408,7 +408,7 @@ export const PRICING_PLANS = [
     badge: 'Mais Popular',
     features: [
       'Sessões ilimitadas',
-      'Google Meet ilimitado com sala de espera',
+      'Teleconsulta ilimitada com sala de espera',
       'Transcrição & Diarização com IA ilimitada',
       'Geração avançada SOAP com comparação de sessões',
       'Emissão de Atestados, Laudos e Declarações (CFP 006/2019)',
@@ -429,7 +429,7 @@ export const PRICING_PLANS = [
     features: [
       'Múltiplos terapeutas com isolamento criptográfico por CRP',
       'Gestão unificada de agenda e secretária virtual',
-      'Rateio e controle de salas do Google Meet',
+      'Controle das salas de teleconsulta da equipe',
       'Painel de compliance e DPO com logs de auditoria',
       'Relatórios gerenciais e exportação fiscal padronizada',
       'Backup de chaves multi-região (KMS redundancy)',

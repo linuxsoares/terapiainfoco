@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { AppointmentService } from '../services/appointmentService';
-import { GoogleMeetService } from '../services/googleMeetService';
 import { db } from '../db/memoryDb';
 import { AuditService } from '../services/auditService';
 import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
@@ -82,7 +81,7 @@ appointmentsRoute.use('*', authMiddleware(), requireRoles(PRACTICE_STAFF_ROLES),
   await next();
 });
 
-// Criar agendamento com validação de buffer e geração do Google Meet (§3.1, §3.2)
+// Criar agendamento com validação de buffer; a sessão ocorre na sala de teleconsulta própria (§3.1, §3.2)
 appointmentsRoute.post('/', async (c) => {
   const body = await c.req.json<CreateAppointmentDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
@@ -120,42 +119,6 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
   }
-});
-
-// Encerrar chamada no Google Meet REST API v2 (:endActiveConference)
-appointmentsRoute.post('/:id/end-meet', requireAppointmentAccess(), async (c) => {
-  const id = c.req.param('id');
-  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
-  const userAgent = c.req.header('user-agent');
-
-  const appt = db.appointments.get(id);
-  if (!appt) {
-    return c.json({ success: false, error: 'Consulta não encontrada' }, 404);
-  }
-
-  let ended = false;
-  if (appt.meetSpaceName) {
-    ended = await GoogleMeetService.endActiveConference(appt.meetSpaceName);
-  }
-
-  AuditService.log({
-    actorId: c.get('userId'),
-    resourceType: AuditResourceType.MEET,
-    resourceId: appt.meetSpaceName || id,
-    action: AuditAction.MEET_CONFERENCE_ENDED,
-    ipAddress: ip,
-    userAgent
-  });
-
-  return c.json({
-    success: true,
-    conferenceEnded: ended,
-    appointmentId: id,
-    spaceName: appt.meetSpaceName || null,
-    message: ended 
-      ? 'Conferência ativa encerrada no Google Meet com sucesso.' 
-      : 'Conferência finalizada localmente (sem chamada remota ativa).'
-  });
 });
 
 import { ReminderService } from '../services/reminderService';

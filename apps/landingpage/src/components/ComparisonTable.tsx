@@ -36,7 +36,7 @@ export const ComparisonTable: React.FC = () => {
                   </div>
                 </th>
                 <th className="py-4.5 px-6 text-center text-slate-500 font-semibold">
-                  WhatsApp + Meet Avulso
+                  WhatsApp + Videochamada Avulsa
                 </th>
                 <th className="py-4.5 px-6 text-center text-slate-500 font-semibold">
                   Prontuários Genéricos
@@ -67,7 +67,7 @@ export const ComparisonTable: React.FC = () => {
                     </div>
                   </td>
 
-                  {/* WhatsApp + Meet */}
+                  {/* WhatsApp + Videochamada avulsa */}
                   <td className="py-4 px-6 text-center">
                     <div className="flex items-center justify-center">
                       <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">

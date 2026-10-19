@@ -214,7 +214,7 @@ export function SoapModule() {
       setError(null);
       const res = await api.uploadAudio({
         appointmentId,
-        audioFileName: 'meet-teleconsulta-sessao-08.m4a',
+        audioFileName: 'teleconsulta-sessao-08.m4a',
         durationSeconds: 3120 // 52 min
       });
       setUtterances(res.utterances);
@@ -238,7 +238,7 @@ export function SoapModule() {
       if (!hasLoadedAudio) {
         const transRes = await api.uploadAudio({
           appointmentId,
-          audioFileName: 'meet-teleconsulta-sessao-08.m4a',
+          audioFileName: 'teleconsulta-sessao-08.m4a',
           durationSeconds: 3120
         });
         setUtterances(transRes.utterances);
@@ -399,7 +399,7 @@ export function SoapModule() {
         <div className="flex items-center gap-2">
           <div className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-800 dark:text-purple-300 text-xs font-medium flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-            Sessão 08 • Mariana Silva (Google Meet)
+            Sessão 08 • Mariana Silva (Teleconsulta)
           </div>
 
           <button

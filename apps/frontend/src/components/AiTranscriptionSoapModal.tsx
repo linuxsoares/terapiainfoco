@@ -624,7 +624,7 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
                   <span>Processamento de Transcrição Clínica</span>
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Insira o texto bruto da conversa (ou deixe em branco para simular a ingestão automatizada do Google Meet / áudio local).
+                  Insira o texto bruto da conversa (ou deixe em branco para simular a ingestão da transcrição da sala de teleconsulta).
                   O sistema realizará a <strong>diarização estrita dos locutores</strong> e a <strong>síntese estruturada no modelo SOAP</strong>.
                 </p>
 

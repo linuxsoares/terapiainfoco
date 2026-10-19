@@ -3,8 +3,6 @@ import {
   AppointmentStatus, 
   AuditAction, 
   AuditResourceType,
-  MeetProvider,
-  MeetAccessType,
   RecurrenceFrequency,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
@@ -21,11 +19,11 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
-import { GoogleMeetService, generateGoogleMeetCode } from './googleMeetService';
 import { config } from '../config';
+import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 import { TherapistProfileRepository } from '../repositories/therapistProfileRepository';
 
-export { generateGoogleMeetCode };
+export { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 
 /** "-03:00" -> -180 */
 function utcOffsetMinutes(offset: string): number {
@@ -37,8 +35,7 @@ function utcOffsetMinutes(offset: string): number {
 
 export class AppointmentService {
   /**
-   * Agenda uma consulta validando buffers e orquestrando emissão da sala do Google Meet (§3.1, §3.2)
-   * Integra com Google Meet REST API v2 (spaces.create) com política de knocking (CFP 011/2018)
+   * Agenda uma consulta validando buffers; a teleconsulta acontece na sala própria da plataforma (§3.1, §3.2)
    */
   static async createAppointment(
     therapistId: string,
@@ -53,16 +50,6 @@ export class AppointmentService {
     this.validateScheduleConflicts(therapistId, start, end, bufferMin);
 
     const id = randomUUID();
-    
-    // Orquestra emissão do Google Meet via Google Meet REST API v2 com fallback resiliente
-    const meetResult = await GoogleMeetService.createMeetingSpace({
-      summary: `Teleconsulta — Dra. Vanessa Andrade (CRP 06/142980)`,
-      startTime: start,
-      endTime: end,
-      accessType: dto.accessType,
-      customUrl: dto.meetUrl
-    });
-
     const storedAppointment: StoredAppointment = {
       id,
       therapistId,
@@ -70,17 +57,10 @@ export class AppointmentService {
       scheduledStart: start,
       scheduledEnd: end,
       status: AppointmentStatus.CONFIRMADA,
-      googleEventId: meetResult.googleEventId || `gevent-${randomUUID()}`,
-      meetAccessCode: meetResult.accessCode,
-      meetSpaceName: meetResult.spaceName,
-      meetProvider: meetResult.provider,
-      meetAccessType: meetResult.accessType,
-      encryptedMeetUrl: encryptField(meetResult.meetUrl),
       createdAt: new Date()
     };
 
     db.appointments.set(id, storedAppointment);
-
 
     AuditService.log({
       actorId: context.actorId,
@@ -91,38 +71,7 @@ export class AppointmentService {
       userAgent: context.userAgent
     });
 
-    if (meetResult.provider === MeetProvider.GOOGLE_MEET_V2) {
-      AuditService.log({
-        actorId: context.actorId,
-        resourceType: AuditResourceType.MEET,
-        resourceId: meetResult.spaceName || id,
-        action: AuditAction.MEET_SPACE_CREATED,
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
-      });
-    }
-
-    return {
-      id,
-      therapistId,
-      patientId: dto.patientId,
-      scheduledStart: start,
-      scheduledEnd: end,
-      status: storedAppointment.status,
-      googleEventId: storedAppointment.googleEventId,
-      meetAccessCode: meetResult.accessCode,
-      meetSpaceName: meetResult.spaceName,
-      meetProvider: meetResult.provider,
-      meetAccessType: meetResult.accessType,
-      meetUrl: meetResult.meetUrl,
-      seriesId: storedAppointment.seriesId,
-      sequenceNumber: storedAppointment.sequenceNumber,
-      totalInSeries: storedAppointment.totalInSeries,
-      recurrenceFrequency: storedAppointment.recurrenceFrequency,
-      reminderStatus: storedAppointment.reminderStatus,
-      lastReminderSentAt: storedAppointment.lastReminderSentAt,
-      createdAt: storedAppointment.createdAt
-    };
+    return toDecryptedAppointment(storedAppointment);
   }
 
   /**
@@ -163,21 +112,7 @@ export class AppointmentService {
       userAgent: context.userAgent
     });
 
-    return {
-      id: appointment.id,
-      therapistId: appointment.therapistId,
-      patientId: appointment.patientId,
-      scheduledStart: appointment.scheduledStart,
-      scheduledEnd: appointment.scheduledEnd,
-      status: appointment.status,
-      googleEventId: appointment.googleEventId,
-      meetAccessCode: appointment.meetAccessCode,
-      meetSpaceName: appointment.meetSpaceName,
-      meetProvider: appointment.meetProvider,
-      meetAccessType: appointment.meetAccessType,
-      meetUrl: decryptField(appointment.encryptedMeetUrl),
-      createdAt: appointment.createdAt
-    };
+    return toDecryptedAppointment(appointment);
   }
 
   /**
@@ -187,27 +122,7 @@ export class AppointmentService {
     const list: DecryptedAppointment[] = [];
     for (const app of db.appointments.values()) {
       if (app.therapistId === therapistId) {
-        list.push({
-          id: app.id,
-          therapistId: app.therapistId,
-          patientId: app.patientId,
-          scheduledStart: app.scheduledStart,
-          scheduledEnd: app.scheduledEnd,
-          status: app.status,
-          googleEventId: app.googleEventId,
-          meetAccessCode: app.meetAccessCode,
-          meetSpaceName: app.meetSpaceName,
-          meetProvider: app.meetProvider,
-          meetAccessType: app.meetAccessType,
-          meetUrl: decryptField(app.encryptedMeetUrl),
-          seriesId: app.seriesId,
-          sequenceNumber: app.sequenceNumber,
-          totalInSeries: app.totalInSeries,
-          recurrenceFrequency: app.recurrenceFrequency,
-          reminderStatus: app.reminderStatus,
-          lastReminderSentAt: app.lastReminderSentAt,
-          createdAt: app.createdAt
-        });
+        list.push(toDecryptedAppointment(app));
       }
     }
     return list;
@@ -267,7 +182,7 @@ export class AppointmentService {
 
   /**
    * Agendamento público de teleconsulta diretamente pela landing page
-   * Aplica Field-Level Encryption e Blind Indexing aos dados do visitante e gera link Meet
+   * Aplica Field-Level Encryption e Blind Indexing aos dados do visitante e gera o link da sala própria
    */
   static async bookPublicAppointment(
     dto: PublicBookingDTO,
@@ -308,7 +223,7 @@ export class AppointmentService {
       );
     }
 
-    // 2. Agenda a consulta com verificação de buffers e sala do Google Meet
+    // 2. Agenda a consulta com verificação de buffers (sala de teleconsulta própria)
     const appointment = await this.createAppointment(
       therapistId,
       {
@@ -329,12 +244,11 @@ export class AppointmentService {
       therapistName: `${profile.displayName} (CRP ${profile.crp})`,
       scheduledStart: appointment.scheduledStart.toString(),
       scheduledEnd: appointment.scheduledEnd.toString(),
-      meetUrl: appointment.meetUrl,
-      meetAccessCode: appointment.meetAccessCode,
+      roomUrl: appointment.roomUrl,
       bufferMinutes: config.defaultBufferMinutes,
       consentRecordedAt: new Date().toISOString(),
       instructions: [
-        'Acesse o link do Google Meet com 5 minutos de antecedência.',
+        'Acesse a sala de teleconsulta pelo link com 5 minutos de antecedência, já com sua conta da plataforma.',
         'Utilize fones de ouvido para garantir o sigilo e a privacidade do seu atendimento.',
         'Certifique-se de estar em um ambiente privativo, silencioso e com boa conexão à internet.'
       ]
@@ -397,7 +311,7 @@ export class AppointmentService {
       scheduledStart: new Date(appointment.scheduledStart).toISOString(),
       scheduledEnd: new Date(appointment.scheduledEnd).toISOString(),
       status: appointment.status,
-      meetUrl: appointment.meetUrl
+      roomUrl: appointment.roomUrl
     };
   }
 
@@ -426,7 +340,7 @@ export class AppointmentService {
       scheduledStart: new Date(a.scheduledStart).toISOString(),
       scheduledEnd: new Date(a.scheduledEnd).toISOString(),
       status: a.status,
-      meetUrl: decryptField(a.encryptedMeetUrl)
+      roomUrl: teleconsultationRoomUrl(a.id)
     }));
   }
 

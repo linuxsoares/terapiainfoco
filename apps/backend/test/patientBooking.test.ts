@@ -45,7 +45,7 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     expect(res.status).toBe(201);
     const { appointment } = await res.json() as any;
     expect(appointment.therapistName).toBe('Dra. Beatriz Santos');
-    expect(appointment.meetUrl).toContain('meet.google.com');
+    expect(appointment.roomUrl).toContain(`sala=${appointment.id}`);
 
     const record = db.patients.get(db.appointments.get(appointment.id)!.patientId)!;
     expect(record.therapistId).toBe('therapist-001');

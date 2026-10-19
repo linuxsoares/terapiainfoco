@@ -30,7 +30,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenDemo }) => {
             </div>
 
             <p className="text-slate-400 leading-relaxed text-xs max-w-sm">
-              Plataforma de telepsicologia especializada que une teleatendimento no Google Meet, transcrição clínica com diarização, notas SOAP assistidas por IA e Envelope Encryption nível LGPD.
+              Plataforma de telepsicologia especializada que une teleconsulta própria sem gravação, transcrição clínica com diarização, notas SOAP assistidas por IA e Envelope Encryption nível LGPD.
             </p>
 
             <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-400 space-y-1">

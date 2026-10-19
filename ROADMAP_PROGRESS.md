@@ -2357,6 +2357,7 @@ terapiainfoco/
 | `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
 | `fix/kms-rotation-durable` | Rotação de KEK durável: versões derivadas via HKDF da `KMS_MASTER_KEY` e estado do KMS (versão ativa/revogações) persistido | [PR #118](https://github.com/linuxsoares/terapiainfoco/pull/118) | Merged |
 | `feat/patient-actions-by-role` | Ações do módulo de pacientes por perfil (`PATIENT_ACTION_ACCESS`), recepção sem ações clínicas e contrato com o backend | [PR #119](https://github.com/linuxsoares/terapiainfoco/pull/119) | Merged |
+| `refactor/remove-google-meet` | Remoção do Google Meet: sala de teleconsulta própria por consulta (`roomUrl`), RFC-001 v1.2.0 com ADR-005 | [PR #120](https://github.com/linuxsoares/terapiainfoco/pull/120) | Merged |
 
 ---
 
@@ -2389,6 +2390,14 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Agendamento a partir do perfil (backend):** `POST /api/appointments/patient/book` e `GET /api/appointments/patient/mine`; registro do paciente criado no consultório escolhido e vinculado à conta (`linkedUserId`); cadastro de paciente não cria mais prontuário em `therapist-001` nem aceita `patientId` informado (IDOR); agendamento público anônimo exige psicólogo verificado, busca CPF no consultório e não presume consentimento.
 - [x] **Agendamento a partir do perfil (frontend):** `BookingPanel` (data, horários livres, TCLE e confirmação com link da teleconsulta) no perfil do psicólogo; "Minhas consultas" no Meu Espaço; portal e cofre só aparecem após existir prontuário (fim do fallback para o paciente demo); horários gerados no fuso da clínica (`CLINIC_UTC_OFFSET`, padrão -03:00) e horários passados indisponíveis.
 
+#### 🎥 Teleconsulta Própria sem Gravação (ADR-005 — Prioridade antes do restante do roadmap)
+- [x] **Remoção do Google Meet:** OAuth, criação de salas, diagnóstico e campos `meet*` removidos; cada consulta tem o link da sala própria (`PUBLIC_APP_URL/?sala=<id>`); RFC-001 v1.2.0 com §3.2/§3.3 reescritos e ADR-005 (substitui o ADR-001); landing page e vitrine atualizadas.
+- [ ] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores via backend (fim do loopback), sala de espera com admissão, abertura da sala pelo link `?sala=`, TURN configurável e acesso de convidado para agendamentos anônimos.
+- [ ] **Remoção da gravação:** `MediaRecorder` na sala, rota de gravação e módulo de armazenamento de mídia.
+- [ ] **Transcrição ao vivo por STT no servidor:** trechos do microfone de cada participante → provedor de STT (OpenAI, configurável) → texto cifrado; áudio descartado; consentimento específico; integração com o rascunho SOAP.
+- [ ] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (hoje gera 403 em `/system/telemetry/*`) e seleção de paciente no agendamento (hoje é um campo de ID livre).
+
+#### 🌟 Evolução de Produto & Funcionalidades Clínicas (RFC-001)
 - [x] **Agendamento Recorrente & Séries Clínicas (RFC-001 §3.1):** Criação e gestão de séries periódicas (semanal, quinzenal, mensal; até 24 sessões) com verificação de conflitos, buffers de respiro e cancelamento em lote.
 - [x] **Notificações & Lembretes Multicanal de Teleconsulta (WhatsApp & E-mail - RFC-001 §3.1 / CFP nº 011/2018):** Disparo de mensagens éticas e acolhedoras com link direto wa.me, salas criptografadas com knocking (sala de espera) e auditoria WORM imutável.
 - [x] **Linha do Tempo Clínica Longitudinal do Paciente (Timeline - RFC-001 §3.4):** Agregação unificada de consultas, evoluções SOAP assinadas, fichas de anamnese, documentos CFP emitidos e termos TCLE, com taxa de assiduidade dinâmica (attendanceRate).

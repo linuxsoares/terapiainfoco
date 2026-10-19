@@ -10,6 +10,7 @@ import type {
 } from '@terapiainfoco/shared';
 import { AuditAction, AuditResourceType, AppointmentStatus } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 import { 
   encryptField, 
   decryptField, 
@@ -237,25 +238,7 @@ export class PatientService {
       // Identifica próximo agendamento futuro ativo
       if (!isPast && !nextScheduledAppointment && app.status === AppointmentStatus.CONFIRMADA) {
         nextScheduledAppointment = {
-          id: app.id,
-          therapistId: app.therapistId,
-          patientId: app.patientId,
-          scheduledStart: app.scheduledStart,
-          scheduledEnd: app.scheduledEnd,
-          status: app.status,
-          googleEventId: app.googleEventId,
-          meetAccessCode: app.meetAccessCode,
-          meetSpaceName: app.meetSpaceName,
-          meetProvider: app.meetProvider,
-          meetAccessType: app.meetAccessType,
-          meetUrl: decryptField(app.encryptedMeetUrl),
-          seriesId: app.seriesId,
-          sequenceNumber: app.sequenceNumber,
-          totalInSeries: app.totalInSeries,
-          recurrenceFrequency: app.recurrenceFrequency,
-          reminderStatus: app.reminderStatus,
-          lastReminderSentAt: app.lastReminderSentAt,
-          createdAt: app.createdAt
+          ...toDecryptedAppointment(app)
         };
       }
 
@@ -281,10 +264,10 @@ export class PatientService {
         status: app.status,
         badgeColor,
         actionLabel: isPast ? 'Ver Histórico' : 'Entrar na Sala Virtual',
-        actionUrl: decryptField(app.encryptedMeetUrl),
+        actionUrl: teleconsultationRoomUrl(app.id),
         metadata: {
           appointmentId: app.id,
-          meetUrl: decryptField(app.encryptedMeetUrl),
+          roomUrl: teleconsultationRoomUrl(app.id),
           attendanceStatus: app.status,
           status: app.status
         }

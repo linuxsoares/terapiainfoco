@@ -53,7 +53,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
                 Experimente o TerapiaInFoco em Primeira Mão
               </h3>
               <p className="text-xs sm:text-sm text-slate-600">
-                Preencha seus dados para receber um convite VIP com 30 dias de uso ilimitado de IA e integração completa com o Google Meet.
+                Preencha seus dados para receber um convite VIP com 30 dias de uso ilimitado de IA e teleconsulta própria sem gravação.
               </p>
             </div>
 
@@ -194,7 +194,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <p className="text-xs text-slate-500">
-              Nossa equipe entrará em contato via WhatsApp nas próximas 24 horas úteis para liberar sua chave de acesso e auxiliar na integração com o seu Google Meet.
+              Nossa equipe entrará em contato via WhatsApp nas próximas 24 horas úteis para liberar sua chave de acesso e auxiliar na configuração do seu consultório.
             </p>
 
             <button

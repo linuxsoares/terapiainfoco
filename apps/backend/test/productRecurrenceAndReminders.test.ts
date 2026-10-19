@@ -69,7 +69,7 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
         expect(appt.totalInSeries).toBe(4);
         expect(appt.recurrenceFrequency).toBe(RecurrenceFrequency.WEEKLY);
         expect(appt.status).toBe(AppointmentStatus.CONFIRMADA);
-        expect(appt.meetUrl).toBeDefined();
+        expect(appt.roomUrl).toContain(`sala=${appt.id}`);
 
         if (i > 0) {
           const prevAppt = result.createdAppointments[i - 1];
@@ -172,14 +172,15 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
       appointmentId = appt.id;
     });
 
-    it('deve gerar prévia da mensagem de WhatsApp contendo link Meet e orientações éticas do CFP', () => {
+    it('deve gerar prévia da mensagem de WhatsApp contendo link da sala e orientações éticas do CFP', () => {
       const preview = ReminderService.previewReminder(appointmentId, ReminderChannel.WHATSAPP);
 
       expect(preview.patientName).toBe('Camila Rodrigues Alves');
       expect(preview.recipientPhone).toBe('11999887766');
       expect(preview.renderedMessage).toContain('Camila Rodrigues Alves');
       expect(preview.renderedMessage).toContain('teleconsulta psicológica');
-      expect(preview.renderedMessage).toContain('meet.google.com');
+      expect(preview.renderedMessage).toContain('?sala=');
+      expect(preview.renderedMessage).not.toContain('meet.google.com');
       expect(preview.renderedMessage).toContain('CFP 011/2018');
       expect(preview.whatsappDirectUrl).toBeDefined();
       expect(preview.whatsappDirectUrl).toContain('wa.me/5511999887766');

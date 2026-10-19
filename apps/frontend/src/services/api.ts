@@ -127,9 +127,6 @@ import type {
   UnbanIpRequestDTO,
   UnbanIpResponse,
   VerifySecurityHeadersResponse,
-  MeetAccessType,
-  GoogleMeetStatusResponse,
-  GoogleMeetTestResponse,
   InitiateWebRtcAuditSessionDTO,
   InitiateWebRtcAuditSessionResponse,
   VerifyWebRtcFingerprintDTO,
@@ -823,12 +820,6 @@ export const api = {
     return res.appointment;
   },
 
-  async endMeetConference(appointmentId: string): Promise<{ success: boolean; conferenceEnded: boolean; message: string }> {
-    return await request<{ success: boolean; conferenceEnded: boolean; message: string }>(`/appointments/${appointmentId}/end-meet`, {
-      method: 'POST'
-    });
-  },
-
   // Agendamento Recorrente & Séries Clínicas (RFC §3.1)
   async createRecurrentAppointments(dto: CreateAppointmentDTO, therapistId = '00000000-0000-0000-0000-000000000001'): Promise<CreateRecurrentAppointmentsResponse> {
     return await request<CreateRecurrentAppointmentsResponse>('/appointments/recurrent', {
@@ -861,7 +852,7 @@ export const api = {
       recipientEmail?: string;
       whatsappDirectUrl?: string;
       patientName: string;
-      meetUrl: string;
+      roomUrl: string;
       scheduledStart: string;
     };
   }> {
@@ -878,27 +869,6 @@ export const api = {
   async getAppointmentReminders(appointmentId: string): Promise<any[]> {
     const res = await request<{ success: boolean; reminders: any[] }>(`/appointments/${appointmentId}/reminders`);
     return res.reminders;
-  },
-
-  async getGoogleMeetStatus(): Promise<{ success: boolean } & GoogleMeetStatusResponse> {
-    return await request<{ success: boolean } & GoogleMeetStatusResponse>('/system/google-meet/status');
-  },
-
-  async testGoogleMeet(accessType?: MeetAccessType): Promise<GoogleMeetTestResponse> {
-    return await request<GoogleMeetTestResponse>('/system/google-meet/test', {
-      method: 'POST',
-      body: JSON.stringify({ accessType })
-    });
-  },
-
-  async getGoogleOAuthUrl(): Promise<{ success: boolean; url: string }> {
-    return await request<{ success: boolean; url: string }>('/auth/google/authorize?format=json');
-  },
-
-  async disconnectGoogleMeet(): Promise<{ success: boolean; message: string }> {
-    return await request<{ success: boolean; message: string }>('/auth/google/disconnect', {
-      method: 'POST'
-    });
   },
 
   // 3. Prontuários & SOAP (RFC §3.3, §3.4)

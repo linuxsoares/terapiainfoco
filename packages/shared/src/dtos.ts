@@ -3,8 +3,6 @@ import {
   DocumentType, 
   UserRole, 
   SocialAuthProvider,
-  MeetProvider, 
-  MeetAccessType,
   RecurrenceFrequency,
   ReminderChannel,
   ReminderTiming,
@@ -47,8 +45,6 @@ export interface CreateAppointmentDTO {
   scheduledStart: string; // ISO string
   scheduledEnd: string;   // ISO string
   bufferMinutes?: number;
-  meetUrl?: string;
-  accessType?: MeetAccessType;
   recurrence?: AppointmentRecurrenceConfig;
 }
 
@@ -321,7 +317,7 @@ export interface PatientAppointmentView {
   scheduledStart: string;
   scheduledEnd: string;
   status: string;
-  meetUrl: string;
+  roomUrl: string;
 }
 
 export interface PublicBookingResponse {
@@ -330,8 +326,7 @@ export interface PublicBookingResponse {
   therapistName: string;
   scheduledStart: string;
   scheduledEnd: string;
-  meetUrl: string;
-  meetAccessCode?: string;
+  roomUrl: string;
   bufferMinutes: number;
   consentRecordedAt: string;
   instructions: string[];
@@ -595,8 +590,6 @@ export interface PatientPortabilityPackage {
     scheduledStart: string;
     scheduledEnd: string;
     status: AppointmentStatus;
-    meetUrl?: string;
-    meetAccessCode?: string;
     createdAt: string;
   }>;
   clinicalRecords: Array<{
@@ -1444,44 +1437,6 @@ export interface UnbanIpResponse {
 export interface VerifySecurityHeadersResponse {
   success: boolean;
   evaluation: import('./models').SecurityHeadersEvaluationResult;
-}
-
-/**
- * Diagnóstico & Status da Integração Google Meet REST API v2
- */
-export interface GoogleMeetStatusResponse {
-  configured: boolean;
-  activeProvider: MeetProvider;
-  defaultAccessType: MeetAccessType;
-  scopes: string[];
-  features: {
-    spacesV2: boolean;
-    calendarV3: boolean;
-    knockingWaitingRoom: boolean;
-    endConference: boolean;
-    oauthFlow: boolean;
-  };
-  oauth?: {
-    hasClientId: boolean;
-    hasClientSecret: boolean;
-    hasRefreshToken: boolean;
-    connectedEmail?: string;
-    redirectUri?: string;
-  };
-}
-
-/**
- * Resposta de Teste de Emissão de Sala no Google Meet
- */
-export interface GoogleMeetTestResponse {
-  success: boolean;
-  provider: MeetProvider;
-  spaceName?: string;
-  meetingCode: string;
-  meetingUri: string;
-  accessType: MeetAccessType;
-  latencyMs: number;
-  message?: string;
 }
 
 /**

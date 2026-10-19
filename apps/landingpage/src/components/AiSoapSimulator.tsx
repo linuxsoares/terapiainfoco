@@ -79,7 +79,7 @@ export const AiSoapSimulator: React.FC = () => {
           </h2>
 
           <p className="text-slate-400 text-base sm:text-lg">
-            Veja como a plataforma captura a sessão do Google Meet, separa as vozes com diarização e gera um rascunho SOAP rigoroso para sua validação humana imediata.
+            Veja como a plataforma transcreve a teleconsulta em tempo real (sem gravar o áudio), separa as vozes e gera um rascunho SOAP rigoroso para sua validação humana imediata.
           </p>
         </div>
 
@@ -162,7 +162,7 @@ export const AiSoapSimulator: React.FC = () => {
                 </div>
                 <span className="text-[11px] text-teal-400 flex items-center gap-1">
                   <span className={`w-2 h-2 rounded-full ${isPlayingAudio ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`}></span>
-                  Google Meet Audio Stream
+                  Transcrição ao vivo (sem gravação)
                 </span>
               </div>
 

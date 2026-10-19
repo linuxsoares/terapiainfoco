@@ -47,7 +47,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenDemo, onExploreSimulator }) =>
             {/* Subtitle */}
             <p className="text-lg sm:text-xl text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto lg:mx-0">
               A primeira plataforma de telepsicologia do Brasil com{' '}
-              <strong className="text-slate-900 font-semibold">Google Meet nativo</strong>,{' '}
+              <strong className="text-slate-900 font-semibold">teleconsulta própria sem gravação</strong>,{' '}
               <strong className="text-slate-900 font-semibold">transcrição com diarização clínica</strong>,{' '}
               geração assistida de notas <strong className="text-teal-700 font-semibold">SOAP</strong> e{' '}
               <strong className="text-slate-900 font-semibold">Criptografia de Envelope (AES-256-GCM)</strong> em total consonância com as normas éticas do CFP.
@@ -140,7 +140,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenDemo, onExploreSimulator }) =>
                     <h2 className="text-sm font-bold text-slate-900">Mariana S. • Sessão #08</h2>
                     <p className="text-xs text-slate-500 flex items-center gap-1">
                       <Video className="w-3 h-3 text-teal-600" />
-                      Google Meet (Encerrada às 14:50)
+                      Teleconsulta (Encerrada às 14:50)
                     </p>
                   </div>
                 </div>

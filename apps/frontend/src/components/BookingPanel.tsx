@@ -63,9 +63,9 @@ export function BookingPanel({ profile, onBooked }: BookingPanelProps) {
           <CalendarCheck className="w-5 h-5" /> Consulta agendada com {confirmed.therapistName}
         </p>
         <p className="text-sm text-emerald-900/80 dark:text-emerald-200/80">{dateTimeFormat.format(new Date(confirmed.scheduledStart))}</p>
-        <a href={confirmed.meetUrl} target="_blank" rel="noreferrer"
+        <a href={confirmed.roomUrl}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 dark:text-teal-300 underline">
-          <Video className="w-4 h-4" /> Link da teleconsulta
+          <Video className="w-4 h-4" /> Abrir sala da teleconsulta
         </a>
         <p className="text-xs text-emerald-900/70 dark:text-emerald-200/70">Ela também aparece em "Minhas consultas", no Meu Espaço.</p>
       </div>

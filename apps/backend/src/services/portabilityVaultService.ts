@@ -123,8 +123,7 @@ export class PortabilityVaultService {
         id: a.id,
         scheduledStart: new Date(a.scheduledStart).toISOString(),
         scheduledEnd: new Date(a.scheduledEnd).toISOString(),
-        status: a.status,
-        meetAccessCode: a.meetAccessCode
+        status: a.status
       }));
 
     // 4. Prontuários SOAP (exceto notas estritamente privadas do terapeuta, conforme CFP nº 001/2009)
