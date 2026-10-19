@@ -34,6 +34,18 @@ function symmetricKey(name: string): Buffer | undefined {
   return key;
 }
 
+/**
+ * URL pública do painel, base dos links de sala enviados em lembretes. Obrigatória em produção:
+ * sem ela os links sairiam para localhost.
+ */
+function publicAppUrl(): string {
+  const url = secret('PUBLIC_APP_URL', 'http://localhost:5174').replace(/\/+$/, '');
+  if (isProduction && /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url)) {
+    throw new Error(`PUBLIC_APP_URL aponta para ${url} em produção. Use a URL pública do frontend (ex.: https://app.seudominio.com.br).`);
+  }
+  return url;
+}
+
 /** "a, b" -> ["a", "b"] */
 function list(value: string): string[] {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
@@ -90,6 +102,6 @@ export const config = {
     language: process.env.STT_LANGUAGE || 'pt'
   },
   /** URL pública do painel (frontend): base do link da sala de teleconsulta própria */
-  publicAppUrl: (process.env.PUBLIC_APP_URL || 'http://localhost:5174').replace(/\/+$/, '')
+  publicAppUrl: publicAppUrl(),
 };
 
