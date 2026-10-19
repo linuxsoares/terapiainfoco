@@ -2353,6 +2353,7 @@ terapiainfoco/
 | `feat/patient-booking-from-profile` | Agendamento pelo paciente a partir do perfil público (vínculo paciente ↔ consultório), correção de IDOR no cadastro e do agendamento público | [PR #113](https://github.com/linuxsoares/terapiainfoco/pull/113) | Merged |
 | `feat/patient-booking-frontend` | Agendamento pelo paciente no perfil do psicólogo, Minhas consultas, fim do fallback para paciente demo e horários no fuso da clínica | [PR #114](https://github.com/linuxsoares/terapiainfoco/pull/114) | Merged |
 | `fix/authz-remaining-modules-ownership` | Posse por consultório nos módulos restantes: encaminhamentos, laudos, recibos, teleconsulta, árvore diagnóstica, psiquiátrico, ICP, consentimento e cofre | [PR #115](https://github.com/linuxsoares/terapiainfoco/pull/115) | Merged |
+| `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
 
 ---
 
@@ -2377,7 +2378,8 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **Trilha de auditoria do psicólogo filtrada pelo próprio consultório** (hoje o psicólogo vê a trilha global).
 - [x] **"Minhas consultas" no Meu Espaço do paciente.**
 - [x] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
-- [ ] **Áreas dedicadas no frontend** (`/paciente`, `/psicologo`, `/admin`) e seletor de perfis demo apenas em `DEMO_MODE`.
+- [x] **Interface demo apenas em `DEMO_MODE`:** `GET /api/auth/public-config` informa o modo ao frontend (padrão desligado); atalhos 1-clique, credenciais pré-preenchidas, seletor "Alternar Perfil" e simulador RBAC só aparecem em demonstração; a troca de perfil exige login real (sem troca cosmética); vitrine não oferece cadastro de Admin.
+- [ ] **Rotas por área no frontend** (`/paciente`, `/psicologo`, `/admin`) com URL própria por módulo (hoje a navegação é por estado, já filtrada por perfil).
 - [x] **Busca pública de psicólogos (backend):** tabela `therapist_profiles` com full-text (`tsvector` + GIN), `GET /api/therapists/search` (texto sem acento/por prefixo, abordagem, especialidade, valor máximo, paginação), página pública por slug, edição pelo psicólogo (`/me/profile`), verificação de CRP pelo Admin (`/admin/pending`, `/admin/:id/verify-crp`) e perfil demo em `DEMO_MODE`.
 - [x] **Busca pública de psicólogos (frontend):** diretório sem login na vitrine ("Encontrar Psicólogo") com filtros e perfil detalhado; módulos dinâmicos "Encontrar Psicólogo" (paciente), "Meu Perfil Público" (psicólogo, com status de verificação e publicação) e "Verificação de CRP" (Admin); fila de CRP restrita a perfis que pediram publicação.
 - [x] **Agendamento a partir do perfil (backend):** `POST /api/appointments/patient/book` e `GET /api/appointments/patient/mine`; registro do paciente criado no consultório escolhido e vinculado à conta (`linkedUserId`); cadastro de paciente não cria mais prontuário em `therapist-001` nem aceita `patientId` informado (IDOR); agendamento público anônimo exige psicólogo verificado, busca CPF no consultório e não presume consentimento.

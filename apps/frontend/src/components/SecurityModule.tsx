@@ -423,7 +423,8 @@ import {
 interface SecurityModuleProps {
   currentUser: SafeUser;
   onUserUpdated: (user: SafeUser) => void;
-  onSwitchRole: (role: UserRole) => void;
+  /** Simulador de perfis: disponível apenas em DEMO_MODE */
+  onSwitchRole?: (role: UserRole) => void;
 }
 
 export const SecurityModule: React.FC<SecurityModuleProps> = ({
@@ -7612,6 +7613,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </p>
         </div>
 
+        {onSwitchRole && (
         <div className="grid sm:grid-cols-4 gap-3">
           <button
             onClick={() => onSwitchRole(UserRole.PSICOLOGO_TITULAR)}
@@ -7669,6 +7671,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
             </p>
           </button>
         </div>
+        )}
 
         {/* Matriz Visual */}
         <div className="overflow-x-auto">

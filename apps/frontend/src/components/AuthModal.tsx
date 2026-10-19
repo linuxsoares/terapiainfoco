@@ -27,7 +27,8 @@ interface AuthModalProps {
   preselectedRole?: UserRole;
   onClose: () => void;
   onAuthenticated: (user: SafeUser, message?: string) => void;
-  onQuickDemoLogin: (role: UserRole) => void;
+  /** Atalhos de contas demo: disponível apenas em DEMO_MODE */
+  onQuickDemoLogin?: (role: UserRole) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -42,8 +43,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [selectedRole, setSelectedRole] = useState<UserRole>(preselectedRole);
 
   // Campos de Login
-  const [loginEmail, setLoginEmail] = useState('psicologo@terapiainfoco.com.br');
-  const [loginPassword, setLoginPassword] = useState('Senha@123456');
+  const demoEnabled = !!onQuickDemoLogin;
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaTempToken, setMfaTempToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -341,7 +343,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedRole(item.role);
-                      if (mode === 'login') {
+                      // Credenciais demo só são sugeridas em DEMO_MODE
+                      if (mode === 'login' && demoEnabled) {
                         setLoginEmail(item.emailPreset);
                         setLoginPassword('Senha@123456');
                       }
@@ -463,6 +466,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
 
               {/* Atalhos Demo 1-Clique */}
+              {onQuickDemoLogin && (
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Acesso Rápido Demo (1-Clique):
@@ -500,6 +504,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </button>
                 </div>
               </div>
+              )}
             </form>
           )}
 

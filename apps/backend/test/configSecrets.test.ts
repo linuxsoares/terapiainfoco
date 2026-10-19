@@ -13,7 +13,7 @@ const validEnv = {
 
 function loadConfig(env: Record<string, string>) {
   const proc = Bun.spawnSync(
-    ['bun', '-e', `const { config } = await import(${JSON.stringify(configPath)}); console.log(JSON.stringify({ field: config.fieldEncryptionKey?.length, kms: config.kmsMasterKey?.length }));`],
+    ['bun', '-e', `const { config } = await import(${JSON.stringify(configPath)}); console.log(JSON.stringify({ field: config.fieldEncryptionKey?.length, kms: config.kmsMasterKey?.length, demo: config.demoMode }));`],
     { env: { PATH: process.env.PATH ?? '', ...env } }
   );
   return { exitCode: proc.exitCode, stdout: proc.stdout.toString(), stderr: proc.stderr.toString() };
@@ -23,7 +23,7 @@ describe('Configuração de segredos e chaves criptográficas', () => {
   it('carrega chaves de 32 bytes em base64 e hex em produção', () => {
     const result = loadConfig(validEnv);
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ field: 32, kms: 32 });
+    expect(JSON.parse(result.stdout)).toEqual({ field: 32, kms: 32, demo: false });
   });
 
   for (const name of ['JWT_SECRET', 'BLIND_INDEX_SALT', 'FIELD_ENCRYPTION_KEY', 'KMS_MASTER_KEY']) {
@@ -45,6 +45,11 @@ describe('Configuração de segredos e chaves criptográficas', () => {
   it('permite chaves efêmeras fora de produção', () => {
     const result = loadConfig({ NODE_ENV: 'test' });
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({});
+    expect(JSON.parse(result.stdout)).toEqual({ demo: true });
+  });
+
+  it('DEMO_MODE só liga em produção quando explicitamente habilitado', () => {
+    const result = loadConfig({ ...validEnv, DEMO_MODE: 'true' });
+    expect(JSON.parse(result.stdout).demo).toBe(true);
   });
 });

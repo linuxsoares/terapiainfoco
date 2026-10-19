@@ -1163,6 +1163,12 @@ export const api = {
     return res.user;
   },
 
+  /** Configuração pública do ambiente (sem login) */
+  async getPublicConfig(): Promise<{ demoMode: boolean }> {
+    const res = await request<{ success: boolean; demoMode: boolean }>('/auth/public-config');
+    return { demoMode: res.demoMode };
+  },
+
   async getPublicShowcase(): Promise<PublicPlatformShowcaseOverview> {
     const res = await request<{ success: boolean; showcase: PublicPlatformShowcaseOverview }>('/auth/public-showcase');
     return res.showcase;

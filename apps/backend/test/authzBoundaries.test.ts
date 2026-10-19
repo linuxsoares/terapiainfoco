@@ -41,6 +41,12 @@ describe('Fronteiras de autenticação e perfis', () => {
     expect(create.status).toBe(401);
   });
 
+  it('configuração pública informa o modo demonstração ao frontend', async () => {
+    const res = await app.request('/api/auth/public-config');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, demoMode: true });
+  });
+
   it('rotas públicas de agendamento continuam abertas', async () => {
     const res = await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2026-11-20');
     expect(res.status).toBe(200);

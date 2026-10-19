@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Calendar, 
   Users, 
@@ -132,39 +132,29 @@ export default function App() {
   });
 
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  // Atalhos de contas demo só existem quando o backend roda em DEMO_MODE (padrão: desligado)
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    api.getPublicConfig().then((cfg) => setDemoMode(cfg.demoMode)).catch(() => setDemoMode(false));
+  }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Login com conta demo (apenas em DEMO_MODE); sem login real o perfil não é trocado
   const handleSwitchRole = async (role: UserRole) => {
     const demo = DEMO_USERS[role] || DEMO_USERS[UserRole.PSICOLOGO_TITULAR];
+    setRoleDropdownOpen(false);
     try {
       const res = await api.login(demo.email, 'Senha@123456');
-      if (res.user) {
-        setCurrentUser(res.user);
-      } else {
-        setCurrentUser(prev => ({
-          ...prev,
-          role,
-          name: demo.name,
-          email: demo.email,
-          crp: demo.crp,
-          patientId: demo.patientId
-        }));
-      }
-    } catch {
-      setCurrentUser(prev => ({
-        ...prev,
-        role,
-        name: demo.name,
-        email: demo.email,
-        crp: demo.crp,
-        patientId: demo.patientId
-      }));
-    } finally {
-      setRoleDropdownOpen(false);
+      if (!res.user) return;
+      setCurrentUser(res.user);
       setShowPublicShowcase(false);
-      setActiveTab(defaultModule(role));
+      setActiveTab(defaultModule(res.user.role));
+    } catch {
+      // Conta demo indisponível
     }
   };
+  const quickDemoLogin = demoMode ? handleSwitchRole : undefined;
 
   const handleOpenAuth = (mode: 'login' | 'register', preselectedRole: UserRole = UserRole.PSICOLOGO_TITULAR) => {
     setAuthModalMode(mode);
@@ -204,7 +194,7 @@ export default function App() {
         ) : (
           <PublicShowcasePage
             onOpenAuth={handleOpenAuth}
-            onQuickDemoLogin={handleSwitchRole}
+            onQuickDemoLogin={quickDemoLogin}
             onOpenDirectory={() => setPublicView('directory')}
           />
         )}
@@ -214,7 +204,7 @@ export default function App() {
           preselectedRole={authPreselectedRole}
           onClose={() => setAuthModalOpen(false)}
           onAuthenticated={handleAuthenticated}
-          onQuickDemoLogin={handleSwitchRole}
+          onQuickDemoLogin={quickDemoLogin}
         />
       </PrivacyProvider>
     );
@@ -318,6 +308,8 @@ export default function App() {
               {/* Dropdown de Papéis RBAC & Gestão de Conta */}
               {roleDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 animate-fade-in space-y-1">
+                  {demoMode && (
+                  <>
                   <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
                     Alternar Perfil (Paciente, Psicólogo, Admin)
                   </div>
@@ -342,6 +334,8 @@ export default function App() {
                       </button>
                     );
                   })}
+                  </>
+                  )}
 
                   <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-1">
                     <button
@@ -583,7 +577,7 @@ export default function App() {
                     <SecurityModule
                       currentUser={currentUser}
                       onUserUpdated={setCurrentUser}
-                      onSwitchRole={handleSwitchRole}
+                      onSwitchRole={quickDemoLogin}
                     />
                   )}
                   {currentTab === 'backups' && (
@@ -601,7 +595,7 @@ export default function App() {
           preselectedRole={authPreselectedRole}
           onClose={() => setAuthModalOpen(false)}
           onAuthenticated={handleAuthenticated}
-          onQuickDemoLogin={handleSwitchRole}
+          onQuickDemoLogin={quickDemoLogin}
         />
 
         <UserProfileModal

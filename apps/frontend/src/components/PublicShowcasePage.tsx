@@ -34,7 +34,8 @@ import { ThemeToggle } from './ThemeToggle';
 
 interface PublicShowcasePageProps {
   onOpenAuth: (mode: 'login' | 'register', preselectedRole?: UserRole) => void;
-  onQuickDemoLogin: (role: UserRole) => void;
+  /** Atalhos de contas demo: disponível apenas em DEMO_MODE */
+  onQuickDemoLogin?: (role: UserRole) => void;
   onOpenDirectory: () => void;
 }
 
@@ -453,6 +454,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
               </div>
 
               {/* 1-Click Demo Bar */}
+              {onQuickDemoLogin && (
               <div className="pt-3">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
                   ⚡ Acesso Rápido de Demonstração (1-Clique sem digitar senha):
@@ -481,6 +483,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                   </button>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Right KPI & Architecture Summary Card */}
@@ -599,13 +602,17 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-3 shrink-0">
+              {/* Contas Admin/DPO não têm cadastro público */}
+              {activePersona.role !== UserRole.ADMIN && (
               <button
                 onClick={() => onOpenAuth('register', activePersona.role)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-500 hover:to-emerald-500 shadow-md transition-all"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Criar Perfil de {activePersona.role === UserRole.PACIENTE ? 'Paciente' : activePersona.role === UserRole.ADMIN ? 'Admin / DPO' : 'Psicólogo(a)'}</span>
+                <span>Criar Perfil de {activePersona.role === UserRole.PACIENTE ? 'Paciente' : 'Psicólogo(a)'}</span>
               </button>
+              )}
+              {onQuickDemoLogin && (
               <button
                 onClick={() => onQuickDemoLogin(activePersona.role)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 transition-all"
@@ -613,6 +620,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                 <LogIn className="w-4 h-4" />
                 <span>{activePersona.demoLabel}</span>
               </button>
+              )}
             </div>
           </div>
 
