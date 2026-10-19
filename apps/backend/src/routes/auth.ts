@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import { config } from '../config';
 import { authService } from '../services/authService';
 import { WebAuthnService } from '../services/webauthnService';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
 import { authRateLimiter } from '../middlewares/rateLimiter';
+import { UserRole } from '@terapiainfoco/shared';
 import type { 
   RegisterDTO, 
   SocialAuthLoginDTO,
@@ -57,8 +58,14 @@ authRoute.post('/register', async (c) => {
 /**
  * POST /api/auth/social
  * Autenticação ou Criação de Perfil via Login Social OAuth 2.0 / OIDC (Google, Gov.br, Apple)
+ *
+ * O token do provedor ainda não é verificado: o e-mail informado bastaria para entrar na conta
+ * de qualquer usuário. Por isso o fluxo só existe em DEMO_MODE, até a verificação OIDC real.
  */
 authRoute.post('/social', async (c) => {
+  if (!config.demoMode) {
+    return c.json({ success: false, error: 'Login social indisponível. Entre com e-mail e senha.' }, 404);
+  }
   try {
     const body = await c.req.json<SocialAuthLoginDTO>();
     if (!body.provider || !body.email || !body.name) {
@@ -178,9 +185,9 @@ authRoute.put('/profile', authMiddleware({ strict: true }), async (c) => {
 
 /**
  * GET /api/auth/profiles
- * Lista perfis cadastrados na plataforma
+ * Lista perfis cadastrados na plataforma (contém e-mails e telefones: apenas Admin/DPO)
  */
-authRoute.get('/profiles', authMiddleware({ optional: true }), (c) => {
+authRoute.get('/profiles', authMiddleware(), requireRole(UserRole.ADMIN), (c) => {
   const profiles = authService.listProfiles();
   return c.json({ success: true, profiles }, 200);
 });

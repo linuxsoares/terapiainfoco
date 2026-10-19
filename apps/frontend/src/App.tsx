@@ -683,6 +683,7 @@ export default function App() {
           onProfileUpdated={updated => setCurrentUser(updated)}
           onOpenPatientPortal={() => setPatientPortalModalOpen(true)}
           onOpenPortabilityVault={() => setPortabilityVaultModalOpen(true)}
+          socialLoginEnabled={demoMode}
         />
 
         <PatientPortalModal

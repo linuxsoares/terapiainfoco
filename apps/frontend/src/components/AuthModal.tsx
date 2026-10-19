@@ -366,6 +366,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
+          {/* Login Social sem verificação OIDC do token: disponível apenas em DEMO_MODE */}
+          {demoEnabled && (
+          <>
           {/* Botões de Login Social / Criação Social Rápida */}
           <div className="space-y-2">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -418,6 +421,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </span>
             <div className="grow border-t border-slate-200 dark:border-slate-800"></div>
           </div>
+          </>
+          )}
 
           {/* FORMULÁRIO DE LOGIN */}
           {mode === 'login' && !mfaStep && (
