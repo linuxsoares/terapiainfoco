@@ -2352,6 +2352,7 @@ terapiainfoco/
 | `feat/therapist-search-frontend` | Diretório público de psicólogos na vitrine, módulos Encontrar Psicólogo / Meu Perfil Público / Verificação de CRP | [PR #112](https://github.com/linuxsoares/terapiainfoco/pull/112) | Merged |
 | `feat/patient-booking-from-profile` | Agendamento pelo paciente a partir do perfil público (vínculo paciente ↔ consultório), correção de IDOR no cadastro e do agendamento público | [PR #113](https://github.com/linuxsoares/terapiainfoco/pull/113) | Merged |
 | `feat/patient-booking-frontend` | Agendamento pelo paciente no perfil do psicólogo, Minhas consultas, fim do fallback para paciente demo e horários no fuso da clínica | [PR #114](https://github.com/linuxsoares/terapiainfoco/pull/114) | Merged |
+| `fix/authz-remaining-modules-ownership` | Posse por consultório nos módulos restantes: encaminhamentos, laudos, recibos, teleconsulta, árvore diagnóstica, psiquiátrico, ICP, consentimento e cofre | [PR #115](https://github.com/linuxsoares/terapiainfoco/pull/115) | Merged |
 
 ---
 
