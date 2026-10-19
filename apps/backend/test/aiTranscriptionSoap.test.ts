@@ -309,7 +309,10 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
     const savedRecord = db.clinicalRecords.get(reviewBody.createdEhrRecordId);
     expect(savedRecord).toBeDefined();
     expect(savedRecord?.patientId).toBe(patientId);
-    expect(savedRecord?.signedHash).toBeDefined();
+    expect(savedRecord?.isSigned).toBe(true);
+    expect(savedRecord?.signatureHash).toBeDefined();
+    expect(savedRecord?.therapistId).toBe('therapist-001');
+    expect(savedRecord?.encryptedSoapSubjective).toBeDefined();
   });
 
   it('deve registrar trilha de auditoria WORM imutável em todas as operações de IA e transcrição', async () => {

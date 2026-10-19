@@ -9,15 +9,24 @@ import {
   type PatientClinicalMetrics 
 } from '@terapiainfoco/shared';
 
+/** Quarentena LGPD pseudonimiza o nome com um marcador fixo (PatientService.quarantinePatient) */
+function isQuarantined(encryptedName: Parameters<typeof decryptField>[0]): boolean {
+  try {
+    return decryptField(encryptedName) === '[PACIENTE EM QUARENTENA LGPD]';
+  } catch {
+    return false;
+  }
+}
+
 export class AnalyticsService {
   /**
    * Agrega visão clínica longitudinal do terapeuta
    */
-  public static getClinicalOverview(therapistId = 'therapist-001'): ClinicalOverviewMetrics {
+  public static getClinicalOverview(therapistId?: string): ClinicalOverviewMetrics {
     // 1. Pacientes
     const patients = Array.from(db.patients.values()).filter(p => !therapistId || p.therapistId === therapistId);
     const totalPatients = patients.length;
-    const quarantinedPatients = patients.filter(p => (p as any).isQuarantined === true).length;
+    const quarantinedPatients = patients.filter(p => isQuarantined(p.encryptedName)).length;
     const activePatients = Math.max(0, totalPatients - quarantinedPatients);
 
     // 2. Sessões / Agenda
@@ -30,30 +39,19 @@ export class AnalyticsService {
     const attendedAndCancelled = completedSessions + cancelledSessions;
     const attendanceRate = attendedAndCancelled > 0
       ? Math.round((completedSessions / attendedAndCancelled) * 1000) / 10
-      : (totalSessions > 0 ? 100 : 0);
+      : 0; // sem sessões concluídas ou faltas ainda não há assiduidade a medir
 
-    // Sessões por mês (últimos 6 meses ordenados)
-    const monthCounts: Record<string, number> = {};
+    // Sessões por mês: últimos 6 meses até o mês corrente, em ordem cronológica
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-    for (const appt of appointments) {
-      const d = new Date(appt.scheduledStart);
-      const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-      monthCounts[key] = (monthCounts[key] || 0) + 1;
-    }
-
-    const sessionsByMonth = Object.entries(monthCounts).map(([month, count]) => ({
-      month,
-      count
-    }));
-
-    if (sessionsByMonth.length === 0) {
-      const now = new Date();
-      sessionsByMonth.push({
-        month: `${monthNames[now.getMonth()]} ${now.getFullYear()}`,
-        count: 0
-      });
-    }
+    const now = new Date();
+    const sessionsByMonth = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      const count = appointments.filter(a => {
+        const start = new Date(a.scheduledStart);
+        return start.getFullYear() === d.getFullYear() && start.getMonth() === d.getMonth();
+      }).length;
+      return { month: `${monthNames[d.getMonth()]} ${d.getFullYear()}`, count };
+    });
 
     // Sessões recentes
     const patientNameMap = new Map<string, string>();
@@ -83,7 +81,7 @@ export class AnalyticsService {
     const signedSoapRecords = clinicalRecords.filter(r => r.isSigned).length;
     const humanReviewComplianceRate = totalSoapRecords > 0
       ? Math.round((signedSoapRecords / totalSoapRecords) * 1000) / 10
-      : 100;
+      : 0;
 
     // 4. Documentos CFP nº 006/2019
     const docs = Array.from(db.documents.values()).filter(d => !therapistId || d.therapistId === therapistId);
@@ -122,12 +120,15 @@ export class AnalyticsService {
   /**
    * Métricas de Segurança, Observabilidade & Trilha WORM
    */
-  public static getSecurityMetrics(): SecurityMetrics {
-    const logs = db.auditLogs;
+  public static getSecurityMetrics(therapistId?: string): SecurityMetrics {
+    // Com therapistId, só eventos e usuários do consultório; sem ele (admin), a plataforma inteira
+    const practiceUsers = Array.from(db.users.values()).filter(u => !therapistId || u.therapistId === therapistId);
+    const practiceUserIds = new Set(practiceUsers.map(u => u.id));
+    const logs = therapistId ? db.auditLogs.filter(l => practiceUserIds.has(l.actorId)) : db.auditLogs;
     const totalAuditLogs = logs.length;
 
-    // Verificação de Integridade WORM: todos os registros devem ser Object.isFrozen
-    const wormIntegrityStatus = logs.every(log => Object.isFrozen(log)) ? 'INTACT' : 'COMPROMISED';
+    // Verificação de Integridade WORM: a trilha inteira deve estar congelada
+    const wormIntegrityStatus = db.auditLogs.every(log => Object.isFrozen(log)) ? 'INTACT' : 'COMPROMISED';
 
     let totalDecryptReads = 0;
     let totalSignatures = 0;
@@ -141,12 +142,12 @@ export class AnalyticsService {
 
       if (log.action === AuditAction.DECRYPT_READ) totalDecryptReads++;
       if (log.action === AuditAction.SIGN_RECORD) totalSignatures++;
-      if (log.action === AuditAction.LOGIN_FAILED) failedLoginsCount++;
+      if (log.action === AuditAction.AUTH_LOGIN_FAILED) failedLoginsCount++;
       if (log.action === AuditAction.RATE_LIMIT_EXCEEDED) rateLimitBlocksCount++;
     }
 
     // Adoção de 2FA
-    const users = Array.from(db.users.values());
+    const users = practiceUsers;
     const usersWith2Fa = users.filter(u => u.twoFactorEnabled).length;
     const twoFactorAdoptionRate = users.length > 0
       ? Math.round((usersWith2Fa / users.length) * 1000) / 10
@@ -156,8 +157,8 @@ export class AnalyticsService {
     const recentSecurityAlerts = logs
       .filter(l => 
         l.action === AuditAction.RATE_LIMIT_EXCEEDED ||
-        l.action === AuditAction.LOGIN_FAILED ||
-        l.action === AuditAction.QUARANTINE_RECORD ||
+        l.action === AuditAction.AUTH_LOGIN_FAILED ||
+        l.action === AuditAction.QUARANTINE ||
         l.action === AuditAction.SIGN_RECORD ||
         l.action === AuditAction.DECRYPT_READ
       )
@@ -168,13 +169,13 @@ export class AnalyticsService {
         let severity: 'INFO' | 'WARN' | 'ALERT' = 'INFO';
         let detail = `Ação executada: ${l.action} no recurso ${l.resourceType}`;
 
-        if (l.action === AuditAction.LOGIN_FAILED) {
+        if (l.action === AuditAction.AUTH_LOGIN_FAILED) {
           severity = 'ALERT';
           detail = `Falha de autenticação detectada para ${l.actorId}`;
         } else if (l.action === AuditAction.RATE_LIMIT_EXCEEDED) {
           severity = 'WARN';
           detail = `Limite de requisições excedido bloqueado por Rate Limiting`;
-        } else if (l.action === AuditAction.QUARANTINE_RECORD) {
+        } else if (l.action === AuditAction.QUARANTINE) {
           severity = 'WARN';
           detail = `Dados do paciente colocados em quarentena criptográfica LGPD`;
         } else if (l.action === AuditAction.SIGN_RECORD) {

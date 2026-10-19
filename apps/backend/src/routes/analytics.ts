@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { AnalyticsService } from '../services/analyticsService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
+import { requirePatientAccess } from '../middlewares/accessPolicy';
 
 export const analyticsRoute = new Hono();
 
@@ -15,7 +16,12 @@ analyticsRoute.get(
   requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
   async (c) => {
     try {
-      const therapistId = c.req.query('therapistId') || 'therapist-001';
+      // Psicólogo e supervisor veem só o próprio consultório; o admin pode filtrar (ou ver o agregado)
+      const user = c.get('user');
+      const therapistId = user.role === UserRole.ADMIN ? c.req.query('therapistId') || undefined : user.therapistId;
+      if (!therapistId && user.role !== UserRole.ADMIN) {
+        return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
+      }
       const overview = AnalyticsService.getClinicalOverview(therapistId);
       return c.json({ success: true, ...overview }, 200);
     } catch (err: any) {
@@ -34,7 +40,8 @@ analyticsRoute.get(
   requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]),
   async (c) => {
     try {
-      const metrics = AnalyticsService.getSecurityMetrics();
+      const user = c.get('user');
+      const metrics = AnalyticsService.getSecurityMetrics(user.role === UserRole.ADMIN ? undefined : user.therapistId ?? user.id);
       return c.json({ success: true, ...metrics }, 200);
     } catch (err: any) {
       return c.json({ success: false, error: err.message || 'Erro ao carregar métricas de segurança.' }, 500);
@@ -50,6 +57,7 @@ analyticsRoute.get(
   '/patient/:patientId',
   authMiddleware({ strict: true }),
   requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
+  requirePatientAccess('patientId', { allowDpo: true }),
   async (c) => {
     try {
       const patientId = c.req.param('patientId');

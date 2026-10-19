@@ -2368,6 +2368,7 @@ terapiainfoco/
 | `fix/transcricao-preenchida-no-soap` | Transcrição da sala aparece preenchida no campo do SOAP (sem edição usa a original) | [PR #128](https://github.com/linuxsoares/terapiainfoco/pull/128) | Merged |
 | `fix/soap-sintetizado-por-ia` | Rascunho SOAP sintetizado pela OpenAI a partir das falas (sem conteúdo fixo, sem CID padrão) | [PR #129](https://github.com/linuxsoares/terapiainfoco/pull/129) | Merged |
 | `feat/busca-paciente-nome-email` | Busca de pacientes por nome ou e-mail (sem acento, restrita ao consultório, auditada) | [PR #130](https://github.com/linuxsoares/terapiainfoco/pull/130) | Merged |
+| `fix/dashboard-psicologo-metricas` | Dashboard usa o consultório do usuário logado; SOAP por IA salvo como prontuário válido; auditoria encadeada; correção de registros antigos | [PR #131](https://github.com/linuxsoares/terapiainfoco/pull/131) | Merged |
 
 ---
 

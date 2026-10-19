@@ -36,8 +36,10 @@ aiTranscriptionRouter.post('/ingest', async (c) => {
       }, 403);
     }
 
+    // Rascunhos e prontuários pertencem ao consultório; a auditoria registra o usuário
     const result = await aiTranscriptionService.ingestTranscriptionAndSynthesizeSoap(
       dto,
+      user.therapistId ?? user.id,
       user.id
     );
 
@@ -132,7 +134,11 @@ aiTranscriptionRouter.post('/draft/review', async (c) => {
       return c.json({ success: false, message: 'Rascunho SOAP não encontrado.' }, 404);
     }
 
-    const result = await aiTranscriptionService.reviewAiSoapDraft(dto, user.id);
+    const result = await aiTranscriptionService.reviewAiSoapDraft(dto, user.therapistId ?? user.id, {
+      actorId: user.id,
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
 
     return c.json({
       success: true,

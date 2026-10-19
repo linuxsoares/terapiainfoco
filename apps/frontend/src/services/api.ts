@@ -1252,8 +1252,10 @@ export const api = {
   },
 
   // 8. Analytics & Observabilidade (RFC-001 Opção E)
-  async getClinicalOverview(therapistId = 'therapist-001'): Promise<ClinicalOverviewMetrics> {
-    const res = await request<{ success: boolean } & ClinicalOverviewMetrics>(`/analytics/clinical-overview?therapistId=${therapistId}`);
+  /** O backend usa o consultório do usuário logado; só o admin pode informar outro */
+  async getClinicalOverview(therapistId?: string): Promise<ClinicalOverviewMetrics> {
+    const query = therapistId ? `?therapistId=${encodeURIComponent(therapistId)}` : '';
+    const res = await request<{ success: boolean } & ClinicalOverviewMetrics>(`/analytics/clinical-overview${query}`);
     return res;
   },
 
