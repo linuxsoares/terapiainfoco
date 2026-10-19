@@ -2354,6 +2354,7 @@ terapiainfoco/
 | `feat/patient-booking-frontend` | Agendamento pelo paciente no perfil do psicólogo, Minhas consultas, fim do fallback para paciente demo e horários no fuso da clínica | [PR #114](https://github.com/linuxsoares/terapiainfoco/pull/114) | Merged |
 | `fix/authz-remaining-modules-ownership` | Posse por consultório nos módulos restantes: encaminhamentos, laudos, recibos, teleconsulta, árvore diagnóstica, psiquiátrico, ICP, consentimento e cofre | [PR #115](https://github.com/linuxsoares/terapiainfoco/pull/115) | Merged |
 | `fix/demo-ui-only-in-demo-mode` | Atalhos 1-clique, credenciais demo e seletor de perfis apenas em `DEMO_MODE` (`/api/auth/public-config`); troca de perfil exige login real | [PR #116](https://github.com/linuxsoares/terapiainfoco/pull/116) | Merged |
+| `fix/audit-trail-practice-scope` | Trilha de auditoria do psicólogo restrita ao consultório; governança, RIPD/DPIA e pentest exclusivos do DPO | [PR #117](https://github.com/linuxsoares/terapiainfoco/pull/117) | Merged |
 
 ---
 
@@ -2375,7 +2376,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Posse nos módulos restantes:** encaminhamentos, laudos consolidados, recibos/contratos (listagem escopada ao consultório), teleconsulta (paciente e psicólogo da própria consulta), árvore diagnóstica e encaminhamento psiquiátrico (antes abertos a qualquer perfil), lote ICP (só titular), exercícios atribuídos, consentimento (com acesso do DPO) e cofre de portabilidade (agora também para o próprio paciente).
 - [x] **Menus dinâmicos por perfil:** `MODULE_ACCESS` em `@terapiainfoco/shared` dirige sidebar, menu mobile e barra inferior (sem cadeados nem tela de "acesso restrito"); módulo "Meu Espaço" para o paciente (que deixa de ver a agenda do consultório); backups restritos ao Admin; `GET /api/appointments/mine` corrige a agenda que pedia o id do usuário no lugar do consultório; teste de contrato menu ↔ backend.
 - [ ] **Ações por perfil dentro dos módulos:** ocultar botões clínicos (metas, anamnese, escalas) da recepção no módulo de pacientes.
-- [ ] **Trilha de auditoria do psicólogo filtrada pelo próprio consultório** (hoje o psicólogo vê a trilha global).
+- [x] **Trilha de auditoria do psicólogo filtrada pelo próprio consultório** (atores da equipe ou recursos clínicos do consultório) em listagem, relatório e exportações; governança, RIPD/DPIA e pentest exclusivos do Admin/DPO, com abas ocultas para o psicólogo.
 - [x] **"Minhas consultas" no Meu Espaço do paciente.**
 - [x] **Vínculo paciente ↔ psicólogo no agendamento** (fim do `therapist-001` fixo no autocadastro de pacientes).
 - [x] **Interface demo apenas em `DEMO_MODE`:** `GET /api/auth/public-config` informa o modo ao frontend (padrão desligado); atalhos 1-clique, credenciais pré-preenchidas, seletor "Alternar Perfil" e simulador RBAC só aparecem em demonstração; a troca de perfil exige login real (sem troca cosmética); vitrine não oferece cadastro de Admin.

@@ -38,8 +38,13 @@ import {
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
-export function AuditModule() {
-  const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest' | 'governance_package'>('governance_package');
+interface AuditModuleProps {
+  /** Admin/DPO: governança, RIPD/pentest e trilha da plataforma inteira. Psicólogo: só a trilha do consultório. */
+  isDpo: boolean;
+}
+
+export function AuditModule({ isDpo }: AuditModuleProps) {
+  const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest' | 'governance_package'>(isDpo ? 'governance_package' : 'worm_logs');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [chainStatus, setChainStatus] = useState<ChainIntegrityResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -347,6 +352,7 @@ export function AuditModule() {
 
       {/* Seletor de Abas */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-2">
+        {isDpo && (
         <button
           onClick={() => setActiveTab('governance_package')}
           className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
@@ -361,6 +367,7 @@ export function AuditModule() {
             LGPD + CFP + ICP + SOC2
           </span>
         </button>
+        )}
 
         <button
           onClick={() => setActiveTab('worm_logs')}
@@ -374,6 +381,7 @@ export function AuditModule() {
           <span>Trilha WORM & Logs Imutáveis</span>
         </button>
 
+        {isDpo && (
         <button
           onClick={() => setActiveTab('dpia_pentest')}
           className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs transition-colors cursor-pointer ${
@@ -388,6 +396,7 @@ export function AuditModule() {
             Fase 4
           </span>
         </button>
+        )}
       </div>
 
       {/* Aba 1: Governança Executiva & Compliance Package (RFC-001 §4.4, §5.2) */}

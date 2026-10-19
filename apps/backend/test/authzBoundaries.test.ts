@@ -273,5 +273,24 @@ describe('Fronteiras de autenticação e perfis', () => {
       expect((await app.request(`/api/consent/patient/${DEMO_PATIENT_ID}`, { headers: intruderHeaders })).status).toBe(404);
       expect((await app.request('/api/diagnostic-tree/definition', { headers: intruderHeaders })).status).toBe(403);
     });
+
+    it('trilha de auditoria do psicólogo mostra só o próprio consultório; governança é do DPO', async () => {
+      // Leitura de paciente do consultório demo gera registro na trilha
+      const own = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` };
+      expect((await app.request(`/api/patients/${DEMO_PATIENT_ID}`, { headers: own })).status).toBe(200);
+      const ownLogs = await (await app.request('/api/audit', { headers: own })).json() as any;
+      expect(ownLogs.logs.some((l: any) => l.resourceId === DEMO_PATIENT_ID)).toBe(true);
+
+      const headers = await otherPsychologistHeaders();
+      const otherLogs = await (await app.request('/api/audit', { headers })).json() as any;
+      expect(otherLogs.logs.some((l: any) => l.resourceId === DEMO_PATIENT_ID || l.actorId === PSICOLOGA_ID)).toBe(false);
+      const byResource = await (await app.request(`/api/audit/resource/${DEMO_PATIENT_ID}`, { headers })).json() as any;
+      expect(byResource.count).toBe(0);
+      expect((await app.request('/api/audit/governance/overview', { headers })).status).toBe(403);
+
+      const admin = { Authorization: `Bearer ${await tokenFor(ADMIN_ID)}` };
+      const adminLogs = await (await app.request('/api/audit', { headers: admin })).json() as any;
+      expect(adminLogs.logs.some((l: any) => l.resourceId === DEMO_PATIENT_ID)).toBe(true);
+    });
   });
 });

@@ -189,8 +189,27 @@ export class AuditService {
   /**
    * Filtra registros de auditoria por múltiplos critérios
    */
+  /**
+   * Registro pertence ao consultório quando o ator é da equipe dele ou o recurso
+   * (paciente, consulta, prontuário, documento) é do consultório.
+   */
+  static belongsToPractice(log: AuditLog, therapistId: string): boolean {
+    if (db.users.get(log.actorId)?.therapistId === therapistId) return true;
+    const owner =
+      db.patients.get(log.resourceId)?.therapistId ??
+      db.appointments.get(log.resourceId)?.therapistId ??
+      db.clinicalRecords.get(log.resourceId)?.therapistId ??
+      db.documents.get(log.resourceId)?.therapistId;
+    return owner === therapistId;
+  }
+
   static getFilteredLogs(filters: AuditFilterParams = {}): AuditLog[] {
     let result = [...db.auditLogs];
+
+    if (filters.therapistId) {
+      const therapistId = filters.therapistId;
+      result = result.filter(l => this.belongsToPractice(l, therapistId));
+    }
 
     if (filters.resourceType) {
       result = result.filter(l => l.resourceType === filters.resourceType);
