@@ -25,6 +25,8 @@ interface UserProfileModalProps {
   onProfileUpdated: (updated: SafeUser) => void;
   onOpenPatientPortal?: () => void;
   onOpenPortabilityVault?: () => void;
+  /** Vincular provedores sociais só existe em DEMO_MODE */
+  socialLoginEnabled?: boolean;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -33,7 +35,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onProfileUpdated,
   onOpenPatientPortal,
-  onOpenPortabilityVault
+  onOpenPortabilityVault,
+  socialLoginEnabled = false
 }) => {
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || '');
@@ -181,7 +184,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           )}
 
-          {/* Provedores de Login Social Vinculados */}
+          {/* Provedores de Login Social Vinculados (apenas em DEMO_MODE: sem verificação OIDC do token) */}
+          {socialLoginEnabled && (
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2.5">
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
               Métodos de Login & Identidades Sociais Vinculadas ao Perfil
@@ -215,6 +219,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               })}
             </div>
           </div>
+          )}
 
           {/* Dados Básicos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

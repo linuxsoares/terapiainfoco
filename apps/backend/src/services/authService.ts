@@ -633,15 +633,22 @@ export class AuthService {
 
     if (dto.name !== undefined && dto.name.trim()) user.name = dto.name.trim();
     if (dto.phone !== undefined) user.phone = dto.phone.trim();
-    if (dto.crp !== undefined) user.crp = dto.crp.trim();
-    if (dto.crpRegion !== undefined) user.crpRegion = dto.crpRegion.trim().toUpperCase();
-    if (dto.specialty !== undefined) user.specialty = dto.specialty.trim();
-    if (dto.bio !== undefined) user.bio = dto.bio.trim();
-    if (dto.sessionFeeCents !== undefined) user.sessionFeeCents = dto.sessionFeeCents;
-    if (dto.emergencyContactName !== undefined) user.emergencyContactName = dto.emergencyContactName.trim();
-    if (dto.emergencyContactPhone !== undefined) user.emergencyContactPhone = dto.emergencyContactPhone.trim();
-    if (dto.department !== undefined) user.department = dto.department.trim();
-    if (dto.dpoCertification !== undefined) user.dpoCertification = dto.dpoCertification.trim();
+    // Campos profissionais pertencem ao perfil de cada papel: um paciente não declara CRP
+    if (user.role === UserRole.PSICOLOGO_TITULAR) {
+      if (dto.crp !== undefined) user.crp = dto.crp.trim();
+      if (dto.crpRegion !== undefined) user.crpRegion = dto.crpRegion.trim().toUpperCase();
+      if (dto.specialty !== undefined) user.specialty = dto.specialty.trim();
+      if (dto.bio !== undefined) user.bio = dto.bio.trim();
+      if (dto.sessionFeeCents !== undefined) user.sessionFeeCents = dto.sessionFeeCents;
+    }
+    if (user.role === UserRole.PACIENTE) {
+      if (dto.emergencyContactName !== undefined) user.emergencyContactName = dto.emergencyContactName.trim();
+      if (dto.emergencyContactPhone !== undefined) user.emergencyContactPhone = dto.emergencyContactPhone.trim();
+    }
+    if (user.role === UserRole.ADMIN) {
+      if (dto.department !== undefined) user.department = dto.department.trim();
+      if (dto.dpoCertification !== undefined) user.dpoCertification = dto.dpoCertification.trim();
+    }
 
     await auditService.logAccess({
       actorId: userId,
