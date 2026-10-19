@@ -27,6 +27,14 @@ import { TherapistProfileRepository } from '../repositories/therapistProfileRepo
 
 export { generateGoogleMeetCode };
 
+/** "-03:00" -> -180 */
+function utcOffsetMinutes(offset: string): number {
+  const match = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  if (!match) return 0;
+  const minutes = Number(match[2]) * 60 + Number(match[3]);
+  return match[1] === '-' ? -minutes : minutes;
+}
+
 export class AppointmentService {
   /**
    * Agenda uma consulta validando buffers e orquestrando emissão da sala do Google Meet (§3.1, §3.2)
@@ -215,25 +223,29 @@ export class AppointmentService {
   ): AvailableSlotsResponse {
     const bufferMinutes = config.defaultBufferMinutes;
 
-    // Se não informou data, assume a data atual ou amanhã
-    const baseDate = targetDateStr ? new Date(`${targetDateStr}T00:00:00`) : new Date();
-    const dateFormatted = baseDate.toISOString().split('T')[0];
+    // Data no fuso da clínica (sem data informada, usa a data atual da clínica)
+    const offset = config.clinicUtcOffset;
+    const dateFormatted = targetDateStr && /^\d{4}-\d{2}-\d{2}$/.test(targetDateStr)
+      ? targetDateStr
+      : new Date(Date.now() + utcOffsetMinutes(offset) * 60000).toISOString().split('T')[0];
 
-    // Horários padrão de teleatendimento: 09h às 18h com sessões de 50 minutos
+    // Horários padrão de teleatendimento: 09h às 18h (horário da clínica) com sessões de 50 minutos
     const standardHours = [9, 10, 11, 14, 15, 16, 17];
     const slots: AvailableSlot[] = [];
+    const now = Date.now();
 
     for (const hour of standardHours) {
-      const slotStart = new Date(baseDate);
-      slotStart.setHours(hour, 0, 0, 0);
-      const slotEnd = new Date(slotStart);
-      slotEnd.setMinutes(50); // 50 minutos de atendimento
+      // Construído com o offset explícito: independe do fuso do servidor (UTC no Railway)
+      const slotStart = new Date(`${dateFormatted}T${String(hour).padStart(2, '0')}:00:00${offset}`);
+      const slotEnd = new Date(slotStart.getTime() + 50 * 60000); // 50 minutos de atendimento
 
-      let isAvailable = true;
-      try {
-        this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMinutes);
-      } catch {
-        isAvailable = false;
+      let isAvailable = slotStart.getTime() > now;
+      if (isAvailable) {
+        try {
+          this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMinutes);
+        } catch {
+          isAvailable = false;
+        }
       }
 
       slots.push({

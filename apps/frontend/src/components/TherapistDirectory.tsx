@@ -11,6 +11,8 @@ import { api } from '../services/api';
 interface TherapistDirectoryProps {
   /** Ação principal no perfil (ex.: criar conta para agendar). Sem ela, o botão não aparece. */
   scheduleAction?: { label: string; onClick: (profile: TherapistPublicProfile) => void };
+  /** Conteúdo exibido abaixo do perfil selecionado (ex.: painel de agendamento do paciente) */
+  renderBooking?: (profile: TherapistPublicProfile) => React.ReactNode;
 }
 
 const FEE_OPTIONS = [
@@ -40,7 +42,7 @@ function Chip({ children, tone = 'slate' }: { children: React.ReactNode; tone?: 
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${toneClass}`}>{children}</span>;
 }
 
-export function TherapistDirectory({ scheduleAction }: TherapistDirectoryProps) {
+export function TherapistDirectory({ scheduleAction, renderBooking }: TherapistDirectoryProps) {
   const [query, setQuery] = useState('');
   const [approach, setApproach] = useState('');
   const [specialty, setSpecialty] = useState('');
@@ -136,6 +138,7 @@ export function TherapistDirectory({ scheduleAction }: TherapistDirectoryProps) 
             )}
           </div>
         </div>
+        {renderBooking?.(selected)}
       </div>
     );
   }

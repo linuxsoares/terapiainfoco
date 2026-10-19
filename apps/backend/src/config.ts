@@ -56,6 +56,8 @@ export const config = {
   allowEphemeralDatabase: process.env.ALLOW_EPHEMERAL_DATABASE === 'true',
   /** Diretório para persistir o PGlite em disco no desenvolvimento local (ex: ./.data/pglite) */
   pgliteDataDir: process.env.PGLITE_DATA_DIR || '',
+  /** Offset UTC da agenda da clínica (Brasília não tem horário de verão desde 2019) */
+  clinicUtcOffset: process.env.CLINIC_UTC_OFFSET || '-03:00',
   /** Intervalo padrão de buffer entre consultas em minutos (RFC §3.1) */
   defaultBufferMinutes: 10,
   /** Antecedência mínima para cancelamento sem penalidade em horas */

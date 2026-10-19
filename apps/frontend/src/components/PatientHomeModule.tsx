@@ -1,19 +1,38 @@
-import { HeartHandshake, FolderLock, User, ShieldCheck } from 'lucide-react';
-import type { SafeUser } from '@terapiainfoco/shared';
+import { useEffect, useState } from 'react';
+import { HeartHandshake, FolderLock, User, ShieldCheck, Search, Video, CalendarDays } from 'lucide-react';
+import type { PatientAppointmentView, SafeUser } from '@terapiainfoco/shared';
+import { api } from '../services/api';
+
+const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
 
 interface PatientHomeModuleProps {
   currentUser: SafeUser;
   onOpenPortal: () => void;
   onOpenPortabilityVault: () => void;
   onOpenProfile: () => void;
+  onFindTherapist: () => void;
 }
 
 /**
  * Espaço do paciente (titular LGPD Art. 18): ponto de entrada para exercícios,
  * recibos, termos TCLE, cofre de portabilidade e dados cadastrais.
  */
-export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortabilityVault, onOpenProfile }: PatientHomeModuleProps) {
-  const actions = [
+export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortabilityVault, onOpenProfile, onFindTherapist }: PatientHomeModuleProps) {
+  const [appointments, setAppointments] = useState<PatientAppointmentView[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(true);
+
+  useEffect(() => {
+    api.getMyPatientAppointments()
+      .then(setAppointments)
+      .catch(() => setAppointments([]))
+      .finally(() => setLoadingAppointments(false));
+  }, []);
+
+  const upcoming = appointments.filter((a) => new Date(a.scheduledEnd).getTime() > Date.now());
+  // Portal e cofre dependem de um prontuário, que nasce no primeiro agendamento
+  const hasRecord = !!currentUser.patientId;
+
+  const allActions = [
     {
       title: 'Exercícios, Recibos & TCLE',
       description: 'Exercícios terapêuticos (TCC/ACT/DBT) indicados pelo seu psicólogo, recibos para reembolso e termos de consentimento.',
@@ -36,6 +55,7 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
       onClick: onOpenProfile
     }
   ];
+  const actions = hasRecord ? allActions : allActions.filter((action) => action.onClick === onOpenProfile);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -45,6 +65,40 @@ export function PatientHomeModule({ currentUser, onOpenPortal, onOpenPortability
           Este é o seu espaço. Aqui você acompanha o que o seu psicólogo compartilhou com você e exerce seus direitos de titular dos dados.
         </p>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+            <CalendarDays className="w-5 h-5 text-teal-600 dark:text-teal-400" /> Minhas consultas
+          </h2>
+          <button onClick={onFindTherapist}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white">
+            <Search className="w-3.5 h-3.5" /> Encontrar psicólogo
+          </button>
+        </div>
+        {loadingAppointments ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Carregando...</p>
+        ) : upcoming.length === 0 ? (
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Nenhuma consulta agendada. Encontre um psicólogo com CRP verificado e agende sua teleconsulta.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+            {upcoming.map((a) => (
+              <li key={a.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-white">{a.therapistName}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">{dateTimeFormat.format(new Date(a.scheduledStart))}</p>
+                </div>
+                <a href={a.meetUrl} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300 underline">
+                  <Video className="w-3.5 h-3.5" /> Entrar na teleconsulta
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {actions.map(({ title, description, icon: Icon, accent, onClick }) => (

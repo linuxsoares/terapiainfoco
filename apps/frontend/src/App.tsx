@@ -37,6 +37,7 @@ import { TherapistDirectory } from './components/TherapistDirectory';
 import { TherapistProfileEditor } from './components/TherapistProfileEditor';
 import { CrpVerificationModule } from './components/CrpVerificationModule';
 import { PublicDirectoryPage } from './components/PublicDirectoryPage';
+import { BookingPanel } from './components/BookingPanel';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -551,12 +552,23 @@ export default function App() {
                       onOpenPortal={() => setPatientPortalModalOpen(true)}
                       onOpenPortabilityVault={() => setPortabilityVaultModalOpen(true)}
                       onOpenProfile={() => setProfileModalOpen(true)}
+                      onFindTherapist={() => setActiveTab('directory')}
                     />
                   )}
                   {currentTab === 'directory' && (
                     <div className="space-y-4">
                       <h1 className="text-xl font-bold text-slate-900 dark:text-white">Encontre um psicólogo</h1>
-                      <TherapistDirectory />
+                      <TherapistDirectory
+                        renderBooking={(profile) => (
+                          <BookingPanel
+                            profile={profile}
+                            onBooked={() => {
+                              // O primeiro agendamento cria o prontuário vinculado à conta (patientId)
+                              api.getMe().then(setCurrentUser).catch(() => {});
+                            }}
+                          />
+                        )}
+                      />
                     </div>
                   )}
                   {currentTab === 'publicProfile' && <TherapistProfileEditor />}
@@ -604,13 +616,13 @@ export default function App() {
         <PatientPortalModal
           isOpen={patientPortalModalOpen}
           onClose={() => setPatientPortalModalOpen(false)}
-          initialPatientId={currentUser.patientId || '00000000-0000-0000-0000-000000000002'}
+          initialPatientId={currentUser.patientId || ''}
         />
 
         <PortabilityVaultModal
           isOpen={portabilityVaultModalOpen}
           onClose={() => setPortabilityVaultModalOpen(false)}
-          patientId={currentUser.patientId || '00000000-0000-0000-0000-000000000002'}
+          patientId={currentUser.patientId || ''}
           patientName={currentUser.name}
         />
 
