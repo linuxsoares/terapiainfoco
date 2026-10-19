@@ -4502,8 +4502,26 @@ export interface FeeContractResponse {
  */
 export interface KnockWaitingRoomDTO {
   appointmentId: string;
-  patientName: string;
+  /** @deprecated o nome vem do cadastro do paciente */
+  patientName?: string;
   clientFingerprint?: string;
+}
+
+/** Polling da sala: sinais da outra parte desde o cursor e estado da admissão */
+export interface TeleconsultationPollResponse {
+  success: boolean;
+  signals: import('./models').WebRtcSignalEnvelope[];
+  cursor: string;
+  roomStatus: import('./enums').TeleconsultationRoomStatus;
+  /** Situação do paciente na sala de espera (somente para o paciente) */
+  myStatus?: 'WAITING' | 'ADMITTED' | 'REJECTED' | null;
+  /** Fila da sala de espera (somente para o psicólogo) */
+  waitingParticipants?: Array<{ participantId: string; name: string; knockedAt: string; status: 'WAITING' | 'ADMITTED' | 'REJECTED' }>;
+}
+
+export interface IceServersResponse {
+  success: boolean;
+  iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 }
 
 export interface KnockWaitingRoomResponse {
@@ -4547,8 +4565,10 @@ export interface TeleconsultationRoomResponse {
 
 export interface SendWebRtcSignalDTO {
   appointmentId: string;
+  /** @deprecated o papel é derivado da sessão autenticada */
   senderRole?: import('./enums').TeleconsultationParticipantRole;
-  signalType: 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'MEDIA_STATE_SYNC' | 'BYE';
+  signalType: import('./models').WebRtcSignalType;
+  sessionId?: string;
   sdp?: string;
   candidate?: {
     candidate: string;

@@ -38,6 +38,7 @@ import { TherapistProfileEditor } from './components/TherapistProfileEditor';
 import { CrpVerificationModule } from './components/CrpVerificationModule';
 import { PublicDirectoryPage } from './components/PublicDirectoryPage';
 import { BookingPanel } from './components/BookingPanel';
+import { TeleconsultationRoom } from './components/TeleconsultationRoom';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -104,6 +105,10 @@ export default function App() {
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
+  // Link da sala (?sala=<consulta>): abre a teleconsulta assim que houver sessão
+  const [roomAppointmentId, setRoomAppointmentId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sala') : null)
+  );
   const [publicView, setPublicView] = useState<'showcase' | 'directory'>('showcase');
 
   // Modais de Autenticação, Criação de Perfil, Meu Perfil e Atalhos do Paciente
@@ -166,6 +171,22 @@ export default function App() {
     setCurrentUser(user);
     setShowPublicShowcase(false);
     setActiveTab(defaultModule(user.role));
+  };
+
+  // Com o link da sala, reaproveita a sessão salva; sem ela, pede login
+  useEffect(() => {
+    if (!roomAppointmentId) return;
+    api.getMe()
+      .then(handleAuthenticated)
+      .catch(() => handleOpenAuth('login', UserRole.PACIENTE));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closeRoom = () => {
+    setRoomAppointmentId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('sala');
+    window.history.replaceState(null, '', url.toString());
   };
 
   const handleLogout = async () => {
@@ -547,6 +568,7 @@ export default function App() {
                       onOpenPortabilityVault={() => setPortabilityVaultModalOpen(true)}
                       onOpenProfile={() => setProfileModalOpen(true)}
                       onFindTherapist={() => setActiveTab('directory')}
+                      onJoinRoom={setRoomAppointmentId}
                     />
                   )}
                   {currentTab === 'directory' && (
@@ -587,6 +609,14 @@ export default function App() {
             </div>
           </main>
         </div>
+
+        {roomAppointmentId && (
+          <TeleconsultationRoom
+            appointmentId={roomAppointmentId}
+            role={currentUser.role === UserRole.PACIENTE ? 'PATIENT' : 'THERAPIST'}
+            onClose={closeRoom}
+          />
+        )}
 
         {/* Modais Globais: Auth, Meu Perfil, Portal do Paciente e Cofre de Portabilidade .enc */}
         <AuthModal

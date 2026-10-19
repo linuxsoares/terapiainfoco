@@ -2358,6 +2358,7 @@ terapiainfoco/
 | `fix/kms-rotation-durable` | Rotação de KEK durável: versões derivadas via HKDF da `KMS_MASTER_KEY` e estado do KMS (versão ativa/revogações) persistido | [PR #118](https://github.com/linuxsoares/terapiainfoco/pull/118) | Merged |
 | `feat/patient-actions-by-role` | Ações do módulo de pacientes por perfil (`PATIENT_ACTION_ACCESS`), recepção sem ações clínicas e contrato com o backend | [PR #119](https://github.com/linuxsoares/terapiainfoco/pull/119) | Merged |
 | `refactor/remove-google-meet` | Remoção do Google Meet: sala de teleconsulta própria por consulta (`roomUrl`), RFC-001 v1.2.0 com ADR-005 | [PR #120](https://github.com/linuxsoares/terapiainfoco/pull/120) | Merged |
+| `feat/teleconsulta-chamada-real` | Chamada real psicólogo ↔ paciente: sinalização WebRTC efêmera, sala de espera autenticada, `TeleconsultationRoom`, link `?sala=` e E2E com dois Chrome | [PR #121](https://github.com/linuxsoares/terapiainfoco/pull/121) | Merged |
 
 ---
 
@@ -2392,7 +2393,8 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 
 #### 🎥 Teleconsulta Própria sem Gravação (ADR-005 — Prioridade antes do restante do roadmap)
 - [x] **Remoção do Google Meet:** OAuth, criação de salas, diagnóstico e campos `meet*` removidos; cada consulta tem o link da sala própria (`PUBLIC_APP_URL/?sala=<id>`); RFC-001 v1.2.0 com §3.2/§3.3 reescritos e ADR-005 (substitui o ADR-001); landing page e vitrine atualizadas.
-- [ ] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores via backend (fim do loopback), sala de espera com admissão, abertura da sala pelo link `?sala=`, TURN configurável e acesso de convidado para agendamentos anônimos.
+- [x] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores (barramento efêmero com cursor `época:seq`, JOIN/OFFER/ANSWER/ICE/BYE com `sessionId`), sala de espera autenticada (identidade e nome vindos da sessão), paciente só sinaliza após admitido, abertura pelo link `?sala=`, STUN/TURN configuráveis (`/ice-servers`), telemetria real via `getStats()`; novo `TeleconsultationRoom` substitui o modal com loopback; E2E com dois Chrome (`bun run e2e:teleconsulta`).
+- [ ] **Acesso de convidado à sala** para pacientes de agendamentos anônimos da landing page (link assinado com validade).
 - [ ] **Remoção da gravação:** `MediaRecorder` na sala, rota de gravação e módulo de armazenamento de mídia.
 - [ ] **Transcrição ao vivo por STT no servidor:** trechos do microfone de cada participante → provedor de STT (OpenAI, configurável) → texto cifrado; áudio descartado; consentimento específico; integração com o rascunho SOAP.
 - [ ] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (hoje gera 403 em `/system/telemetry/*`) e seleção de paciente no agendamento (hoje é um campo de ID livre).

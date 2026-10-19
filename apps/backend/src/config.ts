@@ -34,6 +34,11 @@ function symmetricKey(name: string): Buffer | undefined {
   return key;
 }
 
+/** "a, b" -> ["a", "b"] */
+function list(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
   env,
@@ -66,6 +71,13 @@ export const config = {
     publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
     secretKey: process.env.SUPABASE_SECRET_KEY || '',
     jwksUrl: process.env.SUPABASE_JWKS_URL || ''
+  },
+  /** Servidores ICE da teleconsulta: STUN descobre a rota; TURN retransmite em redes restritivas (NAT simétrico, firewalls) */
+  webrtc: {
+    stunUrls: list(process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302'),
+    turnUrls: list(process.env.TURN_URLS ?? ''),
+    turnUsername: process.env.TURN_USERNAME || '',
+    turnCredential: process.env.TURN_CREDENTIAL || ''
   },
   /** URL pública do painel (frontend): base do link da sala de teleconsulta própria */
   publicAppUrl: (process.env.PUBLIC_APP_URL || 'http://localhost:5174').replace(/\/+$/, '')
