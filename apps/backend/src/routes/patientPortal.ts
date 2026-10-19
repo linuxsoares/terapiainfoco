@@ -8,8 +8,10 @@ import {
 } from '@terapiainfoco/shared';
 import { PatientPortalService } from '../services/patientPortalService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, canAccessEntity, requireBodyOwnership, requirePatientAccess } from '../middlewares/accessPolicy';
 import { validationRateLimiter } from '../middlewares/rateLimiter';
 import { config } from '../config';
+import { db } from '../db/memoryDb';
 
 export const patientPortalRouter = new Hono();
 
@@ -187,7 +189,8 @@ patientPortalRouter.get('/receipts', patientAuthMiddleware, async (c) => {
 patientPortalRouter.post(
   '/therapist/assign',
   authMiddleware(),
-  requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]),
+  requireRole(CLINICAL_ROLES),
+  requireBodyOwnership(),
   async (c) => {
     try {
       const user = c.get('user');
@@ -223,7 +226,8 @@ patientPortalRouter.post(
 patientPortalRouter.get(
   '/therapist/patient/:patientId/exercises',
   authMiddleware(),
-  requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]),
+  requireRole(CLINICAL_ROLES),
+  requirePatientAccess('patientId'),
   async (c) => {
     try {
       const user = c.get('user');
@@ -249,7 +253,7 @@ patientPortalRouter.get(
 patientPortalRouter.post(
   '/therapist/review',
   authMiddleware(),
-  requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]),
+  requireRole(CLINICAL_ROLES),
   async (c) => {
     try {
       const user = c.get('user');
@@ -257,6 +261,9 @@ patientPortalRouter.post(
 
       if (!body.exerciseId || !body.feedback) {
         return c.json({ success: false, message: 'exerciseId e feedback são obrigatórios.' }, 400);
+      }
+      if (!canAccessEntity(user, db.therapeuticExercises.get(body.exerciseId))) {
+        return c.json({ success: false, message: 'Exercício não encontrado.' }, 404);
       }
 
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';

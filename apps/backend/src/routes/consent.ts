@@ -7,11 +7,13 @@ import type {
 } from '@terapiainfoco/shared';
 import { ConsentService } from '../services/consentService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { requireBodyOwnership, requirePatientAccess } from '../middlewares/accessPolicy';
 
 export const consentRoutes = new Hono();
 
 const service = ConsentService.getInstance();
 const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA, UserRole.ADMIN]);
+const requireConsentOwnership = requireBodyOwnership({ allowDpo: true });
 const requireClinicalStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
 
 /**
@@ -23,6 +25,7 @@ consentRoutes.post(
   '/grant',
   authMiddleware({ strict: true }),
   requireStaff,
+  requireConsentOwnership,
   async (c) => {
     try {
       const dto = await c.req.json<GrantGranularConsentDTO>();
@@ -68,6 +71,7 @@ consentRoutes.post(
   '/revoke',
   authMiddleware({ strict: true }),
   requireStaff,
+  requireConsentOwnership,
   async (c) => {
     try {
       const dto = await c.req.json<RevokeGranularConsentDTO>();
@@ -111,6 +115,7 @@ consentRoutes.post(
 consentRoutes.get(
   '/patient/:patientId',
   authMiddleware({ strict: true }),
+  requirePatientAccess('patientId', { allowDpo: true }),
   async (c) => {
     const patientId = c.req.param('patientId');
     if (!patientId) {
@@ -133,6 +138,7 @@ consentRoutes.get(
 consentRoutes.post(
   '/enforce',
   authMiddleware({ strict: true }),
+  requireConsentOwnership,
   async (c) => {
     try {
       const dto = await c.req.json<EnforceConsentDTO>();

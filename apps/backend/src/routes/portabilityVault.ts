@@ -6,11 +6,12 @@ import type {
   VerifyPortabilityEncVaultDTO
 } from '@terapiainfoco/shared';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { requireBodyOwnership, requirePatientAccess } from '../middlewares/accessPolicy';
 import { PortabilityVaultService } from '../services/portabilityVaultService';
 
 export const portabilityVaultRouter = new Hono();
 
-portabilityVaultRouter.use('*', authMiddleware());
+portabilityVaultRouter.use('*', authMiddleware(), requireBodyOwnership());
 
 /**
  * POST /api/portability-vault/generate
@@ -18,7 +19,7 @@ portabilityVaultRouter.use('*', authMiddleware());
  */
 portabilityVaultRouter.post(
   '/generate',
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]),
+  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.PACIENTE]),
   async (c) => {
     try {
       const body = await c.req.json<GeneratePortabilityEncVaultDTO>();
@@ -39,7 +40,7 @@ portabilityVaultRouter.post(
       const result = PortabilityVaultService.generateEncryptedVault({
         dto: body,
         context: {
-          actorId: user?.id || 'therapist-001',
+          actorId: user.id,
           ipAddress: ip,
           userAgent
         }
@@ -59,7 +60,7 @@ portabilityVaultRouter.post(
  */
 portabilityVaultRouter.post(
   '/verify',
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
+  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.PACIENTE]),
   async (c) => {
     try {
       const body = await c.req.json<VerifyPortabilityEncVaultDTO>();
@@ -80,7 +81,7 @@ portabilityVaultRouter.post(
       const result = PortabilityVaultService.verifyVault({
         dto: body,
         context: {
-          actorId: user?.id || 'therapist-001',
+          actorId: user.id,
           ipAddress: ip,
           userAgent
         }
@@ -99,7 +100,7 @@ portabilityVaultRouter.post(
  */
 portabilityVaultRouter.post(
   '/decrypt',
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]),
+  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.PACIENTE]),
   async (c) => {
     try {
       const body = await c.req.json<DecryptPortabilityEncVaultDTO>();
@@ -120,7 +121,7 @@ portabilityVaultRouter.post(
       const result = PortabilityVaultService.decryptVault({
         dto: body,
         context: {
-          actorId: user?.id || 'therapist-001',
+          actorId: user.id,
           ipAddress: ip,
           userAgent
         }
@@ -139,7 +140,8 @@ portabilityVaultRouter.post(
  */
 portabilityVaultRouter.get(
   '/patients/:patientId/history',
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
+  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.PACIENTE]),
+  requirePatientAccess('patientId'),
   async (c) => {
     const patientId = c.req.param('patientId');
     const result = PortabilityVaultService.getPatientVaultHistory(patientId);

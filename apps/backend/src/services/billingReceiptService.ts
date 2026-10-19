@@ -310,14 +310,16 @@ export class BillingReceiptService {
    */
   static listReceipts(params: {
     patientId?: string;
+    /** Restringe aos recibos do consultório */
+    therapistId?: string;
     context: { actorId: string; ipAddress: string; userAgent?: string };
   }): ListClinicalReceiptsResponse {
-    const { patientId, context } = params;
+    const { patientId, therapistId, context } = params;
     const receipts: ClinicalReceipt[] = [];
     let totalAmountCents = 0;
 
     for (const stored of db.receipts.values()) {
-      if (!patientId || stored.patientId === patientId) {
+      if ((!patientId || stored.patientId === patientId) && (!therapistId || stored.therapistId === therapistId)) {
         const decrypted = this.decryptStoredReceipt(stored);
         receipts.push(decrypted);
         if (stored.paymentStatus === PaymentStatus.PAID) {

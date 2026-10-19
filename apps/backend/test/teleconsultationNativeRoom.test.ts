@@ -19,6 +19,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
   beforeEach(() => {
     db.clear();
+    // A sala exige consulta existente no consultório de quem a acessa
+    db.seedDemoSession();
   });
 
   describe('1. Algoritmo de Avaliação de Qualidade MOS (ITU-T G.107)', () => {

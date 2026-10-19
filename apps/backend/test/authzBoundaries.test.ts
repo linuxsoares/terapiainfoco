@@ -3,7 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { UserRole } from '@terapiainfoco/shared';
+import { UserRole, ReceiptPurpose, BillingModality, PaymentMethod } from '@terapiainfoco/shared';
 import { hashCpf } from '../src/services/cryptoContext';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
@@ -209,6 +209,63 @@ describe('Fronteiras de autenticação e perfis', () => {
       const adminHeaders = { Authorization: `Bearer ${await tokenFor(ADMIN_ID)}` };
       expect((await app.request(`/api/goals/patient/${DEMO_PATIENT_ID}`, { headers: adminHeaders })).status).toBe(403);
       expect((await app.request(`/api/documents/${documentId}`, { headers: adminHeaders })).status).toBe(403);
+    });
+
+    it('encaminhamentos, laudos, recibos, árvore diagnóstica, encaminhamento psiquiátrico e cofre respeitam a posse', async () => {
+      const ownHeaders = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}`, 'Content-Type': 'application/json' };
+      const receiptRes = await app.request('/api/billing/receipts', {
+        method: 'POST',
+        headers: ownHeaders,
+        body: JSON.stringify({
+          patientId: DEMO_PATIENT_ID,
+          purpose: ReceiptPurpose.CONVENIO_REIMBURSO,
+          modality: BillingModality.PER_SESSION,
+          sessionsCovered: [{ data: '2026-02-12', horario: '15:00', modalidade: 'ONLINE' }],
+          amountCents: 28000,
+          paymentMethod: PaymentMethod.PIX
+        })
+      });
+      expect(receiptRes.status).toBe(201);
+      const receiptId = (await receiptRes.json() as any).receipt.id;
+
+      const headers = await otherPsychologistHeaders();
+      const forbiddenReads = [
+        `/api/referrals/patient/${DEMO_PATIENT_ID}`,
+        `/api/reports/consolidated/patient/${DEMO_PATIENT_ID}`,
+        `/api/billing/receipts?patientId=${DEMO_PATIENT_ID}`,
+        `/api/diagnostic-tree/patients/${DEMO_PATIENT_ID}/assessments`,
+        `/api/psychiatric-referrals/patients/${DEMO_PATIENT_ID}`,
+        `/api/portability-vault/patients/${DEMO_PATIENT_ID}/history`,
+        `/api/consent/patient/${DEMO_PATIENT_ID}`
+      ];
+      for (const path of forbiddenReads) {
+        expect({ path, status: (await app.request(path, { headers })).status }).toEqual({ path, status: 404 });
+      }
+      // Listagem sem filtro mostra apenas recibos do próprio consultório
+      const otherList = await (await app.request('/api/billing/receipts', { headers })).json() as any;
+      expect(otherList.receipts.map((r: any) => r.id)).not.toContain(receiptId);
+      const cancel = await app.request('/api/billing/receipts/cancel', {
+        method: 'POST', headers, body: JSON.stringify({ receiptId, cancelReason: 'Tentativa alheia' })
+      });
+      expect(cancel.status).toBe(404);
+
+      // Admin não lê conteúdo clínico; paciente não usa ferramentas clínicas
+      const adminHeaders = { Authorization: `Bearer ${await tokenFor(ADMIN_ID)}` };
+      expect((await app.request(`/api/referrals/patient/${DEMO_PATIENT_ID}`, { headers: adminHeaders })).status).toBe(403);
+      expect((await app.request(`/api/billing/receipts`, { headers: adminHeaders })).status).toBe(403);
+    });
+
+    it('paciente acessa o próprio cofre e consentimento, mas não os de outro paciente', async () => {
+      const demoPatientUser = Array.from(db.users.values()).find((u) => u.role === UserRole.PACIENTE)!;
+      const headers = { Authorization: `Bearer ${await tokenFor(demoPatientUser.id)}` };
+      expect((await app.request(`/api/portability-vault/patients/${demoPatientUser.patientId}/history`, { headers })).status).toBe(200);
+
+      const intruder = await register({ name: 'Outro Paciente', email: `intruso.${crypto.randomUUID().slice(0, 6)}@x.com`, password: 'SenhaPaciente@2026', role: UserRole.PACIENTE });
+      const intruderId = (await intruder.json() as any).user.id;
+      const intruderHeaders = { Authorization: `Bearer ${await tokenFor(intruderId)}` };
+      expect((await app.request(`/api/portability-vault/patients/${DEMO_PATIENT_ID}/history`, { headers: intruderHeaders })).status).toBe(404);
+      expect((await app.request(`/api/consent/patient/${DEMO_PATIENT_ID}`, { headers: intruderHeaders })).status).toBe(404);
+      expect((await app.request('/api/diagnostic-tree/definition', { headers: intruderHeaders })).status).toBe(403);
     });
   });
 });
