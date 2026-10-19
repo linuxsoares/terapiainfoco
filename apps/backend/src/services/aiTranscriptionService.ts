@@ -15,13 +15,14 @@ import type {
   StoredTranscriptionSession,
   IngestTranscriptionDTO,
   ReviewAiSoapDraftDTO,
-  StoredClinicalRecord
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { config } from '../config';
 import { LiveTranscriptionService } from './liveTranscriptionService';
 import { encryptField, decryptField } from './cryptoContext';
 import { getSoapSynthesizer } from './soap/soapSynthesizer';
+import { ClinicalRecordService } from './clinicalRecordService';
+import { AuditService } from './auditService';
 
 /**
  * -------------------------------------------------------------------------------------------------
@@ -37,12 +38,13 @@ export class AiTranscriptionService {
    */
   public async ingestTranscriptionAndSynthesizeSoap(
     dto: IngestTranscriptionDTO,
-    therapistId: string
+    therapistId: string,
+    actorId: string = therapistId
   ): Promise<{ session: TranscriptionSession; soapDraft: AiSoapDraft }> {
     // 1. Verificação Estrita de Consentimento Informado (LGPD Art. 7º & CFP nº 011/2018)
     if (!dto.consentConfirmed) {
       this.recordAuditLog(
-        therapistId,
+        actorId,
         AuditAction.TRANSCRIPTION_VIEW,
         AuditResourceType.TRANSCRIPTION_SESSION,
         dto.appointmentId,
@@ -169,7 +171,7 @@ export class AiTranscriptionService {
 
     // 8. Trilha de Auditoria WORM Imutável
     this.recordAuditLog(
-      therapistId,
+      actorId,
       AuditAction.TRANSCRIPTION_CONSENT_VERIFIED,
       AuditResourceType.TRANSCRIPTION_SESSION,
       sessionId,
@@ -177,7 +179,7 @@ export class AiTranscriptionService {
     );
 
     this.recordAuditLog(
-      therapistId,
+      actorId,
       AuditAction.TRANSCRIPTION_DIARIZED,
       AuditResourceType.TRANSCRIPTION_SESSION,
       sessionId,
@@ -189,7 +191,7 @@ export class AiTranscriptionService {
     );
 
     this.recordAuditLog(
-      therapistId,
+      actorId,
       AuditAction.AI_SOAP_SYNTHESIZED,
       AuditResourceType.AI_SOAP_DRAFT,
       soapDraft.id,
@@ -245,8 +247,10 @@ export class AiTranscriptionService {
    */
   public async reviewAiSoapDraft(
     dto: ReviewAiSoapDraftDTO,
-    therapistId: string
+    therapistId: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string } = { actorId: therapistId, ipAddress: '127.0.0.1' }
   ): Promise<{ draft: AiSoapDraft; createdEhrRecordId?: string }> {
+    const actorId = context.actorId;
     const draft = db.aiSoapDrafts.get(dto.draftId);
     if (!draft) {
       throw new Error(`Rascunho SOAP ${dto.draftId} não encontrado.`);
@@ -270,31 +274,27 @@ export class AiTranscriptionService {
 
     // Se o psicólogo aprovar e solicitar salvar como prontuário oficial
     if (dto.saveAsOfficialEhrNote && (dto.status === 'ACCEPTED_BY_THERAPIST' || dto.status === 'MODIFIED_BY_THERAPIST')) {
-      const ehrRecordId = crypto.randomUUID();
-      const newRecord: StoredClinicalRecord = {
-        id: ehrRecordId,
-        patientId: draft.patientId,
-        therapistId,
+      // Mesmo caminho do prontuário manual: campos SOAP cifrados, assinatura e imutabilidade
+      const cid11 = dto.finalCid11 || draft.suggestedCid11Codes[0];
+      const assessment = cid11 && !draft.assessmentText.includes(cid11)
+        ? `${draft.assessmentText}\nCID-11: ${cid11}`
+        : draft.assessmentText;
+      const sessionNumber = Array.from(db.clinicalRecords.values())
+        .filter(r => r.patientId === draft.patientId && r.therapistId === draft.therapistId).length + 1;
+      const record = ClinicalRecordService.saveDraft({
         appointmentId: draft.appointmentId,
-        sessionNumber: 1, // Pode ser dinâmico com base no histórico
-        sessionDate: new Date(),
-        encryptedSubjective: encryptField(draft.subjectiveText),
-        encryptedObjective: encryptField(draft.objectiveText),
-        encryptedAssessment: encryptField(draft.assessmentText),
-        encryptedPlan: encryptField(draft.planText),
-        cid11Code: dto.finalCid11 || draft.suggestedCid11Codes[0] || undefined,
-        signedHash: crypto.createHash('sha256').update(
-          `${draft.subjectiveText}|${draft.objectiveText}|${draft.assessmentText}|${draft.planText}`
-        ).digest('hex'),
-        createdAt: new Date(),
-        signedAt: new Date()
-      };
-
-      db.clinicalRecords.set(ehrRecordId, newRecord);
+        patientId: draft.patientId,
+        therapistId: draft.therapistId,
+        sessionNumber,
+        soap: { subjective: draft.subjectiveText, objective: draft.objectiveText, assessment, plan: draft.planText },
+        context
+      });
+      ClinicalRecordService.signRecord({ recordId: record.id, confirmedHumanReview: true, context });
+      const ehrRecordId = record.id;
       createdEhrRecordId = ehrRecordId;
 
       this.recordAuditLog(
-        therapistId,
+        actorId,
         AuditAction.SIGN_RECORD,
         AuditResourceType.CLINICAL_RECORD,
         ehrRecordId,
@@ -303,7 +303,7 @@ export class AiTranscriptionService {
     }
 
     this.recordAuditLog(
-      therapistId,
+      actorId,
       dto.status === 'MODIFIED_BY_THERAPIST' ? AuditAction.AI_SOAP_MODIFIED : AuditAction.AI_SOAP_ACCEPTED,
       AuditResourceType.AI_SOAP_DRAFT,
       draft.id,
@@ -541,21 +541,14 @@ export class AiTranscriptionService {
    * Registro na trilha de auditoria WORM imutável
    */
   private recordAuditLog(
-    userId: string,
+    actorId: string,
     action: AuditAction,
     resourceType: AuditResourceType,
     resourceId: string,
-    metadata?: Record<string, any>
+    // Contexto descritivo da operação; a trilha encadeada não guarda metadados livres
+    _metadata?: Record<string, any>
   ): void {
-    db.auditLogs.push({
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      userId,
-      action,
-      resourceType,
-      resourceId,
-      metadata: metadata ? JSON.stringify(metadata) : undefined
-    });
+    AuditService.log({ actorId, action, resourceType, resourceId, ipAddress: '127.0.0.1' });
   }
 }
 

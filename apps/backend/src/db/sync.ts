@@ -5,6 +5,7 @@ import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shar
 import { config } from '../config';
 import { kmsProvider } from '../services/cryptoContext';
 import { seedDemoTherapistProfile } from '../repositories/therapistProfileRepository';
+import { repairLegacyAiSoapRecords } from './repairs';
 
 /**
  * Carrega o cache de domínio a partir do PostgreSQL e ativa a persistência durável (ADR-004).
@@ -27,6 +28,10 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
   }
 
   await persistence.attach(sqlDb);
+
+  // Depois do attach: os ajustes são persistidos no próximo flush
+  const repaired = repairLegacyAiSoapRecords();
+  if (repaired > 0) console.log(`🔧 Registros de SOAP por IA corrigidos: ${repaired}`);
 
   if (config.demoMode) {
     await seedDemoTherapistProfile(sqlDb);

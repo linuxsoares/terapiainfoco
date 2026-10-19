@@ -102,7 +102,8 @@ export function DashboardModule() {
       setError(null);
       const [clinical, security, telem, otlp] = await Promise.all([
         api.getClinicalOverview(),
-        api.getSecurityMetrics(),
+        // Supervisor não tem acesso às métricas de segurança: o painel clínico carrega mesmo assim
+        api.getSecurityMetrics().catch(() => null),
         api.getTelemetryOverview().catch(() => null),
         api.getOtlpStatus().catch(() => null)
       ]);
