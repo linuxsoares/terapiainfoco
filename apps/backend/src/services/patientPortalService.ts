@@ -16,6 +16,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { teleconsultationRoomUrl } from './teleconsultationRoom';
 import { config } from '../config';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
@@ -235,7 +236,7 @@ export class PatientPortalService {
         time: timeFormatted,
         type: upcoming.type || 'Sessão Individual Online',
         status: upcoming.status as AppointmentStatus,
-        meetUrl: upcoming.encryptedMeetUrl ? decryptField(upcoming.encryptedMeetUrl, patientId) : undefined,
+        roomUrl: teleconsultationRoomUrl(upcoming.id),
         canEnterWaitingRoom,
         durationMinutes: 50
       };

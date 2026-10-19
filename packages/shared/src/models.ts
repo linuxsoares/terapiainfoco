@@ -35,8 +35,6 @@ import {
   OtlpExportStatus,
   ComplianceFramework,
   ComplianceControlStatus,
-  MeetProvider,
-  MeetAccessType,
   ConsentScope,
   ConsentStatus,
   ConsentLegalBasis,
@@ -157,13 +155,6 @@ export interface Appointment {
   scheduledEnd: Date | string;
   status: AppointmentStatus;
   
-  // Integração Google Meet REST API v2 & Calendar
-  googleEventId?: string;
-  meetAccessCode?: string;
-  meetSpaceName?: string;
-  meetProvider?: MeetProvider;
-  meetAccessType?: MeetAccessType;
-
   // Suporte a Recorrência & Séries Clínicas (RFC-001 §3.1)
   seriesId?: string;
   sequenceNumber?: number;
@@ -179,12 +170,11 @@ export interface Appointment {
   createdAt: Date | string;
 }
 
-export interface StoredAppointment extends Appointment {
-  encryptedMeetUrl: EncryptedPayload;
-}
+export type StoredAppointment = Appointment;
 
 export interface DecryptedAppointment extends Appointment {
-  meetUrl: string;
+  /** Link da sala de teleconsulta própria da plataforma (acesso exige login e posse da consulta) */
+  roomUrl: string;
 }
 
 /**
@@ -201,7 +191,7 @@ export interface AppointmentReminder {
   recipientEmail?: string;
   templateType: string;
   renderedMessage: string;
-  meetUrl: string;
+  roomUrl: string;
   status: ReminderDeliveryStatus;
   scheduledFor?: Date | string;
   sentAt?: Date | string;
@@ -233,7 +223,7 @@ export interface PatientTimelineEvent {
   actionUrl?: string;
   metadata?: {
     appointmentId?: string;
-    meetUrl?: string;
+    roomUrl?: string;
     sessionNumber?: number;
     soapId?: string;
     isSigned?: boolean;
@@ -5573,7 +5563,7 @@ export interface PatientPortalAppointment {
   time: string;
   type: string;
   status: import('./enums').AppointmentStatus;
-  meetUrl?: string;
+  roomUrl?: string;
   canEnterWaitingRoom: boolean;
   durationMinutes: number;
 }

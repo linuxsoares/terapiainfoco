@@ -86,7 +86,7 @@ const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLa
   portal: { label: 'Meu Espaço', shortLabel: 'Início', icon: HeartHandshake, iconClass: 'text-indigo-600 dark:text-indigo-400' },
   directory: { label: 'Encontrar Psicólogo', shortLabel: 'Buscar', icon: UserSearch, iconClass: 'text-teal-600 dark:text-teal-400' },
   dashboard: { label: '0. Dashboard & Métricas', shortLabel: 'Início', icon: BarChart3, iconClass: 'text-teal-600 dark:text-teal-400' },
-  agenda: { label: '1. Agenda & Meet', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
+  agenda: { label: '1. Agenda & Teleconsulta', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
   patients: { label: '2. Pacientes & Portal', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
   soap: { label: '3 & 4. SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
   documents: { label: '5. Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },

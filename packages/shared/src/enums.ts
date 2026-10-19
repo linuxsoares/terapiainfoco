@@ -834,25 +834,6 @@ export enum ComplianceControlStatus {
 }
 
 /**
- * Provedor de geração do link de teleatendimento
- */
-export enum MeetProvider {
-  GOOGLE_MEET_V2 = 'google_meet_v2',       // Google Meet REST API v2 (POST https://meet.googleapis.com/v2/spaces)
-  GOOGLE_CALENDAR = 'google_calendar',     // Google Calendar API v3 com conferenceData
-  CUSTOM = 'custom',                       // Link personalizado/recorrente informado pelo terapeuta
-  SIMULATED = 'simulated'                  // Fallback determinístico de contingência (dev / offline)
-}
-
-/**
- * Políticas de controle de admissão (Knocking) no Google Meet (RFC §3.2 & CFP 011/2018)
- */
-export enum MeetAccessType {
-  OPEN = 'OPEN',             // Qualquer participante com o link acessa diretamente
-  TRUSTED = 'TRUSTED',       // Apenas organização ou convidados entram direto; outros batem na porta (sala de espera recomendada)
-  RESTRICTED = 'RESTRICTED'  // Apenas pessoas explicitamente convidadas entram direto; outros batem na porta
-}
-
-/**
  * Status de Verificação de Integridade DTLS Peer-to-Peer (RFC-001 §3.2 e CFP 011/2018)
  */
 export enum WebRtcVerificationStatus {

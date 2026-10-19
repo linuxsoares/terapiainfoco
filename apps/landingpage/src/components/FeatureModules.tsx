@@ -135,7 +135,7 @@ export const FeatureModules: React.FC = () => {
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                       <div>
                         <p className="font-bold text-slate-900">14:00 - 14:50 • Mariana S.</p>
-                        <p className="text-slate-500 text-[11px]">Sessão Online (Google Meet) • Confirmada</p>
+                        <p className="text-slate-500 text-[11px]">Teleconsulta • Confirmada</p>
                       </div>
                       <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                         WhatsApp Enviado
@@ -149,7 +149,7 @@ export const FeatureModules: React.FC = () => {
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                       <div>
                         <p className="font-bold text-slate-900">15:05 - 15:55 • Carlos E.</p>
-                        <p className="text-slate-500 text-[11px]">Sessão Online (Google Meet) • Recorrente</p>
+                        <p className="text-slate-500 text-[11px]">Teleconsulta • Recorrente</p>
                       </div>
                       <span className="px-2 py-1 rounded bg-teal-100 text-teal-800 text-[10px] font-bold">
                         Lembrete 2h OK
@@ -164,13 +164,13 @@ export const FeatureModules: React.FC = () => {
                 </div>
               )}
 
-              {/* Module 2 Visual: Google Meet Integration & Waiting Room */}
+              {/* Module 2 Visual: Sala de teleconsulta própria & sala de espera */}
               {selectedModule === 1 && (
                 <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-md space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2">
                       <Video className="w-4 h-4 text-teal-400" />
-                      <span className="text-sm font-bold text-white">Google Meet Orquestrado</span>
+                      <span className="text-sm font-bold text-white">Sala de Teleconsulta Própria</span>
                     </div>
                     <span className="text-xs text-teal-400 bg-teal-950 px-2 py-0.5 rounded border border-teal-800 font-mono">
                       Knocking Protection
@@ -179,10 +179,10 @@ export const FeatureModules: React.FC = () => {
 
                   <div className="bg-slate-800/90 rounded-xl p-4 border border-slate-700 space-y-2">
                     <p className="text-xs text-slate-300 font-medium">
-                      Link gerado com criptografia para a sessão:
+                      Link exclusivo da sessão (acesso só para psicólogo e paciente):
                     </p>
                     <div className="flex items-center justify-between bg-slate-950 px-3 py-2 rounded-lg font-mono text-xs text-teal-300 border border-slate-800">
-                      <span>https://meet.google.com/qrp-zvxm-jke</span>
+                      <span>terapiainfoco.com.br/?sala=7f3c…</span>
                       <Lock className="w-3.5 h-3.5 text-teal-500" />
                     </div>
                   </div>

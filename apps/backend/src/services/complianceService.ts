@@ -317,7 +317,7 @@ export class ComplianceService {
         resolution: 'Resolução CFP nº 011/2018',
         title: 'Telepsicologia e Prestação de Serviços por TIC',
         requirement: 'Atendimento mediado por tecnologia condicionado a cadastro e-Psi ativo e confidencialidade estrita.',
-        technicalSafeguard: 'Integração Google Meet com salas restritas, validação de CRP/e-Psi e criptografia de ponta a ponta.',
+        technicalSafeguard: 'Sala de teleconsulta própria (WebRTC P2P cifrado com DTLS-SRTP), sem gravação, com acesso restrito ao psicólogo e paciente da consulta e validação de CRP.',
         status: 'COMPLIANT'
       },
       {

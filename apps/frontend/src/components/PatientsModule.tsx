@@ -2236,16 +2236,16 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                             </p>
 
                             {/* Metadados e Ações Diretas */}
-                            {ev.metadata?.meetUrl && (
+                            {ev.metadata?.roomUrl && (
                               <div className="pt-1 flex items-center gap-2">
                                 <a
-                                  href={ev.metadata.meetUrl}
+                                  href={ev.metadata.roomUrl}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 hover:underline"
                                 >
                                   <ExternalLink className="w-3 h-3" />
-                                  Acessar Sala Meet ({ev.metadata.status || 'Agendada'})
+                                  Abrir sala da teleconsulta ({ev.metadata.status || 'Agendada'})
                                 </a>
                               </div>
                             )}

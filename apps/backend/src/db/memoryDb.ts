@@ -122,9 +122,6 @@ export class MemoryDatabase {
         scheduledStart: new Date(Date.now() - 3600000),
         scheduledEnd: new Date(),
         status: 'CONFIRMED' as any,
-        googleEventId: 'gevent-mock-001',
-        meetAccessCode: 'abc-defg-hij',
-        encryptedMeetUrl: encryptField('https://meet.google.com/abc-defg-hij'),
         createdAt: new Date()
       });
     }

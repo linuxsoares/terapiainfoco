@@ -7687,7 +7687,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
               <tr>
-                <td className="py-2.5 font-medium">Agenda & Google Meet</td>
+                <td className="py-2.5 font-medium">Agenda & Teleconsulta</td>
                 <td className="py-2.5 text-emerald-600 font-bold">✓ Permitido</td>
                 <td className="py-2.5 text-emerald-600 font-bold">✓ Permitido</td>
                 <td className="py-2.5 text-emerald-600 font-bold">✓ Permitido</td>

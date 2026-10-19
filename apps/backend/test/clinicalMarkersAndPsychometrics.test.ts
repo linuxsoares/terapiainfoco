@@ -46,7 +46,6 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       scheduledStart: new Date().toISOString(),
       scheduledEnd: new Date(Date.now() + 50 * 60 * 1000).toISOString(),
       status: 'CONFIRMADA' as any,
-      encryptedMeetUrl: {} as any,
       createdAt: new Date()
     });
   });

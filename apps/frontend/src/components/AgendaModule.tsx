@@ -9,10 +9,6 @@ import {
   RefreshCw,
   XCircle,
   Play,
-  Shield,
-  PhoneOff,
-  ExternalLink,
-  Link2,
   Repeat,
   Bell,
   Send,
@@ -21,14 +17,10 @@ import {
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
-  MeetAccessType, 
-  MeetProvider, 
   RecurrenceFrequency,
   ReminderChannel,
   ReminderTiming,
   type DecryptedAppointment,
-  type GoogleMeetStatusResponse,
-  type GoogleMeetTestResponse,
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
@@ -53,8 +45,6 @@ export function AgendaModule() {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('14:00');
   const [bufferMin, setBufferMin] = useState(10);
-  const [customMeetUrl, setCustomMeetUrl] = useState('');
-  const [accessType, setAccessType] = useState<MeetAccessType>(MeetAccessType.TRUSTED);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Recorrência (RFC §3.1)
@@ -73,12 +63,6 @@ export function AgendaModule() {
   const [reminderLoading, setReminderLoading] = useState(false);
   const [reminderHistory, setReminderHistory] = useState<StoredAppointmentReminder[]>([]);
 
-  // Modal de diagnóstico / teste Google Meet REST API v2
-  const [showMeetModal, setShowMeetModal] = useState(false);
-  const [meetStatus, setMeetStatus] = useState<GoogleMeetStatusResponse | null>(null);
-  const [meetTestResult, setMeetTestResult] = useState<GoogleMeetTestResponse | null>(null);
-  const [testingMeet, setTestingMeet] = useState(false);
-  const [connectingOAuth, setConnectingOAuth] = useState(false);
 
   const fetchAppointments = async () => {
     try {
@@ -95,54 +79,7 @@ export function AgendaModule() {
 
   useEffect(() => {
     fetchAppointments();
-
-    const handleAuthMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'GOOGLE_MEET_AUTH_SUCCESS') {
-        setSuccessMsg(`Google Meet conectado com sucesso${event.data.email ? ` (${event.data.email})` : ''}!`);
-        api.getGoogleMeetStatus().then(setMeetStatus).catch(() => {});
-        setTimeout(() => setSuccessMsg(null), 5000);
-      }
-    };
-    window.addEventListener('message', handleAuthMessage);
-    return () => window.removeEventListener('message', handleAuthMessage);
   }, []);
-
-  const handleConnectGoogle = async () => {
-    try {
-      setConnectingOAuth(true);
-      const res = await api.getGoogleOAuthUrl();
-      if (res?.url) {
-        const width = 600;
-        const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
-        window.open(
-          res.url,
-          'google-oauth',
-          `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
-        );
-      }
-    } catch (err: any) {
-      setError(err.message || 'Falha ao iniciar autenticação Google');
-    } finally {
-      setConnectingOAuth(false);
-    }
-  };
-
-  const handleDisconnectGoogle = async () => {
-    try {
-      setConnectingOAuth(true);
-      await api.disconnectGoogleMeet();
-      const status = await api.getGoogleMeetStatus();
-      setMeetStatus(status);
-      setSuccessMsg('Google Meet desconectado desta sessão.');
-      setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao desconectar Google Meet');
-    } finally {
-      setConnectingOAuth(false);
-    }
-  };
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,8 +96,6 @@ export function AgendaModule() {
           scheduledStart: start.toISOString(),
           scheduledEnd: end.toISOString(),
           bufferMinutes: Number(bufferMin),
-          meetUrl: customMeetUrl.trim() || undefined,
-          accessType,
           recurrence: {
             frequency: recurrenceFrequency,
             count: Number(recurrenceSessions),
@@ -174,11 +109,9 @@ export function AgendaModule() {
           patientId,
           scheduledStart: start.toISOString(),
           scheduledEnd: end.toISOString(),
-          bufferMinutes: Number(bufferMin),
-          meetUrl: customMeetUrl.trim() || undefined,
-          accessType
+          bufferMinutes: Number(bufferMin)
         });
-        setSuccessMsg('Consulta agendada com sucesso! Link seguro do Google Meet gerado.');
+        setSuccessMsg('Consulta agendada com sucesso! A sessão acontece na sala de teleconsulta da plataforma.');
       }
 
       setShowModal(false);
@@ -276,46 +209,6 @@ export function AgendaModule() {
     }
   };
 
-  const handleEndMeet = async (appointmentId: string) => {
-    try {
-      setError(null);
-      const res = await api.endMeetConference(appointmentId);
-      setSuccessMsg(res.message);
-      await fetchAppointments();
-      setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao encerrar conferência no Google Meet');
-    }
-  };
-
-  const handleOpenMeetDiagnostics = async () => {
-    setShowMeetModal(true);
-    setMeetTestResult(null);
-    try {
-      setTestingMeet(true);
-      const status = await api.getGoogleMeetStatus();
-      setMeetStatus(status);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao obter status do Google Meet');
-    } finally {
-      setTestingMeet(false);
-    }
-  };
-
-  const handleTestCreateMeetSpace = async () => {
-    try {
-      setTestingMeet(true);
-      const res = await api.testGoogleMeet(MeetAccessType.TRUSTED);
-      setMeetTestResult(res);
-      setSuccessMsg(res.message || 'Teste concluído com sucesso!');
-      setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao testar Google Meet');
-    } finally {
-      setTestingMeet(false);
-    }
-  };
-
   const getStatusBadge = (status: AppointmentStatus) => {
     switch (status) {
       case AppointmentStatus.CONFIRMADA:
@@ -332,32 +225,6 @@ export function AgendaModule() {
     }
   };
 
-  const getProviderBadge = (provider?: MeetProvider) => {
-    switch (provider) {
-      case MeetProvider.GOOGLE_MEET_V2:
-        return {
-          label: 'Google Meet v2 API',
-          classes: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30'
-        };
-      case MeetProvider.GOOGLE_CALENDAR:
-        return {
-          label: 'Google Calendar API',
-          classes: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30'
-        };
-      case MeetProvider.CUSTOM:
-        return {
-          label: 'Sala Fixa Informada',
-          classes: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
-        };
-      case MeetProvider.SIMULATED:
-      default:
-        return {
-          label: 'Contingência Simutada',
-          classes: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-        };
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -365,22 +232,14 @@ export function AgendaModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-            Módulo 1: Agenda Clínica & Google Meet REST API v2
+            Módulo 1: Agenda Clínica & Teleconsulta
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Gestão de grade horária, buffers automáticos e links cifrados de videochamada (RFC §3.1, §3.2)
+            Gestão de grade horária, buffers automáticos e sala de teleconsulta própria, sem gravação (RFC §3.1, §3.2)
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
-            onClick={handleOpenMeetDiagnostics}
-            className="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 shadow-sm dark:shadow-none transition-colors cursor-pointer"
-            title="Diagnóstico da API do Google Meet"
-          >
-            <Video className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            <span>API Google Meet</span>
-          </button>
           <button
             onClick={fetchAppointments}
             className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shadow-sm dark:shadow-none transition-colors cursor-pointer"
@@ -428,11 +287,11 @@ export function AgendaModule() {
 
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Google Meet REST API v2</span>
+            <span>Teleconsulta Própria</span>
             <Video className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">Knocking Ativo</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">Sem Gravação</span>
             <span className="text-xs text-sky-600 dark:text-sky-400 font-semibold">Sala de Espera (CFP 011/2018)</span>
           </div>
         </div>
@@ -471,7 +330,6 @@ export function AgendaModule() {
         ) : (
           <div className="grid gap-3">
             {appointments.map((app) => {
-              const provBadge = getProviderBadge(app.meetProvider);
               return (
                 <div
                   key={app.id}
@@ -493,15 +351,6 @@ export function AgendaModule() {
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${getStatusBadge(app.status)}`}>
                           {app.status}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono border ${provBadge.classes}`}>
-                          {provBadge.label}
-                        </span>
-                        {app.meetAccessType && (
-                          <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
-                            <Shield className="w-3 h-3 text-teal-500" />
-                            {app.meetAccessType === MeetAccessType.TRUSTED ? 'Sala de Espera (Knocking)' : app.meetAccessType}
-                          </span>
-                        )}
                         {app.recurrenceSeriesId && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
                             <Repeat className="w-3 h-3 text-purple-500" />
@@ -512,27 +361,8 @@ export function AgendaModule() {
 
                       <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
                         <span>Data: {new Date(app.scheduledStart).toLocaleDateString('pt-BR')}</span>
-                        <span>•</span>
-                        <span className="font-mono text-slate-700 dark:text-slate-300">Sala: {app.meetAccessCode || 'Padrão'}</span>
-                        {app.meetSpaceName && (
-                          <>
-                            <span>•</span>
-                            <span className="font-mono text-slate-500 text-[11px]">{app.meetSpaceName}</span>
-                          </>
-                        )}
                       </p>
 
-                      <div className="pt-1 max-w-full overflow-hidden">
-                        <a
-                          href={app.meetUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-400 hover:underline font-mono bg-sky-50 dark:bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-500/20 transition-colors max-w-full truncate"
-                        >
-                          <Video className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{app.meetUrl}</span>
-                        </a>
-                      </div>
                     </div>
                   </div>
 
@@ -541,10 +371,10 @@ export function AgendaModule() {
                     <button
                       onClick={() => setSelectedTeleconsultationApp(app)}
                       className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Abrir Sala de Teleconsulta Nativa WebRTC P2P com Sala de Espera Ética (RFC-001 §3.2)"
+                      title="Abrir a sala de teleconsulta com sala de espera ética (RFC-001 §3.2)"
                     >
                       <Video className="w-3.5 h-3.5" />
-                      <span>Teleconsulta Nativa</span>
+                      <span>Sala de Teleconsulta</span>
                     </button>
 
                     <button
@@ -576,13 +406,6 @@ export function AgendaModule() {
 
                     {app.status === AppointmentStatus.EM_ANDAMENTO && (
                       <>
-                        <button
-                          onClick={() => handleEndMeet(app.id)}
-                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                          title="Encerra a chamada ativa no Google Meet REST API v2 (:endActiveConference)"
-                        >
-                          <PhoneOff className="w-3.5 h-3.5" /> Encerrar Meet
-                        </button>
                         <button
                           onClick={() => handleStatusChange(app.id, AppointmentStatus.CONCLUIDA)}
                           className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -692,63 +515,6 @@ export function AgendaModule() {
                 </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Política de Admissão Google Meet (Knocking)
-                </label>
-                <select
-                  value={accessType}
-                  onChange={(e) => setAccessType(e.target.value as MeetAccessType)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
-                >
-                  <option value={MeetAccessType.TRUSTED}>TRUSTED (Recomendado CFP — Com Sala de Espera / Knocking)</option>
-                  <option value={MeetAccessType.OPEN}>OPEN (Acesso Aberto — Sem knocking)</option>
-                  <option value={MeetAccessType.RESTRICTED}>RESTRICTED (Apenas Convidados)</option>
-                </select>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  No modo <strong>TRUSTED</strong>, pacientes aguardam na sala de espera até a admissão pelo terapeuta, prevenindo intrusão acidental.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Link Opcional Personalizado (Sala Fixa)
-                  </label>
-                  <a
-                    href="https://meet.google.com/new"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-teal-600 dark:text-teal-400 hover:underline font-semibold flex items-center gap-1"
-                    title="Abre o Google Meet para criar uma reunião avulsa"
-                  >
-                    <span>+ Abrir Google Meet</span>
-                  </a>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    placeholder="Deixe em branco para emissão automática via API"
-                    value={customMeetUrl}
-                    onChange={(e) => setCustomMeetUrl(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCustomMeetUrl('https://meet.google.com/new')}
-                    className="px-3 py-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 text-xs font-medium transition-colors shrink-0 cursor-pointer"
-                    title="Preenche com link de sala instantânea"
-                  >
-                    ⚡ Sala Nova
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                  💡 Deixe em branco para emissão automática através da <strong>Google Meet REST API v2</strong> (`spaces.create`), com salas isoladas por sessão.
-                </p>
-              </div>
-
               {/* Recorrência Clínica (RFC §3.1) */}
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 space-y-3">
                 <div className="flex items-center justify-between">
@@ -835,8 +601,8 @@ export function AgendaModule() {
                   className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting 
-                    ? (isRecurrent ? 'Gerando Série...' : 'Gerando Sala...') 
-                    : (isRecurrent ? `Criar Série (${recurrenceSessions} Sessões)` : 'Confirmar & Gerar Meet')}
+                    ? (isRecurrent ? 'Gerando Série...' : 'Agendando...') 
+                    : (isRecurrent ? `Criar Série (${recurrenceSessions} Sessões)` : 'Confirmar Agendamento')}
                 </button>
               </div>
             </form>
@@ -889,9 +655,9 @@ export function AgendaModule() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Link Meet:</span>
+                <span className="text-slate-500">Link da sala:</span>
                 <span className="font-mono text-sky-600 dark:text-sky-400 truncate max-w-[240px]">
-                  {selectedAppointmentForReminder.meetUrl}
+                  {selectedAppointmentForReminder.roomUrl}
                 </span>
               </div>
             </div>
@@ -1062,160 +828,6 @@ export function AgendaModule() {
                   </>
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Diagnóstico da Google Meet REST API v2 */}
-      {showMeetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-2xl transition-colors duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Video className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-                Diagnóstico Google Meet REST API v2
-              </h3>
-              <button
-                onClick={() => setShowMeetModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sky-900 dark:text-sky-200">Status da Integração:</span>
-                  <span className={`px-2.5 py-0.5 rounded-full font-mono font-medium ${
-                    meetStatus?.configured 
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
-                      : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                  }`}>
-                    {meetStatus?.configured ? 'Workspace Conectado' : 'Contingência Simulada Ativa'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                  <span>Provedor Ativo:</span>
-                  <span className="font-mono text-slate-900 dark:text-white font-medium">{meetStatus?.activeProvider || 'simulated'}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                  <span>Política Padrão (Knocking):</span>
-                  <span className="font-mono text-slate-900 dark:text-white font-medium">{meetStatus?.defaultAccessType || 'TRUSTED'}</span>
-                </div>
-
-                {/* Seção OAuth 2.0 Account */}
-                <div className="pt-2.5 border-t border-sky-200/60 dark:border-sky-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="font-medium text-slate-700 dark:text-slate-300 block">Conta Google Vinculada:</span>
-                    {meetStatus?.oauth?.connectedEmail ? (
-                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{meetStatus.oauth.connectedEmail}</span>
-                    ) : meetStatus?.oauth?.hasRefreshToken ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Refresh Token ativo no ambiente</span>
-                    ) : meetStatus?.oauth?.hasClientId ? (
-                      <span className="text-amber-600 dark:text-amber-400">Credenciais detectadas no servidor — Clique em Conectar</span>
-                    ) : (
-                      <span className="text-slate-500 italic">GOOGLE_CLIENT_ID não detectado nas variáveis de ambiente</span>
-                    )}
-                  </div>
-                  <div>
-                    {meetStatus?.configured ? (
-                      <button
-                        type="button"
-                        onClick={handleDisconnectGoogle}
-                        disabled={connectingOAuth}
-                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-medium text-xs transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {connectingOAuth ? 'Desconectando...' : 'Desconectar'}
-                      </button>
-                    ) : meetStatus?.oauth?.hasClientId ? (
-                      <button
-                        type="button"
-                        onClick={handleConnectGoogle}
-                        disabled={connectingOAuth}
-                        className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <Link2 className="w-3.5 h-3.5" />
-                        {connectingOAuth ? 'Abrindo Google...' : 'Conectar Google Meet'}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Dica de Redirect URI para Google Cloud Console */}
-                {meetStatus?.oauth?.hasClientId && !meetStatus?.configured && (
-                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-slate-700 dark:text-slate-300 space-y-1.5">
-                    <div className="flex items-center justify-between font-semibold text-[11px] text-amber-900 dark:text-amber-200">
-                      <span>URI de Redirecionamento (Google Cloud Console):</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const uriToCopy = meetStatus?.oauth?.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin.replace(':5174', ':3000')}/api/auth/google/callback` : '');
-                          if (uriToCopy) {
-                            navigator.clipboard.writeText(uriToCopy);
-                            setSuccessMsg('URI de redirecionamento copiada com sucesso!');
-                            setTimeout(() => setSuccessMsg(null), 3000);
-                          }
-                        }}
-                        className="text-sky-600 dark:text-sky-400 hover:underline text-[10px] font-semibold cursor-pointer"
-                      >
-                        Copiar URI
-                      </button>
-                    </div>
-                    <p className="font-mono text-[11px] text-slate-900 dark:text-white bg-white dark:bg-slate-900 p-2 rounded-xl border border-amber-300 dark:border-amber-500/30 break-all select-all font-medium">
-                      {meetStatus?.oauth?.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin.replace(':5174', ':3000')}/api/auth/google/callback` : '')}
-                    </p>
-                    <p className="text-[10px] text-slate-600 dark:text-slate-400">
-                      ⚠️ Se aparecer o erro <code>redirect_uri_mismatch</code> no Google, certifique-se de adicionar a URL acima exatamente em <strong>URIs de redirecionamento autorizados</strong> nas Credenciais do seu Google Cloud.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Escopos OAuth Necessários (RFC §3.2):</h4>
-                <ul className="space-y-1 font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                  {meetStatus?.scopes.map((s, idx) => (
-                    <li key={idx} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 truncate">
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {meetTestResult && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                  <div className="flex items-center justify-between font-semibold text-slate-900 dark:text-white">
-                    <span>Resultado do Teste:</span>
-                    <span className="text-teal-600 dark:text-teal-400">{meetTestResult.latencyMs} ms</span>
-                  </div>
-                  <div className="space-y-1 text-slate-600 dark:text-slate-300">
-                    <p><strong>Provedor:</strong> <span className="font-mono">{meetTestResult.provider}</span></p>
-                    <p><strong>Código da Sala:</strong> <span className="font-mono">{meetTestResult.meetingCode}</span></p>
-                    <p><strong>Link do Meet:</strong> <a href={meetTestResult.meetingUri} target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline font-mono">{meetTestResult.meetingUri}</a></p>
-                    <p><strong>Admissão:</strong> <span className="font-mono">{meetTestResult.accessType}</span></p>
-                    {meetTestResult.spaceName && (
-                      <p><strong>Recurso Google Meet:</strong> <span className="font-mono">{meetTestResult.spaceName}</span></p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Doc Oficial: <a href="https://developers.google.com/workspace/meet/api/guides/overview?hl=pt-br" target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 hover:underline inline-flex items-center gap-0.5">Google Meet API <ExternalLink className="w-3 h-3" /></a>
-                </p>
-                <button
-                  type="button"
-                  onClick={handleTestCreateMeetSpace}
-                  disabled={testingMeet}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <Video className="w-4 h-4" />
-                  {testingMeet ? 'Criando Espaço...' : 'Testar Criação de Espaço'}
-                </button>
-              </div>
             </div>
           </div>
         </div>

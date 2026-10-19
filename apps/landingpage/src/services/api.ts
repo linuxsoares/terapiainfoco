@@ -74,19 +74,18 @@ export const landingApi = {
       if (err.isApiError) {
         throw err;
       }
-      // Se for falha de rede/conexão (ex: dev-landing rodando sem backend), gera fallback simulado com link Meet real
+      // Se for falha de rede/conexão (ex: dev-landing rodando sem backend), gera fallback simulado com link de sala
       return {
         appointmentId: 'mock-public-appt-001',
         patientName: dto.patientName,
         therapistName: 'Dra. Vanessa Andrade (CRP 06/142980)',
         scheduledStart: dto.scheduledStart,
         scheduledEnd: dto.scheduledEnd,
-        meetUrl: 'https://meet.google.com/abc-defg-hij',
-        meetAccessCode: 'abc-defg-hij',
+        roomUrl: 'http://localhost:5174/?sala=mock-public-appt-001',
         bufferMinutes: 10,
         consentRecordedAt: new Date().toISOString(),
         instructions: [
-          'Acesse o link do Google Meet com 5 minutos de antecedência.',
+          'Acesse a sala de teleconsulta pelo link com 5 minutos de antecedência.',
           'Utilize fones de ouvido para garantir o sigilo e a privacidade do seu atendimento.',
           'Certifique-se de estar em um ambiente privativo, silencioso e com boa conexão à internet.'
         ]

@@ -20,23 +20,8 @@ import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 
 export const systemRoute = new Hono();
 
-// Acesso a diagnóstico e controle de infraestrutura é restrito a perfil Administrador,
-// exceto teleconsulta Google Meet, que é permitida para psicólogos e administradores
+// Acesso a diagnóstico e controle de infraestrutura é restrito a perfil Administrador
 systemRoute.use('*', async (c, next) => {
-  if (c.req.path.includes('/google-meet')) {
-    const auth = authMiddleware({ optional: true });
-    return auth(c, async () => {
-      const user = c.get('user');
-      if (user && ![UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO].includes(user.role)) {
-        return c.json({ 
-          success: false, 
-          error: `Acesso negado: Perfil ${user.role} não possui permissão para operações do Google Meet.` 
-        }, 403);
-      }
-      return await next();
-    });
-  }
-
   const auth = authMiddleware({ strict: true });
   return auth(c, async () => {
     const rbac = requireRoles([UserRole.ADMIN]);
@@ -330,28 +315,3 @@ systemRoute.get('/stress/slos', (c) => {
   }, 200);
 });
 
-/**
- * 10. Diagnóstico & Teste da Google Meet REST API v2 (RFC §3.2)
- */
-import { GoogleMeetService } from '../services/googleMeetService';
-
-systemRoute.get('/google-meet/status', (c) => {
-  const diagnostics = GoogleMeetService.getDiagnostics();
-  return c.json({
-    success: true,
-    ...diagnostics
-  }, 200);
-});
-
-systemRoute.post('/google-meet/test', async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { accessType?: import('@terapiainfoco/shared').MeetAccessType };
-  try {
-    const testResult = await GoogleMeetService.testCreateSpace(body.accessType);
-    return c.json(testResult, 200);
-  } catch (err: any) {
-    return c.json({
-      success: false,
-      error: err.message || 'Falha ao testar emissão de sala no Google Meet'
-    }, 500);
-  }
-});

@@ -11,6 +11,7 @@ import {
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { teleconsultationRoomUrl } from './teleconsultationRoom';
 import { decryptField, encryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
@@ -51,7 +52,7 @@ export class ReminderService {
     patientName: string;
     therapistName?: string;
     scheduledStart: Date | string;
-    meetUrl: string;
+    roomUrl: string;
     channel: ReminderChannel;
     customNote?: string;
   }): string {
@@ -68,7 +69,7 @@ export class ReminderService {
         `• Data: ${dateFormatted}`,
         `• Horário: ${timeFormatted} (Horário de Brasília)`,
         `• Duração estimada: 50 minutos`,
-        `• Link da Sala Virtual: ${params.meetUrl}`,
+        `• Link da Sala Virtual: ${params.roomUrl}`,
         '',
         `🔒 RECOMENDAÇÕES PARA SUA SESSÃO (Resolução CFP nº 011/2018):`,
         `1. Escolha um ambiente privativo, silencioso e seguro para resguardar o sigilo de seu atendimento.`,
@@ -91,7 +92,7 @@ export class ReminderService {
       `🗓️ *Data:* ${dateFormatted}`,
       `⏰ *Horário:* às ${timeFormatted} (duração de 50 min)`,
       `🔗 *Link Seguro de Teleatendimento:*`,
-      `${params.meetUrl}`,
+      `${params.roomUrl}`,
       '',
       `🔒 *Orientações Éticas e de Privacidade (CFP 011/2018):*`,
       `• Utilize fones de ouvido e permaneça em local reservado durante todo o atendimento.`,
@@ -111,7 +112,7 @@ export class ReminderService {
     recipientEmail?: string;
     whatsappDirectUrl?: string;
     patientName: string;
-    meetUrl: string;
+    roomUrl: string;
     scheduledStart: string;
   } {
     const appt = db.appointments.get(appointmentId);
@@ -127,12 +128,12 @@ export class ReminderService {
     const patientName = decryptField(patient.encryptedName);
     const patientPhone = decryptField(patient.encryptedPhone);
     const patientEmail = decryptField(patient.encryptedEmail);
-    const meetUrl = decryptField(appt.encryptedMeetUrl);
+    const roomUrl = teleconsultationRoomUrl(appt.id);
 
     const renderedMessage = this.renderReminderMessage({
       patientName,
       scheduledStart: appt.scheduledStart,
-      meetUrl,
+      roomUrl,
       channel
     });
 
@@ -145,7 +146,7 @@ export class ReminderService {
       recipientEmail: patientEmail,
       whatsappDirectUrl,
       patientName,
-      meetUrl,
+      roomUrl,
       scheduledStart: new Date(appt.scheduledStart).toISOString()
     };
   }
@@ -170,13 +171,13 @@ export class ReminderService {
     const patientName = decryptField(patient.encryptedName);
     const patientPhone = decryptField(patient.encryptedPhone);
     const patientEmail = decryptField(patient.encryptedEmail);
-    const meetUrl = decryptField(appt.encryptedMeetUrl);
+    const roomUrl = teleconsultationRoomUrl(appt.id);
 
     const timing = dto.timing || ReminderTiming.IMMEDIATE;
     const renderedMessage = this.renderReminderMessage({
       patientName,
       scheduledStart: appt.scheduledStart,
-      meetUrl,
+      roomUrl,
       channel: dto.channel,
       customNote: dto.customMessage
     });
@@ -197,7 +198,7 @@ export class ReminderService {
       encryptedRecipientEmail: encryptField(patientEmail),
       templateType: dto.channel === ReminderChannel.EMAIL ? 'EMAIL_CLINICAL_NOTICE' : 'WHATSAPP_TELECONSULT_V2',
       renderedMessage,
-      meetUrl,
+      roomUrl,
       status: ReminderDeliveryStatus.SENT,
       sentAt,
       whatsappDirectUrl,
@@ -259,7 +260,7 @@ export class ReminderService {
           recipientEmail: stored.encryptedRecipientEmail ? decryptField(stored.encryptedRecipientEmail) : undefined,
           templateType: stored.templateType,
           renderedMessage: stored.renderedMessage,
-          meetUrl: stored.meetUrl,
+          roomUrl: stored.roomUrl,
           status: stored.status,
           scheduledFor: stored.scheduledFor,
           sentAt: stored.sentAt,

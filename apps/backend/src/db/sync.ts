@@ -92,9 +92,6 @@ async function importLegacyRecords(sqlDb: AppDb): Promise<string[]> {
         scheduledStart: a.scheduledStart,
         scheduledEnd: a.scheduledEnd,
         status: a.status,
-        googleEventId: a.googleEventId || undefined,
-        encryptedMeetUrl: a.encryptedMeetUrl,
-        meetAccessCode: a.meetAccessCode || undefined,
         createdAt: a.createdAt
       };
       db.appointments.set(appointment.id, appointment);

@@ -68,7 +68,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(searchData.patient.id).toBe(patientId);
   });
 
-  it('Fluxo de Agendamento, Buffer Obrigatório e Google Meet (Módulo 1 & 2)', async () => {
+  it('Fluxo de Agendamento, Buffer Obrigatório e Sala de Teleconsulta Própria (Módulo 1 & 2)', async () => {
     // Cria paciente primeiro
     const patientRes = await staffRequest('/api/patients', {
       method: 'POST',
@@ -101,8 +101,8 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
     expect(appRes1.status).toBe(201);
     const { appointment } = await appRes1.json();
-    expect(appointment.meetUrl).toMatch(/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/);
-    expect(appointment.meetAccessCode).toMatch(/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/);
+    expect(appointment.roomUrl).toBe(`http://localhost:5174/?sala=${appointment.id}`);
+    expect(appointment.meetUrl).toBeUndefined();
     expect(appointment.status).toBe(AppointmentStatus.CONFIRMADA);
 
     // 2. Tenta agendar colado sem respeitar o buffer de 10 min
@@ -485,7 +485,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const noTcleData = await noTcleRes.json();
     expect(noTcleData.error).toContain('Termo de Consentimento');
 
-    // 3. Agendamento com TCLE aceito deve ter sucesso e gerar sala Meet
+    // 3. Agendamento com TCLE aceito deve ter sucesso e gerar link da sala própria
     const bookingRes = await staffRequest('/api/appointments/public/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -504,7 +504,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const bookingData = await bookingRes.json();
     expect(bookingData.booking.appointmentId).toBeDefined();
     expect(bookingData.booking.patientName).toBe('Lucas Ferreira');
-    expect(bookingData.booking.meetUrl).toContain('meet.google.com');
+    expect(bookingData.booking.roomUrl).toContain(`sala=${bookingData.booking.appointmentId}`);
     expect(bookingData.booking.bufferMinutes).toBe(10);
     expect(bookingData.booking.instructions.length).toBeGreaterThanOrEqual(3);
 

@@ -72,7 +72,7 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
       const stepBooking = result.steps.find(s => s.id === 'step_booking');
       expect(stepBooking).toBeDefined();
       expect(stepBooking?.status).toBe('passed');
-      expect(stepBooking?.details?.meetUrl).toContain('meet.google.com');
+      expect(stepBooking?.details?.roomUrl).toContain('?sala=');
       expect(stepBooking?.details?.bufferMinutes).toBe(10);
 
       // 2. Passo: 2FA TOTP RFC 6238

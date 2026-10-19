@@ -104,20 +104,19 @@ export class SyntheticService {
         const appRecord = db.appointments.get(createdAppointmentId);
         testPatientId = appRecord?.patientId || '';
 
-        if (!booking.meetUrl || !booking.meetUrl.includes('meet.google.com')) {
-          throw new Error('Link do Google Meet não foi gerado no formato especificado (RFC §3.2)');
+        if (!booking.roomUrl || !booking.roomUrl.includes(`sala=${booking.appointmentId}`)) {
+          throw new Error('Link da sala de teleconsulta não foi gerado para a consulta (RFC §3.2)');
         }
 
         steps.push({
           id: 'step_booking',
           name: 'Agendamento Público na Landing Page com Buffer 10m (RFC §3.1)',
-          description: 'Criação de agendamento online com verificação determinística de buffer e sala Meet.',
+          description: 'Criação de agendamento online com verificação determinística de buffer e sala de teleconsulta própria.',
           status: 'passed',
           durationMs: Math.max(1, Date.now() - p1Start),
           details: {
             appointmentId: booking.appointmentId,
-            meetUrl: booking.meetUrl,
-            meetCode: booking.meetAccessCode,
+            roomUrl: booking.roomUrl,
             bufferMinutes: booking.bufferMinutes,
             patientName: booking.patientName
           }
@@ -126,7 +125,7 @@ export class SyntheticService {
         steps.push({
           id: 'step_booking',
           name: 'Agendamento Público na Landing Page com Buffer 10m (RFC §3.1)',
-          description: 'Criação de agendamento online com verificação de buffer e sala Meet.',
+          description: 'Criação de agendamento online com verificação de buffer e sala de teleconsulta própria.',
           status: 'failed',
           durationMs: Math.max(1, Date.now() - p1Start),
           error: err.message

@@ -10,7 +10,7 @@ export const FaqSection: React.FC<FaqSectionProps> = ({ onOpenDemo }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
 
-  const categories = ['Todas', 'Ética & CFP', 'Segurança & LGPD', 'Google Meet & Prática', 'Prontuário & Documentos'];
+  const categories = ['Todas', 'Ética & CFP', 'Segurança & LGPD', 'Teleconsulta & Prática', 'Prontuário & Documentos'];
 
   const filteredFaqs = selectedCategory === 'Todas'
     ? FAQS
