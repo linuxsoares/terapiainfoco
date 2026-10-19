@@ -1,21 +1,21 @@
 import { Hono } from 'hono';
 import { 
-  UserRole,
   PsychometricScaleType,
   type SubmitPsychometricAssessmentDTO
 } from '@terapiainfoco/shared';
 import { PsychometricService } from '../services/psychometricService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requireBodyOwnership, requirePatientAccess } from '../middlewares/accessPolicy';
 
 export const psychometricsRouter = new Hono();
 
-psychometricsRouter.use('*', authMiddleware());
+psychometricsRouter.use('*', authMiddleware(), requireRole(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * GET /api/psychometrics/definition/:scaleType
  * Retorna as perguntas e opções da escala (PHQ-9 ou GAD-7)
  */
-psychometricsRouter.get('/definition/:scaleType', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+psychometricsRouter.get('/definition/:scaleType', async (c) => {
   try {
     const scaleType = c.req.param('scaleType').toUpperCase() as PsychometricScaleType;
     if (scaleType !== PsychometricScaleType.PHQ9 && scaleType !== PsychometricScaleType.GAD7) {
@@ -33,7 +33,7 @@ psychometricsRouter.get('/definition/:scaleType', requireRole([UserRole.ADMIN, U
  * POST /api/psychometrics/submit
  * Submete avaliação psicométrica com cálculo automático de gravidade, interpretação e tendências
  */
-psychometricsRouter.post('/submit', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+psychometricsRouter.post('/submit', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<SubmitPsychometricAssessmentDTO>();
@@ -58,7 +58,7 @@ psychometricsRouter.post('/submit', requireRole([UserRole.ADMIN, UserRole.PSICOL
  * GET /api/psychometrics/patient/:patientId
  * Lista histórico de avaliações do paciente (com filtro opcional por escala)
  */
-psychometricsRouter.get('/patient/:patientId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+psychometricsRouter.get('/patient/:patientId', requirePatientAccess('patientId'), async (c) => {
   try {
     const patientId = c.req.param('patientId');
     const scale = c.req.query('scale')?.toUpperCase() as PsychometricScaleType | undefined;

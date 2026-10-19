@@ -2,15 +2,16 @@ import { Hono } from 'hono';
 import {
   type IngestTranscriptionDTO,
   type ReviewAiSoapDraftDTO,
-  UserRole
 } from '@terapiainfoco/shared';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, canAccessEntity, requireAppointmentAccess, requireBodyOwnership, requireOwnedResource } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 import { aiTranscriptionService } from '../services/aiTranscriptionService';
 
 export const aiTranscriptionRouter = new Hono();
 
 // Todos os endpoints de transcrição e IA SOAP requerem autenticação estrita
-aiTranscriptionRouter.use('*', authMiddleware());
+aiTranscriptionRouter.use('*', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/transcription/ingest
@@ -59,7 +60,7 @@ aiTranscriptionRouter.post('/ingest', async (c) => {
  * GET /api/transcription/session/:appointmentId
  * Recupera sessão de transcrição e métricas de escuta ativa
  */
-aiTranscriptionRouter.get('/session/:appointmentId', async (c) => {
+aiTranscriptionRouter.get('/session/:appointmentId', requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const session = await aiTranscriptionService.getTranscriptionSession(appointmentId);
@@ -88,7 +89,7 @@ aiTranscriptionRouter.get('/session/:appointmentId', async (c) => {
  * GET /api/transcription/draft/:draftId
  * Obtém rascunho SOAP para conferência humana
  */
-aiTranscriptionRouter.get('/draft/:draftId', async (c) => {
+aiTranscriptionRouter.get('/draft/:draftId', requireOwnedResource((id) => db.aiSoapDrafts.get(id), 'Rascunho SOAP', 'draftId'), async (c) => {
   try {
     const draftId = c.req.param('draftId');
     const draft = await aiTranscriptionService.getAiSoapDraft(draftId);
@@ -126,6 +127,9 @@ aiTranscriptionRouter.post('/draft/review', async (c) => {
         success: false,
         message: 'draftId e status são obrigatórios.'
       }, 400);
+    }
+    if (!canAccessEntity(user, db.aiSoapDrafts.get(dto.draftId))) {
+      return c.json({ success: false, message: 'Rascunho SOAP não encontrado.' }, 404);
     }
 
     const result = await aiTranscriptionService.reviewAiSoapDraft(dto, user.id);

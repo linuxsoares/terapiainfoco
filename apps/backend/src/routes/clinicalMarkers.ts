@@ -1,21 +1,22 @@
 import { Hono } from 'hono';
 import { 
-  UserRole,
   type CreateClinicalMarkerDTO,
   type UpdateClinicalMarkerDTO
 } from '@terapiainfoco/shared';
 import { ClinicalMarkerService } from '../services/clinicalMarkerService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requireAppointmentAccess, requireBodyOwnership, requireOwnedResource } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 
 export const clinicalMarkersRouter = new Hono();
 
-clinicalMarkersRouter.use('*', authMiddleware());
+clinicalMarkersRouter.use('*', authMiddleware(), requireRole(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/clinical-markers
  * Cria um marcador clínico na sessão (RFC-001 §3.3)
  */
-clinicalMarkersRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalMarkersRouter.post('/', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CreateClinicalMarkerDTO>();
@@ -40,7 +41,7 @@ clinicalMarkersRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_
  * GET /api/clinical-markers/appointment/:appointmentId
  * Lista marcadores da consulta ordenados cronologicamente
  */
-clinicalMarkersRouter.get('/appointment/:appointmentId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalMarkersRouter.get('/appointment/:appointmentId', requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const markers = ClinicalMarkerService.getMarkersByAppointment(appointmentId);
@@ -54,7 +55,7 @@ clinicalMarkersRouter.get('/appointment/:appointmentId', requireRole([UserRole.A
  * PATCH /api/clinical-markers/:id
  * Atualiza categoria, relevância ou notas do marcador
  */
-clinicalMarkersRouter.patch('/:id', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalMarkersRouter.patch('/:id', requireOwnedResource((id) => db.clinicalMarkers.get(id), 'Marcador'), async (c) => {
   try {
     const user = c.get('user');
     const id = c.req.param('id');
@@ -76,7 +77,7 @@ clinicalMarkersRouter.patch('/:id', requireRole([UserRole.ADMIN, UserRole.PSICOL
  * DELETE /api/clinical-markers/:id
  * Remove um marcador clínico
  */
-clinicalMarkersRouter.delete('/:id', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalMarkersRouter.delete('/:id', requireOwnedResource((id) => db.clinicalMarkers.get(id), 'Marcador'), async (c) => {
   try {
     const user = c.get('user');
     const id = c.req.param('id');
@@ -97,7 +98,7 @@ clinicalMarkersRouter.delete('/:id', requireRole([UserRole.ADMIN, UserRole.PSICO
  * GET /api/clinical-markers/appointment/:appointmentId/soap-proposal
  * Estrutura proposta preliminar de SOAP agrupando os marcadores da sessão (RFC-001 §3.3)
  */
-clinicalMarkersRouter.get('/appointment/:appointmentId/soap-proposal', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalMarkersRouter.get('/appointment/:appointmentId/soap-proposal', requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const proposal = ClinicalMarkerService.exportToSoapProposal(appointmentId);

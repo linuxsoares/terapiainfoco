@@ -3,7 +3,7 @@ import { TranscriptionService } from '../services/transcriptionService';
 import { AiSoapService } from '../services/aiSoapService';
 import { sanitizePii } from '@terapiainfoco/crypto';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
-import { UserRole } from '@terapiainfoco/shared';
+import { CLINICAL_ROLES, requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
 import type { 
   UploadAudioDTO, 
   GenerateSoapProposalDTO,
@@ -14,7 +14,8 @@ export const transcriptionsRoute = new Hono();
 
 // Transcrições contêm dados de saúde e PII sensível (LGPD Art. 11 e CFP 011/2018)
 transcriptionsRoute.use('*', authMiddleware());
-transcriptionsRoute.use('*', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]));
+transcriptionsRoute.use('*', requireRoles(CLINICAL_ROLES));
+transcriptionsRoute.use('*', requireBodyOwnership());
 
 
 // Upload e diarização de áudio da consulta (RFC §3.3)
@@ -25,7 +26,7 @@ transcriptionsRoute.post('/upload', async (c) => {
 
   try {
     const result = TranscriptionService.uploadAndProcessAudio(body, {
-      actorId: 'therapist-001',
+      actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
     });
@@ -37,13 +38,13 @@ transcriptionsRoute.post('/upload', async (c) => {
 });
 
 // Buscar transcrição e diarização vinculada à consulta
-transcriptionsRoute.get('/appointment/:appointmentId', async (c) => {
+transcriptionsRoute.get('/appointment/:appointmentId', requireAppointmentAccess('appointmentId'), async (c) => {
   const appointmentId = c.req.param('appointmentId');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
   const result = TranscriptionService.getTranscriptionByAppointment(appointmentId, {
-    actorId: 'therapist-001',
+    actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
   });
@@ -108,7 +109,7 @@ transcriptionsRoute.post('/generate-soap', async (c) => {
       transcriptionId: body.transcriptionId,
       utterances: body.utterances,
       context: {
-        actorId: 'therapist-001',
+        actorId: c.get('userId'),
         ipAddress: ip,
         userAgent
       }

@@ -75,3 +75,50 @@ export function requireClinicalRecordAccess(param = 'id'): MiddlewareHandler {
     await next();
   };
 }
+
+/** Entidade clínica vinculada a um paciente e/ou consulta */
+interface OwnedEntity {
+  patientId?: string;
+  appointmentId?: string;
+}
+
+export function canAccessEntity(user: SafeUser, entity: OwnedEntity | undefined): boolean {
+  if (!entity) return false;
+  if (entity.patientId) return canAccessPatient(user, entity.patientId);
+  if (entity.appointmentId) return canAccessAppointment(user, entity.appointmentId);
+  return false;
+}
+
+/**
+ * Exige posse da entidade identificada pelo parâmetro de rota `param`,
+ * resolvida por `lookup` e verificada pelo paciente ou consulta a que pertence.
+ */
+export function requireOwnedResource(
+  lookup: (id: string) => OwnedEntity | undefined,
+  label: string,
+  param = 'id'
+): MiddlewareHandler {
+  return async (c, next) => {
+    if (!canAccessEntity(c.get('user'), lookup(c.req.param(param) ?? ''))) return notFound(c, label);
+    await next();
+  };
+}
+
+/**
+ * Exige posse do `patientId`/`appointmentId` informados no corpo JSON, quando presentes.
+ * O Hono reaproveita o corpo já interpretado, então o handler pode lê-lo novamente.
+ */
+export function requireBodyOwnership(): MiddlewareHandler {
+  return async (c, next) => {
+    let body: any;
+    try {
+      body = await c.req.json();
+    } catch {
+      return await next();
+    }
+    const user = c.get('user');
+    if (typeof body?.patientId === 'string' && !canAccessPatient(user, body.patientId)) return notFound(c, 'Paciente');
+    if (typeof body?.appointmentId === 'string' && !canAccessAppointment(user, body.appointmentId)) return notFound(c, 'Consulta');
+    await next();
+  };
+}
