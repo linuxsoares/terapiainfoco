@@ -5,6 +5,7 @@ import {
   TeleconsultationParticipantRole,
   TeleconsultationRoomStatus,
   TranscriptionSpeaker,
+  ConsentScope,
   type LiveTranscriptChunkDTO,
   type LiveTranscriptStatusResponse,
   type LiveTranscriptUtterance,
@@ -16,6 +17,7 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { TeleconsultationService } from './teleconsultationService';
 import { getSttProvider } from './stt/sttProvider';
+import { ConsentService } from './consentService';
 
 /** Trechos de ~10 s de Opus ficam bem abaixo disso; o limite barra abusos */
 const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
@@ -41,6 +43,45 @@ export class LiveTranscriptionService {
     }
     if (!getSttProvider()) return { success: true, enabled: false, reason: 'STT_DISABLED' };
     return { success: true, enabled: true };
+  }
+
+  /**
+   * O paciente titular autoriza (ou recusa) a transcrição pela própria sala (LGPD Art. 11, I).
+   * Registra recibo no livro de consentimentos e sincroniza o cadastro.
+   */
+  static setPatientConsent(
+    appointmentId: string,
+    user: SafeUser,
+    granted: boolean,
+    context: { ipAddress: string; userAgent?: string }
+  ): LiveTranscriptStatusResponse {
+    const appointment = db.appointments.get(appointmentId);
+    if (!appointment) throw new LiveTranscriptionError('Consulta não encontrada.', 400);
+    ConsentService.getInstance().grantGranularConsent(
+      {
+        patientId: appointment.patientId,
+        scopes: [{
+          scope: ConsentScope.TELECONSULTATION_AUDIO_RECORDING,
+          granted,
+          revocationReason: granted ? undefined : 'Titular recusou a transcrição na sala de teleconsulta'
+        }],
+        notes: 'Decisão registrada pelo próprio titular na sala de teleconsulta'
+      },
+      { actorId: user.id, ...context }
+    );
+    return this.status(appointmentId);
+  }
+
+  /** Motivo, em linguagem clara, de não haver transcrição para a consulta */
+  static unavailableReason(appointmentId: string): string {
+    const status = this.status(appointmentId);
+    if (status.reason === 'NO_CONSENT') {
+      return 'O paciente não autorizou a transcrição desta sessão (pedido exibido na sala) ou revogou o consentimento.';
+    }
+    if (status.reason === 'STT_DISABLED') {
+      return 'A transcrição não está configurada neste ambiente (OPENAI_API_KEY ausente).';
+    }
+    return 'Nenhuma fala foi transcrita nesta sessão. Verifique se o indicador "Transcrevendo" apareceu na sala e se houve erro do provedor de transcrição.';
   }
 
   static async transcribeChunk(

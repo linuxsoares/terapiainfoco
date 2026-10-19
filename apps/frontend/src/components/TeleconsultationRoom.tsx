@@ -156,9 +156,28 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
     }
   }, []);
 
+  // Status da transcrição; o psicólogo acompanha quando o paciente autorizar
   useEffect(() => {
-    api.getLiveTranscriptionStatus(appointmentId).then(setTranscriptionStatus).catch(() => undefined);
-  }, [appointmentId]);
+    const load = () => api.getLiveTranscriptionStatus(appointmentId).then(setTranscriptionStatus).catch(() => undefined);
+    load();
+    if (!isTherapist) return;
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [appointmentId, isTherapist]);
+
+  const [consentDismissed, setConsentDismissed] = useState(false);
+  const [savingConsent, setSavingConsent] = useState(false);
+  const decideTranscription = async (granted: boolean) => {
+    setSavingConsent(true);
+    try {
+      setTranscriptionStatus(await api.setLiveTranscriptionConsent(appointmentId, granted));
+      setConsentDismissed(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingConsent(false);
+    }
+  };
 
   // Psicólogo acompanha a transcrição da sessão
   useEffect(() => {
@@ -332,7 +351,7 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
                 {transcription.active
                   ? 'Transcrevendo'
                   : transcriptionStatus.reason === 'NO_CONSENT'
-                    ? 'Sem consentimento para transcrição'
+                    ? isTherapist ? 'Aguardando autorização do paciente' : 'Transcrição não autorizada'
                     : transcriptionStatus.reason === 'STT_DISABLED'
                       ? 'Transcrição não configurada'
                       : 'Transcrição em espera'}
@@ -360,6 +379,25 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
             {transcription.error && <p className="text-amber-300">Transcrição: {transcription.error}</p>}
             {notice && <p className="text-emerald-300">{notice}</p>}
             {metrics?.ethicalNotice && <p className="text-amber-300">{metrics.ethicalNotice}</p>}
+          </div>
+        )}
+
+        {!isTherapist && transcriptionStatus?.reason === 'NO_CONSENT' && !consentDismissed && !sessionEnded && (
+          <div className="px-4 py-3 border-b border-slate-800 bg-teal-950/40 flex flex-wrap items-center justify-between gap-3" data-testid="transcription-consent">
+            <p className="text-xs text-slate-200 max-w-2xl">
+              Você permite que a sua fala nesta sessão seja <strong>transcrita em texto</strong> para o prontuário do seu psicólogo?
+              O áudio e o vídeo <strong>não são gravados</strong>: cada trecho é convertido em texto e descartado. Você pode revogar quando quiser.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => decideTranscription(true)} disabled={savingConsent}
+                className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold disabled:opacity-50">
+                Permitir transcrição
+              </button>
+              <button onClick={() => decideTranscription(false)} disabled={savingConsent}
+                className="px-3 py-1.5 rounded-lg border border-slate-600 text-xs">
+                Agora não
+              </button>
+            </div>
           </div>
         )}
 

@@ -329,6 +329,12 @@ export class ConsentService {
       const patient = db.patients.get(dto.patientId);
       if (patient) {
         patient.consentTranscriptionSigned = audioScope.granted;
+        if (audioScope.granted) {
+          // Novo aceite substitui a revogação anterior (senão a transcrição seguiria bloqueada)
+          patient.consentSignedAt = now;
+          patient.consentRevokedAt = undefined;
+          patient.consentRevokeReason = undefined;
+        }
         db.patients.set(dto.patientId, patient);
       }
     }

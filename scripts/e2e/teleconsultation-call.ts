@@ -66,6 +66,14 @@ try {
   await therapist.getByText('Demo Psicóloga (Dra. Beatriz)').first().click();
   await therapist.getByRole('button', { name: /Agenda & Teleconsulta/ }).first().waitFor();
   const appointmentId = await createAppointment(therapist);
+  // Sem consentimento prévio: a paciente precisa autorizar a transcrição na própria sala
+  await therapist.evaluate(async ({ apiUrl, patientId }) => {
+    await fetch(`${apiUrl}/patients/${patientId}/revoke-consent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('terapiainfoco_access_token')}` },
+      body: JSON.stringify({ reason: 'E2E: consentimento pedido na sala' })
+    });
+  }, { apiUrl: API_URL, patientId: DEMO_PATIENT_ID });
   await therapist.goto(`${FRONTEND_URL}/?sala=${appointmentId}`);
   await therapist.getByTestId('stage-message').waitFor();
   console.log(`✓ Psicóloga na sala da consulta ${appointmentId}`);
@@ -80,6 +88,15 @@ try {
 
   await therapist.getByRole('button', { name: /Admitir/ }).click({ timeout: 15_000 });
   console.log('✓ Paciente admitida');
+
+  const consentPrompt = patient.getByTestId('transcription-consent');
+  if (await consentPrompt.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await patient.getByRole('button', { name: 'Permitir transcrição' }).click();
+    await consentPrompt.waitFor({ state: 'hidden' });
+    // O indicador do psicólogo é atualizado em até ~10 s
+    await waitFor(async () => /Transcrevendo/.test(await therapist.getByTestId('transcription-indicator').innerText()), 'psicólogo ver a transcrição autorizada', 20_000);
+    console.log('✓ Paciente autorizou a transcrição na sala');
+  }
 
   await waitFor(() => remoteVideoPlaying(therapist), 'vídeo da paciente na tela da psicóloga');
   await waitFor(() => remoteVideoPlaying(patient), 'vídeo da psicóloga na tela da paciente');

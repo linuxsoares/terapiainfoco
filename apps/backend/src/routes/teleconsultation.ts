@@ -236,6 +236,27 @@ teleconsultationRoutes.post('/transcription/chunk', authMiddleware(), requireBod
 });
 
 /**
+ * POST /api/teleconsultation/transcription/consent
+ * O paciente titular autoriza ou recusa a transcrição da sessão (a chamada nunca é gravada)
+ */
+teleconsultationRoutes.post('/transcription/consent', authMiddleware(), requireRole([UserRole.PACIENTE]), requireBodyOwnership(), async (c) => {
+  try {
+    const body = await c.req.json<{ appointmentId: string; granted: boolean }>();
+    if (!body.appointmentId || typeof body.granted !== 'boolean') {
+      return c.json({ success: false, message: 'Informe appointmentId e granted.' }, 400);
+    }
+    const status = LiveTranscriptionService.setPatientConsent(body.appointmentId, c.get('user'), body.granted, {
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
+    return c.json(status satisfies LiveTranscriptStatusResponse);
+  } catch (err: any) {
+    const status = err instanceof LiveTranscriptionError ? err.status : 400;
+    return c.json({ success: false, message: err.message }, status);
+  }
+});
+
+/**
  * GET /api/teleconsultation/transcription/:appointmentId
  * Transcrição da sessão para o psicólogo/supervisor do consultório
  */

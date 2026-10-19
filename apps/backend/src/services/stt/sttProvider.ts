@@ -33,7 +33,10 @@ export class OpenAiSttProvider implements SttProvider {
       payload.fill(0);
     }
     if (!res.ok) {
-      throw new Error(`Provedor de transcrição indisponível (HTTP ${res.status}).`);
+      // Mensagem do provedor (ex.: chave inválida, sem crédito, modelo inexistente); não contém dados do paciente
+      const detail = await res.json().then((b: any) => b?.error?.message as string | undefined).catch(() => undefined);
+      console.warn(`⚠️ STT OpenAI respondeu HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+      throw new Error(`Provedor de transcrição recusou o trecho (HTTP ${res.status}${detail ? `: ${detail}` : ''}).`);
     }
     const body = (await res.json()) as { text?: string };
     return body.text ?? '';

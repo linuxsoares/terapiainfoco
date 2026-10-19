@@ -85,7 +85,7 @@ export class AiTranscriptionService {
         // Diálogo clínico de exemplo apenas em demonstração
         utterances = this.createDefaultClinicalDialogue();
       } else {
-        throw new Error('Nenhuma transcrição disponível para esta consulta. Cole o texto da sessão ou realize a teleconsulta com transcrição ativa.');
+        throw new Error(`Nenhuma transcrição disponível para esta consulta. ${LiveTranscriptionService.unavailableReason(dto.appointmentId)} Você também pode colar o texto da sessão.`);
       }
     }
 
