@@ -162,8 +162,9 @@ describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opç�
       ipAddress: '127.0.0.1'
     });
 
+    // Relatório formal da plataforma: perfil DPO/Admin (o psicólogo vê só o próprio consultório)
     const reportRes = await app.request('/api/audit/report', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     expect(reportRes.status).toBe(200);

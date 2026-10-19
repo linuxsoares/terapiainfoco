@@ -572,7 +572,7 @@ export default function App() {
                   {currentTab === 'patients' && <PatientsModule />}
                   {currentTab === 'soap' && <SoapModule />}
                   {currentTab === 'documents' && <DocumentsModule />}
-                  {currentTab === 'audit' && <AuditModule />}
+                  {currentTab === 'audit' && <AuditModule isDpo={currentUser.role === UserRole.ADMIN} />}
                   {currentTab === 'security' && (
                     <SecurityModule
                       currentUser={currentUser}

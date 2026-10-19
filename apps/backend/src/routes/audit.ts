@@ -73,6 +73,14 @@ auditRoute.post('/unmask', async (c) => {
 
 // Acesso à consulta da trilha de auditoria WORM é restrito a Administradores e Psicólogos Titulares (LGPD Art. 37/38)
 const adminOrTherapist = requireRoles([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]);
+// Pentest, RIPD/DPIA e pacote de governança são atribuições do DPO/Admin
+const dpoOnly = requireRoles([UserRole.ADMIN]);
+
+/** Admin/DPO audita a plataforma inteira; o psicólogo, apenas o próprio consultório */
+function practiceScope(c: any): string | undefined {
+  const user = c.get('user');
+  return user.role === UserRole.ADMIN ? undefined : (user.therapistId ?? '__sem-consultorio__');
+}
 
 // 1. Obter logs com filtros opcionais
 auditRoute.get('/', adminOrTherapist, (c) => {
@@ -84,6 +92,7 @@ auditRoute.get('/', adminOrTherapist, (c) => {
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : undefined;
 
   const logs = AuditService.getFilteredLogs({
+    therapistId: practiceScope(c),
     action,
     resourceType,
     actorId,
@@ -110,6 +119,7 @@ auditRoute.get('/report', adminOrTherapist, (c) => {
   const endDate = c.req.query('endDate');
 
   const report = AuditService.generateComplianceReport({
+    therapistId: practiceScope(c),
     action,
     resourceType,
     actorId,
@@ -129,6 +139,7 @@ auditRoute.get('/export/csv', adminOrTherapist, (c) => {
   const endDate = c.req.query('endDate');
 
   const csv = AuditService.exportLogsToCsv({
+    therapistId: practiceScope(c),
     action,
     resourceType,
     actorId,
@@ -151,6 +162,7 @@ auditRoute.get('/export/json', adminOrTherapist, (c) => {
   const endDate = c.req.query('endDate');
 
   const report = AuditService.generateComplianceReport({
+    therapistId: practiceScope(c),
     action,
     resourceType,
     actorId,
@@ -166,12 +178,14 @@ auditRoute.get('/export/json', adminOrTherapist, (c) => {
 // 6. Obter logs específicos de um recurso
 auditRoute.get('/resource/:id', adminOrTherapist, (c) => {
   const resourceId = c.req.param('id');
-  const logs = AuditService.getLogsForResource(resourceId);
+  const therapistId = practiceScope(c);
+  const logs = AuditService.getLogsForResource(resourceId)
+    .filter((log) => !therapistId || AuditService.belongsToPractice(log, therapistId));
   return c.json({ success: true, count: logs.length, logs });
 });
 
 // 7. Execução de Pentest Automatizado & Emissão de RIPD / DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)
-auditRoute.post('/compliance/run', adminOrTherapist, async (c) => {
+auditRoute.post('/compliance/run', dpoOnly, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
 
@@ -188,7 +202,7 @@ auditRoute.post('/compliance/run', adminOrTherapist, async (c) => {
 });
 
 // 8. Consulta do Relatório Mais Recente de Conformidade RIPD / DPIA
-auditRoute.get('/compliance/report', adminOrTherapist, async (c) => {
+auditRoute.get('/compliance/report', dpoOnly, async (c) => {
   try {
     const report = await ComplianceService.getLatestReport();
     return c.json({ success: true, report }, 200);
@@ -198,7 +212,7 @@ auditRoute.get('/compliance/report', adminOrTherapist, async (c) => {
 });
 
 // 9. Download do Relatório RIPD em JSON Assinado
-auditRoute.get('/compliance/download-ripd', adminOrTherapist, async (c) => {
+auditRoute.get('/compliance/download-ripd', dpoOnly, async (c) => {
   try {
     const report = await ComplianceService.getLatestReport();
     c.header('Content-Type', 'application/json; charset=utf-8');
@@ -210,7 +224,7 @@ auditRoute.get('/compliance/download-ripd', adminOrTherapist, async (c) => {
 });
 
 // 10. Panorama Executivo de Governança & Conformidade Multi-Normativa (RFC-001 §4.4, §5.2)
-auditRoute.get('/governance/overview', adminOrTherapist, (c) => {
+auditRoute.get('/governance/overview', dpoOnly, (c) => {
   try {
     const overview = complianceGovernanceService.getGovernanceOverview();
     return c.json(overview, 200);
@@ -220,7 +234,7 @@ auditRoute.get('/governance/overview', adminOrTherapist, (c) => {
 });
 
 // 11. Emissão de Pacote Executivo de Conformidade Forense com Selo SHA-256
-auditRoute.post('/governance/package/generate', adminOrTherapist, async (c) => {
+auditRoute.post('/governance/package/generate', dpoOnly, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const body = (await c.req.json().catch(() => ({}))) as GenerateCompliancePackageDTO;
@@ -243,7 +257,7 @@ auditRoute.post('/governance/package/generate', adminOrTherapist, async (c) => {
 });
 
 // 12. Aplicação de Chancela Formal do DPO (DPO Sign-Off)
-auditRoute.post('/governance/package/sign-off', adminOrTherapist, async (c) => {
+auditRoute.post('/governance/package/sign-off', dpoOnly, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const body = (await c.req.json().catch(() => null)) as ApplyDpoSignOffDTO | null;
@@ -273,7 +287,7 @@ auditRoute.post('/governance/package/sign-off', adminOrTherapist, async (c) => {
 });
 
 // 13. Download / Exportação do Pacote Executivo de Conformidade Forense
-auditRoute.get('/governance/package/download', adminOrTherapist, (c) => {
+auditRoute.get('/governance/package/download', dpoOnly, (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const packageId = c.req.query('packageId');

@@ -754,6 +754,8 @@ export interface RestoreBackupResponse {
  * 11. AUDITORIA EXTERNA, HASH-CHAIN & RELATÓRIO DE CONFORMIDADE PARA DPO/CFP (Opção H - RFC-001 §4.4)
  */
 export interface AuditFilterParams {
+  /** Restringe aos registros do consultório (atores da equipe ou recursos clínicos dele) */
+  therapistId?: string;
   startDate?: string;
   endDate?: string;
   resourceType?: string;
