@@ -2349,6 +2349,7 @@ terapiainfoco/
 | `fix/authz-clinical-modules-ownership` | Posse por consultório e restrição clínica em documentos CFP, transcrições (clássica/IA), marcadores, metas e escalas | [PR #109](https://github.com/linuxsoares/terapiainfoco/pull/109) | Merged |
 | `feat/role-based-dynamic-menus` | Menus dinâmicos por perfil (`MODULE_ACCESS` compartilhado), módulo Meu Espaço do paciente, `/appointments/mine` e backups exclusivos do Admin | [PR #110](https://github.com/linuxsoares/terapiainfoco/pull/110) | Merged |
 | `feat/therapist-search-backend` | Busca pública de psicólogos (backend): `therapist_profiles` com full-text GIN, perfil público por slug, edição pelo psicólogo e verificação de CRP pelo Admin | [PR #111](https://github.com/linuxsoares/terapiainfoco/pull/111) | Merged |
+| `feat/therapist-search-frontend` | Diretório público de psicólogos na vitrine, módulos Encontrar Psicólogo / Meu Perfil Público / Verificação de CRP | [PR #112](https://github.com/linuxsoares/terapiainfoco/pull/112) | Merged |
 
 ---
 
