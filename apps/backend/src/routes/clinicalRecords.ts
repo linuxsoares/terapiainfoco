@@ -1,38 +1,50 @@
 import { Hono } from 'hono';
 import { ClinicalRecordService } from '../services/clinicalRecordService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import {
+  CLINICAL_ROLES,
+  canAccessAppointment,
+  canAccessClinicalRecord,
+  canAccessPatient,
+  requireClinicalRecordAccess
+} from '../middlewares/accessPolicy';
 import { UserRole } from '@terapiainfoco/shared';
 import type { UpdateSoapNoteDTO, SignClinicalRecordDTO, CreateRectificationDTO } from '@terapiainfoco/shared';
 
 
 export const clinicalRecordsRoute = new Hono();
 
-// Prontuários e evolução SOAP são estritamente restritos a psicólogos e supervisores (LGPD Art. 11 e CFP 001/2009)
-clinicalRecordsRoute.use('*', authMiddleware());
+// Prontuários e evolução SOAP são estritamente restritos a psicólogos e supervisores do consultório
+// (LGPD Art. 11 e CFP 001/2009); Admin/DPO não lê conteúdo clínico (RFC-001 §2.1)
+clinicalRecordsRoute.use('*', authMiddleware(), requireRoles(CLINICAL_ROLES));
 
 // Salvar rascunho de nota SOAP (Módulo 3 & 4)
-clinicalRecordsRoute.post('/draft', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+clinicalRecordsRoute.post('/draft', async (c) => {
 
   const body = await c.req.json<UpdateSoapNoteDTO & {
     appointmentId: string;
     patientId: string;
-    therapistId: string;
     sessionNumber: number;
   }>();
 
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
+  const user = c.get('user');
+
+  if (!canAccessPatient(user, body.patientId) || !canAccessAppointment(user, body.appointmentId)) {
+    return c.json({ success: false, error: 'Paciente ou consulta não encontrados.' }, 404);
+  }
 
   try {
     const record = ClinicalRecordService.saveDraft({
       appointmentId: body.appointmentId,
       patientId: body.patientId,
-      therapistId: body.therapistId || 'therapist-001',
+      therapistId: user.therapistId!,
       sessionNumber: body.sessionNumber,
       soap: body.soap,
       privateNotes: body.privateNotes,
       context: {
-        actorId: body.therapistId || 'therapist-001',
+        actorId: user.id,
         ipAddress: ip,
         userAgent
       }
@@ -44,18 +56,22 @@ clinicalRecordsRoute.post('/draft', requireRoles([UserRole.PSICOLOGO_TITULAR, Us
   }
 });
 
-// Assinar e selar evolução clínica (Human-in-the-Loop compulsório §3.3 - restrito ao Psicólogo Titular ou Admin)
-clinicalRecordsRoute.post('/sign', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+// Assinar e selar evolução clínica (Human-in-the-Loop compulsório §3.3 - restrito ao Psicólogo Titular)
+clinicalRecordsRoute.post('/sign', requireRoles([UserRole.PSICOLOGO_TITULAR]), async (c) => {
   const body = await c.req.json<SignClinicalRecordDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
+
+  if (!canAccessClinicalRecord(c.get('user'), body.recordId)) {
+    return c.json({ success: false, error: 'Prontuário não encontrado.' }, 404);
+  }
 
   try {
     const record = ClinicalRecordService.signRecord({
       recordId: body.recordId,
       confirmedHumanReview: body.confirmedHumanReview,
       context: {
-        actorId: 'therapist-001',
+        actorId: c.get('userId'),
         ipAddress: ip,
         userAgent
       }
@@ -68,14 +84,14 @@ clinicalRecordsRoute.post('/sign', requireRoles([UserRole.PSICOLOGO_TITULAR, Use
 });
 
 // Visualizar prontuário (decifra para o terapeuta autenticado e supervisor)
-clinicalRecordsRoute.get('/:id', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+clinicalRecordsRoute.get('/:id', requireClinicalRecordAccess(), async (c) => {
 
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
   const record = ClinicalRecordService.getRecordById(id, {
-    actorId: 'therapist-001',
+    actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
   });
@@ -88,7 +104,7 @@ clinicalRecordsRoute.get('/:id', requireRoles([UserRole.PSICOLOGO_TITULAR, UserR
 });
 
 // Averbar Termo de Retificação Formal em prontuário assinado (CFP nº 001/2009 & RFC §3.4)
-clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]), async (c) => {
+clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITULAR]), requireClinicalRecordAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -104,10 +120,10 @@ clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITUL
   try {
     const rectification = ClinicalRecordService.addRectification({
       clinicalRecordId: id,
-      therapistId: user?.therapistId || user?.id || 'therapist-001',
+      therapistId: user.therapistId!,
       dto: body,
       context: {
-        actorId: user?.id || 'therapist-001',
+        actorId: user.id,
         ipAddress: ip,
         userAgent
       }
@@ -121,7 +137,7 @@ clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITUL
 });
 
 // Consultar termos de retificação averbados para um prontuário
-clinicalRecordsRoute.get('/:id/rectifications', requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]), async (c) => {
+clinicalRecordsRoute.get('/:id/rectifications', requireClinicalRecordAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -129,7 +145,7 @@ clinicalRecordsRoute.get('/:id/rectifications', requireRoles([UserRole.PSICOLOGO
 
   try {
     const rectifications = ClinicalRecordService.getRectifications(id, {
-      actorId: user?.id || 'therapist-001',
+      actorId: user.id,
       ipAddress: ip,
       userAgent
     });

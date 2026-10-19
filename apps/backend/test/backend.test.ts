@@ -127,13 +127,15 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
   });
 
   it('Fluxo SOAP, Human-in-the-Loop compulsório e Imutabilidade (Módulo 3 & 4)', async () => {
+    // Prontuário só pode ser criado para paciente e consulta do próprio consultório
+    db.seedDemoSession();
     // 1. Salva rascunho de nota clínica SOAP
     const draftRes = await staffRequest('/api/clinical-records/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        appointmentId: 'app-001',
-        patientId: 'pat-001',
+        appointmentId: '00000000-0000-0000-0000-000000000010',
+        patientId: '00000000-0000-0000-0000-000000000002',
         therapistId: 'therapist-001',
         sessionNumber: 1,
         soap: {
@@ -181,8 +183,8 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        appointmentId: 'app-001',
-        patientId: 'pat-001',
+        appointmentId: '00000000-0000-0000-0000-000000000010',
+        patientId: '00000000-0000-0000-0000-000000000002',
         therapistId: 'therapist-001',
         sessionNumber: 1,
         soap: {

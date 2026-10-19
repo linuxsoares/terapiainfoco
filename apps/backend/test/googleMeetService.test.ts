@@ -224,6 +224,7 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
     }) as any;
 
     // 1. Cria agendamento via API
+    db.seedDemoSession();
     const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
     const { accessToken } = await authService.issueTokens(psicologa, '127.0.0.1');
     const apptRes = await app.request('/api/appointments', {
@@ -231,7 +232,7 @@ describe('Google Meet REST API v2 & Teleconsulta Integration (RFC-001 §3.2)', (
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         therapistId: 'therapist-001',
-        patientId: 'patient-test-01',
+        patientId: '00000000-0000-0000-0000-000000000002',
         scheduledStart: new Date(Date.now() + 86400000).toISOString(),
         scheduledEnd: new Date(Date.now() + 86400000 + 50 * 60000).toISOString(),
         accessType: MeetAccessType.TRUSTED

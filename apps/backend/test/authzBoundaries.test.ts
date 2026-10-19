@@ -4,6 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
+import { hashCpf } from '../src/services/cryptoContext';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
@@ -93,5 +94,85 @@ describe('Fronteiras de autenticação e perfis', () => {
     expect(res.status).toBe(201);
     const { user } = await res.json() as any;
     expect(db.patients.get(user.patientId)!.consentTranscriptionSigned).toBe(false);
+  });
+
+  describe('posse entre consultórios', () => {
+    const DEMO_APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
+
+    async function otherPsychologistHeaders() {
+      const other = await authService.register({
+        name: 'Dra. Outro Consultório',
+        email: `outro.${crypto.randomUUID()}@psi.com.br`,
+        password: 'SenhaPsicologo@2026',
+        role: UserRole.PSICOLOGO_TITULAR,
+        crp: '06/111111'
+      } as any);
+      return { Authorization: `Bearer ${await tokenFor(other.id)}`, 'Content-Type': 'application/json' };
+    }
+
+    async function demoClinicalRecordId(): Promise<string> {
+      const res = await app.request('/api/clinical-records/draft', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId: DEMO_APPOINTMENT_ID,
+          patientId: DEMO_PATIENT_ID,
+          sessionNumber: 1,
+          soap: { subjective: 'S', objective: 'O', assessment: 'A', plan: 'P' }
+        })
+      });
+      expect(res.status).toBe(201);
+      return (await res.json() as any).record.id;
+    }
+
+    it('psicólogo de outro consultório não enxerga paciente, consulta nem prontuário alheios', async () => {
+      const recordId = await demoClinicalRecordId();
+      const headers = await otherPsychologistHeaders();
+
+      expect((await app.request(`/api/patients/${DEMO_PATIENT_ID}`, { headers })).status).toBe(404);
+      expect((await app.request(`/api/patients/${DEMO_PATIENT_ID}/timeline`, { headers })).status).toBe(404);
+      expect((await app.request(`/api/clinical-records/${recordId}`, { headers })).status).toBe(404);
+      const status = await app.request(`/api/appointments/${DEMO_APPOINTMENT_ID}/status`, {
+        method: 'PATCH', headers, body: JSON.stringify({ status: 'CANCELADA_PELO_TERAPEUTA' })
+      });
+      expect(status.status).toBe(404);
+      const booking = await app.request('/api/appointments', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          patientId: DEMO_PATIENT_ID,
+          scheduledStart: '2026-12-01T10:00:00.000Z',
+          scheduledEnd: '2026-12-01T10:50:00.000Z'
+        })
+      });
+      expect(booking.status).toBe(404);
+      const draft = await app.request('/api/clinical-records/draft', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ appointmentId: DEMO_APPOINTMENT_ID, patientId: DEMO_PATIENT_ID, sessionNumber: 2, soap: {} })
+      });
+      expect(draft.status).toBe(404);
+    });
+
+    it('busca por CPF fica restrita ao consultório', async () => {
+      const headers = await otherPsychologistHeaders();
+      db.patients.get(DEMO_PATIENT_ID)!.cpfBindex = hashCpf('123.456.789-00');
+      const own = await app.request('/api/patients/search/cpf?cpf=123.456.789-00', {
+        headers: { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` }
+      });
+      expect(own.status).toBe(200);
+      expect((await app.request('/api/patients/search/cpf?cpf=123.456.789-00', { headers })).status).toBe(404);
+    });
+
+    it('Admin/DPO não lê prontuário, mas atende direitos do titular (revogação de consentimento)', async () => {
+      const recordId = await demoClinicalRecordId();
+      const headers = { Authorization: `Bearer ${await tokenFor(ADMIN_ID)}`, 'Content-Type': 'application/json' };
+      expect((await app.request(`/api/clinical-records/${recordId}`, { headers })).status).toBe(403);
+      expect((await app.request(`/api/patients/${DEMO_PATIENT_ID}/timeline`, { headers })).status).toBe(403);
+      const revoke = await app.request(`/api/patients/${DEMO_PATIENT_ID}/revoke-consent`, {
+        method: 'POST', headers, body: JSON.stringify({ reason: 'Solicitação do titular via canal do DPO' })
+      });
+      expect(revoke.status).toBe(200);
+    });
   });
 });

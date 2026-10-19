@@ -113,11 +113,13 @@ export class PatientService {
    */
   static findByCpf(
     rawCpf: string,
-    context: { actorId: string; ipAddress: string; userAgent?: string }
+    context: { actorId: string; ipAddress: string; userAgent?: string },
+    therapistId?: string
   ): DecryptedPatient | null {
     const targetBindex = hashCpf(rawCpf);
     for (const patient of db.patients.values()) {
-      if (patient.cpfBindex === targetBindex) {
+      // Com therapistId, a busca fica restrita ao consultório (a mesma pessoa pode ser paciente em vários)
+      if (patient.cpfBindex === targetBindex && (!therapistId || patient.therapistId === therapistId)) {
         return this.getPatientById(patient.id, context);
       }
     }

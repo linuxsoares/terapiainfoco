@@ -5,6 +5,7 @@ import { db } from '../db/memoryDb';
 import { AuditService } from '../services/auditService';
 import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
+import { canAccessPatient, requireAppointmentAccess } from '../middlewares/accessPolicy';
 import { 
   AuditAction, 
   AuditResourceType,
@@ -57,9 +58,12 @@ appointmentsRoute.use('*', authMiddleware(), requireRoles(PRACTICE_STAFF_ROLES),
 
 // Criar agendamento com validação de buffer e geração do Google Meet (§3.1, §3.2)
 appointmentsRoute.post('/', async (c) => {
-  const body = await c.req.json<CreateAppointmentDTO & { therapistId: string }>();
+  const body = await c.req.json<CreateAppointmentDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
+  if (!canAccessPatient(c.get('user'), body.patientId)) {
+    return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
+  }
 
   try {
     const appointment = await AppointmentService.createAppointment(
@@ -74,7 +78,7 @@ appointmentsRoute.post('/', async (c) => {
 });
 
 // Atualizar status da sessão (SOLICITADA -> CONFIRMADA -> EM_ANDAMENTO -> CONCLUIDA)
-appointmentsRoute.patch('/:id/status', async (c) => {
+appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json<UpdateAppointmentStatusDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
@@ -93,7 +97,7 @@ appointmentsRoute.patch('/:id/status', async (c) => {
 });
 
 // Encerrar chamada no Google Meet REST API v2 (:endActiveConference)
-appointmentsRoute.post('/:id/end-meet', async (c) => {
+appointmentsRoute.post('/:id/end-meet', requireAppointmentAccess(), async (c) => {
   const id = c.req.param('id');
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
@@ -143,9 +147,12 @@ appointmentsRoute.get('/therapist/:therapistId', async (c) => {
 
 // Criar agendamento recorrente em série (§3.1)
 appointmentsRoute.post('/recurrent', async (c) => {
-  const body = await c.req.json<CreateAppointmentDTO & { therapistId: string }>();
+  const body = await c.req.json<CreateAppointmentDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
+  if (!canAccessPatient(c.get('user'), body.patientId)) {
+    return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
+  }
 
   try {
     const result = await AppointmentService.createRecurrentAppointments(
@@ -162,6 +169,13 @@ appointmentsRoute.post('/recurrent', async (c) => {
 // Cancelar série recorrente inteira (§3.1)
 appointmentsRoute.delete('/series/:seriesId', async (c) => {
   const seriesId = c.req.param('seriesId');
+  const therapistId = c.get('user').therapistId;
+  const ownsSeries = Array.from(db.appointments.values()).some(
+    (appt) => appt.seriesId === seriesId && appt.therapistId === therapistId
+  );
+  if (!ownsSeries) {
+    return c.json({ success: false, error: 'Série não encontrada.' }, 404);
+  }
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
@@ -178,7 +192,7 @@ appointmentsRoute.delete('/series/:seriesId', async (c) => {
 });
 
 // Disparar lembrete de teleconsulta (WhatsApp e/ou E-mail) (§3.1)
-appointmentsRoute.post('/:id/reminders', async (c) => {
+appointmentsRoute.post('/:id/reminders', requireAppointmentAccess(), async (c) => {
   const appointmentId = c.req.param('id');
   const body = await c.req.json<{ channel?: ReminderChannel; customMessage?: string }>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
@@ -201,7 +215,7 @@ appointmentsRoute.post('/:id/reminders', async (c) => {
 });
 
 // Pré-visualização do texto e link do lembrete de consulta (§3.1)
-appointmentsRoute.get('/:id/reminders/preview', async (c) => {
+appointmentsRoute.get('/:id/reminders/preview', requireAppointmentAccess(), async (c) => {
   const appointmentId = c.req.param('id');
   const channel = (c.req.query('channel') as ReminderChannel) || ReminderChannel.WHATSAPP;
 
@@ -214,7 +228,7 @@ appointmentsRoute.get('/:id/reminders/preview', async (c) => {
 });
 
 // Listar histórico de lembretes enviados para a consulta (§3.1)
-appointmentsRoute.get('/:id/reminders', async (c) => {
+appointmentsRoute.get('/:id/reminders', requireAppointmentAccess(), async (c) => {
   const appointmentId = c.req.param('id');
   try {
     const reminders = ReminderService.getAppointmentReminders(appointmentId);
