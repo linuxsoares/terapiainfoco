@@ -15,11 +15,14 @@ import {
   Loader2,
   ShieldCheck,
   FileText,
-  DoorOpen
+  DoorOpen,
+  Captions
 } from 'lucide-react';
 import {
   type TeleconsultationRoom as Room,
   type TeleconsultationCallMetrics,
+  type LiveTranscriptStatusResponse,
+  type LiveTranscriptUtterance,
   TeleconsultationRoomStatus,
   CallQualityState,
   KnockingAction,
@@ -28,6 +31,7 @@ import {
 } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 import { useWebRtcCall, type CallRole } from '../hooks/useWebRtcCall';
+import { useLiveTranscription } from '../hooks/useLiveTranscription';
 
 interface TeleconsultationRoomProps {
   appointmentId: string;
@@ -99,6 +103,9 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
   const [markerNote, setMarkerNote] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
+  const [transcriptionStatus, setTranscriptionStatus] = useState<LiveTranscriptStatusResponse | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [transcript, setTranscript] = useState<LiveTranscriptUtterance[]>([]);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -115,6 +122,14 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
   const sessionEnded = roomStatus === TeleconsultationRoomStatus.COMPLETED;
   const myStatus = poll?.myStatus;
   const waiting = (poll?.waitingParticipants ?? []).filter((p) => p.status === 'WAITING');
+  const inSession = roomStatus === TeleconsultationRoomStatus.IN_PROGRESS && (isTherapist || myStatus === 'ADMITTED');
+
+  // Transcrição da própria fala (áudio descartado após o STT; a chamada não é gravada)
+  const transcription = useLiveTranscription({
+    appointmentId,
+    stream: localStream,
+    enabled: Boolean(transcriptionStatus?.enabled && inSession && micEnabled)
+  });
 
   const startMedia = useCallback(async (videoId?: string, audioId?: string) => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -140,6 +155,19 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
       );
     }
   }, []);
+
+  useEffect(() => {
+    api.getLiveTranscriptionStatus(appointmentId).then(setTranscriptionStatus).catch(() => undefined);
+  }, [appointmentId]);
+
+  // Psicólogo acompanha a transcrição da sessão
+  useEffect(() => {
+    if (!isTherapist || !showTranscript) return;
+    const load = () => api.getLiveTranscript(appointmentId).then(setTranscript).catch(() => undefined);
+    load();
+    const interval = setInterval(load, 6000);
+    return () => clearInterval(interval);
+  }, [isTherapist, showTranscript, appointmentId]);
 
   useEffect(() => {
     api.getTeleconsultationRoom(appointmentId).then(setRoom).catch((err) => setError(err.message));
@@ -296,6 +324,20 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs">
+            {transcriptionStatus && (
+              <span data-testid="transcription-indicator" className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+                transcription.active ? 'border-teal-500/50 text-teal-300' : 'border-slate-700 text-slate-400'
+              }`} title="A fala é convertida em texto para o prontuário e o áudio é descartado">
+                <Captions className="w-3.5 h-3.5" />
+                {transcription.active
+                  ? 'Transcrevendo'
+                  : transcriptionStatus.reason === 'NO_CONSENT'
+                    ? 'Sem consentimento para transcrição'
+                    : transcriptionStatus.reason === 'STT_DISABLED'
+                      ? 'Transcrição não configurada'
+                      : 'Transcrição em espera'}
+              </span>
+            )}
             {room?.startedAt && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 font-mono">
                 <Clock className="w-3.5 h-3.5 text-teal-400" /> {formatTimer(elapsed)}
@@ -312,9 +354,10 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
           </div>
         </header>
 
-        {(error || notice || metrics?.ethicalNotice) && (
+        {(error || notice || metrics?.ethicalNotice || transcription.error) && (
           <div className="px-4 py-2 text-xs border-b border-slate-800 space-y-1">
             {error && <p className="text-rose-300">{error}</p>}
+            {transcription.error && <p className="text-amber-300">Transcrição: {transcription.error}</p>}
             {notice && <p className="text-emerald-300">{notice}</p>}
             {metrics?.ethicalNotice && <p className="text-amber-300">{metrics.ethicalNotice}</p>}
           </div>
@@ -367,7 +410,7 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
               className={`absolute bottom-3 right-3 w-36 sm:w-56 aspect-video rounded-xl border border-slate-700 bg-slate-800 object-cover ${screenSharing ? '' : '-scale-x-100'} ${videoEnabled ? '' : 'opacity-30'}`} />
           </div>
 
-          {isTherapist && (waiting.length > 0 || showMarker) && (
+          {isTherapist && (waiting.length > 0 || showMarker || showTranscript) && (
             <aside className="w-72 border-l border-slate-800 p-4 space-y-4 overflow-y-auto">
               {waiting.length > 0 && (
                 <section className="space-y-2">
@@ -387,6 +430,25 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
                       </div>
                     </div>
                   ))}
+                </section>
+              )}
+              {showTranscript && (
+                <section className="space-y-2" data-testid="transcript-panel">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-teal-300">Transcrição da sessão</h3>
+                  {transcript.length === 0 ? (
+                    <p className="text-xs text-slate-400">As falas aparecem aqui alguns segundos depois de ditas.</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-xs">
+                      {transcript.map((u) => (
+                        <li key={u.id}>
+                          <span className={u.speaker === 'PATIENT' ? 'text-amber-300' : 'text-teal-300'}>
+                            {u.speaker === 'PATIENT' ? counterpartName : 'Você'} ({formatTimer(Math.floor(u.startTimeMs / 1000))}):
+                          </span>{' '}
+                          <span className="text-slate-200">{u.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               )}
               {showMarker && (
@@ -422,6 +484,12 @@ export function TeleconsultationRoom({ appointmentId, role, onClose, onProceedTo
             <button onClick={() => setShowMarker(!showMarker)} aria-label="Registrar marcador clínico"
               className={`p-3 rounded-full ${showMarker ? 'bg-teal-600' : 'bg-slate-800 hover:bg-slate-700'}`}>
               <BookmarkPlus className="w-5 h-5" />
+            </button>
+          )}
+          {isTherapist && transcriptionStatus?.enabled && (
+            <button onClick={() => setShowTranscript(!showTranscript)} aria-label="Ver transcrição da sessão"
+              className={`p-3 rounded-full ${showTranscript ? 'bg-teal-600' : 'bg-slate-800 hover:bg-slate-700'}`}>
+              <Captions className="w-5 h-5" />
             </button>
           )}
           {isTherapist && !sessionEnded && room?.startedAt && (

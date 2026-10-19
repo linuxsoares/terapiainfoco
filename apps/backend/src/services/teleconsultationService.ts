@@ -475,6 +475,12 @@ export class TeleconsultationService {
     };
   }
 
+  /** Papel na chamada da consulta (null se o usuário não participa ou não foi admitido) */
+  static participantRoleFor(appointmentId: string, user: SafeUser): TeleconsultationParticipantRole | null {
+    const stored = peekRoom(appointmentId);
+    return stored ? this.participantRole(stored, user) : null;
+  }
+
   /** Papel na chamada: psicólogo/supervisor do consultório ou paciente já admitido */
   private static participantRole(stored: StoredTeleconsultationRoom, user: SafeUser): TeleconsultationParticipantRole | null {
     if (CLINICIAN_ROLES.includes(user.role) && user.therapistId === stored.therapistId) {

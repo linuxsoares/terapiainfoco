@@ -84,6 +84,19 @@ try {
   await waitFor(() => remoteVideoPlaying(patient), 'vídeo da psicóloga na tela da paciente');
   console.log('✓ Chamada conectada nos dois sentidos');
 
+  // Transcrição ao vivo (quando o backend tem STT configurado, ex.: STT_PROVIDER=simulated)
+  const indicator = await therapist.getByTestId('transcription-indicator').innerText().catch(() => '');
+  if (/Transcrevendo/.test(indicator)) {
+    await therapist.getByRole('button', { name: 'Ver transcrição da sessão' }).click();
+    await waitFor(async () => {
+      const lines = await therapist.getByTestId('transcript-panel').locator('li').allInnerTexts();
+      return lines.some((l) => l.startsWith('Você')) && lines.some((l) => !l.startsWith('Você'));
+    }, 'falas dos dois participantes na transcrição', 40_000);
+    console.log('✓ Transcrição recebida dos dois participantes (sem gravação)');
+  } else {
+    console.log(`• Transcrição não verificada: ${indicator || 'indicador ausente'}`);
+  }
+
   if (SCREENSHOT_DIR) {
     await therapist.screenshot({ path: `${SCREENSHOT_DIR}/sala-psicologa.png` });
     await patient.screenshot({ path: `${SCREENSHOT_DIR}/sala-paciente.png` });

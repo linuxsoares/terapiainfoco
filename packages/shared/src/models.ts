@@ -5401,6 +5401,23 @@ export interface TeleconsultationRoom {
   updatedAt: string;
 }
 
+/** Transcrição da sessão: só texto cifrado; o áudio de origem é descartado após o STT */
+export interface StoredLiveTranscript {
+  id: string;
+  appointmentId: string;
+  therapistId: string;
+  patientId: string;
+  utterances: Array<{
+    id: string;
+    speaker: import('./enums').TranscriptionSpeaker;
+    startTimeMs: number;
+    endTimeMs: number;
+    encryptedText: EncryptedPayload;
+    createdAt: string;
+  }>;
+  updatedAt: string;
+}
+
 export interface StoredTeleconsultationRoom extends Omit<TeleconsultationRoom, 'patientName'> {
   encryptedPatientName: EncryptedPayload;
 }

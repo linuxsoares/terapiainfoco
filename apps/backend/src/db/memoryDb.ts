@@ -12,6 +12,7 @@ import type {
   PasskeyCredential,
   WebAuthnChallengeSession,
   DPIAReport,
+  StoredLiveTranscript,
   StoredAppointmentReminder,
   StoredClinicalSessionMarker,
   StoredTherapeuticGoal,
@@ -71,6 +72,8 @@ export class MemoryDatabase {
   public dpiaReports: TrackedMap<string, DPIAReport> = new TrackedMap();
   /** Estado do KMS local (versão ativa e revogações de KEK), persistido para sobreviver a restarts */
   public kmsState: TrackedMap<string, LocalKmsState> = new TrackedMap();
+  /** Transcrição das teleconsultas (texto cifrado; o áudio nunca é armazenado) */
+  public liveTranscripts: TrackedMap<string, StoredLiveTranscript> = new TrackedMap();
 
 
   constructor() {
@@ -247,6 +250,7 @@ export class MemoryDatabase {
     this.passkeys.clear();
     this.webauthnChallenges.clear();
     this.dpiaReports.clear();
+    this.liveTranscripts.clear();
     this.seedDefaultTherapist();
     this.seedDefaultUsers();
   }
@@ -262,7 +266,7 @@ const MAP_COLLECTIONS = [
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',
   'therapeuticExercises', 'diagnosticReports', 'psychiatricReferrals', 'patientAccessCodes', 'users',
-  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState'
+  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState', 'liveTranscripts'
 ] as const satisfies readonly (keyof MemoryDatabase)[];
 
 /** Persistência durável do cache de domínio no PostgreSQL (ADR-004) */

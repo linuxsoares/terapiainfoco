@@ -4519,6 +4519,35 @@ export interface TeleconsultationPollResponse {
   waitingParticipants?: Array<{ participantId: string; name: string; knockedAt: string; status: 'WAITING' | 'ADMITTED' | 'REJECTED' }>;
 }
 
+/** Trecho de áudio do microfone de um participante para transcrição (nunca armazenado) */
+export interface LiveTranscriptChunkDTO {
+  appointmentId: string;
+  /** Áudio codificado (ex.: audio/webm;codecs=opus) em base64 */
+  audioBase64: string;
+  mimeType: string;
+  durationMs: number;
+}
+
+export interface LiveTranscriptUtterance {
+  id: string;
+  speaker: import('./enums').TranscriptionSpeaker;
+  startTimeMs: number;
+  endTimeMs: number;
+  text: string;
+  createdAt: string;
+}
+
+export interface LiveTranscriptStatusResponse {
+  success: boolean;
+  enabled: boolean;
+  reason?: 'NO_CONSENT' | 'STT_DISABLED';
+}
+
+export interface LiveTranscriptResponse {
+  success: boolean;
+  utterances: LiveTranscriptUtterance[];
+}
+
 export interface IceServersResponse {
   success: boolean;
   iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>;

@@ -79,6 +79,16 @@ export const config = {
     turnUsername: process.env.TURN_USERNAME || '',
     turnCredential: process.env.TURN_CREDENTIAL || ''
   },
+  /**
+   * Speech-to-Text da teleconsulta (ADR-005): trechos de áudio são transcritos e descartados.
+   * 'openai' exige OPENAI_API_KEY; 'simulated' (apenas fora de produção) devolve texto fixo para demos/E2E.
+   */
+  stt: {
+    provider: (process.env.STT_PROVIDER || (process.env.OPENAI_API_KEY ? 'openai' : 'disabled')) as 'openai' | 'simulated' | 'disabled',
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    model: process.env.STT_MODEL || 'gpt-4o-mini-transcribe',
+    language: process.env.STT_LANGUAGE || 'pt'
+  },
   /** URL pública do painel (frontend): base do link da sala de teleconsulta própria */
   publicAppUrl: (process.env.PUBLIC_APP_URL || 'http://localhost:5174').replace(/\/+$/, '')
 };

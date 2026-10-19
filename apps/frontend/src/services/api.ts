@@ -1,4 +1,8 @@
 import type {
+  LiveTranscriptStatusResponse,
+  LiveTranscriptChunkDTO,
+  LiveTranscriptUtterance,
+  LiveTranscriptResponse,
   TeleconsultationPollResponse,
   IceServersResponse,
   AvailableSlotsResponse,
@@ -3678,6 +3682,24 @@ export const api = {
   async getTeleconsultationIceServers(): Promise<RTCIceServer[]> {
     const res = await request<IceServersResponse>('/teleconsultation/session/ice-servers');
     return res.iceServers;
+  },
+
+  // Transcrição da teleconsulta por STT, sem gravação (ADR-005)
+  async getLiveTranscriptionStatus(appointmentId: string): Promise<LiveTranscriptStatusResponse> {
+    return await request<LiveTranscriptStatusResponse>(`/teleconsultation/session/transcription/status/${encodeURIComponent(appointmentId)}`);
+  },
+
+  async sendLiveTranscriptChunk(dto: LiveTranscriptChunkDTO): Promise<LiveTranscriptUtterance | null> {
+    const res = await request<{ success: boolean; utterance: LiveTranscriptUtterance | null }>('/teleconsultation/session/transcription/chunk', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
+    return res.utterance;
+  },
+
+  async getLiveTranscript(appointmentId: string): Promise<LiveTranscriptUtterance[]> {
+    const res = await request<LiveTranscriptResponse>(`/teleconsultation/session/transcription/${encodeURIComponent(appointmentId)}`);
+    return res.utterances;
   },
 
   // 15. Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)
