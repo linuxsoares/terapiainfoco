@@ -65,11 +65,22 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
   const [consentConfirmed, setConsentConfirmed] = useState<boolean>(true);
   // Falas transcritas durante a teleconsulta (sem gravação)
   const [liveUtterancesCount, setLiveUtterancesCount] = useState<number>(0);
+  // Texto da sala exibido no campo: sem edição, o backend usa a transcrição original (tempos reais)
+  const [liveTranscriptText, setLiveTranscriptText] = useState<string>('');
 
   useEffect(() => {
     if (isOpen && appointmentId) {
       loadSession();
-      api.getLiveTranscript(appointmentId).then((u) => setLiveUtterancesCount(u.length)).catch(() => setLiveUtterancesCount(0));
+      api.getLiveTranscript(appointmentId)
+        .then((utterances) => {
+          const text = utterances
+            .map((u) => `${u.speaker === TranscriptionSpeaker.THERAPIST ? 'TERAPEUTA' : 'PACIENTE'}: ${u.text}`)
+            .join('\n');
+          setLiveUtterancesCount(utterances.length);
+          setLiveTranscriptText(text);
+          setRawText(text);
+        })
+        .catch(() => setLiveUtterancesCount(0));
     }
   }, [isOpen, appointmentId]);
 
@@ -123,7 +134,7 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
       const result = await api.ingestTranscription({
         appointmentId,
         patientId,
-        rawTranscriptText: rawText.trim() ? rawText : undefined,
+        rawTranscriptText: rawText.trim() && rawText.trim() !== liveTranscriptText.trim() ? rawText : undefined,
         consentConfirmed: true,
         includeClinicalMarkers: true
       });
@@ -628,14 +639,14 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   {liveUtterancesCount > 0
-                    ? `A transcrição da teleconsulta está disponível (${liveUtterancesCount} falas). Deixe o campo abaixo em branco para usá-la, ou cole outro texto.`
+                    ? `A transcrição da teleconsulta está disponível (${liveUtterancesCount} falas). Ela já está no campo abaixo; revise ou substitua se preferir.`
                     : 'Cole o texto da conversa com os locutores. Sessões realizadas na sala da plataforma com consentimento já chegam transcritas.'}
                   {' '}O sistema realizará a <strong>diarização estrita dos locutores</strong> e a <strong>síntese estruturada no modelo SOAP</strong>.
                 </p>
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Texto da Transcrição com Locutores (Opcional)
+                    Texto da Transcrição com Locutores
                   </label>
                   <textarea
                     rows={6}
