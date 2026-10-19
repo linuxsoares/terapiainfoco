@@ -7,6 +7,9 @@ import {
 } from '@terapiainfoco/shared';
 import { BillingReceiptService } from '../services/billingReceiptService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { canAccessEntity, canAccessPatient, requireBodyOwnership } from '../middlewares/accessPolicy';
+import { PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
+import { db } from '../db/memoryDb';
 import { validationRateLimiter } from '../middlewares/rateLimiter';
 
 export const billingReceiptsRouter = new Hono();
@@ -34,13 +37,13 @@ billingReceiptsRouter.get('/receipts/validate/:token', validationRateLimiter, as
 /**
  * Rotas autenticadas de faturamento e gestão de honorários
  */
-billingReceiptsRouter.use('*', authMiddleware());
+billingReceiptsRouter.use('*', authMiddleware(), requireRole(PRACTICE_STAFF_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/billing/receipts
  * Emite novo Recibo de Honorários Clínicos (reembolso convênio / IRPF DMED)
  */
-billingReceiptsRouter.post('/receipts', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA]), async (c) => {
+billingReceiptsRouter.post('/receipts', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CreateClinicalReceiptDTO>();
@@ -52,7 +55,7 @@ billingReceiptsRouter.post('/receipts', requireRole([UserRole.ADMIN, UserRole.PS
       }, 400);
     }
 
-    const therapistId = user.therapistId || 'therapist-001';
+    const therapistId = user.therapistId!;
     const receipt = BillingReceiptService.generateReceipt({
       therapistId,
       dto: body,
@@ -73,13 +76,16 @@ billingReceiptsRouter.post('/receipts', requireRole([UserRole.ADMIN, UserRole.PS
  * POST /api/billing/receipts/cancel
  * Cancela recibo emitido com registro de motivo
  */
-billingReceiptsRouter.post('/receipts/cancel', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+billingReceiptsRouter.post('/receipts/cancel', requireRole([UserRole.PSICOLOGO_TITULAR]), async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CancelReceiptDTO>();
 
     if (!body.receiptId || !body.cancelReason) {
       return c.json({ success: false, error: 'receiptId e cancelReason são obrigatórios' }, 400);
+    }
+    if (!canAccessEntity(c.get('user'), db.receipts.get(body.receiptId))) {
+      return c.json({ success: false, error: 'Recibo não encontrado.' }, 404);
     }
 
     const receipt = BillingReceiptService.cancelReceipt({
@@ -102,13 +108,17 @@ billingReceiptsRouter.post('/receipts/cancel', requireRole([UserRole.ADMIN, User
  * GET /api/billing/receipts
  * Lista recibos emitidos (opcionalmente filtrados por ?patientId=...)
  */
-billingReceiptsRouter.get('/receipts', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA]), async (c) => {
+billingReceiptsRouter.get('/receipts', async (c) => {
   try {
     const user = c.get('user');
     const patientId = c.req.query('patientId');
+    if (patientId && !canAccessPatient(user, patientId)) {
+      return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
+    }
 
     const result = BillingReceiptService.listReceipts({
       patientId,
+      therapistId: user.therapistId,
       context: {
         actorId: user.id,
         ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
@@ -126,7 +136,7 @@ billingReceiptsRouter.get('/receipts', requireRole([UserRole.ADMIN, UserRole.PSI
  * POST /api/billing/fee-contracts
  * Cria Termo / Contrato de Prestação de Serviços Psicológicos e Honorários
  */
-billingReceiptsRouter.post('/fee-contracts', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+billingReceiptsRouter.post('/fee-contracts', requireRole([UserRole.PSICOLOGO_TITULAR]), async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CreateFeeContractDTO>();
@@ -135,7 +145,7 @@ billingReceiptsRouter.post('/fee-contracts', requireRole([UserRole.ADMIN, UserRo
       return c.json({ success: false, error: 'patientId e sessionPriceCents são obrigatórios' }, 400);
     }
 
-    const therapistId = user.therapistId || 'therapist-001';
+    const therapistId = user.therapistId!;
     const contract = BillingReceiptService.createFeeContract({
       therapistId,
       dto: body,

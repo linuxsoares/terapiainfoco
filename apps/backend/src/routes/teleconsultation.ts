@@ -12,6 +12,7 @@ import {
 } from '@terapiainfoco/shared';
 import { TeleconsultationService } from '../services/teleconsultationService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
 
 export const teleconsultationRoutes = new Hono();
 
@@ -52,7 +53,7 @@ teleconsultationRoutes.post('/knock', async (c) => {
  * GET /api/teleconsultation/room/:appointmentId
  * Obtém estado atual da sala de teleconsulta e fila de espera
  */
-teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), async (c) => {
+teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const user = c.get('user');
@@ -84,7 +85,7 @@ teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), async (c) =
  * POST /api/teleconsultation/admit
  * Terapeuta admite ou rejeita participante na sala de espera
  */
-teleconsultationRoutes.post('/admit', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), async (c) => {
+teleconsultationRoutes.post('/admit', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<AdmitParticipantDTO>();
     if (!body.appointmentId || !body.participantId || !body.action) {
@@ -124,7 +125,7 @@ teleconsultationRoutes.post('/admit', authMiddleware(), requireRole([UserRole.PS
  * POST /api/teleconsultation/hardware-sync
  * Sincroniza estado real dos dispositivos de hardware (Câmera, Microfone e Tela)
  */
-teleconsultationRoutes.post('/hardware-sync', authMiddleware(), async (c) => {
+teleconsultationRoutes.post('/hardware-sync', authMiddleware(), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<SyncMediaHardwareDTO>();
     if (!body.appointmentId) {
@@ -166,7 +167,7 @@ teleconsultationRoutes.post('/hardware-sync', authMiddleware(), async (c) => {
  * POST /api/teleconsultation/signal
  * Envia sinal WebRTC P2P (SDP Offer, SDP Answer, ICE Candidate, Media State)
  */
-teleconsultationRoutes.post('/signal', authMiddleware(), async (c) => {
+teleconsultationRoutes.post('/signal', authMiddleware(), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<SendWebRtcSignalDTO>();
     if (!body.appointmentId || !body.signalType) {
@@ -208,7 +209,7 @@ teleconsultationRoutes.post('/signal', authMiddleware(), async (c) => {
  * GET /api/teleconsultation/signal/:appointmentId
  * Lista sinais WebRTC P2P da sala
  */
-teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), async (c) => {
+teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const excludeSelf = c.req.query('excludeSelf') === 'true';
@@ -235,7 +236,7 @@ teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), async (c)
  * POST /api/teleconsultation/quality
  * Atualiza telemetria de conexão WebRTC e calcula MOS
  */
-teleconsultationRoutes.post('/quality', authMiddleware(), async (c) => {
+teleconsultationRoutes.post('/quality', authMiddleware(), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<UpdateCallQualityDTO>();
     if (!body.appointmentId || body.rttMs === undefined || body.jitterMs === undefined || body.packetLoss === undefined) {
@@ -275,7 +276,7 @@ teleconsultationRoutes.post('/quality', authMiddleware(), async (c) => {
  * POST /api/teleconsultation/recording
  * Alterna estado de gravação consentida da sessão (LGPD / CFP nº 011/2018)
  */
-teleconsultationRoutes.post('/recording', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), async (c) => {
+teleconsultationRoutes.post('/recording', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<ToggleRecordingDTO>();
     if (!body.appointmentId || body.isRecordingActive === undefined) {
@@ -315,7 +316,7 @@ teleconsultationRoutes.post('/recording', authMiddleware(), requireRole([UserRol
  * POST /api/teleconsultation/end
  * Finaliza formalmente a teleconsulta clínica
  */
-teleconsultationRoutes.post('/end', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), async (c) => {
+teleconsultationRoutes.post('/end', authMiddleware(), requireRole([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO]), requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<EndTeleconsultationDTO>();
     if (!body.appointmentId) {

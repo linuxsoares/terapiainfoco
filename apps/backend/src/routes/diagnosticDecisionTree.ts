@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireRoles } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requireBodyOwnership, requireOwnedResource, requirePatientAccess } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 import { diagnosticDecisionTreeService } from '../services/diagnosticDecisionTreeService';
 import type { SaveDiagnosticAssessmentDTO } from '@terapiainfoco/shared';
 
@@ -9,7 +12,7 @@ export const diagnosticDecisionTreeRouter = new Hono();
  * GET /api/diagnostic-tree/definition
  * Retorna as trilhas clínicas, nós de decisão ramificados e questionários psicométricos basais
  */
-diagnosticDecisionTreeRouter.get('/definition', authMiddleware(), (c) => {
+diagnosticDecisionTreeRouter.get('/definition', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership(), (c) => {
   const definition = diagnosticDecisionTreeService.getDecisionTreeDefinition();
   return c.json(definition);
 });
@@ -18,10 +21,10 @@ diagnosticDecisionTreeRouter.get('/definition', authMiddleware(), (c) => {
  * POST /api/diagnostic-tree/assessments
  * Submete as respostas da árvore, calcula escores psicométricos basais e gera relatório com FLE
  */
-diagnosticDecisionTreeRouter.post('/assessments', authMiddleware(), async (c) => {
+diagnosticDecisionTreeRouter.post('/assessments', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership(), async (c) => {
   try {
     const user = c.get('user');
-    const therapistId = user?.therapistId || user?.id || 'therapist-001';
+    const therapistId = user.therapistId!;
     const body = await c.req.json<SaveDiagnosticAssessmentDTO>();
 
     if (!body.patientId || !body.primaryTrack || !Array.isArray(body.answers)) {
@@ -51,7 +54,7 @@ diagnosticDecisionTreeRouter.post('/assessments', authMiddleware(), async (c) =>
  * GET /api/diagnostic-tree/patients/:patientId/assessments
  * Lista o histórico de avaliações diagnósticas realizadas para um paciente
  */
-diagnosticDecisionTreeRouter.get('/patients/:patientId/assessments', authMiddleware(), (c) => {
+diagnosticDecisionTreeRouter.get('/patients/:patientId/assessments', authMiddleware(), requireRoles(CLINICAL_ROLES), requirePatientAccess('patientId'), (c) => {
   try {
     const { patientId } = c.req.param();
     const reports = diagnosticDecisionTreeService.listPatientAssessments(patientId);
@@ -75,7 +78,7 @@ diagnosticDecisionTreeRouter.get('/patients/:patientId/assessments', authMiddlew
  * GET /api/diagnostic-tree/assessments/:id
  * Busca um relatório diagnóstico específico com campos clínicos decifrados
  */
-diagnosticDecisionTreeRouter.get('/assessments/:id', authMiddleware(), (c) => {
+diagnosticDecisionTreeRouter.get('/assessments/:id', authMiddleware(), requireRoles(CLINICAL_ROLES), requireOwnedResource((id) => db.diagnosticReports.get(id), 'Avaliação'), (c) => {
   try {
     const { id } = c.req.param();
     const report = diagnosticDecisionTreeService.getAssessmentById(id);

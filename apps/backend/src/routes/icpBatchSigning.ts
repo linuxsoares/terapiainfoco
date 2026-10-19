@@ -5,7 +5,7 @@ import {
   type VerifyIcpBatchDTO,
   UserRole
 } from '@terapiainfoco/shared';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { icpBatchSigningService } from '../services/icpBatchSigningService';
 
 export const icpBatchSigningRouter = new Hono();
@@ -43,7 +43,7 @@ icpBatchSigningRouter.post('/verify', async (c) => {
 });
 
 // A partir daqui, todos os endpoints administrativos requerem autenticação
-icpBatchSigningRouter.use('*', authMiddleware());
+icpBatchSigningRouter.use('*', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]));
 
 /**
  * GET /api/icp-batch/pending-items

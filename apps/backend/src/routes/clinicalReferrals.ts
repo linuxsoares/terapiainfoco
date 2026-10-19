@@ -6,6 +6,8 @@ import {
 } from '@terapiainfoco/shared';
 import { ClinicalReferralService } from '../services/clinicalReferralService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, canAccessEntity, requireBodyOwnership, requireOwnedResource, requirePatientAccess } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 import { validationRateLimiter } from '../middlewares/rateLimiter';
 
 export const clinicalReferralsRouter = new Hono();
@@ -34,13 +36,13 @@ clinicalReferralsRouter.get('/validate/:token', validationRateLimiter, async (c)
 /**
  * Rotas autenticadas para gestão clínica de encaminhamentos
  */
-clinicalReferralsRouter.use('*', authMiddleware());
+clinicalReferralsRouter.use('*', authMiddleware(), requireRole(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/referrals
  * Cria nova guia de encaminhamento multidisciplinar interoperável
  */
-clinicalReferralsRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalReferralsRouter.post('/', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CreateClinicalReferralDTO>();
@@ -52,7 +54,7 @@ clinicalReferralsRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOG
       }, 400);
     }
 
-    const therapistId = user.therapistId || 'therapist-001';
+    const therapistId = user.therapistId!;
     const referral = ClinicalReferralService.createReferral({
       therapistId,
       dto: body,
@@ -73,7 +75,7 @@ clinicalReferralsRouter.post('/', requireRole([UserRole.ADMIN, UserRole.PSICOLOG
  * POST /api/referrals/counter-reference
  * Registra retorno ou parecer da contra-referência médica / psiquiátrica
  */
-clinicalReferralsRouter.post('/counter-reference', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalReferralsRouter.post('/counter-reference', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CounterReferralDTO>();
@@ -83,6 +85,9 @@ clinicalReferralsRouter.post('/counter-reference', requireRole([UserRole.ADMIN, 
         success: false,
         error: 'Campos obrigatórios: referralId, counterReferenceNotes e counterReferredBy'
       }, 400);
+    }
+    if (!canAccessEntity(c.get('user'), db.clinicalReferrals.get(body.referralId))) {
+      return c.json({ success: false, error: 'Encaminhamento não encontrado.' }, 404);
     }
 
     const referral = ClinicalReferralService.registerCounterReferral({
@@ -104,7 +109,7 @@ clinicalReferralsRouter.post('/counter-reference', requireRole([UserRole.ADMIN, 
  * GET /api/referrals/:referralId
  * Obtém os detalhes completos decriptados do encaminhamento
  */
-clinicalReferralsRouter.get('/:referralId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalReferralsRouter.get('/:referralId', requireOwnedResource((id) => db.clinicalReferrals.get(id), 'Encaminhamento', 'referralId'), async (c) => {
   try {
     const user = c.get('user');
     const referralId = c.req.param('referralId');
@@ -129,7 +134,7 @@ clinicalReferralsRouter.get('/:referralId', requireRole([UserRole.ADMIN, UserRol
  * GET /api/referrals/patient/:patientId
  * Lista todos os encaminhamentos de um paciente
  */
-clinicalReferralsRouter.get('/patient/:patientId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+clinicalReferralsRouter.get('/patient/:patientId', requirePatientAccess('patientId'), async (c) => {
   try {
     const user = c.get('user');
     const patientId = c.req.param('patientId');

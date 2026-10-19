@@ -109,7 +109,7 @@ export function requireOwnedResource(
  * Exige posse do `patientId`/`appointmentId` informados no corpo JSON, quando presentes.
  * O Hono reaproveita o corpo já interpretado, então o handler pode lê-lo novamente.
  */
-export function requireBodyOwnership(): MiddlewareHandler {
+export function requireBodyOwnership(options: { allowDpo?: boolean } = {}): MiddlewareHandler {
   return async (c, next) => {
     let body: any;
     try {
@@ -118,8 +118,12 @@ export function requireBodyOwnership(): MiddlewareHandler {
       return await next();
     }
     const user = c.get('user');
-    if (typeof body?.patientId === 'string' && !canAccessPatient(user, body.patientId)) return notFound(c, 'Paciente');
-    if (typeof body?.appointmentId === 'string' && !canAccessAppointment(user, body.appointmentId)) return notFound(c, 'Consulta');
+    const dpoAccess = options.allowDpo && user.role === UserRole.ADMIN;
+    // IDs vazios ficam para a validação de campos obrigatórios do handler (400)
+    if (typeof body?.patientId === 'string' && body.patientId && !(dpoAccess && db.patients.has(body.patientId)) && !canAccessPatient(user, body.patientId)) {
+      return notFound(c, 'Paciente');
+    }
+    if (typeof body?.appointmentId === 'string' && body.appointmentId && !canAccessAppointment(user, body.appointmentId)) return notFound(c, 'Consulta');
     await next();
   };
 }

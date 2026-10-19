@@ -6,16 +6,18 @@ import {
 } from '@terapiainfoco/shared';
 import { ConsolidatedReportService } from '../services/consolidatedReportService';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, canAccessEntity, requireBodyOwnership, requireOwnedResource, requirePatientAccess } from '../middlewares/accessPolicy';
+import { db } from '../db/memoryDb';
 
 export const consolidatedReportsRouter = new Hono();
 
-consolidatedReportsRouter.use('*', authMiddleware());
+consolidatedReportsRouter.use('*', authMiddleware(), requireRole(CLINICAL_ROLES), requireBodyOwnership());
 
 /**
  * POST /api/reports/consolidated/generate
  * Gera Laudo Pericial Multi-Sessões ou Relatório Psicológico Consolidado (CFP nº 006/2019)
  */
-consolidatedReportsRouter.post('/generate', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+consolidatedReportsRouter.post('/generate', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<GenerateConsolidatedReportDTO>();
@@ -27,7 +29,7 @@ consolidatedReportsRouter.post('/generate', requireRole([UserRole.ADMIN, UserRol
       }, 400);
     }
 
-    const therapistId = user.therapistId || 'therapist-001';
+    const therapistId = user.therapistId!;
     const report = ConsolidatedReportService.generateReport({
       therapistId,
       dto: body,
@@ -48,7 +50,7 @@ consolidatedReportsRouter.post('/generate', requireRole([UserRole.ADMIN, UserRol
  * POST /api/reports/consolidated/sign
  * Assina digitalmente o relatório com carimbo ICP-Brasil e validação do CRP
  */
-consolidatedReportsRouter.post('/sign', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+consolidatedReportsRouter.post('/sign', async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<SignConsolidatedReportDTO>();
@@ -56,8 +58,11 @@ consolidatedReportsRouter.post('/sign', requireRole([UserRole.ADMIN, UserRole.PS
     if (!body.reportId) {
       return c.json({ success: false, error: 'reportId é obrigatório' }, 400);
     }
+    if (!canAccessEntity(c.get('user'), db.consolidatedReports.get(body.reportId))) {
+      return c.json({ success: false, error: 'Laudo não encontrado.' }, 404);
+    }
 
-    const therapistId = user.therapistId || 'therapist-001';
+    const therapistId = user.therapistId!;
     const report = ConsolidatedReportService.signReport({
       reportId: body.reportId,
       therapistId,
@@ -79,7 +84,7 @@ consolidatedReportsRouter.post('/sign', requireRole([UserRole.ADMIN, UserRole.PS
  * GET /api/reports/consolidated/:reportId
  * Obtém os detalhes decriptografados do relatório
  */
-consolidatedReportsRouter.get('/:reportId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+consolidatedReportsRouter.get('/:reportId', requireOwnedResource((id) => db.consolidatedReports.get(id), 'Laudo', 'reportId'), async (c) => {
   try {
     const user = c.get('user');
     const reportId = c.req.param('reportId');
@@ -104,7 +109,7 @@ consolidatedReportsRouter.get('/:reportId', requireRole([UserRole.ADMIN, UserRol
  * GET /api/reports/consolidated/patient/:patientId
  * Lista relatórios consolidados de um paciente
  */
-consolidatedReportsRouter.get('/patient/:patientId', requireRole([UserRole.ADMIN, UserRole.PSICOLOGO_TITULAR]), async (c) => {
+consolidatedReportsRouter.get('/patient/:patientId', requirePatientAccess('patientId'), async (c) => {
   try {
     const user = c.get('user');
     const patientId = c.req.param('patientId');

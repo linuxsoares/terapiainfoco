@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireRoles } from '../middlewares/authMiddleware';
+import { CLINICAL_ROLES, requireBodyOwnership, requirePatientAccess } from '../middlewares/accessPolicy';
 import { PsychiatricReferralService } from '../services/psychiatricReferralService';
 import type {
   CheckDrugInteractionsDTO,
@@ -12,7 +14,7 @@ export const psychiatricReferralRouter = new Hono();
  * GET /api/psychiatric-referrals/catalog
  * Retorna o catálogo farmacológico completo dos psicofármacos comuns no Brasil
  */
-psychiatricReferralRouter.get('/catalog', authMiddleware(), (c) => {
+psychiatricReferralRouter.get('/catalog', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership(), (c) => {
   const drugs = PsychiatricReferralService.getCatalog();
   return c.json({
     success: true,
@@ -25,10 +27,10 @@ psychiatricReferralRouter.get('/catalog', authMiddleware(), (c) => {
  * POST /api/psychiatric-referrals/check-interactions
  * Avalia interações medicamentosas cruzadas entre os fármacos selecionados
  */
-psychiatricReferralRouter.post('/check-interactions', authMiddleware(), async (c) => {
+psychiatricReferralRouter.post('/check-interactions', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership(), async (c) => {
   try {
     const user = c.get('user');
-    const actorId = user?.therapistId || user?.id || 'therapist-001';
+    const actorId = user.therapistId!;
     const body = await c.req.json<CheckDrugInteractionsDTO>();
 
     if (!body || !Array.isArray(body.drugIds)) {
@@ -63,10 +65,10 @@ psychiatricReferralRouter.post('/check-interactions', authMiddleware(), async (c
  * POST /api/psychiatric-referrals
  * Cria e emite a Guia de Encaminhamento Psiquiátrico Interoperável
  */
-psychiatricReferralRouter.post('/', authMiddleware(), async (c) => {
+psychiatricReferralRouter.post('/', authMiddleware(), requireRoles(CLINICAL_ROLES), requireBodyOwnership(), async (c) => {
   try {
     const user = c.get('user');
-    const therapistId = user?.therapistId || user?.id || 'therapist-001';
+    const therapistId = user.therapistId!;
     const therapistName = user?.name || 'Dr. Terapeuta Responsável';
     const therapistCrp = user?.crp || 'CRP 06/123456';
     const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
@@ -107,7 +109,7 @@ psychiatricReferralRouter.post('/', authMiddleware(), async (c) => {
  * GET /api/psychiatric-referrals/patients/:patientId
  * Lista os encaminhamentos psiquiátricos emitidos para o paciente especificado
  */
-psychiatricReferralRouter.get('/patients/:patientId', authMiddleware(), (c) => {
+psychiatricReferralRouter.get('/patients/:patientId', authMiddleware(), requireRoles(CLINICAL_ROLES), requirePatientAccess('patientId'), (c) => {
   try {
     const { patientId } = c.req.param();
     const referrals = PsychiatricReferralService.listPatientReferrals(patientId);
