@@ -144,4 +144,58 @@ describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () =
       config.stt.openaiApiKey = originalKey;
     }
   });
+
+  it('paciente autoriza a transcrição pela sala, inclusive depois de uma revogação', async () => {
+    const { therapist, patient } = await startSession();
+    const record = db.patients.get(PATIENT_RECORD_ID)!;
+    record.consentTranscriptionSigned = false;
+    record.consentRevokedAt = new Date();
+    const statusUrl = `/api/teleconsultation/session/transcription/status/${APPOINTMENT_ID}`;
+    expect((await (await app.request(statusUrl, { headers: therapist })).json() as any).reason).toBe('NO_CONSENT');
+
+    // Psicólogo não decide pelo paciente
+    expect((await post('/transcription/consent', therapist, { appointmentId: APPOINTMENT_ID, granted: true })).status).toBe(403);
+
+    const granted = await post('/transcription/consent', patient, { appointmentId: APPOINTMENT_ID, granted: true });
+    expect(granted.status).toBe(200);
+    expect(await granted.json()).toMatchObject({ enabled: true });
+    expect(db.patients.get(PATIENT_RECORD_ID)!.consentRevokedAt).toBeUndefined();
+    expect((await post('/transcription/chunk', patient, chunk('agora pode'))).status).toBe(200);
+
+    const refused = await (await post('/transcription/consent', patient, { appointmentId: APPOINTMENT_ID, granted: false })).json() as any;
+    expect(refused).toMatchObject({ enabled: false, reason: 'NO_CONSENT' });
+    expect((await post('/transcription/chunk', patient, chunk('depois da recusa'))).status).toBe(403);
+  });
+
+  it('erro do SOAP sem transcrição explica o motivo', async () => {
+    const { therapist } = await startSession();
+    db.patients.get(PATIENT_RECORD_ID)!.consentTranscriptionSigned = false;
+    // Fora do modo demonstração não há diálogo de exemplo
+    config.demoMode = false;
+    try {
+      const res = await app.request('/api/transcription/ingest', {
+        method: 'POST',
+        headers: therapist,
+        body: JSON.stringify({ appointmentId: APPOINTMENT_ID, patientId: PATIENT_RECORD_ID, consentConfirmed: true })
+      });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(JSON.stringify(await res.json())).toContain('não autorizou a transcrição');
+    } finally {
+      config.demoMode = true;
+    }
+  });
+
+  it('erro do provedor OpenAI traz a mensagem do provedor', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ error: { message: 'Incorrect API key provided' } }), { status: 401 })) as unknown as typeof fetch;
+    const originalKey = config.stt.openaiApiKey;
+    config.stt.openaiApiKey = 'sk-invalida';
+    try {
+      await expect(new OpenAiSttProvider().transcribe(new Uint8Array([1]), 'audio/webm')).rejects.toThrow('HTTP 401: Incorrect API key provided');
+    } finally {
+      globalThis.fetch = originalFetch;
+      config.stt.openaiApiKey = originalKey;
+    }
+  });
 });
+

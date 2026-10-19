@@ -3737,6 +3737,14 @@ export const api = {
     return await request<LiveTranscriptStatusResponse>(`/teleconsultation/session/transcription/status/${encodeURIComponent(appointmentId)}`);
   },
 
+  /** Paciente titular autoriza ou recusa a transcrição da sessão */
+  async setLiveTranscriptionConsent(appointmentId: string, granted: boolean): Promise<LiveTranscriptStatusResponse> {
+    return await request<LiveTranscriptStatusResponse>('/teleconsultation/session/transcription/consent', {
+      method: 'POST',
+      body: JSON.stringify({ appointmentId, granted })
+    });
+  },
+
   async sendLiveTranscriptChunk(dto: LiveTranscriptChunkDTO): Promise<LiveTranscriptUtterance | null> {
     const res = await request<{ success: boolean; utterance: LiveTranscriptUtterance | null }>('/teleconsultation/session/transcription/chunk', {
       method: 'POST',
