@@ -105,6 +105,12 @@ export const validationRateLimiter = rateLimiter({
   message: 'Limite de validações de documentos excedido. Proteção contra enumeração de tokens ativa.'
 });
 
+export const leadRateLimiter = rateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Muitos pedidos de acesso enviados. Tente novamente mais tarde.'
+});
+
 export const publicBookingRateLimiter = rateLimiter({
   windowMs: 60 * 1000,
   max: 15,

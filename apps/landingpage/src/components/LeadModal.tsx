@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, CheckCircle, ArrowRight, Lock } from 'lucide-react';
+import { landingApi } from '../services/api';
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -13,15 +14,29 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
     crp: '',
     whatsapp: '',
     practiceType: 'autonomo',
-    consent: true
+    // Consentimento LGPD precisa ser marcado pela pessoa
+    consent: false,
+    // Honeypot: campo oculto que só robôs preenchem
+    website: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    try {
+      setSubmitting(true);
+      setError(null);
+      await landingApi.createLead(formData);
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível enviar o pedido. Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleResetAndClose = () => {
@@ -58,7 +73,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="relative space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
                   Nome Completo
@@ -147,12 +162,27 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
                 </label>
               </div>
 
+              {/* Honeypot fora da tela (não aparece para pessoas nem para leitores de tela) */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="absolute w-px h-px opacity-0 pointer-events-none overflow-hidden"
+              />
+
+              {error && <p className="text-xs text-rose-600">{error}</p>}
+
               {/* Submit CTA */}
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-600/25 transition-all cursor-pointer"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-600/25 transition-all cursor-pointer disabled:opacity-50"
               >
-                <span>Garantir Meu Acesso VIP Gratuito</span>
+                <span>{submitting ? 'Enviando...' : 'Garantir Meu Acesso VIP Gratuito'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
@@ -171,30 +201,15 @@ export const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose }) => {
 
             <div className="space-y-2">
               <h3 className="text-2xl font-extrabold text-slate-900">
-                Inscrição Confirmada com Sucesso!
+                Pedido recebido!
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed max-w-sm mx-auto">
-                Olá, <strong>{formData.name || 'Doutor(a)'}</strong>! Seu pedido de acesso beta foi registrado com prioridade para o CRP informado.
+                Olá, <strong>{formData.name || 'Doutor(a)'}</strong>! Seu pedido de acesso beta foi registrado.
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left space-y-2 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Token de Acesso:</span>
-                <span className="text-teal-700 font-bold">BETA-2026-TIF-{Math.floor(1000 + Math.random() * 9000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Status:</span>
-                <span className="text-emerald-700 font-bold">Aguardando Onboarding</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Benefício:</span>
-                <span className="text-slate-900 font-bold">30 dias grátis de IA Ilimitada</span>
-              </div>
-            </div>
-
             <p className="text-xs text-slate-500">
-              Nossa equipe entrará em contato via WhatsApp nas próximas 24 horas úteis para liberar sua chave de acesso e auxiliar na configuração do seu consultório.
+              Nossa equipe entrará em contato pelo e-mail ou WhatsApp informado para agendar o onboarding.
             </p>
 
             <button

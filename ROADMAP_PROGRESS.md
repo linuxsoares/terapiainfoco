@@ -2384,6 +2384,7 @@ terapiainfoco/
 | `feat/admin-gestao-equipe` | Módulo Equipe: Admin cria Recepção/Supervisor vinculados a um consultório | [PR #144](https://github.com/linuxsoares/terapiainfoco/pull/144) | Merged |
 | `fix/landing-sem-simulacoes` | Landing sem respostas simuladas (inclusive documento "válido" falso) e URL da API configurada no deploy | [PR #145](https://github.com/linuxsoares/terapiainfoco/pull/145) | Merged |
 | `feat/landing-busca-e-entrar` | Landing leva à busca de psicólogos e ao login do painel (fim do agendamento fixo em uma psicóloga) | [PR #146](https://github.com/linuxsoares/terapiainfoco/pull/146) | Merged |
+| `feat/landing-leads` | Formulário de demonstração grava pedidos de acesso (contato cifrado) e Admin os vê em "Pedidos de Acesso" | [PR #147](https://github.com/linuxsoares/terapiainfoco/pull/147) | Merged |
 
 ---
 
@@ -2430,7 +2431,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **Histórico de pacotes de conformidade durável** (hoje em memória do processo, como os backups).
 - [x] **Landing page (1/4) — sem simulações e com API configurada no deploy:** removidos os fallbacks que simulavam horários, agendamento confirmado e **documento válido para qualquer token de 32 caracteres** quando a API não respondia; o build do GitHub Pages recebe `VITE_API_URL`/`VITE_APP_URL` das variáveis `LANDING_API_URL`/`LANDING_APP_URL` do repositório (aviso no workflow se faltarem; sem elas a página informa indisponibilidade, nunca chama `localhost`); meta description sem "Google Meet nativo".
 - [x] **Landing page (2/4) — busca de psicólogos e entrada no painel:** widget de agendamento anônimo fixo em `therapist-001`/"Dra. Vanessa Andrade" substituído pela seção "Encontre seu psicólogo" com links para o painel (`?vitrine=psicologos` abre a busca pública; `?cadastro=paciente` e `?entrar` abrem o cadastro/login); botão "Entrar" na navbar. Links ocultos se `VITE_APP_URL` não estiver configurada.
-- [ ] **Landing page (3/4):** formulário de demonstração (`LeadModal`) enviando o lead a um destino real.
+- [x] **Landing page (3/4) — pedidos de acesso reais:** o `LeadModal` envia a `POST /api/leads` (público, 5 pedidos/hora por IP, honeypot, consentimento LGPD explícito — antes vinha marcado), com e-mail e WhatsApp cifrados no `entity_store`; módulo "Pedidos de Acesso" para o Admin; tela de sucesso sem token "BETA" aleatório nem promessa de prazo.
 - [ ] **Landing page (4/4):** Dark Mode.
 - [x] **Agendamento a partir do perfil (backend):** `POST /api/appointments/patient/book` e `GET /api/appointments/patient/mine`; registro do paciente criado no consultório escolhido e vinculado à conta (`linkedUserId`); cadastro de paciente não cria mais prontuário em `therapist-001` nem aceita `patientId` informado (IDOR); agendamento público anônimo exige psicólogo verificado, busca CPF no consultório e não presume consentimento.
 - [x] **Agendamento a partir do perfil (frontend):** `BookingPanel` (data, horários livres, TCLE e confirmação com link da teleconsulta) no perfil do psicólogo; "Minhas consultas" no Meu Espaço; portal e cofre só aparecem após existir prontuário (fim do fallback para o paciente demo); horários gerados no fuso da clínica (`CLINIC_UTC_OFFSET`, padrão -03:00) e horários passados indisponíveis.

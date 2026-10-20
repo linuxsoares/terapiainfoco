@@ -5970,29 +5970,14 @@ export interface WebSocketGuardOverview {
   adversarialSamples: WebSocketAdversarialSample[];
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/** Pedido de acesso antecipado enviado pela landing page (contato cifrado em repouso) */
+export interface StoredLead {
+  id: string;
+  name: string;
+  encryptedEmail: EncryptedPayload;
+  encryptedWhatsapp?: EncryptedPayload;
+  crp: string;
+  practiceType: string;
+  consentAt: Date | string;
+  createdAt: Date | string;
+}

@@ -23,6 +23,29 @@ import type {
 } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
+/** Pedido de acesso antecipado (formulário de demonstração da landing page) */
+export interface CreateLeadDTO {
+  name: string;
+  email: string;
+  crp: string;
+  whatsapp?: string;
+  practiceType?: string;
+  consent: boolean;
+  /** Campo invisível para pessoas: preenchido só por robôs */
+  website?: string;
+}
+
+/** Pedido de acesso decifrado para o Admin */
+export interface AdminLead {
+  id: string;
+  name: string;
+  email: string;
+  whatsapp?: string;
+  crp: string;
+  practiceType: string;
+  createdAt: Date | string;
+}
+
 /** Consultório (psicólogo titular) ao qual contas da equipe podem ser vinculadas */
 export interface AdminPractice {
   therapistId: string;
