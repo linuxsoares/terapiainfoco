@@ -22,6 +22,7 @@ import {
   UserSearch,
   Globe,
   BadgeCheck,
+  Gauge,
   type LucideIcon
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
@@ -32,6 +33,7 @@ import { DocumentsModule } from './components/DocumentsModule';
 import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
 import { BackupModule } from './components/BackupModule';
+import { ObservabilityModule } from './components/ObservabilityModule';
 import { PatientHomeModule } from './components/PatientHomeModule';
 import { TherapistDirectory } from './components/TherapistDirectory';
 import { TherapistProfileEditor } from './components/TherapistProfileEditor';
@@ -113,7 +115,8 @@ const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLa
   publicProfile: { label: 'Meu Perfil Público', shortLabel: 'Perfil Público', icon: Globe, iconClass: 'text-teal-600 dark:text-teal-400' },
   audit: { label: 'Trilha WORM (Audit)', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   crpVerification: { label: 'Verificação de CRP', shortLabel: 'CRP', icon: BadgeCheck, iconClass: 'text-emerald-600 dark:text-emerald-400' },
-  backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' }
+  backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' },
+  observability: { label: 'Segurança & Observabilidade', shortLabel: 'Observabilidade', icon: Gauge, iconClass: 'text-teal-600 dark:text-teal-400' }
 };
 
 const NAV_ITEM_ACTIVE = 'bg-teal-50 text-teal-800 border border-teal-200 shadow-sm dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30';
@@ -653,6 +656,7 @@ export default function App() {
                   {currentTab === 'backups' && (
                     <BackupModule currentUser={currentUser} />
                   )}
+                  {currentTab === 'observability' && <ObservabilityModule />}
               </>
             </div>
           </main>
