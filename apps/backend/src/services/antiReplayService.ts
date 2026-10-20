@@ -226,6 +226,7 @@ export class AntiReplayService {
       this.recentIncidents.set(incRecord.id, incRecord);
 
       await AuditService.log({
+        actorId: operatorId,
         action: severity === ReplayThreatSeverity.CRITICAL_NONCE_REUSE
           ? AuditAction.NONCE_REUSE_DETECTED
           : AuditAction.REPLAY_ATTACK_BLOCKED,
@@ -260,6 +261,7 @@ export class AntiReplayService {
     const rot = this.nonceDetector.rotateBloom();
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLOOM_FILTER_ROTATED,
       resourceType: AuditResourceType.ANTI_REPLAY_SHIELD,
       resourceId: `GEN_${rot.activeGeneration}`,
@@ -279,6 +281,7 @@ export class AntiReplayService {
     this.activeMode = dto.mode;
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.REPLAY_POLICY_UPDATED,
       resourceType: AuditResourceType.ANTI_REPLAY_SHIELD,
       resourceId: dto.mode,

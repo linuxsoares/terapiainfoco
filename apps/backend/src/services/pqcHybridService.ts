@@ -166,7 +166,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_KEYPAIR_GENERATED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: keyPair.keyId,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         alias: keyPair.alias,
         securityLevel: keyPair.securityLevel,
@@ -212,7 +212,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_HYBRID_ENCAPSULATED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: protectedRecord.id,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         title: protectedRecord.title,
         targetType: protectedRecord.targetType,
@@ -252,7 +252,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_HYBRID_DECAPSULATED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: record.id,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         recordId: record.id,
         keyId: keyPair.keyId,
@@ -289,7 +289,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_HYBRID_SIGNED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: keyPair.keyId,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         documentDigest: signatureResult.documentDigestHex,
         dsaScheme: signatureResult.dsaScheme,
@@ -330,7 +330,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_HYBRID_SIGNATURE_VERIFIED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: keyPair.keyId,
-      userId: 'system_pqc_verifier',
+      actorId: 'system_pqc_verifier',
       details: {
         isValid: result.isValid,
         classicalValid: result.classicalSignatureValid,
@@ -371,7 +371,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_QUANTUM_ATTACK_SIMULATED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: record.id,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         attackType: simulation.attackType,
         outcome: simulation.outcome,
@@ -401,7 +401,7 @@ export class PqcHybridService {
       action: AuditAction.PQC_SEAL_VERIFIED,
       resourceType: AuditResourceType.PQC_CRYPTO_ENGINE,
       resourceId: dto.sealToken,
-      userId: 'public_notary_verifier',
+      actorId: 'public_notary_verifier',
       details: {
         isValid: result.isValid,
         message: result.message,

@@ -221,7 +221,7 @@ export class SessionFixationGuardService {
         action: AuditAction.SESSION_FIXATION_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: incident.id,
-        userId: actorId,
+        actorId: actorId,
         details: {
           sessionId: dto.sessionId,
           clientIp: dto.clientIp,
@@ -317,7 +317,7 @@ export class SessionFixationGuardService {
         action: AuditAction.SESSION_ROTATED_ON_PRIVILEGE_ELEVATION,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: newId,
-        userId: actorId,
+        actorId: actorId,
         details: {
           oldSessionIdHash: createHash('sha256').update(oldId).digest('hex'),
           newSessionIdHash: createHash('sha256').update(newId).digest('hex'),
@@ -361,7 +361,7 @@ export class SessionFixationGuardService {
           action: AuditAction.SESSION_HIJACKING_DETECTED,
           resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
           resourceId: incident.id,
-          userId: actorId,
+          actorId: actorId,
           details: {
             anomalyType: incident.anomalyType,
             action: incident.mitigationAction,
@@ -378,7 +378,7 @@ export class SessionFixationGuardService {
         action: AuditAction.SESSION_CONTEXT_BOUND,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: evaluation.seal.sealId,
-        userId: actorId,
+        actorId: actorId,
         details: {
           sessionIdHash: evaluation.seal.sessionIdHash,
           contextHash: evaluation.seal.contextHash,
@@ -452,7 +452,7 @@ export class SessionFixationGuardService {
       action: AuditAction.SESSION_ROTATED_ON_PRIVILEGE_ELEVATION,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: newSessionId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         oldSessionIdHash: createHash('sha256').update(oldId).digest('hex'),
         newSessionIdHash: createHash('sha256').update(newSessionId).digest('hex'),
@@ -484,7 +484,7 @@ export class SessionFixationGuardService {
       action: AuditAction.SESSION_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: 'session-guard-policy',
-      userId: actorId,
+      actorId: actorId,
       details: {
         updatedFields: Object.keys(dto.policy),
         newPolicy: this.policy
@@ -603,7 +603,7 @@ export class SessionFixationGuardService {
       action: AuditAction.SESSION_GUARD_SEAL_VERIFIED,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: sealId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         isValid: verification.isValid,
         reason: verification.reason,

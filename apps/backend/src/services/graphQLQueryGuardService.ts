@@ -191,8 +191,9 @@ export class GraphQLQueryGuardService {
     if (inspection.allowed) {
       this.metrics.allowedQueries++;
       AuditService.log({
+        actorId: 'system',
         action: AuditAction.GRAPHQL_QUERY_ANALYZED,
-        resource: AuditResourceType.GRAPHQL_QUERY_GUARD,
+        resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
         resourceId: inspection.seal.sealToken,
         details: {
           operationName: inspection.operationName,
@@ -259,8 +260,9 @@ export class GraphQLQueryGuardService {
     }
 
     AuditService.log({
+      actorId: 'system',
       action: auditAction,
-      resource: AuditResourceType.GRAPHQL_QUERY_GUARD,
+      resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: inspection.seal.sealToken,
       details: {
         incidentId: incident.id,
@@ -295,8 +297,9 @@ export class GraphQLQueryGuardService {
     };
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.GRAPHQL_GUARD_POLICY_UPDATED,
-      resource: AuditResourceType.GRAPHQL_QUERY_GUARD,
+      resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: 'policy_current',
       details: {
         updatedPolicy: this.policy,
@@ -351,8 +354,9 @@ export class GraphQLQueryGuardService {
     if (this.recentIncidents.length > 20) this.recentIncidents.pop();
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.GRAPHQL_COMPLEXITY_EXCEEDED,
-      resource: AuditResourceType.GRAPHQL_QUERY_GUARD,
+      resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: inspection.seal.sealToken,
       details: {
         simulated: true,
@@ -380,8 +384,9 @@ export class GraphQLQueryGuardService {
     const verification = verifyGraphQLCostProofSeal(dto.sealToken);
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.GRAPHQL_COST_SEAL_VERIFIED,
-      resource: AuditResourceType.GRAPHQL_QUERY_GUARD,
+      resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: typeof dto.sealToken === 'string' ? dto.sealToken : dto.sealToken.sealToken,
       details: {
         isValid: verification.isValid,

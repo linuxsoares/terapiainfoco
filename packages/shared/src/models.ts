@@ -479,6 +479,8 @@ export interface AuditLog {
   previousHash?: string;
   /** Hash SHA-256 canônico computado sobre os dados do log */
   hash?: string;
+  /** Contexto do evento (digest, score, motivo…); entra no hash quando presente */
+  details?: Record<string, unknown>;
 }
 
 /**

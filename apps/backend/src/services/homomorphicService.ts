@@ -235,7 +235,7 @@ export class HomomorphicService {
       action: AuditAction.HOMOMORPHIC_COHORT_ENCRYPTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: cohortId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         cohortName: dto.cohortName,
         publicKeyId: pubKey.keyId,
@@ -317,7 +317,7 @@ export class HomomorphicService {
       action: AuditAction.HOMOMORPHIC_AGGREGATION_COMPUTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: cohortId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         patientBlindIndex: vector.patientBlindIndex,
         totalPatients: newTotal,
@@ -400,7 +400,7 @@ export class HomomorphicService {
       action: AuditAction.HOMOMORPHIC_RESULT_DECRYPTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: dto.cohortId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         ethicsApprovalCode: dto.ethicsApprovalCode,
         authorizedBy: dto.authorizedBy,
@@ -462,7 +462,7 @@ export class HomomorphicService {
       action: AuditAction.HOMOMORPHIC_PROOF_VERIFIED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: seal.cohortId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         sealToken: proofSealToken,
         isValid

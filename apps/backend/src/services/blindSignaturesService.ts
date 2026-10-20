@@ -159,6 +159,7 @@ export class BlindSignaturesService {
     this.activeKeyId = newKeyPair.publicKey.keyId;
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_KEYPAIR_GENERATED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: newKeyPair.publicKey.keyId,
@@ -187,6 +188,7 @@ export class BlindSignaturesService {
     this.totalBlindedCount++;
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_BLINDED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: keyPair.publicKey.keyId,
@@ -216,6 +218,7 @@ export class BlindSignaturesService {
       const ticketKey = `${dto.therapistCrp}:${dto.authorityKeyId}:${dto.purpose}`;
       if (this.issuedTicketsByCrp.has(ticketKey)) {
         await AuditService.log({
+          actorId: operatorId,
           action: AuditAction.BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED,
           resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
           resourceId: dto.authorityKeyId,
@@ -235,6 +238,7 @@ export class BlindSignaturesService {
     this.totalSignedCount++;
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_BLIND_SIGNED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: keyPair.publicKey.keyId,
@@ -271,6 +275,7 @@ export class BlindSignaturesService {
     this.totalUnblindedCount++;
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_UNBLINDED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: token.tokenId,
@@ -300,6 +305,7 @@ export class BlindSignaturesService {
     if (this.redeemedNullifiers.has(unblindedToken.nullifierHash)) {
       this.totalDoubleSpendBlockedCount++;
       await AuditService.log({
+        actorId: operatorId,
         action: AuditAction.BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED,
         resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
         resourceId: unblindedToken.tokenId,
@@ -376,6 +382,7 @@ export class BlindSignaturesService {
     );
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_TOKEN_REDEEMED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: recordedItem.id,
@@ -420,6 +427,7 @@ export class BlindSignaturesService {
     );
 
     await AuditService.log({
+      actorId: operatorId,
       action: AuditAction.BLIND_SIGNATURE_VERIFIED,
       resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
       resourceId: keyPair.publicKey.keyId,
@@ -445,6 +453,7 @@ export class BlindSignaturesService {
     if (isAlreadyRedeemed) {
       this.totalDoubleSpendBlockedCount++;
       await AuditService.log({
+        actorId: operatorId,
         action: AuditAction.BLIND_SIGNATURE_DOUBLE_SPEND_BLOCKED,
         resourceType: AuditResourceType.BLIND_SIGNATURE_ENGINE,
         resourceId: unblindedToken.tokenId,

@@ -190,7 +190,7 @@ export class WebCacheGuardService {
           : AuditAction.CACHE_POISONING_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.CACHE_POISONING_GUARD,
         resourceId: incident.id,
-        userId: actorId,
+        actorId: actorId,
         details: {
           threatCount: inspection.threats.length,
           threats: inspection.threats,
@@ -216,7 +216,7 @@ export class WebCacheGuardService {
         action: AuditAction.CANONICAL_CACHE_KEY_GENERATED,
         resourceType: AuditResourceType.CACHE_POISONING_GUARD,
         resourceId: inspection.seal.sealId,
-        userId: actorId,
+        actorId: actorId,
         details: {
           canonicalCacheKeyHash: inspection.canonicalCacheKeyHash,
           method: inspection.components.method,
@@ -244,7 +244,7 @@ export class WebCacheGuardService {
       action: AuditAction.CACHE_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.CACHE_POISONING_GUARD,
       resourceId: 'cache-guard-policy',
-      userId: actorId,
+      actorId: actorId,
       details: {
         updatedFields: Object.keys(partial),
         newPolicy: this.policy
@@ -344,7 +344,7 @@ export class WebCacheGuardService {
         action: AuditAction.CACHE_GUARD_SEAL_VERIFIED,
         resourceType: AuditResourceType.CACHE_POISONING_GUARD,
         resourceId: result.parsedSeal.sealId,
-        userId: actorId,
+        actorId: actorId,
         details: {
           sealId: result.parsedSeal.sealId,
           resourceUri: result.parsedSeal.resourceUri,

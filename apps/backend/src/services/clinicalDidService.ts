@@ -139,7 +139,7 @@ export class ClinicalDidService {
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
-        therapistId: 'system',
+        actorId: 'system',
         details: { method: ClinicalDidMethod.DID_TERAPIAINFOCO, did }
       });
 
@@ -155,7 +155,7 @@ export class ClinicalDidService {
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
-        therapistId: 'system',
+        actorId: 'system',
         details: { method: ClinicalDidMethod.DID_KEY, did }
       });
 
@@ -229,7 +229,7 @@ export class ClinicalDidService {
       action: AuditAction.VERIFIABLE_CREDENTIAL_ISSUED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: credentialId,
-      therapistId: dto.therapistId,
+      actorId: dto.therapistId,
       details: {
         credentialType: dto.credentialType,
         issuerDid: therapistDid,
@@ -272,7 +272,7 @@ export class ClinicalDidService {
           action: AuditAction.VERIFIABLE_CREDENTIAL_VERIFIED,
           resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
           resourceId: decodedVc.id,
-          therapistId: 'verifier-public',
+          actorId: 'verifier-public',
           details: { valid: result.valid, status: result.status, issuerDid: result.issuerDid }
         });
 
@@ -352,7 +352,7 @@ export class ClinicalDidService {
       action: AuditAction.VERIFIABLE_CREDENTIAL_REVOKED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: dto.credentialId,
-      therapistId: cred.issuer,
+      actorId: cred.issuer,
       details: {
         reason: dto.revocationReason,
         revokedAt,
