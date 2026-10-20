@@ -2372,7 +2372,7 @@ terapiainfoco/
 | `fix/auth-social-e-listagem-perfis` | Login social só em `DEMO_MODE` (sem verificação OIDC permitia entrar em qualquer conta pelo e-mail), listagem de perfis restrita ao Admin, campos de perfil por papel | [PR #132](https://github.com/linuxsoares/terapiainfoco/pull/132) | Merged |
 | `fix/agenda-ciclo-de-vida-sessao` | Iniciar/concluir sessão só pelo psicólogo e no horário; paciente não vê sala de sessão encerrada; cancelamento pela agenda como do terapeuta | [PR #133](https://github.com/linuxsoares/terapiainfoco/pull/133) | Merged |
 | `feat/paciente-meus-psicologos` | "Meu psicólogo" no Meu Espaço com agendamento direto da próxima sessão; paciente vinculado agenda mesmo com perfil fora da busca | [PR #134](https://github.com/linuxsoares/terapiainfoco/pull/134) | Merged |
-| `feat/admin-observabilidade` | Dashboard do psicólogo só com indicadores clínicos; segurança e telemetria em módulo próprio do Admin (fim dos 403 em `/system/telemetry/*`) | PR #TBD | Open |
+| `feat/admin-observabilidade` | Dashboard do psicólogo só com indicadores clínicos; segurança e telemetria em módulo próprio do Admin (fim dos 403 em `/system/telemetry/*`) | [PR #135](https://github.com/linuxsoares/terapiainfoco/pull/135) | Merged |
 
 ---
 
