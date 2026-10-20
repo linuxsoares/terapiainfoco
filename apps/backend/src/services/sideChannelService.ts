@@ -242,6 +242,9 @@ export class SideChannelService {
   public async simulateTimingAttack(dto: SimulateTimingAttackDTO, operatorId: string = 'PENTESTER'): Promise<{ success: boolean; detectedLeak: boolean; welchTScore: number; leakedInformation: string; message: string }> {
     const useVulnerable = dto.useVulnerableAlgorithm ?? false;
     const bufSize = 2000;
+    // Repetições por amostra: o sinal (diferença de tempo) precisa superar pausas de GC isoladas,
+    // que de outro modo inflam a variância e escondem o vazamento do algoritmo vulnerável
+    const INNER_REPETITIONS = 200;
     const realBuf = Buffer.alloc(bufSize, 'A');
     const earlyMismatch = Buffer.alloc(bufSize, 'B'); // Byte 0 incorreto
     const lateMismatch = Buffer.alloc(bufSize, 'A');
@@ -252,23 +255,23 @@ export class SideChannelService {
 
     if (useVulnerable) {
       fnA = () => {
-        for (let k = 0; k < 20; k++) {
+        for (let k = 0; k < INNER_REPETITIONS; k++) {
           vulnerableVariableTimeCompare(realBuf, earlyMismatch);
         }
       };
       fnB = () => {
-        for (let k = 0; k < 20; k++) {
+        for (let k = 0; k < INNER_REPETITIONS; k++) {
           vulnerableVariableTimeCompare(realBuf, lateMismatch);
         }
       };
     } else {
       fnA = () => {
-        for (let k = 0; k < 20; k++) {
+        for (let k = 0; k < INNER_REPETITIONS; k++) {
           constantTimeCompare(realBuf, earlyMismatch);
         }
       };
       fnB = () => {
-        for (let k = 0; k < 20; k++) {
+        for (let k = 0; k < INNER_REPETITIONS; k++) {
           constantTimeCompare(realBuf, lateMismatch);
         }
       };
