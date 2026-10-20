@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TerapiaInFoco | Plataforma Clínica com Teleatendimento, Transcrição com IA e Segurança LGPD/CFP</title>
     <meta name="description" content="Plataforma para psicólogos com sala de teleconsulta própria e sem gravação, transcrição com diarização clínica, geração assistida de notas SOAP e criptografia de ponta a ponta em estrita conformidade com o CFP e LGPD." />
+    <!-- Tema antes da primeira pintura: preferência salva ou a do sistema -->
+    <script>
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('terapiainfoco_landing_theme'); } catch (e) {}
+        var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +28,7 @@
       }
     </style>
   </head>
-  <body class="bg-[#fafcff] text-slate-900 antialiased selection:bg-teal-500/20 selection:text-teal-900">
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-teal-500/20 selection:text-teal-900">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

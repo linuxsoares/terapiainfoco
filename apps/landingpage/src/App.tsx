@@ -29,7 +29,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafcff] text-slate-900 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-900">
       {/* Sticky Header */}
       <Navbar onOpenDemo={handleOpenDemo} />
 

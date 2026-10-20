@@ -20,7 +20,7 @@ export const SecurityArchitecture: React.FC = () => {
   const simulatedHash = 'a4f91b7e6d2c88019fe53bb2' + sampleCpf.replace(/\D/g, '').padEnd(16, '0');
 
   return (
-    <section id="seguranca" className="py-24 bg-slate-950 text-white relative overflow-hidden">
+    <section id="seguranca" className="theme-keep py-24 bg-slate-950 text-white relative overflow-hidden">
       {/* Glow backgrounds */}
       <div className="absolute top-1/2 left-0 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
