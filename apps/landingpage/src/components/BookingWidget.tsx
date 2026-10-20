@@ -23,6 +23,7 @@ export const BookingWidget: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
 
   // Formulário do paciente
   const [name, setName] = useState('');
@@ -72,6 +73,7 @@ export const BookingWidget: React.FC = () => {
     let isMounted = true;
     setLoadingSlots(true);
     setSelectedSlot(null);
+    setSlotsError(null);
 
     landingApi.getAvailableSlots(selectedDate)
       .then(res => {
@@ -82,9 +84,10 @@ export const BookingWidget: React.FC = () => {
           if (firstOpen) setSelectedSlot(firstOpen);
         }
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (isMounted) {
           setAvailableSlots([]);
+          setSlotsError(err.message);
         }
       })
       .finally(() => {
@@ -322,6 +325,10 @@ export const BookingWidget: React.FC = () => {
                   {loadingSlots ? (
                     <div className="py-6 text-center text-xs text-slate-400 animate-pulse">
                       Carregando horários...
+                    </div>
+                  ) : availableSlots.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400">
+                      {slotsError || 'Nenhum horário disponível nesta data.'}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
