@@ -34,8 +34,21 @@ jobs:
       - name: Instalar dependências
         run: bun install --frozen-lockfile
 
+      # URLs públicas do backend e do painel: Settings → Secrets and variables → Actions → Variables
+      - name: Verificar URLs de produção
+        run: |
+          if [ -z "${{ vars.LANDING_API_URL }}" ]; then
+            echo "::warning::Variável LANDING_API_URL não definida: agendamento e validação de documentos ficarão indisponíveis na landing page."
+          fi
+          if [ -z "${{ vars.LANDING_APP_URL }}" ]; then
+            echo "::warning::Variável LANDING_APP_URL não definida: os links para o painel (entrar, buscar psicólogo) ficarão ocultos."
+          fi
+
       - name: Compilar projeto (Vite build)
         run: bun run build:landing
+        env:
+          VITE_API_URL: ${{ vars.LANDING_API_URL }}
+          VITE_APP_URL: ${{ vars.LANDING_APP_URL }}
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
