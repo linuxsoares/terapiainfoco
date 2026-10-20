@@ -1,4 +1,8 @@
 import type {
+  AdminPractice,
+  AdminStaffMember,
+  CreateStaffMemberDTO,
+  CreateStaffMemberResponse,
   LiveTranscriptStatusResponse,
   LiveTranscriptChunkDTO,
   LiveTranscriptUtterance,
@@ -1145,6 +1149,23 @@ export const api = {
       authStorage.setRefreshToken(res.refreshToken);
     }
     return res;
+  },
+
+  async listAdminPractices(): Promise<AdminPractice[]> {
+    const res = await request<{ success: boolean; practices: AdminPractice[] }>('/admin/practices');
+    return res.practices;
+  },
+
+  async listStaffMembers(): Promise<AdminStaffMember[]> {
+    const res = await request<{ success: boolean; members: AdminStaffMember[] }>('/admin/users');
+    return res.members;
+  },
+
+  async createStaffMember(dto: CreateStaffMemberDTO): Promise<CreateStaffMemberResponse> {
+    return await request<CreateStaffMemberResponse>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(dto)
+    });
   },
 
   /** Troca a própria senha; guarda os tokens novos (os anteriores deixam de valer) */

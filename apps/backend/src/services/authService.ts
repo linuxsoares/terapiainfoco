@@ -79,7 +79,13 @@ export class AuthService {
   public async register(
     dto: RegisterDTO,
     ipAddress: string = '127.0.0.1',
-    options: { allowPrivilegedRole?: boolean } = {}
+    options: {
+      allowPrivilegedRole?: boolean;
+      /** Consultório da conta da equipe (Recepção/Supervisor) criada pelo Admin */
+      practiceTherapistId?: string;
+      /** Quem criou a conta, quando não é a própria pessoa (auditoria) */
+      actorId?: string;
+    } = {}
   ): Promise<SafeUser> {
     if (!options.allowPrivilegedRole && !SELF_SERVICE_ROLES.includes(dto.role)) {
       throw new Error('Perfil não disponível para cadastro público. Contas administrativas e da equipe são criadas por um administrador.');
@@ -100,7 +106,7 @@ export class AuthService {
     const userId = crypto.randomUUID();
 
     // Se for psicólogo, vincula ao registro de terapeuta com UUID válido
-    let therapistId: string | undefined;
+    let therapistId: string | undefined = options.allowPrivilegedRole ? options.practiceTherapistId : undefined;
     if (dto.role === UserRole.PSICOLOGO_TITULAR) {
       therapistId = crypto.randomUUID();
       db.therapists.set(therapistId, {
@@ -151,7 +157,7 @@ export class AuthService {
 
 
     await auditService.logAccess({
-      actorId: userId,
+      actorId: options.actorId ?? userId,
       resourceType: AuditResourceType.USER,
       resourceId: userId,
       action: AuditAction.CREATE,

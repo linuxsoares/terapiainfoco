@@ -21,6 +21,7 @@ import {
   Globe,
   BadgeCheck,
   Gauge,
+  UsersRound,
   type LucideIcon
 } from 'lucide-react';
 import { DashboardModule } from './components/DashboardModule';
@@ -32,6 +33,7 @@ import { AuditModule } from './components/AuditModule';
 import { SecurityModule } from './components/SecurityModule';
 import { BackupModule } from './components/BackupModule';
 import { ObservabilityModule } from './components/ObservabilityModule';
+import { TeamModule } from './components/TeamModule';
 import { PatientHomeModule } from './components/PatientHomeModule';
 import { TherapistDirectory } from './components/TherapistDirectory';
 import { TherapistProfileEditor } from './components/TherapistProfileEditor';
@@ -124,6 +126,7 @@ const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLa
   publicProfile: { label: 'Meu Perfil Público', shortLabel: 'Perfil Público', icon: Globe, iconClass: 'text-teal-600 dark:text-teal-400' },
   audit: { label: 'Auditoria', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   crpVerification: { label: 'Verificação de CRP', shortLabel: 'CRP', icon: BadgeCheck, iconClass: 'text-emerald-600 dark:text-emerald-400' },
+  team: { label: 'Equipe', shortLabel: 'Equipe', icon: UsersRound, iconClass: 'text-sky-600 dark:text-sky-400' },
   backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' },
   observability: { label: 'Segurança & Observabilidade', shortLabel: 'Observabilidade', icon: Gauge, iconClass: 'text-teal-600 dark:text-teal-400' }
 };
@@ -563,6 +566,7 @@ export default function App() {
                   )}
                   {currentTab === 'publicProfile' && <TherapistProfileEditor />}
                   {currentTab === 'crpVerification' && <CrpVerificationModule />}
+                  {currentTab === 'team' && <TeamModule />}
                   {currentTab === 'dashboard' && <DashboardModule />}
                   {currentTab === 'agenda' && <AgendaModule role={currentUser.role} />}
                   {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}

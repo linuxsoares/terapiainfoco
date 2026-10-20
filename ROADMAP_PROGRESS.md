@@ -2381,6 +2381,7 @@ terapiainfoco/
 | `fix/admin-governanca-dados-reais` | Pacote de conformidade sem identidade fixa e score calculado com 2FA da equipe, backups e OTLP reais | [PR #141](https://github.com/linuxsoares/terapiainfoco/pull/141) | Merged |
 | `feat/troca-de-senha` | Troca da própria senha em Segurança, com encerramento das demais sessões | [PR #142](https://github.com/linuxsoares/terapiainfoco/pull/142) | Merged |
 | `fix/remove-fallback-supabase-auth` | Remove login e tokens via Supabase Auth (tomada de conta pelo e-mail e papel declarado pelo próprio usuário) | [PR #143](https://github.com/linuxsoares/terapiainfoco/pull/143) | Merged |
+| `feat/admin-gestao-equipe` | Módulo Equipe: Admin cria Recepção/Supervisor vinculados a um consultório | PR #TBD | Merged |
 
 ---
 
@@ -2422,7 +2423,8 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Painel Admin (1/2) — governança com dados reais:** sem CRP/DPO fixos no código nem pacote fictício no boot (identidade informada pelo Admin, sugerida do último pacote ou de `COMPLIANCE_*` opcionais; sem DPO e CRP o pacote não é emitido); score reflete 2FA da equipe (contas não-paciente), backups (snapshots só em memória = parcialmente conforme) e exportador OTLP; status traduzidos e coloridos por situação.
 - [x] **Troca da própria senha:** `POST /api/auth/password` (exige a senha atual, rate limit de autenticação, auditoria `AUTH_PASSWORD_CHANGED`) com cartão "Alterar senha" em Segurança; tokens emitidos antes da troca deixam de valer (outras sessões encerradas) e a sessão atual recebe tokens novos.
 - [x] **Fim do fallback de autenticação pelo Supabase:** o login validava a senha no Supabase Auth para uma conta local com o mesmo e-mail e o middleware aceitava tokens do Supabase com papel vindo de `user_metadata` (editável pelo usuário); agora só tokens emitidos pela API e senhas locais valem.
-- [ ] **Painel Admin (2/2) — gestão de usuários:** criar Recepção/Supervisor vinculados a um consultório pelo painel (hoje só via script).
+- [x] **Painel Admin (2/2) — gestão de equipe:** módulo "Equipe" (Admin) lista contas não-paciente com consultório e 2FA e cria Recepção/Supervisor vinculados a um consultório (`/api/admin/practices`, `/api/admin/users`), com senha inicial aleatória exibida uma vez e auditoria em nome do Admin.
+- [ ] **Equipe: desativar conta e reemitir senha inicial** (e exigir a troca da senha inicial no primeiro acesso).
 - [ ] **Histórico de pacotes de conformidade durável** (hoje em memória do processo, como os backups).
 - [ ] **Landing page alinhada às decisões do produto:** build do GitHub Pages sem `VITE_API_URL` (o bundle publicado chama `http://localhost:3000/api`); agendamento e horários com fallback simulado de sucesso (paciente acredita ter agendado); agendamento público fixo em `therapist-001`/"Dra. Vanessa Andrade" em vez da busca de psicólogos com login do paciente; formulário de demonstração (`LeadModal`) não envia o lead a lugar nenhum; meta description ainda cita "Google Meet nativo" (ADR-005: sala WebRTC própria); sem Dark Mode; sem link para entrar no painel.
 - [x] **Agendamento a partir do perfil (backend):** `POST /api/appointments/patient/book` e `GET /api/appointments/patient/mine`; registro do paciente criado no consultório escolhido e vinculado à conta (`linkedUserId`); cadastro de paciente não cria mais prontuário em `therapist-001` nem aceita `patientId` informado (IDOR); agendamento público anônimo exige psicólogo verificado, busca CPF no consultório e não presume consentimento.
