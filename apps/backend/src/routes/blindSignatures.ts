@@ -242,7 +242,6 @@ blindSignaturesRouter.post('/simulate-double-spend', async (c) => {
     const result = await blindService.simulateDoubleSpend(body);
 
     return c.json({
-      success: true,
       ...result
     });
   } catch (error: any) {
@@ -271,7 +270,6 @@ blindSignaturesRouter.post('/verify-seal', async (c) => {
     const verification = blindService.verifySeal(body);
 
     return c.json({
-      success: true,
       ...verification
     });
   } catch (error: any) {

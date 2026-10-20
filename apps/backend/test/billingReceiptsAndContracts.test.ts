@@ -184,7 +184,7 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
         therapistId,
         dto: {
           patientId,
-          purpose: ReceiptPurpose.PER_SESSION as any,
+          purpose: ReceiptPurpose.SIMPLES_QUITACAO,
           modality: BillingModality.PER_SESSION,
           sessionsCovered: [{ data: '2026-02-01', modalidade: 'ONLINE' }],
           amountCents: 20000,
@@ -197,7 +197,7 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
         therapistId,
         dto: {
           patientId,
-          purpose: ReceiptPurpose.PER_SESSION as any,
+          purpose: ReceiptPurpose.SIMPLES_QUITACAO,
           modality: BillingModality.PER_SESSION,
           sessionsCovered: [{ data: '2026-02-08', modalidade: 'ONLINE' }],
           amountCents: 30000,

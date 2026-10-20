@@ -226,7 +226,7 @@ export class AdvancedRateLimiterService {
 
   public evaluate(
     dto: EvaluateRateLimitDTO,
-    reqMeta?: { ip: string; userAgent: string; therapistId?: string }
+    reqMeta?: { ip: string; userAgent: string; actorId: string }
   ): {
     success: boolean;
     evaluation: RateLimitEvaluationResult;
@@ -313,7 +313,7 @@ export class AdvancedRateLimiterService {
           action: AuditAction.RATE_LIMIT_QUARANTINE_APPLIED,
           resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
           resourceId: dto.clientId,
-          actorId: reqMeta?.therapistId,
+          actorId: reqMeta?.actorId ?? 'system',
           ipAddress: reqMeta?.ip || dto.clientId,
           userAgent: reqMeta?.userAgent || 'Rate-Limiter',
           details: { message: `Cliente ${dto.clientId} isolado em quarentena por ${rule.penaltyQuarantineMinutes} min: ${reason}` }
@@ -325,7 +325,7 @@ export class AdvancedRateLimiterService {
             : AuditAction.RATE_LIMIT_SLIDING_WINDOW_EXCEEDED,
           resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
           resourceId: dto.clientId,
-          actorId: reqMeta?.therapistId,
+          actorId: reqMeta?.actorId ?? 'system',
           ipAddress: reqMeta?.ip || dto.clientId,
           userAgent: reqMeta?.userAgent || 'Rate-Limiter',
           details: { message: `Requisição limitada por taxa em ${rule.pathPattern}: [Decisão: ${evalOutput.result.decision}] [Retry-After: ${evalOutput.result.retryAfterSeconds}s]` }

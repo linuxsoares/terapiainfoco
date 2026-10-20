@@ -346,8 +346,8 @@ export class PatientService {
             soapId: rec.id,
             sessionNumber: rec.sessionNumber,
             isSigned: rec.isSigned,
-            signatureHash: rec.signatureHash,
-            wormHash: rec.signatureHash
+            signatureHash: rec.signatureHash ?? undefined,
+            wormHash: rec.signatureHash ?? undefined
           }
         });
       }

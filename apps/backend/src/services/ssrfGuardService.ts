@@ -191,7 +191,7 @@ export class SsrfGuardService {
 
   public simulateSsrf(
     dto: SimulateSsrfDTO,
-    reqMeta?: { ip: string; userAgent: string; therapistId?: string }
+    reqMeta?: { ip: string; userAgent: string; actorId: string }
   ): {
     success: boolean;
     inspection: SsrfInspectionResult;
@@ -261,7 +261,7 @@ export class SsrfGuardService {
           : AuditAction.SSRF_ATTACK_BLOCKED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: incidentId,
-        actorId: reqMeta?.therapistId,
+        actorId: reqMeta?.actorId ?? 'system',
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'SSRF-Simulation-Agent',
         details: { message: `Ataque SSRF neutralizado: [Ameaças: ${inspection.detectedThreats.join(', ')}] [Severidade: ${inspection.severity}] [Alvo: ${dto.url}] [Digest: ${seal.canonicalDigest.substring(0, 16)}]` }
@@ -274,7 +274,7 @@ export class SsrfGuardService {
         action: AuditAction.EXTERNAL_WEBHOOK_VALIDATED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        actorId: reqMeta?.therapistId,
+        actorId: reqMeta?.actorId ?? 'system',
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'SSRF-Inspection-Agent',
         details: { message: `Webhook validado com sucesso e liberado para conexão de saída: [Alvo: ${dto.url}] [IP Resolvido: ${inspection.resolvedIps.join(', ')}]` }
@@ -294,7 +294,7 @@ export class SsrfGuardService {
 
   public validateWebhookUrl(
     dto: ValidateWebhookUrlDTO,
-    reqMeta?: { ip: string; userAgent: string; therapistId?: string }
+    reqMeta?: { ip: string; userAgent: string; actorId: string }
   ): {
     success: boolean;
     inspection: SsrfInspectionResult;
@@ -332,7 +332,7 @@ export class SsrfGuardService {
         action: AuditAction.SSRF_ATTACK_BLOCKED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        actorId: reqMeta?.therapistId,
+        actorId: reqMeta?.actorId ?? 'system',
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'Webhook-Validator',
         details: { message: `Conexão de Webhook rejeitada por política SSRF: [Alvo: ${dto.url}] [Motivo: ${inspection.reason}]` }
@@ -342,7 +342,7 @@ export class SsrfGuardService {
         action: AuditAction.EXTERNAL_WEBHOOK_VALIDATED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        actorId: reqMeta?.therapistId,
+        actorId: reqMeta?.actorId ?? 'system',
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'Webhook-Validator',
         details: { message: `Webhook homologado e autorizado: [Alvo: ${dto.url}] [Host: ${inspection.parsedHost}]` }

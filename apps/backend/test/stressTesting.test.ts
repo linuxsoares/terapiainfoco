@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { StressScenario, SloStatus } from '@terapiainfoco/shared';
+import { StressScenario, SloStatus, AuditResourceType } from '@terapiainfoco/shared';
 import { db } from '../src/db/memoryDb';
 
 describe('Homologação sob Carga, Stress Concorrente & Avaliação de SLOs RED (RFC §5.1, §5.2)', () => {
@@ -122,7 +122,7 @@ describe('Homologação sob Carga, Stress Concorrente & Avaliação de SLOs RED 
     // Verifica auditoria WORM
     const stressAudit = db.auditLogs.find(l => l.action === 'STRESS_TEST_RUN');
     expect(stressAudit).toBeDefined();
-    expect(stressAudit?.resourceType).toBe('BENCHMARK');
+    expect(stressAudit?.resourceType).toBe(AuditResourceType.BENCHMARK);
   });
 
   it('deve executar teste de stress no cenário CRYPTO_ENVELOPE_STRESS sob Envelope Encryption', async () => {

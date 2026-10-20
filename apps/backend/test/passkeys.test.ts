@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { AuditAction } from '@terapiainfoco/shared';
+import { AuditAction, UserRole } from '@terapiainfoco/shared';
 import {
   createSimulatedWebAuthnKeyPair,
   createSimulatedWebAuthnAssertion
@@ -239,8 +239,8 @@ describe('Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / Face
       expect(loginData.success).toBe(true);
       expect(loginData.accessToken).toBeDefined();
       expect(loginData.refreshToken).toBeDefined();
-      expect(loginData.user.email).toBe('psicologo@terapiainfoco.com.br');
-      expect(loginData.user.role).toBe('PSICOLOGO_TITULAR');
+      expect(loginData.user?.email).toBe('psicologo@terapiainfoco.com.br');
+      expect(loginData.user?.role).toBe(UserRole.PSICOLOGO_TITULAR);
 
       // 4. Valida se o token emitido autentica endpoints protegidos
       const meRes = await app.request('/api/auth/me', {

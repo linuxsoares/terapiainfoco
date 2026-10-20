@@ -1,4 +1,4 @@
-import type { Context, Next } from 'hono';
+import type { Context, MiddlewareHandler, Next } from 'hono';
 import { auditService } from '../services/auditService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { 
@@ -27,7 +27,7 @@ export interface RateLimiterOptions {
 /**
  * Middleware de Rate Limiting Distribuído para proteção contra brute force e ataques de enumeração
  */
-export function rateLimiter(options: RateLimiterOptions, store: IRateLimitStore = globalRateLimitStore) {
+export function rateLimiter(options: RateLimiterOptions, store: IRateLimitStore = globalRateLimitStore): MiddlewareHandler {
   const {
     windowMs,
     max,

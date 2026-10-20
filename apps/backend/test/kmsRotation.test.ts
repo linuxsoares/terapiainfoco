@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
-import { UserRole, KmsKeyStatus } from '@terapiainfoco/shared';
+import { UserRole, KmsKeyStatus, AuditResourceType } from '@terapiainfoco/shared';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
@@ -94,7 +94,7 @@ describe('Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.
     // Verifica presença na trilha WORM
     const rotatedLog = db.auditLogs.find(l => l.action === 'KMS_KEY_ROTATED');
     expect(rotatedLog).toBeDefined();
-    expect(rotatedLog?.resourceType).toBe('KMS');
+    expect(rotatedLog?.resourceType).toBe(AuditResourceType.KMS);
   });
 
   it('deve executar re-wrapping de DEKs legadas com registro na auditoria WORM', async () => {

@@ -124,7 +124,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': UserRole.SECRETARIA
+        'x-user-role': UserRole.RECEPCAO_SECRETARIA
       },
       body: JSON.stringify({
         policy: { maxExecutionTimeMs: 100 }

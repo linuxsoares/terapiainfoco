@@ -60,7 +60,7 @@ docker-down: ## Para os containers do Docker Compose
 
 ##@ Testes & Verificação
 .PHONY: test
-test: ## Executa todos os testes automatizados (Criptografia & Backend API)
+test: typecheck ## Valida tipagem e executa todos os testes automatizados (Criptografia & Backend API)
 	bun test
 
 .PHONY: test-backend
@@ -72,11 +72,12 @@ test-crypto: ## Executa os testes do pacote criptográfico LGPD
 	bun test packages/crypto
 
 .PHONY: typecheck
-typecheck: ## Valida tipagem TypeScript em todos os pacotes
-	bun x tsc --noEmit -p packages/shared/tsconfig.json
-	bun x tsc --noEmit -p packages/crypto/tsconfig.json
-	bun x tsc -b apps/frontend
-	bun x tsc -b apps/landingpage
+typecheck: ## Valida tipagem TypeScript em todos os pacotes (com o TypeScript de cada pacote)
+	bun run --cwd packages/shared typecheck
+	bun run --cwd packages/crypto typecheck
+	bun run --cwd apps/backend typecheck
+	cd apps/frontend && bun x tsc -b
+	cd apps/landingpage && bun x tsc -b
 
 ##@ Compilação / Build
 .PHONY: build

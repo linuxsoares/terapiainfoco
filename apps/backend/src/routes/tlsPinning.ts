@@ -162,28 +162,24 @@ tlsPinningRouter.post('/quarantine-ca', async (c) => {
  * POST /api/tls-pinning/verify-seal
  * Valida a integridade matemática do Selo Notarial WORM de TLS Pinning
  */
-tlsPinningRouter.post('/verify-seal', (c) => {
+tlsPinningRouter.post('/verify-seal', async (c) => {
   try {
-    const body = c.req.header('content-type')?.includes('application/json')
-      ? (c.req.raw as any).body
-      : null;
-    return c.req.json<VerifyTlsPinSealDTO>().then(data => {
-      if (!data.sealToken) {
-        return c.json({
-          success: false,
-          isValid: false,
-          message: 'Token de selo probatório (sealToken) é obrigatório.'
-        }, 400);
-      }
-
-      const verified = tlsPinningService.verifySeal(data.sealToken);
+    const data = await c.req.json<VerifyTlsPinSealDTO>();
+    if (!data.sealToken) {
       return c.json({
-        success: verified.isValid,
-        isValid: verified.isValid,
-        seal: verified.seal,
-        message: verified.message,
-        verifiedAt: verified.verifiedAt
-      });
+        success: false,
+        isValid: false,
+        message: 'Token de selo probatório (sealToken) é obrigatório.'
+      }, 400);
+    }
+
+    const verified = tlsPinningService.verifySeal(data.sealToken);
+    return c.json({
+      success: verified.isValid,
+      isValid: verified.isValid,
+      seal: verified.seal,
+      message: verified.message,
+      verifiedAt: verified.verifiedAt
     });
   } catch (err: any) {
     return c.json({

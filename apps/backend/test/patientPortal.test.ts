@@ -36,7 +36,8 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
         name: 'Ana Paula Ferreira',
         email: patientEmail,
         cpf: '123.456.789-00',
-        phone: '(11) 98765-4321'
+        phone: '(11) 98765-4321',
+        consentTranscriptionSigned: false
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );
@@ -297,7 +298,8 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
         name: 'Carlos Alberto Mendes',
         email: 'carlos.mendes@gmail.com',
         cpf: '987.654.321-99',
-        phone: '(11) 91111-2222'
+        phone: '(11) 91111-2222',
+        consentTranscriptionSigned: false
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );

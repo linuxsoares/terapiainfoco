@@ -48,7 +48,8 @@ ssrfGuardRoutes.post('/simulate-ssrf', async (c) => {
 
     const result = service.simulateSsrf(body, {
       ip: clientIp,
-      userAgent
+      userAgent,
+      actorId: c.get('userId')
     });
 
     return c.json(result);
@@ -85,7 +86,8 @@ ssrfGuardRoutes.post('/validate-url', async (c) => {
 
     const result = service.validateWebhookUrl(body, {
       ip: clientIp,
-      userAgent
+      userAgent,
+      actorId: c.get('userId')
     });
 
     const status = result.success ? 200 : 403;

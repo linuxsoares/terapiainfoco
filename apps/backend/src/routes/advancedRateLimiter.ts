@@ -49,7 +49,8 @@ advancedRateLimiterRoutes.post('/evaluate', async (c) => {
 
     const result = service.evaluate(body, {
       ip: clientIp,
-      userAgent
+      userAgent,
+      actorId: c.get('userId')
     });
 
     const status = result.success ? 200 : (result.evaluation.decision === 'QUARANTINED' ? 403 : 429);
