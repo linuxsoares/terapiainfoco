@@ -15,6 +15,7 @@ export const APP_MODULES = [
   'audit',
   'crpVerification',
   'team',
+  'leads',
   'backups',
   'observability',
   'security'
@@ -43,6 +44,8 @@ export const MODULE_ACCESS: Record<AppModule, readonly UserRole[]> = {
   crpVerification: [UserRole.ADMIN],
   // Contas da equipe (Recepção/Supervisor) vinculadas a um consultório
   team: [UserRole.ADMIN],
+  // Pedidos de acesso enviados pela landing page
+  leads: [UserRole.ADMIN],
   backups: [UserRole.ADMIN],
   // Segurança da plataforma e telemetria de infraestrutura (operação), fora do consultório
   observability: [UserRole.ADMIN],

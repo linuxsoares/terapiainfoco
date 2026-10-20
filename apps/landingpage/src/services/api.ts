@@ -1,4 +1,4 @@
-import type { ValidateDocumentResponse } from '@terapiainfoco/shared';
+import type { CreateLeadDTO, ValidateDocumentResponse } from '@terapiainfoco/shared';
 
 // Em produção a URL da API vem do build (VITE_API_URL); localhost só no desenvolvimento
 const configuredApiUrl = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : '')).trim().replace(/\/+$/, '');
@@ -38,6 +38,11 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
  * (um documento "válido" de mentira engana quem valida o documento).
  */
 export const landingApi = {
+  /** Pedido de acesso antecipado (formulário de demonstração) */
+  async createLead(dto: CreateLeadDTO): Promise<void> {
+    await fetchJson('/leads', { method: 'POST', body: JSON.stringify(dto) });
+  },
+
   /** Consulta pública de autenticidade documental via QR Code / token */
   async validateDocumentToken(token: string): Promise<ValidateDocumentResponse> {
     try {

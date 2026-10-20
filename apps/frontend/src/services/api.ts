@@ -1,4 +1,5 @@
 import type {
+  AdminLead,
   AdminPractice,
   AdminStaffMember,
   CreateStaffMemberDTO,
@@ -1149,6 +1150,11 @@ export const api = {
       authStorage.setRefreshToken(res.refreshToken);
     }
     return res;
+  },
+
+  async listLeads(): Promise<AdminLead[]> {
+    const res = await request<{ success: boolean; leads: AdminLead[] }>('/leads');
+    return res.leads;
   },
 
   async listAdminPractices(): Promise<AdminPractice[]> {
