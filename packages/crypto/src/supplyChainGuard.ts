@@ -308,6 +308,10 @@ export class SupplyChainGuardEngine {
     }
   ): DependencyInspectionResult {
     const policy = options?.customPolicy ? { ...this.policy, ...options.customPolicy } : this.policy;
+    // Listas ausentes valem como vazias (registry sem homologação é bloqueado)
+    const quarantinedPackages = policy.quarantinedPackages ?? [];
+    const allowedRegistries = policy.allowedRegistries ?? [];
+    const whitelistedPackages = policy.whitelistedPackages ?? [];
     const nodes: DependencyNode[] = this.parseDependencyNodes(manifestOrList, options?.targetRegistry);
     const detectedThreats: DependencyThreat[] = [];
     const auditedNodes: DependencyNode[] = [];
@@ -319,7 +323,7 @@ export class SupplyChainGuardEngine {
       const nodeThreats: DependencyThreat[] = [];
 
       // A. Verificação de Pacotes em Quarentena
-      if (policy.quarantinedPackages.includes(node.name)) {
+      if (quarantinedPackages.includes(node.name)) {
         nodeThreats.push({
           id: `THREAT-QUARANTINE-${node.name}`,
           category: DependencyThreatCategory.KNOWN_VULNERABILITY,
@@ -440,7 +444,7 @@ export class SupplyChainGuardEngine {
 
       // F. Validação de Registry Não Autorizado
       if (node.resolvedRegistry) {
-        const isRegistryAllowed = policy.allowedRegistries.some(
+        const isRegistryAllowed = allowedRegistries.some(
           (reg) => node.resolvedRegistry!.startsWith(reg) || reg.startsWith(node.resolvedRegistry!)
         );
         if (!isRegistryAllowed) {
@@ -450,7 +454,7 @@ export class SupplyChainGuardEngine {
             severity: DependencyRiskSeverity.HIGH,
             cwe: 'CWE-494',
             description: `Pacote '${node.name}' aponta para registry não homologado: ${node.resolvedRegistry}`,
-            remediation: `Restrinja registries aos permitidos: ${policy.allowedRegistries.join(', ')}`,
+            remediation: `Restrinja registries aos permitidos: ${allowedRegistries.join(', ')}`,
             target: node.name,
             packageName: node.name
           });
@@ -473,7 +477,7 @@ export class SupplyChainGuardEngine {
       }
 
       const isWhitelisted =
-        policy.whitelistedPackages.includes(node.name) ||
+        whitelistedPackages.includes(node.name) ||
         (node.name.startsWith('@terapiainfoco/') && !hasCritical);
 
       auditedNodes.push({

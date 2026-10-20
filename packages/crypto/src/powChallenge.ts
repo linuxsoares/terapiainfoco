@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 
-export type PowDifficultyTier = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'MAXIMUM';
+import { PowDifficultyTier } from '@terapiainfoco/shared';
+
+export { PowDifficultyTier };
 
 export interface PowChallenge {
   challengeId: string;
@@ -44,11 +46,11 @@ const DEFAULT_SECRET_SALT = process.env.POW_SECRET_SALT || 'terapiainfoco_pow_de
  * Mapeia dificuldade numérica para o respectivo Tier
  */
 export function getDifficultyTier(difficulty: number): PowDifficultyTier {
-  if (difficulty <= 0) return 'NONE';
-  if (difficulty <= 3) return 'LOW';
-  if (difficulty === 4) return 'MEDIUM';
-  if (difficulty === 5) return 'HIGH';
-  return 'MAXIMUM';
+  if (difficulty <= 0) return PowDifficultyTier.NONE;
+  if (difficulty <= 3) return PowDifficultyTier.LOW;
+  if (difficulty === 4) return PowDifficultyTier.MEDIUM;
+  if (difficulty === 5) return PowDifficultyTier.HIGH;
+  return PowDifficultyTier.MAXIMUM;
 }
 
 /**
@@ -61,7 +63,7 @@ export function calculateDynamicDifficulty(
   if (isKnownAttackerSubnet) {
     return {
       difficulty: 6,
-      tier: 'MAXIMUM',
+      tier: PowDifficultyTier.MAXIMUM,
       reason: 'Sub-rede de alto risco identificada na Threat Intelligence: contenção máxima obrigatória.'
     };
   }
@@ -69,7 +71,7 @@ export function calculateDynamicDifficulty(
   if (failedAttemptsInWindow >= 21) {
     return {
       difficulty: 6,
-      tier: 'MAXIMUM',
+      tier: PowDifficultyTier.MAXIMUM,
       reason: 'Ataque massivo de Credential Stuffing detectado (≥ 21 falhas): barreira de contenção máxima ativada.'
     };
   }
@@ -77,7 +79,7 @@ export function calculateDynamicDifficulty(
   if (failedAttemptsInWindow >= 11) {
     return {
       difficulty: 5,
-      tier: 'HIGH',
+      tier: PowDifficultyTier.HIGH,
       reason: 'Ataque de força bruta distribuído em curso (11-20 falhas): elevação para tier de alta latência.'
     };
   }
@@ -85,7 +87,7 @@ export function calculateDynamicDifficulty(
   if (failedAttemptsInWindow >= 6) {
     return {
       difficulty: 4,
-      tier: 'MEDIUM',
+      tier: PowDifficultyTier.MEDIUM,
       reason: 'Múltiplas falhas anômalas consecutivas (6-10 falhas): barreira moderada de Prova de Trabalho exigida.'
     };
   }
@@ -93,14 +95,14 @@ export function calculateDynamicDifficulty(
   if (failedAttemptsInWindow >= 3) {
     return {
       difficulty: 3,
-      tier: 'LOW',
+      tier: PowDifficultyTier.LOW,
       reason: 'Falhas leves recorrentes (3-5 falhas): desafio PoW preventivo imperceptível para humanos.'
     };
   }
 
   return {
     difficulty: 0,
-    tier: 'NONE',
+    tier: PowDifficultyTier.NONE,
     reason: 'Comportamento normal dentro do baseline seguro: PoW dispensado.'
   };
 }

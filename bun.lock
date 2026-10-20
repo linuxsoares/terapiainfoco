@@ -83,6 +83,7 @@
         "@terapiainfoco/shared": "workspace:*",
       },
       "devDependencies": {
+        "@types/bun": "^1.4.3",
         "typescript": "^5.8.0",
       },
     },

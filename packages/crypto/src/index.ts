@@ -61,13 +61,13 @@ export * from './supplyChainGuard';
 export * from './encryptedPortabilityVault';
 export * from './webSocketDeserializationGuard';
 
-
-
-
-
-
-
-
-
-
-
+// Helpers repetidos em vários módulos (cada módulo usa a própria cópia, e os selos já emitidos
+// dependem dela): o barrel expõe só uma versão de cada nome para desfazer a ambiguidade do `export *`.
+export { canonicalizeJson } from './clinicalDid';
+export { canonicalStringify } from './rfc3161TimestampNotary';
+export { canonicalJsonStringify } from './tlsPinningGuard';
+export { toBase64Url, fromBase64Url } from './ephemeralTokenEngine';
+export { gcd, extendedGcd, modInverse } from './homomorphicPaillier';
+export { modExp } from './zkpProof';
+export type { Token, TokenType } from './expressionInjectionGuard';
+export type { Token as GraphQLToken, TokenType as GraphQLTokenType } from './graphQLQueryGuard';
