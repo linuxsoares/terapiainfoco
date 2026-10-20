@@ -2394,7 +2394,7 @@ terapiainfoco/
 | `fix/tipos-portal-e-modelos` | Corrige bugs revelados pelo typecheck: ICP em lote, laudo consolidado, WebAuthn RP ID, descarte seguro, notário, portabilidade, health check, portal do paciente | [PR #154](https://github.com/linuxsoares/terapiainfoco/pull/154) | Merged |
 | `fix/webauthn-endurecimento` | Corrige tomada de conta por passkey (chave MOCK sem verificação de assinatura) e implementa as checagens WebAuthn | [PR #155](https://github.com/linuxsoares/terapiainfoco/pull/155) | Merged |
 | `feat/leads-aprovacao` | Admin aprova (cria conta de psicólogo com senha inicial) ou recusa os pedidos de acesso da landing | [PR #156](https://github.com/linuxsoares/terapiainfoco/pull/156) | Merged |
-| `fix/auditoria-ator-servicos-seguranca` | Exige login de Admin nas 33 rotas de ferramentas da plataforma, antes abertas sem autenticação | PR_PLACEHOLDER | Open |
+| `fix/auditoria-ator-servicos-seguranca` | Exige login de Admin nas 33 rotas de ferramentas da plataforma, antes abertas sem autenticação | [PR #157](https://github.com/linuxsoares/terapiainfoco/pull/157) | Merged |
 
 ---
 
