@@ -2377,7 +2377,7 @@ terapiainfoco/
 | `fix/ajustes-perfil-interface` | Rótulos de papel amigáveis, sem "Criar Novo Perfil" para logado, erro real ao salvar perfil, Recepção fora da sala de teleconsulta | [PR #137](https://github.com/linuxsoares/terapiainfoco/pull/137) | Merged |
 | `fix/linguagem-produto-painel` | Remove jargão interno (RFC-001, numeração de módulos, enums crus) da navegação e dos módulos do consultório | [PR #138](https://github.com/linuxsoares/terapiainfoco/pull/138) | Merged |
 | `fix/acoes-duplicadas-topo-sidebar` | Um único ponto de acesso para Meu Perfil, Vitrine e Segurança & 2FA | [PR #139](https://github.com/linuxsoares/terapiainfoco/pull/139) | Merged |
-| `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | PR #TBD | Merged |
+| `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | [PR #140](https://github.com/linuxsoares/terapiainfoco/pull/140) | Merged |
 
 ---
 
