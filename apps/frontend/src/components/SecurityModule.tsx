@@ -81,6 +81,7 @@ import {
   PackageX,
   Boxes
 } from 'lucide-react';
+import { ChangePasswordCard } from './ChangePasswordCard';
 import { api } from '../services/api';
 import type { 
   SafeUser, 
@@ -7454,6 +7455,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           )}
         </div>
       </div>
+
+      <ChangePasswordCard />
 
       {/* Card 2: Demonstração e Matriz de Permissões RBAC */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">

@@ -1147,6 +1147,16 @@ export const api = {
     return res;
   },
 
+  /** Troca a própria senha; guarda os tokens novos (os anteriores deixam de valer) */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const res = await request<LoginResponse>('/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    if (res.accessToken) authStorage.setToken(res.accessToken);
+    if (res.refreshToken) authStorage.setRefreshToken(res.refreshToken);
+  },
+
   async validateLogin2FA(tempToken: string, code: string): Promise<LoginResponse> {
     const res = await request<LoginResponse>('/auth/2fa/validate', {
       method: 'POST',

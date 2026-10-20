@@ -193,6 +193,24 @@ authRoute.get('/profiles', authMiddleware(), requireRole(UserRole.ADMIN), (c) =>
 });
 
 /**
+ * POST /api/auth/password
+ * Troca da própria senha (exige a atual); devolve tokens novos e encerra as demais sessões
+ */
+authRoute.post('/password', authRateLimiter, authMiddleware({ strict: true }), async (c) => {
+  const body = await c.req.json<{ currentPassword?: string; newPassword?: string }>().catch(() => null);
+  if (!body?.currentPassword || !body?.newPassword) {
+    return c.json({ success: false, error: 'Informe a senha atual e a nova senha.' }, 400);
+  }
+  try {
+    const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
+    const tokens = await authService.changePassword(c.get('user').id, body.currentPassword, body.newPassword, ip);
+    return c.json({ success: true, ...tokens }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Não foi possível alterar a senha.' }, 400);
+  }
+});
+
+/**
  * POST /api/auth/2fa/setup
  * Gera segredo e URI otpauth para ativação no Google Authenticator
  */
