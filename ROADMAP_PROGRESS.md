@@ -2373,6 +2373,7 @@ terapiainfoco/
 | `fix/agenda-ciclo-de-vida-sessao` | Iniciar/concluir sessão só pelo psicólogo e no horário; paciente não vê sala de sessão encerrada; cancelamento pela agenda como do terapeuta | [PR #133](https://github.com/linuxsoares/terapiainfoco/pull/133) | Merged |
 | `feat/paciente-meus-psicologos` | "Meu psicólogo" no Meu Espaço com agendamento direto da próxima sessão; paciente vinculado agenda mesmo com perfil fora da busca | [PR #134](https://github.com/linuxsoares/terapiainfoco/pull/134) | Merged |
 | `feat/admin-observabilidade` | Dashboard do psicólogo só com indicadores clínicos; segurança e telemetria em módulo próprio do Admin (fim dos 403 em `/system/telemetry/*`) | [PR #135](https://github.com/linuxsoares/terapiainfoco/pull/135) | Merged |
+| `feat/agenda-selecao-paciente` | Agendamento pela agenda escolhe o paciente por busca de nome/e-mail no consultório (fim do campo de ID livre) | PR #TBD | Merged |
 
 ---
 
@@ -2422,7 +2423,8 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Remoção da gravação:** sem `MediaRecorder` na sala, rota `/recording` e campos de gravação removidos, módulo de sharding/armazenamento de mídia (`/api/teleconsultation/media`, `packages/crypto/mediaSharding`) e seu card no painel de segurança removidos; escopo de consentimento rotulado como transcrição da fala.
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [x] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (gerava 403 em `/system/telemetry/*`).
-- [ ] **Seleção de paciente no agendamento** pela agenda do consultório (hoje é um campo de ID livre, com `pat-001` pré-preenchido).
+- [x] **Seleção de paciente no agendamento:** o modal da agenda busca pacientes do consultório por nome ou e-mail (`GET /api/patients/search`, com espera de 400 ms) em vez do campo de ID livre com `pat-001` pré-preenchido; sem paciente escolhido o agendamento não é enviado.
+- [ ] **Nome do paciente nos cartões da agenda** (hoje mostra "Paciente ID: xxxxxxxx...").
 
 #### 🔐 Sessão
 - [x] **Sessão persistente:** recarregar a página mantém o login e a última tela aberta; access token expirado é renovado com o refresh token (uma renovação em voo, compatível com a rotação); sessão inválida volta à vitrine; E2E `bun run e2e:sessao`.

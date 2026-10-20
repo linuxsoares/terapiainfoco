@@ -13,7 +13,8 @@ import {
   Bell,
   Send,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
@@ -24,6 +25,7 @@ import {
   type DecryptedAppointment,
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
+import type { PatientSearchItem } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 import { TeleconsultationRoom } from './TeleconsultationRoom';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
@@ -47,7 +49,12 @@ export function AgendaModule({ role }: { role: UserRole }) {
 
   // Form de novo agendamento
   const [showModal, setShowModal] = useState(false);
-  const [patientId, setPatientId] = useState('pat-001');
+  // Paciente escolhido pela busca do consultório (nome ou e-mail), nunca por ID digitado
+  const [selectedPatient, setSelectedPatient] = useState<PatientSearchItem | null>(null);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientMatches, setPatientMatches] = useState<PatientSearchItem[]>([]);
+  const [patientSearchError, setPatientSearchError] = useState<string | null>(null);
+  const [searchingPatients, setSearchingPatients] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('14:00');
   const [bufferMin, setBufferMin] = useState(10);
@@ -87,8 +94,44 @@ export function AgendaModule({ role }: { role: UserRole }) {
     fetchAppointments();
   }, []);
 
+  // Busca com espera curta para não estourar o limite de buscas da rota
+  useEffect(() => {
+    const query = patientQuery.trim();
+    if (selectedPatient || query.length < 2) {
+      setPatientMatches([]);
+      setPatientSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        setSearchingPatients(true);
+        const matches = await api.searchPatients(query);
+        if (cancelled) return;
+        setPatientMatches(matches);
+        setPatientSearchError(matches.length === 0 ? 'Nenhum paciente encontrado com esse nome ou e-mail.' : null);
+      } catch (err: any) {
+        if (!cancelled) setPatientSearchError(err.message || 'Falha ao buscar pacientes.');
+      } finally {
+        if (!cancelled) setSearchingPatients(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [patientQuery, selectedPatient]);
+
+  const openNewAppointmentModal = () => {
+    setSelectedPatient(null);
+    setPatientQuery('');
+    setShowModal(true);
+  };
+
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPatient) return;
+    const patientId = selectedPatient.id;
     try {
       setIsSubmitting(true);
       setError(null);
@@ -254,7 +297,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openNewAppointmentModal}
             className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -327,7 +370,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
             <Calendar className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
             <p className="text-slate-500 dark:text-slate-400 text-sm">Nenhuma consulta agendada no momento.</p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openNewAppointmentModal}
               className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
             >
               + Criar primeiro agendamento
@@ -471,14 +514,66 @@ export function AgendaModule({ role }: { role: UserRole }) {
 
             <form onSubmit={handleCreateAppointment} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">ID do Paciente</label>
-                <input
-                  type="text"
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
-                  required
-                />
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Paciente</label>
+                {selectedPatient ? (
+                  <div className="flex items-center justify-between gap-3 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/30 rounded-xl px-3.5 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{selectedPatient.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{selectedPatient.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPatient(null);
+                        setPatientQuery('');
+                      }}
+                      className="text-xs font-medium text-teal-700 dark:text-teal-300 hover:underline shrink-0"
+                    >
+                      Trocar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="search"
+                        value={patientQuery}
+                        onChange={(e) => setPatientQuery(e.target.value)}
+                        placeholder="Buscar por nome ou e-mail"
+                        autoFocus
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    {searchingPatients && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Buscando pacientes...</p>
+                    )}
+                    {patientSearchError && !searchingPatients && (
+                      <p className="text-xs text-rose-600 dark:text-rose-400">{patientSearchError}</p>
+                    )}
+                    {patientMatches.length > 0 && (
+                      <ul className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+                        {patientMatches.map((match) => (
+                          <li key={match.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPatient(match)}
+                              className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">{match.name}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{match.email}</p>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {patientQuery.trim().length < 2 && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Digite ao menos 2 letras. Paciente novo? Cadastre-o primeiro em Pacientes.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -605,7 +700,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !selectedPatient}
                   className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting 
