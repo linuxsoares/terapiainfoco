@@ -43,6 +43,13 @@ interface AuditModuleProps {
   isDpo: boolean;
 }
 
+/** Situação do controle em linguagem do usuário (nunca o valor cru do enum) */
+const COMPLIANCE_STATUS_LABELS: Record<ComplianceControlStatus, string> = {
+  [ComplianceControlStatus.COMPLIANT]: 'Conforme',
+  [ComplianceControlStatus.PARTIALLY_COMPLIANT]: 'Parcialmente conforme',
+  [ComplianceControlStatus.NON_COMPLIANT]: 'Não conforme'
+};
+
 export function AuditModule({ isDpo }: AuditModuleProps) {
   const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest' | 'governance_package'>(isDpo ? 'governance_package' : 'worm_logs');
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -737,7 +744,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
                               : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700'
                           }`}>
-                            {ctrl.status}
+                            {COMPLIANCE_STATUS_LABELS[ctrl.status]}
                           </span>
                         </td>
                       </tr>

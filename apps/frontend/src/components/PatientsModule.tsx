@@ -858,7 +858,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <History className="w-3.5 h-3.5" />
-                Linha do Tempo Clínica (RFC §3.4)
+                Linha do Tempo Clínica
               </button>
               )}
 
@@ -878,7 +878,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Target className="w-3.5 h-3.5" />
-                Metas SMART (RFC §3.4)
+                Metas SMART
               </button>
               )}
 
@@ -891,7 +891,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <HeartHandshake className="w-3.5 h-3.5" />
-                Portal do Paciente & Exercícios (RFC §3.6, §3.7)
+                Portal do Paciente & Exercícios
               </button>
               )}
 
@@ -905,7 +905,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <GitBranch className="w-3.5 h-3.5" />
-                Árvore Diagnóstica (RFC §3.4)
+                Árvore Diagnóstica
               </button>
               )}
 
@@ -919,7 +919,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Pill className="w-3.5 h-3.5" />
-                Encaminhamento Psiquiátrico (RFC §3.5)
+                Encaminhamento Psiquiátrico
               </button>
               )}
 
@@ -966,7 +966,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                 className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5" />
-                Cofre Cifrado .enc Argon2id (RFC §3.3)
+                Cofre Cifrado .enc Argon2id
               </button>
               )}
 
@@ -2085,9 +2085,6 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                       Linha do Tempo Clínica Longitudinal
                     </h3>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-                      RFC §3.4
-                    </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Histórico unificado de consultas, prontuários SOAP, documentos e assiduidade terapêutica
@@ -2359,9 +2356,6 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       Plano Terapêutico & Metas SMART
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
-                      RFC-001 §3.4
-                    </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Paciente: {searchResult.name} • Gestão orientada a objetivos clínicos mensuráveis

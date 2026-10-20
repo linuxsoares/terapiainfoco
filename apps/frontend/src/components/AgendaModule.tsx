@@ -152,7 +152,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
           }
         });
         const totalCreated = res.createdAppointments?.length || res.requestedCount || res.count || recurrenceSessions;
-        setSuccessMsg(`Série clínica de ${totalCreated} consultas criada com sucesso (RFC §3.1)!`);
+        setSuccessMsg(`Série clínica de ${totalCreated} consultas criada com sucesso!`);
       } else {
         await api.createAppointment({
           patientId,
@@ -281,10 +281,10 @@ export function AgendaModule({ role }: { role: UserRole }) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-            Módulo 1: Agenda Clínica & Teleconsulta
+            Agenda Clínica & Teleconsulta
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Gestão de grade horária, buffers automáticos e sala de teleconsulta própria, sem gravação (RFC §3.1, §3.2)
+            Gestão de grade horária, buffers automáticos e sala de teleconsulta própria, sem gravação
           </p>
         </div>
 
@@ -330,7 +330,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-slate-900 dark:text-white">10 min</span>
-            <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">Obrigatório (RFC §3.1)</span>
+            <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">Obrigatório</span>
           </div>
         </div>
 
@@ -423,7 +423,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                       <button
                         onClick={() => setSelectedTeleconsultationApp(app)}
                         className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                        title="Abrir a sala de teleconsulta com sala de espera ética (RFC-001 §3.2)"
+                        title="Abrir a sala de teleconsulta com sala de espera ética"
                       >
                         <Video className="w-3.5 h-3.5" />
                         <span>Sala de Teleconsulta</span>
@@ -432,7 +432,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                       <button
                         onClick={() => setSelectedAiSoapApp(app)}
                         className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                        title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)"
+                        title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>SOAP IA</span>
@@ -619,7 +619,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                   required
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  A API bloqueará agendamentos conflitantes que invadam esta janela (RFC §3.1).
+                  A API bloqueará agendamentos conflitantes que invadam esta janela.
                 </p>
               </div>
 
@@ -634,7 +634,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                       className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4"
                     />
                     <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    Agendar como Série Recorrente (RFC §3.1)
+                    Agendar como Série Recorrente
                   </label>
                   {isRecurrent && (
                     <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
@@ -965,7 +965,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
           onClose={() => setSelectedAiSoapApp(null)}
           onEhrRecordSaved={() => {
             setSelectedAiSoapApp(null);
-            setSuccessMsg('Prontuário Oficial do Paciente (EHR) selado com sucesso na trilha WORM com respaldo da IA (RFC-001 §3.3)!');
+            setSuccessMsg('Prontuário Oficial do Paciente (EHR) selado com sucesso na trilha WORM com respaldo da IA!');
           }}
         />
       )}

@@ -222,9 +222,6 @@ export const AiTranscriptionSoapModal: React.FC<AiTranscriptionSoapModalProps> =
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Transcrição & Síntese SOAP Assistida por IA
                 </h3>
-                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  RFC-001 §3.3
-                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Paciente: <strong className="text-slate-800 dark:text-slate-200">{patientName}</strong> • Human-in-the-Loop Obrigatório (CFP nº 011/2018)
