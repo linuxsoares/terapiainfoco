@@ -82,32 +82,32 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
         {
           title: 'Agenda Inteligente, Séries Recorrentes & Lembretes WhatsApp',
           desc: 'Crie séries semanais ou quinzenais de até 24 sessões com detecção de conflitos, buffers de respiro e disparo de lembretes éticos via WhatsApp/E-mail.',
-          norm: 'RFC-001 §3.1 & CFP nº 011/2018'
+          norm: 'CFP nº 011/2018'
         },
         {
           title: 'Teleconsulta Própria (WebRTC P2P, sem gravação) & Sala de Espera Ética',
           desc: 'Salas criptografadas com knocking obrigatório, monitoramento de qualidade MOS ITU-T G.107, marcadores clínicos em tempo real e reconexão automática.',
-          norm: 'RFC-001 §3.2 & CFP nº 011/2018'
+          norm: 'CFP nº 011/2018'
         },
         {
           title: 'Transcrição com Diarização IA & Síntese SOAP Human-in-the-Loop',
           desc: 'Particionamento de fala Terapeuta/Paciente, cálculo de escuta ativa (Talk-to-Listen Ratio), sanitização prévia de PII e proposta estruturada nos 4 quadrantes SOAP.',
-          norm: 'RFC-001 §3.3 & LGPD Art. 11'
+          norm: 'LGPD Art. 11'
         },
         {
           title: 'Anamnese com Árvore de Decisão CID-11, Escalas PHQ-9/GAD-7 & Planos SMART',
           desc: '5 trilhas diagnósticas ramificadas com alerta imediato de Red Flags de crise, escalas psicométricas padronizadas e metas terapêuticas mensuráveis.',
-          norm: 'RFC-001 §3.4 & CFP nº 001/2009'
+          norm: 'CFP nº 001/2009'
         },
         {
           title: 'Documentos CFP nº 006/2019, Encaminhamento Psiquiátrico & ICP-Brasil em Lote',
           desc: 'Laudos periciais nas 5 seções canônicas, validação cruzada de 18 psicofármacos (alerta de Síndrome Serotoninérgica) e fechamento em lote via Árvore de Merkle.',
-          norm: 'RFC-001 §3.5 & MP 2.200-2/2001'
+          norm: 'MP 2.200-2/2001'
         },
         {
           title: 'Faturamento Clínico, Recibos DMED/Reembolso & Termo de Honorários',
           desc: 'Conversão automática de valores por extenso, QR Code de validação pública anônima para operadoras de saúde e contratos formais de prestação de serviços.',
-          norm: 'RFC-001 §3.6 & Receita Federal DMED'
+          norm: 'Receita Federal DMED'
         }
       ]
     },
@@ -119,17 +119,17 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       description:
         'Acompanhe suas atividades terapêuticas com privacidade ponta a ponta, baixe seus recibos para reembolso no plano de saúde e exerça seus direitos da LGPD (Art. 18) com transparência.',
       demoLabel: 'Entrar como Paciente (Mariana Silva)',
-      demoName: 'Mariana Silva de Oliveira • Titular LGPD',
+      demoName: 'Mariana Silva de Oliveira',
       features: [
         {
           title: 'Exercícios Terapêuticos Interativos (TCC, ACT, DBT & Mindfulness)',
           desc: 'Responda entre as sessões ao Registro de Pensamentos Disfuncionais (RPD), Diário de Humor, Respiração 4-4-6, Inventário de Valores ACT e Ativação Comportamental com feedback do seu psicólogo.',
-          norm: 'RFC-001 §3.7 & Práticas Baseadas em Evidências'
+          norm: 'Práticas Baseadas em Evidências'
         },
         {
           title: 'Central de Recibos para Reembolso de Convênio & IRPF',
           desc: 'Acesse todos os recibos quitados com assinatura digital, valor por extenso e token de verificação pública para envio direto à operadora de saúde.',
-          norm: 'RFC-001 §3.6 & ANS / DMED'
+          norm: 'ANS / DMED'
         },
         {
           title: 'Gestão Transparente de Consentimento (TCLE & Smart Revocation)',
@@ -139,7 +139,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
         {
           title: 'Cofre Cifrado de Portabilidade do Prontuário (.enc Argon2id + AES-256-GCM)',
           desc: 'Exporte e decifre a integralidade do seu histórico clínico em um pacote criptografado protegido exclusivamente pela sua senha pessoal, com prova de integridade Merkle Tree.',
-          norm: 'LGPD Art. 18, V & RFC-001 §4.4'
+          norm: 'LGPD Art. 18, V'
         }
       ]
     },
@@ -161,7 +161,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
         {
           title: 'Ciclo de Vida KMS (NIST SP 800-57) & Disaster Recovery Cifrado',
           desc: 'Rotação contínua de chaves mestras (KEKs), re-wrapping atômico de DEKs sem re-encriptar prontuários e snapshots de backup verificados com SHA-256.',
-          norm: 'RFC-001 §4.2 & NIST SP 800-57'
+          norm: 'NIST SP 800-57'
         },
         {
           title: '56 Painéis Ativos de Defesa Cibernética & Criptografia Pós-Quântica',
@@ -171,7 +171,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
         {
           title: 'Trilha de Auditoria WORM Hash-Chain & Observabilidade OpenTelemetry / SIEM',
           desc: 'Logs imutáveis encadeados criptograficamente com detecção instantânea de adulteração (Tamper-Evidence) e exportação OTLP para Datadog, Splunk e Prometheus.',
-          norm: 'RFC-001 §4.4, §5.2 & Resolução CD/ANPD nº 15/2024'
+          norm: 'Resolução CD/ANPD nº 15/2024'
         }
       ]
     }
@@ -183,7 +183,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Agenda & Séries Recorrentes',
       desc: 'Agendamentos semanais/quinzenais/mensais com detecção de conflito e buffer ético entre sessões.',
-      badge: 'RFC §3.1',
+      badge: 'Buffer entre sessões',
       icon: Calendar
     },
     {
@@ -199,7 +199,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Teleconsulta Própria WebRTC P2P (sem gravação)',
       desc: 'Vídeo criptografado DTLS-SRTP, sala de espera com knocking manual e telemetria MOS ITU-T G.107.',
-      badge: 'RFC §3.2',
+      badge: 'Sem gravação',
       icon: Video
     },
     {
@@ -207,7 +207,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Transcrição IA, Diarização & Síntese SOAP',
       desc: 'Separação de voz Terapeuta/Paciente, taxa de escuta ativa e rascunho SOAP Human-in-the-Loop.',
-      badge: 'RFC §3.3',
+      badge: 'Revisão humana',
       icon: Sparkles
     },
     {
@@ -223,7 +223,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Anamnese Interativa & Árvore CID-11',
       desc: '5 trilhas diagnósticas ramificadas com detecção imediata de Red Flags e escalas PHQ-4, PSS-10 e ASRS.',
-      badge: 'RFC §3.4',
+      badge: 'CID-11',
       icon: Brain
     },
     {
@@ -239,7 +239,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Linha do Tempo Clínica Longitudinal',
       desc: 'Visão unificada de consultas, evoluções SOAP seladas, anamneses, documentos CFP e taxa de assiduidade.',
-      badge: 'RFC §3.4',
+      badge: 'Prontuário',
       icon: Layers
     },
     {
@@ -255,7 +255,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'CLINICAL',
       title: 'Encaminhamento Psiquiátrico & Interações',
       desc: 'Catálogo de 18 psicofármacos e motor cruzado de interações (Síndrome Serotoninérgica / Litiemia).',
-      badge: 'RFC §3.5',
+      badge: 'Multiprofissional',
       icon: Pill
     },
     {
@@ -271,7 +271,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'PATIENT',
       title: 'Faturamento, Recibos DMED & Honorários',
       desc: 'Emissão de recibos com valor por extenso, validador público anônimo para convênios e contrato de honorários.',
-      badge: 'RFC §3.6',
+      badge: 'DMED',
       icon: Receipt
     },
     {
@@ -279,7 +279,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       category: 'PATIENT',
       title: 'Portal do Paciente & Exercícios TCC/ACT/DBT',
       desc: 'Acesso passwordless do paciente a exercícios prescritos, histórico de recibos e termos TCLE ativos.',
-      badge: 'RFC §3.7',
+      badge: 'Paciente',
       icon: HeartHandshake
     },
     {
@@ -492,7 +492,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                      Arquitetura Homologada RFC-001
+                      Por dentro da plataforma
                     </span>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       Raio-X da Ferramenta em Tempo Real
@@ -773,7 +773,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 py-6 px-4 sm:px-8 text-center text-xs text-slate-500 dark:text-slate-400">
-        TerapiaInFoco • Plataforma Clínica Psicológica RFC-001 • Conformidade CFP nº 011/2018, 006/2019, 001/2009 & LGPD Art. 11/18
+        TerapiaInFoco • Plataforma clínica para psicólogos • Conformidade CFP nº 011/2018, 006/2019, 001/2009 & LGPD Art. 11/18
       </footer>
     </div>
   );
