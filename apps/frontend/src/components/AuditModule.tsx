@@ -50,6 +50,12 @@ const COMPLIANCE_STATUS_LABELS: Record<ComplianceControlStatus, string> = {
   [ComplianceControlStatus.NON_COMPLIANT]: 'Não conforme'
 };
 
+const COMPLIANCE_STATUS_CLASSES: Record<ComplianceControlStatus, string> = {
+  [ComplianceControlStatus.COMPLIANT]: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
+  [ComplianceControlStatus.PARTIALLY_COMPLIANT]: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+  [ComplianceControlStatus.NON_COMPLIANT]: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+};
+
 export function AuditModule({ isDpo }: AuditModuleProps) {
   const [activeTab, setActiveTab] = useState<'worm_logs' | 'dpia_pentest' | 'governance_package'>(isDpo ? 'governance_package' : 'worm_logs');
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -66,7 +72,10 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
   const [generatingPackage, setGeneratingPackage] = useState(false);
   const [downloadingPackage, setDownloadingPackage] = useState(false);
   const [isSignOffModalOpen, setIsSignOffModalOpen] = useState(false);
-  const [dpoSignerName, setDpoSignerName] = useState('Dra. Beatriz Santos');
+  const [dpoSignerName, setDpoSignerName] = useState('');
+  // Identificação do pacote: vem do último pacote ou do ambiente, e o Admin pode corrigir
+  const [organizationName, setOrganizationName] = useState('');
+  const [technicalResponsibleCrp, setTechnicalResponsibleCrp] = useState('');
   const [dpoSignerStatement, setDpoSignerStatement] = useState(
     'Atesto a conformidade regulatória plena e a eficácia das salvaguardas técnicas aplicadas nos termos da LGPD, CFP, ICP-Brasil e SOC2/ISO 27001.'
   );
@@ -214,6 +223,9 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
       setLoadingGovernance(true);
       const data = await api.getGovernanceOverview();
       setGovernanceOverview(data);
+      setOrganizationName((current) => current || data.identity.organization);
+      setDpoSignerName((current) => current || data.identity.dpoName);
+      setTechnicalResponsibleCrp((current) => current || data.identity.technicalResponsibleCrp);
     } catch (err: any) {
       console.warn('Falha ao obter panorama de governança:', err.message);
     } finally {
@@ -232,9 +244,9 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
       setGeneratingPackage(true);
       setError(null);
       const res = await api.generateCompliancePackage({
-        dpoName: dpoSignerName,
-        organization: 'TerapiaInFoco Clínica Psicológica Digital',
-        technicalResponsibleCrp: 'CRP 06/142857-SP'
+        dpoName: dpoSignerName.trim(),
+        organization: organizationName.trim(),
+        technicalResponsibleCrp: technicalResponsibleCrp.trim()
       });
       setSuccessMessage(res.message);
       await fetchGovernanceOverview();
@@ -419,7 +431,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                     Selo Probatório Tamper-Evident
                   </span>
                   <span className="text-xs font-mono text-slate-400">
-                    ID: {governanceOverview?.lastPackage?.id.slice(0, 18) || 'Gerando...'}...
+                    ID: {governanceOverview?.lastPackage ? `${governanceOverview.lastPackage.id.slice(0, 18)}...` : 'Nenhum pacote emitido'}
                   </span>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -434,7 +446,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
               <div className="flex items-center gap-5 bg-white dark:bg-slate-900/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800">
                 <div className="text-center">
                   <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
-                    {governanceOverview?.globalScorePercentage ?? 100}%
+                    {governanceOverview ? `${governanceOverview.globalScorePercentage}%` : '—'}
                   </div>
                   <div className="text-[10px] font-semibold uppercase text-slate-400 mt-0.5">
                     Score Global
@@ -442,11 +454,13 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                 </div>
                 <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
                 <div className="space-y-1">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                    {governanceOverview?.status || 'COMPLIANT'}
-                  </span>
+                  {governanceOverview && (
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${COMPLIANCE_STATUS_CLASSES[governanceOverview.status]}`}>
+                      {COMPLIANCE_STATUS_LABELS[governanceOverview.status]}
+                    </span>
+                  )}
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    17 Controles Ativos
+                    {governanceOverview?.controls.length ?? 0} controles avaliados agora
                   </div>
                 </div>
               </div>
@@ -521,19 +535,52 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
               </div>
             </div>
 
+            {/* Identificação do próximo pacote (pessoas reais: nada é presumido) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs">
+              <label className="space-y-1">
+                <span className="block font-semibold text-slate-700 dark:text-slate-300">Organização</span>
+                <input
+                  type="text"
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="block font-semibold text-slate-700 dark:text-slate-300">Encarregado de dados (DPO)</span>
+                <input
+                  type="text"
+                  value={dpoSignerName}
+                  onChange={(e) => setDpoSignerName(e.target.value)}
+                  placeholder="Nome completo"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="block font-semibold text-slate-700 dark:text-slate-300">CRP do responsável técnico</span>
+                <input
+                  type="text"
+                  value={technicalResponsibleCrp}
+                  onChange={(e) => setTechnicalResponsibleCrp(e.target.value)}
+                  placeholder="Ex: CRP 06/000000-SP"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </label>
+            </div>
+
             {/* Ações do Pacote */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
               <div className="text-xs text-slate-500">
                 Emitido em: <span className="font-medium text-slate-700 dark:text-slate-300">
                   {governanceOverview?.lastPackage?.issuedAt ? new Date(governanceOverview.lastPackage.issuedAt).toLocaleString('pt-BR') : 'N/A'}
                 </span>
-                {' • '}Responsável Técnico: <span className="font-medium text-slate-700 dark:text-slate-300">{governanceOverview?.lastPackage?.technicalResponsibleCrp || 'CRP 06/142857-SP'}</span>
+                {' • '}Responsável Técnico: <span className="font-medium text-slate-700 dark:text-slate-300">{governanceOverview?.lastPackage?.technicalResponsibleCrp || 'Não informado'}</span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleGeneratePackage}
-                  disabled={generatingPackage}
+                  disabled={generatingPackage || !dpoSignerName.trim() || !technicalResponsibleCrp.trim()}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
                   title="Recalcula todas as evidências dos módulos e emite novo pacote forense registrado na trilha WORM"
                 >
@@ -568,8 +615,8 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                     {fw.framework === ComplianceFramework.ICP_BRASIL && <FileSignature className="w-5 h-5" />}
                     {fw.framework === ComplianceFramework.SOC2_ISO27001 && <Building2 className="w-5 h-5" />}
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                    {fw.status}
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${COMPLIANCE_STATUS_CLASSES[fw.status]}`}>
+                    {COMPLIANCE_STATUS_LABELS[fw.status]}
                   </span>
                 </div>
 
@@ -642,18 +689,18 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                   <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
                     {governanceOverview.forensicMetrics.dataBackupsCount} Snapshots
                   </div>
-                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    PGlite Fallback: OK
+                  <div className={`text-[10px] font-medium ${governanceOverview.forensicMetrics.backupsOffsite ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {governanceOverview.forensicMetrics.backupsOffsite ? 'Cópia externa ativa' : 'Sem cópia fora do servidor'}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60">
                   <div className="text-[11px] text-slate-500 uppercase font-semibold">2FA & Observabilidade</div>
                   <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                    {governanceOverview.forensicMetrics.twoFactorAdoptionRate}% Adoção 2FA
+                    {governanceOverview.forensicMetrics.twoFactorAdoptionRate}% da equipe com 2FA
                   </div>
                   <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                    OTLP: {governanceOverview.forensicMetrics.otlpExporterActive ? 'Conectado' : 'Pronto'}
+                    OTLP: {governanceOverview.forensicMetrics.otlpExporterActive ? 'Conectado' : 'Desativado'}
                   </div>
                 </div>
               </div>
@@ -710,7 +757,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {governanceOverview?.lastPackage?.controls
+                  {governanceOverview?.controls
                     ?.filter((ctrl) => frameworkFilter === 'ALL' || ctrl.framework === frameworkFilter)
                     ?.map((ctrl) => (
                       <tr key={ctrl.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
@@ -737,13 +784,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                           {ctrl.evidenceSummary}
                         </td>
                         <td className="py-3 text-right whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            ctrl.status === ComplianceControlStatus.COMPLIANT
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                              : ctrl.status === ComplianceControlStatus.PARTIALLY_COMPLIANT
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${COMPLIANCE_STATUS_CLASSES[ctrl.status]}`}>
                             {COMPLIANCE_STATUS_LABELS[ctrl.status]}
                           </span>
                         </td>
@@ -783,7 +824,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                       value={dpoSignerName}
                       onChange={(e) => setDpoSignerName(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Ex: Dra. Beatriz Santos (DPO Certificada)"
+                      placeholder="Nome completo"
                     />
                   </div>
 

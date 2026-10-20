@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { AuditService } from '../services/auditService';
 import { ComplianceService } from '../services/complianceService';
-import { complianceGovernanceService } from '../services/complianceGovernanceService';
+import { complianceGovernanceService, ComplianceInputError } from '../services/complianceGovernanceService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import type {
@@ -252,6 +252,7 @@ auditRoute.post('/governance/package/generate', dpoOnly, async (c) => {
     };
     return c.json(response, 201);
   } catch (err: any) {
+    if (err instanceof ComplianceInputError) return c.json({ success: false, error: err.message }, 400);
     return c.json({ success: false, error: err.message || 'Falha ao emitir pacote executivo.' }, 500);
   }
 });
@@ -309,6 +310,7 @@ auditRoute.get('/governance/package/download', dpoOnly, (c) => {
 
     return c.json(pkg, 200);
   } catch (err: any) {
+    if (err instanceof ComplianceInputError) return c.json({ success: false, error: err.message }, 404);
     return c.json({ success: false, error: err.message || 'Falha ao exportar pacote de conformidade.' }, 500);
   }
 });

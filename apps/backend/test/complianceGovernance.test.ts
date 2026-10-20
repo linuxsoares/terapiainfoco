@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { complianceGovernanceService } from '../src/services/complianceGovernanceService';
+import { UserRole } from '@terapiainfoco/shared';
 import { AuditAction, ComplianceFramework, ComplianceControlStatus } from '@terapiainfoco/shared';
 
 describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5.2)', () => {
@@ -11,6 +13,7 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
   beforeEach(async () => {
     db.clear();
     globalRateLimitStore.reset();
+    complianceGovernanceService.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {
       method: 'POST',
@@ -44,8 +47,12 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.globalScorePercentage).toBeGreaterThanOrEqual(90);
-    expect(body.status).toBe(ComplianceControlStatus.COMPLIANT);
+    // Score com dados reais: seed sem 2FA, sem backups e sem exportador OTLP não é 100%
+    expect(body.globalScorePercentage).toBeLessThan(100);
+    expect(body.controls).toHaveLength(17);
+    const control = (id: string) => body.controls.find((c: any) => c.id === id);
+    expect(control('CTRL-SOC2-02').status).toBe(ComplianceControlStatus.NON_COMPLIANT);
+    expect(control('CTRL-SOC2-03').status).toBe(ComplianceControlStatus.NON_COMPLIANT);
     expect(body.frameworks).toHaveLength(4);
 
     const frameworkIds = body.frameworks.map((f: any) => f.framework);
@@ -57,7 +64,8 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
     expect(body.forensicMetrics).toBeDefined();
     expect(body.forensicMetrics.wormChainIntegrity).toBe('INTACT');
     expect(body.forensicMetrics.activeKmsKeyVersion).toBeGreaterThanOrEqual(1);
-    expect(body.lastPackage).toBeDefined();
+    // Nenhum pacote fictício é emitido no boot
+    expect(body.lastPackage).toBeUndefined();
   });
 
   it('deve gerar um novo Pacote Executivo de Conformidade com Digest Canônico SHA-256 e registrar no WORM', async () => {
@@ -84,7 +92,7 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
     expect(pkg.canonicalDigest).toBeDefined();
     expect(pkg.canonicalDigest).toHaveLength(64);
     expect(pkg.tamperEvidentSeal).toContain('SHA256:');
-    expect(pkg.globalScorePercentage).toBeGreaterThanOrEqual(90);
+    expect(pkg.technicalResponsibleCrp).toBe('CRP 06/142857-SP');
     expect(pkg.controls).toHaveLength(17);
     expect(pkg.organization).toBe('Clínica Psicológica TerapiaInFoco Ltda.');
 
@@ -105,7 +113,8 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        dpoName: 'Dra. Beatriz Santos'
+        dpoName: 'Dra. Beatriz Santos',
+        technicalResponsibleCrp: 'CRP 06/142857-SP'
       })
     });
     const genBody = await genRes.json();
@@ -166,7 +175,8 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        dpoName: 'Dra. Beatriz Santos'
+        dpoName: 'Dra. Beatriz Santos',
+        technicalResponsibleCrp: 'CRP 06/142857-SP'
       })
     });
     const genBody = await genRes.json();
@@ -195,6 +205,47 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
       (l) => l.action === AuditAction.COMPLIANCE_PACKAGE_EXPORT
     );
     expect(exportLogs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('exige DPO e CRP do responsável técnico na primeira emissão e reutiliza a identificação depois', async () => {
+    const post = (body: object) => app.request('/api/audit/governance/package/generate', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const missing = await post({ dpoName: 'Dra. Beatriz Santos' });
+    expect(missing.status).toBe(400);
+    expect((await missing.json() as any).error).toContain('CRP do responsável técnico');
+
+    expect((await post({ dpoName: 'Dra. Beatriz Santos', technicalResponsibleCrp: 'CRP 05/111-RJ' })).status).toBe(201);
+    const overview = await (await app.request('/api/audit/governance/overview', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    })).json() as any;
+    expect(overview.identity.technicalResponsibleCrp).toBe('CRP 05/111-RJ');
+    expect((await post({})).status).toBe(201);
+  });
+
+  it('controle de 2FA reflete a adoção real da equipe', async () => {
+    const overview = async () => (await (await app.request('/api/audit/governance/overview', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    })).json()) as any;
+
+    const before = await overview();
+    for (const user of db.users.values()) {
+      if (user.role !== UserRole.PACIENTE) user.twoFactorEnabled = true;
+    }
+    const after = await overview();
+    expect(after.forensicMetrics.twoFactorAdoptionRate).toBe(100);
+    expect(after.controls.find((c: any) => c.id === 'CTRL-SOC2-02').status).toBe(ComplianceControlStatus.COMPLIANT);
+    expect(after.globalScorePercentage).toBeGreaterThan(before.globalScorePercentage);
+  });
+
+  it('download sem pacote emitido responde 404', async () => {
+    const res = await app.request('/api/audit/governance/package/download', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    expect(res.status).toBe(404);
   });
 
   it('deve rejeitar acesso não autenticado com HTTP 401', async () => {

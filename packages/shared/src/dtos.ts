@@ -1415,6 +1415,10 @@ export interface ExecutiveComplianceOverviewResponse {
   status: import('./enums').ComplianceControlStatus;
   frameworks: import('./models').ComplianceFrameworkEvaluation[];
   forensicMetrics: import('./models').ForensicMetricsSnapshot;
+  /** Controles avaliados agora (o pacote emitido é um retrato de um momento anterior) */
+  controls: import('./models').ComplianceControlDetail[];
+  /** Identificação sugerida para o próximo pacote (último emitido ou configuração do ambiente) */
+  identity: { organization: string; dpoName: string; technicalResponsibleCrp: string };
   lastPackage?: import('./models').ExecutiveCompliancePackage;
 }
 

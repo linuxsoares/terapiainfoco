@@ -1060,7 +1060,9 @@ export interface ForensicMetricsSnapshot {
   wormChainIntegrity: 'INTACT' | 'COMPROMISED';
   activeKmsKeyVersion: number;
   dataBackupsCount: number;
-  resilienceFallbackPassed: boolean;
+  /** Snapshots de backup copiados para fora do processo (object storage) */
+  backupsOffsite: boolean;
+  /** Porcentagem da equipe e administradores (contas não-paciente) com 2FA ativo */
   twoFactorAdoptionRate: number;
   passkeysCount: number;
   rateLimitingStoreType: string;

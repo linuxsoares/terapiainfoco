@@ -15,7 +15,7 @@ describe('Executive Compliance Governance & Multi-Normative Audit Engine (RFC-00
     wormChainIntegrity: 'INTACT',
     activeKmsKeyVersion: 2,
     dataBackupsCount: 15,
-    resilienceFallbackPassed: true,
+    backupsOffsite: true,
     twoFactorAdoptionRate: 100,
     passkeysCount: 3,
     rateLimitingStoreType: 'memory_fallback',
