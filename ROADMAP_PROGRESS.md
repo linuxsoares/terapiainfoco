@@ -2391,7 +2391,7 @@ terapiainfoco/
 | `chore/remove-agendamento-anonimo` | Remove o agendamento público anônimo da API e estabiliza a simulação de timing attack | [PR #151](https://github.com/linuxsoares/terapiainfoco/pull/151) | Merged |
 | `fix/seguranca-pessoal-e-linguagem` | Segurança mostra só a própria conta (ferramentas da plataforma para o Admin), linguagem da vitrine e correção da tela do Admin | [PR #152](https://github.com/linuxsoares/terapiainfoco/pull/152) | Merged |
 | `fix/auditoria-ator-e-detalhes` | Auditoria grava o ator correto e os detalhes do evento (com hash compatível com a cadeia existente) | [PR #153](https://github.com/linuxsoares/terapiainfoco/pull/153) | Merged |
-| `fix/tipos-portal-e-modelos` | Corrige bugs revelados pelo typecheck: ICP em lote, laudo consolidado, WebAuthn RP ID, descarte seguro, notário, portabilidade, health check, portal do paciente | PR #TBD | Merged |
+| `fix/tipos-portal-e-modelos` | Corrige bugs revelados pelo typecheck: ICP em lote, laudo consolidado, WebAuthn RP ID, descarte seguro, notário, portabilidade, health check, portal do paciente | [PR #154](https://github.com/linuxsoares/terapiainfoco/pull/154) | Merged |
 
 ---
 
