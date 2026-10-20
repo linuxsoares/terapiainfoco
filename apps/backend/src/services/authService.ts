@@ -178,45 +178,6 @@ export class AuthService {
       passwordValid = await Bun.password.verify(dto.password, user.passwordHash);
     }
 
-    // Se falhou verificação local mas Supabase Auth estiver disponível, tenta autenticar via REST do Supabase Auth
-    if (!passwordValid && config.supabase.url && (config.supabase.secretKey || config.supabase.publishableKey)) {
-      try {
-        const apiKey = config.supabase.publishableKey || config.supabase.secretKey;
-        const sbRes = await fetch(`${config.supabase.url.replace(/\/+$/, '')}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: apiKey
-          },
-          body: JSON.stringify({ email, password: dto.password })
-        });
-        if (sbRes.ok) {
-          const sbData = (await sbRes.json()) as any;
-          if (sbData?.user) {
-            passwordValid = true;
-            if (!user) {
-              const newLocalUser: User = {
-                id: sbData.user.id || crypto.randomUUID(),
-                email: sbData.user.email,
-                name: sbData.user.user_metadata?.name || email.split('@')[0],
-                role: sbData.user.user_metadata?.role || UserRole.PSICOLOGO_TITULAR,
-                crp: sbData.user.user_metadata?.crp,
-                crpRegion: sbData.user.user_metadata?.crpRegion,
-                therapistId: '00000000-0000-0000-0000-000000000001',
-                passwordHash: await Bun.password.hash(dto.password),
-                twoFactorEnabled: false,
-                createdAt: new Date()
-              };
-              db.users.set(newLocalUser.id, newLocalUser);
-              user = newLocalUser;
-            }
-          }
-        }
-      } catch {
-        // ignora erro transitório
-      }
-    }
-
     if (!user || !passwordValid) {
       await auditService.logAccess({
         actorId: user?.id || '00000000-0000-0000-0000-000000000000',
@@ -859,74 +820,20 @@ export class AuthService {
   }
 
   /**
-   * Valida um access token e retorna os metadados do usuário (suporta tokens nativos e Supabase Auth)
+   * Valida um access token emitido por esta API. Tokens do Supabase Auth não são aceitos:
+   * o papel viria de user_metadata (editável pelo próprio usuário) e o vínculo seria só pelo e-mail.
    */
   public async verifyAccessToken(token: string): Promise<AuthTokenPayload> {
-    try {
-      const payload = (await verify(token, config.jwtSecret, 'HS256')) as any;
-      if (payload.type !== 'access') {
-        throw new Error('Token fornecido não é um token de acesso válido.');
-      }
-      const user = db.users.get(payload.sub);
-      if (user && issuedBeforePasswordChange(user, payload.iat)) {
-        throw new Error('Senha alterada: faça login novamente.');
-      }
-      return payload;
-    } catch (localError) {
-      if (config.supabase.url && (config.supabase.secretKey || config.supabase.publishableKey)) {
-        const supabasePayload = await this.verifySupabaseAuth(token);
-        if (supabasePayload) {
-          return supabasePayload;
-        }
-      }
-      throw localError;
+    const payload = (await verify(token, config.jwtSecret, 'HS256')) as any;
+    if (payload.type !== 'access') {
+      throw new Error('Token fornecido não é um token de acesso válido.');
     }
-  }
-
-  /**
-   * Valida token emitido pelo Supabase Auth utilizando a API REST /auth/v1/user
-   */
-  private async verifySupabaseAuth(token: string): Promise<AuthTokenPayload | null> {
-    try {
-      const apiKey = config.supabase.secretKey || config.supabase.publishableKey;
-      const res = await fetch(`${config.supabase.url.replace(/\/+$/, '')}/auth/v1/user`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: apiKey
-        }
-      });
-
-      if (!res.ok) {
-        return null;
-      }
-
-      const data = (await res.json()) as any;
-      if (!data || !data.id) {
-        return null;
-      }
-
-      const localUser =
-        db.users.get(data.id) ||
-        Array.from(db.users.values()).find(
-          u => u.email.toLowerCase() === (data.email || '').toLowerCase()
-        );
-
-      return {
-        sub: localUser ? localUser.id : data.id,
-        email: data.email || (localUser ? localUser.email : ''),
-        name: localUser ? localUser.name : (data.user_metadata?.name || ''),
-        role: localUser ? localUser.role : (data.user_metadata?.role || UserRole.PSICOLOGO_TITULAR),
-        therapistId: localUser?.therapistId || '00000000-0000-0000-0000-000000000001',
-        patientId: localUser?.patientId,
-        type: 'access',
-        exp: Math.floor(Date.now() / 1000) + 3600,
-        iat: Math.floor(Date.now() / 1000)
-      };
-    } catch {
-      return null;
+    const user = db.users.get(payload.sub);
+    if (user && issuedBeforePasswordChange(user, payload.iat)) {
+      throw new Error('Senha alterada: faça login novamente.');
     }
+    return payload;
   }
-
 
   public getUserById(id: string): SafeUser | null {
     const user = db.users.get(id);
