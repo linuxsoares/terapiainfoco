@@ -177,8 +177,9 @@ export class GraphQLQueryGuardService {
 
   public inspectQuery(
     dto: InspectGraphQLQueryDTO,
-    clientIp: string = '127.0.0.1',
-    userAgent: string = 'Internal-Client'
+    clientIp: string,
+    userAgent: string,
+    actorId: string
   ): InspectGraphQLQueryResponse {
     const inspection = inspectGraphQLQuery(dto.query, this.policy, dto.userRole);
 
@@ -191,7 +192,7 @@ export class GraphQLQueryGuardService {
     if (inspection.allowed) {
       this.metrics.allowedQueries++;
       AuditService.log({
-        actorId: 'system',
+        actorId,
         action: AuditAction.GRAPHQL_QUERY_ANALYZED,
         resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
         resourceId: inspection.seal.sealToken,
@@ -260,7 +261,7 @@ export class GraphQLQueryGuardService {
     }
 
     AuditService.log({
-      actorId: 'system',
+      actorId,
       action: auditAction,
       resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: inspection.seal.sealToken,
@@ -286,9 +287,10 @@ export class GraphQLQueryGuardService {
 
   public updatePolicy(
     dto: UpdateGraphQLPolicyDTO,
-    userRole?: UserRole,
-    clientIp: string = '127.0.0.1',
-    userAgent: string = 'Internal-Client'
+    userRole: UserRole | undefined,
+    clientIp: string,
+    userAgent: string,
+    actorId: string
   ): UpdateGraphQLPolicyResponse {
     this.policy = {
       ...this.policy,
@@ -297,7 +299,7 @@ export class GraphQLQueryGuardService {
     };
 
     AuditService.log({
-      actorId: 'system',
+      actorId,
       action: AuditAction.GRAPHQL_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: 'policy_current',
@@ -318,8 +320,9 @@ export class GraphQLQueryGuardService {
 
   public simulateAttack(
     dto: SimulateGraphQLAttackDTO,
-    clientIp: string = '127.0.0.1',
-    userAgent: string = 'Pentest-Simulator'
+    clientIp: string,
+    userAgent: string,
+    actorId: string
   ): SimulateGraphQLAttackResponse {
     const attackPreset = SAMPLE_GRAPHQL_ATTACKS.find((a) => a.category === dto.threatCategory) || SAMPLE_GRAPHQL_ATTACKS[0];
 
@@ -354,7 +357,7 @@ export class GraphQLQueryGuardService {
     if (this.recentIncidents.length > 20) this.recentIncidents.pop();
 
     AuditService.log({
-      actorId: 'system',
+      actorId,
       action: AuditAction.GRAPHQL_COMPLEXITY_EXCEEDED,
       resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: inspection.seal.sealToken,
@@ -380,11 +383,11 @@ export class GraphQLQueryGuardService {
     };
   }
 
-  public verifySeal(dto: VerifyGraphQLCostSealDTO): VerifyGraphQLCostSealResponse {
+  public verifySeal(dto: VerifyGraphQLCostSealDTO, actorId: string): VerifyGraphQLCostSealResponse {
     const verification = verifyGraphQLCostProofSeal(dto.sealToken);
 
     AuditService.log({
-      actorId: 'system',
+      actorId,
       action: AuditAction.GRAPHQL_COST_SEAL_VERIFIED,
       resourceType: AuditResourceType.GRAPHQL_QUERY_GUARD,
       resourceId: typeof dto.sealToken === 'string' ? dto.sealToken : dto.sealToken.sealToken,

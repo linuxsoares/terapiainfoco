@@ -122,7 +122,7 @@ export class ClinicalDidService {
   /**
    * Resolve um DID para seu respectivo DID Document
    */
-  public async resolveDid(did: string): Promise<W3CDidDocument | null> {
+  public async resolveDid(did: string, actorId: string): Promise<W3CDidDocument | null> {
     if (!did || typeof did !== 'string') return null;
 
     // Se já estiver no registro interno
@@ -139,7 +139,7 @@ export class ClinicalDidService {
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
-        actorId: 'system',
+        actorId,
         details: { method: ClinicalDidMethod.DID_TERAPIAINFOCO, did }
       });
 
@@ -155,7 +155,7 @@ export class ClinicalDidService {
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
-        actorId: 'system',
+        actorId,
         details: { method: ClinicalDidMethod.DID_KEY, did }
       });
 
@@ -168,9 +168,9 @@ export class ClinicalDidService {
   /**
    * Emite uma Verifiable Credential assinada digitalmente
    */
-  public async issueCredential(dto: IssueVerifiableCredentialDTO): Promise<{ credential: W3CVerifiableCredential; jwtToken: string }> {
+  public async issueCredential(dto: IssueVerifiableCredentialDTO, actorId: string): Promise<{ credential: W3CVerifiableCredential; jwtToken: string }> {
     const therapistDid = formatTherapistDid(dto.therapistCrp);
-    await this.resolveDid(therapistDid);
+    await this.resolveDid(therapistDid, actorId);
 
     // Pseudonimiza o paciente para garantir Zero-Knowledge
     const patientBlindIndex = computeBlindIndex(dto.patientId, 'PATIENT_BLIND_INDEX_SALT');
@@ -229,8 +229,9 @@ export class ClinicalDidService {
       action: AuditAction.VERIFIABLE_CREDENTIAL_ISSUED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: credentialId,
-      actorId: dto.therapistId,
+      actorId,
       details: {
+        therapistId: dto.therapistId,
         credentialType: dto.credentialType,
         issuerDid: therapistDid,
         subjectId,
@@ -248,7 +249,7 @@ export class ClinicalDidService {
   /**
    * Verifica uma credencial verificável ou apresentação W3C
    */
-  public async verifyCredential(payload: string, expectedNonce?: string): Promise<VerifiableCredentialVerificationResult> {
+  public async verifyCredential(payload: string, expectedNonce: string | undefined, actorId: string): Promise<VerifiableCredentialVerificationResult> {
     this.totalVerifiedCount++;
     const trimmed = payload.trim();
 
@@ -272,7 +273,7 @@ export class ClinicalDidService {
           action: AuditAction.VERIFIABLE_CREDENTIAL_VERIFIED,
           resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
           resourceId: decodedVc.id,
-          actorId: 'verifier-public',
+          actorId,
           details: { valid: result.valid, status: result.status, issuerDid: result.issuerDid }
         });
 
@@ -335,7 +336,7 @@ export class ClinicalDidService {
   /**
    * Revoga uma credencial verificável formalmente com registro na trilha WORM
    */
-  public async revokeCredential(dto: RevokeVerifiableCredentialDTO): Promise<{ success: boolean; credentialId: string; revokedAt: string; message: string }> {
+  public async revokeCredential(dto: RevokeVerifiableCredentialDTO, actorId: string): Promise<{ success: boolean; credentialId: string; revokedAt: string; message: string }> {
     const cred = this.credentialsById.get(dto.credentialId);
     if (!cred) {
       throw new Error(`Credencial ${dto.credentialId} não encontrada no repositório federado.`);
@@ -352,7 +353,7 @@ export class ClinicalDidService {
       action: AuditAction.VERIFIABLE_CREDENTIAL_REVOKED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: dto.credentialId,
-      actorId: cred.issuer,
+      actorId,
       details: {
         reason: dto.revocationReason,
         revokedAt,

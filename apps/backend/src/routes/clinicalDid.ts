@@ -25,7 +25,7 @@ didRouter.get('/resolve/:did', async (c) => {
       return c.json({ success: false, message: 'Parâmetro DID é obrigatório.' }, 400);
     }
 
-    const didDocument = await didService.resolveDid(did);
+    const didDocument = await didService.resolveDid(did, c.get('userId'));
     if (!didDocument) {
       return c.json({ success: false, message: `DID ${did} não encontrado ou não suportado.` }, 404);
     }
@@ -54,7 +54,7 @@ didRouter.post('/credentials/issue', async (c) => {
       }, 400);
     }
 
-    const result = await didService.issueCredential(body);
+    const result = await didService.issueCredential(body, c.get('userId'));
 
     return c.json({
       success: true,
@@ -84,7 +84,8 @@ didRouter.post('/credentials/verify', async (c) => {
 
     const result = await didService.verifyCredential(
       body.credentialOrPresentationPayload,
-      body.expectedNonce
+      body.expectedNonce,
+      c.get('userId')
     );
 
     return c.json({
@@ -111,7 +112,7 @@ didRouter.post('/credentials/revoke', async (c) => {
       }, 400);
     }
 
-    const result = await didService.revokeCredential(body);
+    const result = await didService.revokeCredential(body, c.get('userId'));
 
     return c.json({
       success: true,
