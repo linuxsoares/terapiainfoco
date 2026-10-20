@@ -178,9 +178,21 @@ export function evaluateGovernanceControls(
     } else if (base.id === 'CTRL-SOC2-01' && forensicMetrics.activeKmsKeyVersion < 1) {
       status = ComplianceControlStatus.NON_COMPLIANT;
       evidenceSummary = 'KMS inativo ou sem chave mestre configurada.';
-    } else if (base.id === 'CTRL-SOC2-03' && !forensicMetrics.resilienceFallbackPassed) {
+    } else if (base.id === 'CTRL-SOC2-02' && forensicMetrics.twoFactorAdoptionRate < 100) {
+      status = forensicMetrics.twoFactorAdoptionRate > 0
+        ? ComplianceControlStatus.PARTIALLY_COMPLIANT
+        : ComplianceControlStatus.NON_COMPLIANT;
+      evidenceSummary = `${forensicMetrics.twoFactorAdoptionRate}% da equipe e administradores com 2FA ativo.`;
+    } else if (base.id === 'CTRL-SOC2-03' && (forensicMetrics.dataBackupsCount === 0 || !forensicMetrics.backupsOffsite)) {
+      status = forensicMetrics.dataBackupsCount === 0
+        ? ComplianceControlStatus.NON_COMPLIANT
+        : ComplianceControlStatus.PARTIALLY_COMPLIANT;
+      evidenceSummary = forensicMetrics.dataBackupsCount === 0
+        ? 'Nenhum snapshot de backup cifrado registrado.'
+        : `${forensicMetrics.dataBackupsCount} snapshot(s) cifrado(s) mantido(s) só no processo, sem cópia em object storage.`;
+    } else if (base.id === 'CTRL-SOC2-04' && !forensicMetrics.otlpExporterActive) {
       status = ComplianceControlStatus.PARTIALLY_COMPLIANT;
-      evidenceSummary = 'Ambiente ativo, porém sonda de contingência PGlite reportou latência elevada.';
+      evidenceSummary = 'Exportador OTLP desativado: telemetria e trilha forense sem envio a coletor externo.';
     } else {
       switch (base.framework) {
         case ComplianceFramework.LGPD:

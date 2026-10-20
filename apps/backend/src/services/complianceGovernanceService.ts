@@ -1,7 +1,7 @@
 import {
   AuditAction,
   AuditResourceType,
-  ComplianceControlStatus,
+  UserRole,
   type ExecutiveCompliancePackage,
   type ForensicMetricsSnapshot,
   type GenerateCompliancePackageDTO,
@@ -21,31 +21,20 @@ import { backupStore } from './backupService';
 import { globalRateLimitStore } from '../middlewares/rateLimiter';
 import { otlpBatchExporter } from '../telemetry/otlpBatchExporter';
 import { db } from '../db/memoryDb';
+import { config } from '../config';
+
+/** Erro de entrada do Admin (vira 400 na rota) */
+export class ComplianceInputError extends Error {}
 
 export class ComplianceGovernanceService {
   private static instance: ComplianceGovernanceService;
   private packagesHistory: ExecutiveCompliancePackage[] = [];
-
-  constructor() {
-    this.seedInitialPackage();
-  }
 
   public static getInstance(): ComplianceGovernanceService {
     if (!ComplianceGovernanceService.instance) {
       ComplianceGovernanceService.instance = new ComplianceGovernanceService();
     }
     return ComplianceGovernanceService.instance;
-  }
-
-  private seedInitialPackage(): void {
-    const defaultMetrics = this.collectForensicMetrics();
-    const pkg = buildExecutiveCompliancePackage({
-      organization: 'TerapiaInFoco Clínica Psicológica Digital',
-      dpoName: 'Dra. Beatriz Santos (DPO Certificada)',
-      technicalResponsibleCrp: 'CRP 06/142857-SP',
-      forensicMetrics: defaultMetrics
-    });
-    this.packagesHistory.unshift(pkg);
   }
 
   /**
@@ -67,12 +56,12 @@ export class ComplianceGovernanceService {
     // 4. Rate Limiting
     const storeStatus = globalRateLimitStore.getStatus();
 
-    // 5. Autenticação Forte (2FA e Passkeys)
+    // 5. Autenticação Forte: 2FA medido em quem acessa dados clínicos ou administra (pacientes têm 2FA opcional)
     const usersList = Array.from(db.users.values());
-    const totalUsers = usersList.length || 1;
-    const usersWith2fa = usersList.filter((u) => u.twoFactorEnabled).length;
+    const staff = usersList.filter((u) => u.role !== UserRole.PACIENTE);
+    const staffWith2fa = staff.filter((u) => u.twoFactorEnabled).length;
     const totalPasskeys = usersList.reduce((acc, u) => acc + (u.passkeysCount || 0), 0);
-    const twoFactorAdoptionRate = Math.round((usersWith2fa / totalUsers) * 100);
+    const twoFactorAdoptionRate = staff.length > 0 ? Math.round((staffWith2fa / staff.length) * 100) : 0;
 
     // 6. OTLP Exporter
     const otlpConfig = otlpBatchExporter.getConfig();
@@ -82,8 +71,9 @@ export class ComplianceGovernanceService {
       wormChainIntegrity,
       activeKmsKeyVersion,
       dataBackupsCount,
-      resilienceFallbackPassed: true,
-      twoFactorAdoptionRate: twoFactorAdoptionRate > 0 ? twoFactorAdoptionRate : 100,
+      // Snapshots ainda vivem só na memória do BackupService (sem object storage)
+      backupsOffsite: false,
+      twoFactorAdoptionRate,
       passkeysCount: totalPasskeys,
       rateLimitingStoreType: storeStatus.storeType,
       otlpExporterActive: otlpConfig.enabled
@@ -104,7 +94,19 @@ export class ComplianceGovernanceService {
       status: evaluation.status,
       frameworks: evaluation.frameworks,
       forensicMetrics,
+      controls: evaluation.controls,
+      identity: this.currentIdentity(),
       lastPackage
+    };
+  }
+
+  /** Identificação do último pacote emitido ou, na falta dele, a configurada no ambiente */
+  private currentIdentity(): { organization: string; dpoName: string; technicalResponsibleCrp: string } {
+    const last = this.packagesHistory[0];
+    return {
+      organization: last?.organization || config.compliance.organization,
+      dpoName: last?.dpoName || config.compliance.dpoName,
+      technicalResponsibleCrp: last?.technicalResponsibleCrp || config.compliance.technicalResponsibleCrp
     };
   }
 
@@ -116,13 +118,20 @@ export class ComplianceGovernanceService {
     actorId = 'admin',
     ip = '127.0.0.1'
   ): ExecutiveCompliancePackage {
-    const forensicMetrics = this.collectForensicMetrics();
+    const identity = this.currentIdentity();
+    const organization = dto.organization?.trim() || identity.organization;
+    const dpoName = dto.dpoName?.trim() || identity.dpoName;
+    const technicalResponsibleCrp = dto.technicalResponsibleCrp?.trim() || identity.technicalResponsibleCrp;
+    // O pacote atesta pessoas reais: sem valores presumidos para DPO e responsável técnico
+    if (!dpoName || !technicalResponsibleCrp) {
+      throw new ComplianceInputError('Informe o nome do DPO e o CRP do responsável técnico para emitir o pacote.');
+    }
 
     const pkg = buildExecutiveCompliancePackage({
-      organization: dto.organization || 'TerapiaInFoco Clínica Psicológica Digital',
-      dpoName: dto.dpoName || 'Dra. Beatriz Santos (DPO Certificada)',
-      technicalResponsibleCrp: dto.technicalResponsibleCrp || 'CRP 06/142857-SP',
-      forensicMetrics
+      organization,
+      dpoName,
+      technicalResponsibleCrp,
+      forensicMetrics: this.collectForensicMetrics()
     });
 
     this.packagesHistory.unshift(pkg);
@@ -201,7 +210,7 @@ export class ComplianceGovernanceService {
       : this.packagesHistory[0];
 
     if (!pkg) {
-      pkg = this.generateExecutivePackage({}, actorId, ip);
+      throw new ComplianceInputError('Nenhum pacote de conformidade emitido ainda.');
     }
 
     const verification = verifyCompliancePackageIntegrity(pkg);
@@ -231,6 +240,11 @@ export class ComplianceGovernanceService {
 
   public listPackages(): ExecutiveCompliancePackage[] {
     return [...this.packagesHistory];
+  }
+
+  /** Esvazia o histórico de pacotes (isolamento entre testes) */
+  public reset(): void {
+    this.packagesHistory = [];
   }
 }
 
