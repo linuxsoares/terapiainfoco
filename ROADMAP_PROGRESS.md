@@ -2378,7 +2378,7 @@ terapiainfoco/
 | `fix/linguagem-produto-painel` | Remove jargão interno (RFC-001, numeração de módulos, enums crus) da navegação e dos módulos do consultório | [PR #138](https://github.com/linuxsoares/terapiainfoco/pull/138) | Merged |
 | `fix/acoes-duplicadas-topo-sidebar` | Um único ponto de acesso para Meu Perfil, Vitrine e Segurança & 2FA | [PR #139](https://github.com/linuxsoares/terapiainfoco/pull/139) | Merged |
 | `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | [PR #140](https://github.com/linuxsoares/terapiainfoco/pull/140) | Merged |
-| `fix/admin-governanca-dados-reais` | Pacote de conformidade sem identidade fixa e score calculado com 2FA da equipe, backups e OTLP reais | PR #TBD | Merged |
+| `fix/admin-governanca-dados-reais` | Pacote de conformidade sem identidade fixa e score calculado com 2FA da equipe, backups e OTLP reais | [PR #141](https://github.com/linuxsoares/terapiainfoco/pull/141) | Merged |
 
 ---
 
