@@ -1,34 +1,20 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { app } from '../src/index';
 import { UserRole } from '@terapiainfoco/shared';
-import { AuthService } from '../src/services/authService';
+import { authService } from '../src/services/authService';
+import { db } from '../src/db/memoryDb';
+import { SEED_ADMIN_ID } from './helpers/adminRequest';
+
+const SEED_THERAPIST_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('Threat Intelligence & Dark Web Credential Breach Monitor API (RFC-001 §4.4, LGPD Art. 46/48)', () => {
   let adminToken: string;
   let psychologistToken: string;
 
+  // Tokens emitidos direto: o login por HTTP dependia do rate limit de autenticação compartilhado entre arquivos
   beforeAll(async () => {
-    const loginTherapist = await app.request('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'psicologo@terapiainfoco.com.br',
-        password: 'Senha@123456'
-      })
-    });
-    const therapistData = await loginTherapist.json();
-    psychologistToken = therapistData.accessToken;
-
-    const loginAdmin = await app.request('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'admin@terapiainfoco.com.br',
-        password: 'Senha@123456'
-      })
-    });
-    const adminData = await loginAdmin.json();
-    adminToken = adminData.accessToken;
+    psychologistToken = (await authService.issueTokens(db.users.get(SEED_THERAPIST_ID)!, '127.0.0.1')).accessToken;
+    adminToken = (await authService.issueTokens(db.users.get(SEED_ADMIN_ID)!, '127.0.0.1')).accessToken;
   });
 
   it('POST /api/security/threat-intelligence/check deve consultar k-Anonymity e detectar vazamento sem vazar a senha', async () => {

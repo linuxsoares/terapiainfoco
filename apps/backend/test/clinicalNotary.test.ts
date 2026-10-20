@@ -3,6 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { NotaryStatus, NotaryVerificationStatus } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP nº 001/2009 & LGPD Art. 18)', () => {
   let authToken: string;
@@ -11,6 +12,10 @@ describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP
   let sealedToken: string;
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     // 1. Autenticação como psicólogo titular
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

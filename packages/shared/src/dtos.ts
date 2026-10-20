@@ -767,6 +767,8 @@ export interface BackupSnapshotMetadata {
     gcmAuthTagValid: boolean;
     sha256ChecksumValid: boolean;
   } | null;
+  /** Onde o snapshot cifrado está guardado: object storage (durável) ou só na memória do processo */
+  storageLocation?: 'OBJECT_STORAGE' | 'MEMORY_ONLY';
 }
 
 export interface BackupSnapshotFile {
@@ -783,6 +785,8 @@ export interface BackupOverviewResponse {
   rtoEstimateMs: number;
   isRpoCompliant: boolean;
   backups: BackupSnapshotMetadata[];
+  /** Destino dos snapshots: com object storage configurado eles sobrevivem a restarts e deploys */
+  storage: { offsite: boolean; location: string | null };
 }
 
 export interface CreateBackupResponse {

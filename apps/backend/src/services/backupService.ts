@@ -14,18 +14,22 @@ import {
 import { db } from '../db/memoryDb';
 import { envelopeService } from './cryptoContext';
 import { AuditService } from './auditService';
+import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } from './backupObjectStorage';
 
 interface StoredBackupSnapshot {
   metadata: BackupSnapshotMetadata;
   envelope: EnvelopeEncryptedData;
 }
 
+/** Snapshots mantidos na memória do processo (os mais recentes); o histórico completo fica no object storage */
+const MEMORY_RETENTION = 20;
+
 /**
- * Repositório em memória / persistência local de backups criptografados
+ * Cache em memória dos backups criptografados
  */
 class BackupStore {
   private snapshots: Map<string, StoredBackupSnapshot> = new Map();
-  private maxRetention = 20;
+  private maxRetention = MEMORY_RETENTION;
 
   get(id: string): StoredBackupSnapshot | undefined {
     return this.snapshots.get(id);
@@ -59,7 +63,59 @@ class BackupStore {
 
 export const backupStore = new BackupStore();
 
+function toSnapshotFile(stored: StoredBackupSnapshot): BackupSnapshotFile {
+  return { backupMetadata: stored.metadata, envelope: stored.envelope };
+}
+
 export class BackupService {
+  private static objectStorage: BackupObjectStorage | null = createBackupObjectStorage();
+
+  /** Troca o destino durável (testes injetam um storage em memória; null desliga) */
+  static useObjectStorage(storage: BackupObjectStorage | null): void {
+    this.objectStorage = storage;
+  }
+
+  static isOffsite(): boolean {
+    return this.objectStorage !== null;
+  }
+
+  /**
+   * Recarrega no boot os snapshots mais recentes do object storage (só os metadados e envelopes cifrados).
+   */
+  static async hydrateFromObjectStorage(): Promise<number> {
+    if (!this.objectStorage) return 0;
+    const keys = await this.objectStorage.listRecent(MEMORY_RETENTION);
+    let loaded = 0;
+    for (const key of keys) {
+      const body = await this.objectStorage.get(key);
+      if (!body) continue;
+      const file = JSON.parse(body) as BackupSnapshotFile;
+      backupStore.save({ metadata: file.backupMetadata, envelope: file.envelope });
+      loaded++;
+    }
+    return loaded;
+  }
+
+  /** Busca o snapshot na memória e, se não estiver lá (restart ou fora da retenção), no object storage */
+  private static async load(backupId: string): Promise<StoredBackupSnapshot | undefined> {
+    const cached = backupStore.get(backupId);
+    if (cached || !this.objectStorage) return cached;
+    const body = await this.objectStorage.get(backupObjectKey(backupId));
+    if (!body) return undefined;
+    const file = JSON.parse(body) as BackupSnapshotFile;
+    return { metadata: file.backupMetadata, envelope: file.envelope };
+  }
+
+  /** Regrava o snapshot no object storage para que o resultado da verificação também seja durável */
+  private static async persistMetadata(stored: StoredBackupSnapshot): Promise<void> {
+    if (!this.objectStorage) return;
+    try {
+      await this.objectStorage.put(backupObjectKey(stored.metadata.id), JSON.stringify(toSnapshotFile(stored)));
+    } catch (err) {
+      console.error(`⚠️ Não foi possível atualizar o snapshot ${stored.metadata.id} no object storage:`, err);
+    }
+  }
+
   /**
    * Captura o estado completo do banco de dados e gera snapshot cifrado por Envelope Encryption com KMS
    */
@@ -137,14 +193,21 @@ export class BackupService {
       entitiesCount,
       status: 'COMPLETED',
       verifiedAt: null,
-      verificationDetails: null
+      verificationDetails: null,
+      storageLocation: this.objectStorage ? 'OBJECT_STORAGE' : 'MEMORY_ONLY'
     };
 
-    // 5. Persistência no armazenamento de snapshots
-    backupStore.save({
-      metadata,
-      envelope
-    });
+    // 5. Persistência: object storage (durável, fora do processo) e cache em memória.
+    // Sem o envio ao bucket o backup não vale como cópia de segurança, então a falha é propagada.
+    const stored: StoredBackupSnapshot = { metadata, envelope };
+    if (this.objectStorage) {
+      try {
+        await this.objectStorage.put(backupObjectKey(backupId), JSON.stringify(toSnapshotFile(stored)));
+      } catch (err: any) {
+        throw new Error(`Falha ao enviar o snapshot cifrado ao object storage: ${err?.message || err}`);
+      }
+    }
+    backupStore.save(stored);
 
     // 6. Registro imutável na trilha de auditoria WORM
     AuditService.log({
@@ -170,7 +233,7 @@ export class BackupService {
     backupId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
   ): Promise<VerifyBackupResponse> {
-    const stored = backupStore.get(backupId);
+    const stored = await this.load(backupId);
     if (!stored) {
       throw new Error(`Snapshot de backup ${backupId} não encontrado no repositório.`);
     }
@@ -208,6 +271,8 @@ export class BackupService {
         sha256ChecksumValid: true
       };
 
+      await this.persistMetadata(stored);
+
       // 3. Registro do teste de DR na trilha WORM
       AuditService.log({
         actorId: context.actorId,
@@ -229,6 +294,7 @@ export class BackupService {
       };
     } catch (err: any) {
       stored.metadata.status = 'FAILED';
+      await this.persistMetadata(stored);
       throw new Error(`Erro na verificação do backup: ${err.message}`);
     }
   }
@@ -241,7 +307,7 @@ export class BackupService {
     backupId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
   ): Promise<RestoreBackupResponse> {
-    const stored = backupStore.get(backupId);
+    const stored = await this.load(backupId);
     if (!stored) {
       throw new Error(`Snapshot de backup ${backupId} não encontrado no repositório.`);
     }
@@ -342,19 +408,16 @@ export class BackupService {
       rpoHours: Math.round(rpoHours * 10) / 10,
       rtoEstimateMs,
       isRpoCompliant: rpoHours <= 24,
-      backups: list.map(b => b.metadata)
+      backups: list.map(b => b.metadata),
+      storage: { offsite: this.isOffsite(), location: this.objectStorage?.location ?? null }
     };
   }
 
   /**
    * Obtém arquivo completo do snapshot cifrado para exportação / download
    */
-  static getBackupFile(backupId: string): BackupSnapshotFile | null {
-    const stored = backupStore.get(backupId);
-    if (!stored) return null;
-    return {
-      backupMetadata: stored.metadata,
-      envelope: stored.envelope
-    };
+  static async getBackupFile(backupId: string): Promise<BackupSnapshotFile | null> {
+    const stored = await this.load(backupId);
+    return stored ? toSnapshotFile(stored) : null;
   }
 }

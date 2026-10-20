@@ -9,6 +9,7 @@ import {
   AuditAction
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5)', () => {
   let token: string;
@@ -16,6 +17,10 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
   const patientId = '00000000-0000-0000-0000-000000000001';
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

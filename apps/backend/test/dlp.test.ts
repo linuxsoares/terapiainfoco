@@ -3,6 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { DlpPolicyMode, DlpRiskLevel, SteganographyInspectionStatus } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 46 & CFP nº 001/2009)', () => {
   let authToken: string;
@@ -10,6 +11,10 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
   let samplePatientId: string;
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     // 1. Autenticação como psicólogo titular
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

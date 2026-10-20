@@ -46,6 +46,22 @@ function publicAppUrl(): string {
   return url;
 }
 
+function backupStorage() {
+  const bucket = process.env.BACKUP_S3_BUCKET?.trim() || '';
+  const storage = {
+    bucket,
+    endpoint: process.env.BACKUP_S3_ENDPOINT?.trim() || '',
+    region: process.env.BACKUP_S3_REGION?.trim() || '',
+    accessKeyId: process.env.BACKUP_S3_ACCESS_KEY_ID?.trim() || '',
+    secretAccessKey: process.env.BACKUP_S3_SECRET_ACCESS_KEY?.trim() || '',
+    prefix: (process.env.BACKUP_S3_PREFIX?.trim() || 'backups/').replace(/^\/+/, '')
+  };
+  if (bucket && (!storage.accessKeyId || !storage.secretAccessKey)) {
+    throw new Error('BACKUP_S3_BUCKET exige BACKUP_S3_ACCESS_KEY_ID e BACKUP_S3_SECRET_ACCESS_KEY.');
+  }
+  return storage;
+}
+
 /** "a, b" -> ["a", "b"] */
 function list(value: string): string[] {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
@@ -77,6 +93,11 @@ export const config = {
     dpoName: process.env.COMPLIANCE_DPO_NAME || '',
     technicalResponsibleCrp: process.env.COMPLIANCE_TECHNICAL_RESPONSIBLE_CRP || ''
   },
+  /**
+   * Object storage S3-compatível (AWS S3, Cloudflare R2, MinIO) para os snapshots cifrados de backup.
+   * Sem BACKUP_S3_BUCKET os snapshots ficam só na memória do processo e se perdem no restart.
+   */
+  backupStorage: backupStorage(),
   /** Offset UTC da agenda da clínica (Brasília não tem horário de verão desde 2019) */
   clinicUtcOffset: process.env.CLINIC_UTC_OFFSET || '-03:00',
   /** Intervalo padrão de buffer entre consultas em minutos (RFC §3.1) */
