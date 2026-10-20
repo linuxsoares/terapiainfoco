@@ -5,10 +5,11 @@ import {
   ReplayThreatSeverity,
   ReplayTargetProtocol
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', () => {
   it('GET /api/anti-replay/overview - deve retornar visão consolidada com métricas, janelas e filtro de Bloom', async () => {
-    const res = await app.request('/api/anti-replay/overview', {
+    const res = await adminRequest('/api/anti-replay/overview', {
       method: 'GET'
     });
 
@@ -25,7 +26,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/verify-nonce - deve validar payload obrigatório', async () => {
-    const res = await app.request('/api/anti-replay/verify-nonce', {
+    const res = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -38,7 +39,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/verify-nonce - deve aceitar pacote WebRTC sequencial válido com selo WORM', async () => {
-    const res = await app.request('/api/anti-replay/verify-nonce', {
+    const res = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +62,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     const channelId = 'room_replay_attack_channel';
 
     // 1. Envia pacote 25
-    await app.request('/api/anti-replay/verify-nonce', {
+    await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,7 +73,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     });
 
     // 2. Reenvia pacote 25 (Ataque de Replay)
-    const replayRes = await app.request('/api/anti-replay/verify-nonce', {
+    const replayRes = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -95,7 +96,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     const ivHex = '00112233445566778899aabb';
 
     // 1. Primeiro uso do IV: aceito
-    const firstRes = await app.request('/api/anti-replay/verify-nonce', {
+    const firstRes = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -108,7 +109,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     expect(firstBody.result.allowed).toBe(true);
 
     // 2. Segundo uso do mesmo IV para a mesma chave: Violação de integridade GHASH!
-    const secondRes = await app.request('/api/anti-replay/verify-nonce', {
+    const secondRes = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,7 +125,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/sliding-window-status - deve retornar estado e bitmap da janela do canal', async () => {
-    const res = await app.request('/api/anti-replay/sliding-window-status', {
+    const res = await adminRequest('/api/anti-replay/sliding-window-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -142,7 +143,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/rotate-bloom-filter - deve rotacionar geração do filtro de Bloom', async () => {
-    const res = await app.request('/api/anti-replay/rotate-bloom-filter', {
+    const res = await adminRequest('/api/anti-replay/rotate-bloom-filter', {
       method: 'POST'
     });
 
@@ -154,7 +155,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/update-policy - deve atualizar o modo operacional de mitigação', async () => {
-    const res = await app.request('/api/anti-replay/update-policy', {
+    const res = await adminRequest('/api/anti-replay/update-policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -169,7 +170,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
   });
 
   it('POST /api/anti-replay/simulate-replay-attack - deve simular bloqueio de replay WebRTC com precisão', async () => {
-    const res = await app.request('/api/anti-replay/simulate-replay-attack', {
+    const res = await adminRequest('/api/anti-replay/simulate-replay-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -189,7 +190,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
 
   it('POST /api/anti-replay/verify-seal - deve verificar a integridade WORM do selo anti-replay', async () => {
     // 1. Gera uma verificação para obter um selo válido
-    const verifRes = await app.request('/api/anti-replay/verify-nonce', {
+    const verifRes = await adminRequest('/api/anti-replay/verify-nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -201,7 +202,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     const seal = verifBody.result.proofSeal;
 
     // 2. Valida o selo gerado
-    const checkRes = await app.request('/api/anti-replay/verify-seal', {
+    const checkRes = await adminRequest('/api/anti-replay/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: seal.sealToken })
@@ -214,7 +215,7 @@ describe('Anti-Replay & Nonce-Reuse Shield API Integration (/api/anti-replay)', 
     expect(checkBody.seal).toBeDefined();
 
     // 3. Testa selo adulterado
-    const invalidRes = await app.request('/api/anti-replay/verify-seal', {
+    const invalidRes = await adminRequest('/api/anti-replay/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: 'anti_replay_proof_v1_token_adulterado_falso' })

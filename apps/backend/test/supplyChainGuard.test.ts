@@ -4,11 +4,12 @@ import {
   DependencyThreatCategory,
   DependencyValidationAction
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLSA L3, CWE-470, CWE-912)', () => {
   describe('GET /api/supply-chain-guard/overview', () => {
     it('deve retornar telemetria completa, métricas de auditoria SLSA L3 e incidentes', async () => {
-      const res = await app.request('/api/supply-chain-guard/overview');
+      const res = await adminRequest('/api/supply-chain-guard/overview');
       expect(res.status).toBe(200);
 
       const data = await res.json();
@@ -23,7 +24,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
 
   describe('POST /api/supply-chain-guard/inspect', () => {
     it('deve aprovar dependências legítimas com emissão de selo WORM RFC 8785', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,7 +49,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve bloquear manifesto contendo backdoor de ciclo de vida (CWE-912)', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,7 +73,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve retornar 400 se nenhum conteúdo de manifesto ou dependência for fornecido', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -87,7 +88,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
 
   describe('POST /api/supply-chain-guard/inspect-import', () => {
     it('deve aprovar import estático de módulo seguro', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect-import', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +105,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve bloquear injeção dinâmica de módulos com interpolação de variáveis (CWE-470)', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect-import', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +123,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve retornar 400 se specifier não for informado', async () => {
-      const res = await app.request('/api/supply-chain-guard/inspect-import', {
+      const res = await adminRequest('/api/supply-chain-guard/inspect-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -136,7 +137,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
 
   describe('POST /api/supply-chain-guard/policy', () => {
     it('deve atualizar políticas de governança SLSA L3', async () => {
-      const res = await app.request('/api/supply-chain-guard/policy', {
+      const res = await adminRequest('/api/supply-chain-guard/policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,7 +156,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
 
   describe('POST /api/supply-chain-guard/simulate', () => {
     it('deve simular ataque de Dependency Confusion com bloqueio ativo', async () => {
-      const res = await app.request('/api/supply-chain-guard/simulate', {
+      const res = await adminRequest('/api/supply-chain-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +173,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve simular ataque de injeção dinâmica de módulos (CWE-470)', async () => {
-      const res = await app.request('/api/supply-chain-guard/simulate', {
+      const res = await adminRequest('/api/supply-chain-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,7 +192,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
   describe('POST /api/supply-chain-guard/verify-seal', () => {
     it('deve validar positivamente selo WORM RFC 8785 legítimo', async () => {
       // 1. Gera inspeção prévia para obter selo
-      const inspRes = await app.request('/api/supply-chain-guard/inspect', {
+      const inspRes = await adminRequest('/api/supply-chain-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -210,7 +211,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
       const sealToken = inspData.seal.sealToken;
 
       // 2. Valida selo gerado
-      const verifyRes = await app.request('/api/supply-chain-guard/verify-seal', {
+      const verifyRes = await adminRequest('/api/supply-chain-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sealToken })
@@ -223,7 +224,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
     });
 
     it('deve rejeitar selo adulterado ou inválido', async () => {
-      const verifyRes = await app.request('/api/supply-chain-guard/verify-seal', {
+      const verifyRes = await adminRequest('/api/supply-chain-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sealToken: 'invalid_seal_signature_corrupted' })
@@ -237,7 +238,7 @@ describe('Backend API Integration - Supply Chain & Dynamic Dependency Guard (SLS
 
   describe('GET /api/supply-chain-guard/homologated', () => {
     it('deve retornar lista de pacotes homologados da arquitetura', async () => {
-      const res = await app.request('/api/supply-chain-guard/homologated');
+      const res = await adminRequest('/api/supply-chain-guard/homologated');
       expect(res.status).toBe(200);
 
       const data = await res.json();

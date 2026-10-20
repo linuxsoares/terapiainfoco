@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectExpressionDTO,
   EvaluateExpressionDTO,
@@ -9,6 +11,9 @@ import type {
 import { ExpressionInjectionGuardService } from '../services/expressionInjectionGuardService';
 
 export const expressionInjectionGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+expressionInjectionGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/expression-guard/overview

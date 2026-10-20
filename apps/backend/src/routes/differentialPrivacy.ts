@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { DifferentialPrivacyService } from '../services/differentialPrivacyService';
 import type {
   ExecuteDpQueryDTO,
@@ -8,6 +10,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 const dpRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+dpRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const dpService = DifferentialPrivacyService.getInstance();
 
 /**

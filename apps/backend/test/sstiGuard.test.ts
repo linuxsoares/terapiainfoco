@@ -7,10 +7,11 @@ import {
   SstiSanitizationAction,
   ClinicalDocumentTemplateType
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OWASP ASVS V5.2)', () => {
   it('GET /api/ssti-guard/overview - deve retornar telemetria, política, incidentes e presets clínicos CFP', async () => {
-    const res = await app.request('/api/ssti-guard/overview');
+    const res = await adminRequest('/api/ssti-guard/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -23,7 +24,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
   });
 
   it('POST /api/ssti-guard/inspect - deve inspecionar e aprovar template clínico legítimo', async () => {
-    const res = await app.request('/api/ssti-guard/inspect', {
+    const res = await adminRequest('/api/ssti-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,7 +45,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
   });
 
   it('POST /api/ssti-guard/inspect - deve detectar e sinalizar tentativa crítica de SSTI (__proto__)', async () => {
-    const res = await app.request('/api/ssti-guard/inspect', {
+    const res = await adminRequest('/api/ssti-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +66,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
   });
 
   it('POST /api/ssti-guard/render - deve renderizar em sandbox hermético e emitir selo probatório WORM', async () => {
-    const res = await app.request('/api/ssti-guard/render', {
+    const res = await adminRequest('/api/ssti-guard/render', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +93,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
   });
 
   it('POST /api/ssti-guard/render - deve bloquear tentativa maliciosa e retornar HTTP 400 com selo de contenção', async () => {
-    const res = await app.request('/api/ssti-guard/render', {
+    const res = await adminRequest('/api/ssti-guard/render', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
 
   it('PUT /api/ssti-guard/policy - deve atualizar política sob credenciais administrativas e vetar não-autorizados', async () => {
     // 1. Tenta como PACIENTE (deve receber 403)
-    const forbiddenRes = await app.request('/api/ssti-guard/policy', {
+    const forbiddenRes = await adminRequest('/api/ssti-guard/policy', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -129,7 +130,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
     expect(forbiddenRes.status).toBe(403);
 
     // 2. Executa como ADMIN (deve receber 200)
-    const adminRes = await app.request('/api/ssti-guard/policy', {
+    const adminRes = await adminRequest('/api/ssti-guard/policy', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
   });
 
   it('POST /api/ssti-guard/simulate - deve executar simulação adversarial de ataque SSTI', async () => {
-    const res = await app.request('/api/ssti-guard/simulate', {
+    const res = await adminRequest('/api/ssti-guard/simulate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -174,7 +175,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
 
   it('POST /api/ssti-guard/verify-seal - deve verificar a fé pública do selo criptográfico WORM', async () => {
     // 1. Renderiza template válido para obter selo autêntico
-    const renderRes = await app.request('/api/ssti-guard/render', {
+    const renderRes = await adminRequest('/api/ssti-guard/render', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -192,7 +193,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
     expect(genuineSeal).toBeDefined();
 
     // 2. Valida selo genuíno
-    const verifyRes = await app.request('/api/ssti-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/ssti-guard/verify-seal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -215,7 +216,7 @@ describe('API Integration: SSTI Guard & Sandboxed Template Engine (CWE-1336 & OW
       templateHash: '0000000000000000000000000000000000000000000000000000000000000000'
     };
 
-    const tamperRes = await app.request('/api/ssti-guard/verify-seal', {
+    const tamperRes = await adminRequest('/api/ssti-guard/verify-seal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

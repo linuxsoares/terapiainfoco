@@ -7,10 +7,11 @@ import {
   type EvaluateRateLimitResponse,
   type VerifyRateLimitSealResponse
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, §5.2)', () => {
   it('GET /api/advanced-rate-limiter/overview deve retornar métricas e regras configuradas', async () => {
-    const res = await app.request('/api/advanced-rate-limiter/overview');
+    const res = await adminRequest('/api/advanced-rate-limiter/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json() as AdvancedRateLimitOverviewResponse;
@@ -26,7 +27,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
   describe('POST /api/advanced-rate-limiter/evaluate', () => {
     it('deve autorizar requisição inicial com código 200 e emitir selo probatório', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/evaluate', {
+      const res = await adminRequest('/api/advanced-rate-limiter/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -52,7 +53,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
       // Esgota a capacidade do bucket (5 tokens)
       for (let i = 0; i < 5; i++) {
-        await app.request('/api/advanced-rate-limiter/evaluate', {
+        await adminRequest('/api/advanced-rate-limiter/evaluate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -64,7 +65,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
       }
 
       // 6ª requisição deve ser throttled
-      const throttledRes = await app.request('/api/advanced-rate-limiter/evaluate', {
+      const throttledRes = await adminRequest('/api/advanced-rate-limiter/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,7 +89,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
       // Executa requisições repetidas para acumular violações e forçar quarentena
       for (let i = 0; i < 12; i++) {
-        await app.request('/api/advanced-rate-limiter/evaluate', {
+        await adminRequest('/api/advanced-rate-limiter/evaluate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -100,7 +101,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
       }
 
       // Requisição subsequente deve retornar 403 Forbidden com status QUARANTINED
-      const quarantinedRes = await app.request('/api/advanced-rate-limiter/evaluate', {
+      const quarantinedRes = await adminRequest('/api/advanced-rate-limiter/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,7 +118,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
     });
 
     it('deve retornar 400 se clientId ou path não forem fornecidos', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/evaluate', {
+      const res = await adminRequest('/api/advanced-rate-limiter/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId: 'only_client' })
@@ -128,7 +129,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
   describe('POST /api/advanced-rate-limiter/rules/configure', () => {
     it('deve reconfigurar parâmetros de regra e retornar sucesso', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/rules/configure', {
+      const res = await adminRequest('/api/advanced-rate-limiter/rules/configure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +149,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
   describe('POST /api/advanced-rate-limiter/clients/reset', () => {
     it('deve liberar cliente da quarentena e zerar contadores', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/clients/reset', {
+      const res = await adminRequest('/api/advanced-rate-limiter/clients/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
   describe('POST /api/advanced-rate-limiter/verify-seal', () => {
     it('deve validar um selo probatório emitido com status 200', async () => {
       // 1. Emite um selo avaliando requisição
-      const evalRes = await app.request('/api/advanced-rate-limiter/evaluate', {
+      const evalRes = await adminRequest('/api/advanced-rate-limiter/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +180,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
       const token = evalData.proofSeal!.token;
 
       // 2. Valida o selo
-      const verifyRes = await app.request('/api/advanced-rate-limiter/verify-seal', {
+      const verifyRes = await adminRequest('/api/advanced-rate-limiter/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: token })
@@ -193,7 +194,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
     });
 
     it('deve retornar 422 para token inexistente', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/verify-seal', {
+      const res = await adminRequest('/api/advanced-rate-limiter/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: 'RL-SEAL-v1-invalid-token' })
@@ -204,7 +205,7 @@ describe('Advanced API Rate Limiter Endpoints (OWASP API4:2023 & RFC-001 §4.4, 
 
   describe('GET /api/advanced-rate-limiter/rules', () => {
     it('deve listar todas as regras ativas', async () => {
-      const res = await app.request('/api/advanced-rate-limiter/rules');
+      const res = await adminRequest('/api/advanced-rate-limiter/rules');
       expect(res.status).toBe(200);
       const data = await res.json() as { success: boolean; rules: any[] };
       expect(data.success).toBe(true);

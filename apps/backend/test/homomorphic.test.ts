@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'bun:test';
 import { app } from '../src/index';
 import { HomomorphicService } from '../src/services/homomorphicService';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)', () => {
   const service = HomomorphicService.getInstance();
   const activePrivateKey = service.getActivePrivateKey();
 
   it('GET /api/homomorphic/overview deve retornar visão geral e métricas de agregação', async () => {
-    const res = await app.request('/api/homomorphic/overview');
+    const res = await adminRequest('/api/homomorphic/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -19,7 +20,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('GET /api/homomorphic/catalog deve retornar catálogo canônico de 9 diagnósticos CID-11', async () => {
-    const res = await app.request('/api/homomorphic/catalog');
+    const res = await adminRequest('/api/homomorphic/catalog');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -30,7 +31,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('GET /api/homomorphic/public-key deve retornar chave pública Paillier ativa', async () => {
-    const res = await app.request('/api/homomorphic/public-key');
+    const res = await adminRequest('/api/homomorphic/public-key');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -41,7 +42,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('POST /api/homomorphic/cohorts deve criar nova coorte epidemiológica', async () => {
-    const res = await app.request('/api/homomorphic/cohorts', {
+    const res = await adminRequest('/api/homomorphic/cohorts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -60,7 +61,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('POST /api/homomorphic/cohorts/:id/patients deve adicionar paciente com diagnósticos e somar homomorficamente', async () => {
-    const res = await app.request('/api/homomorphic/cohorts/cohort_telepsico_sp_2026/patients', {
+    const res = await adminRequest('/api/homomorphic/cohorts/cohort_telepsico_sp_2026/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -76,7 +77,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('POST /api/homomorphic/cohorts/decrypt deve decifrar agregados com aprovação do CEP/CONEP', async () => {
-    const res = await app.request('/api/homomorphic/cohorts/decrypt', {
+    const res = await adminRequest('/api/homomorphic/cohorts/decrypt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -101,7 +102,7 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('POST /api/homomorphic/cohorts/decrypt deve rejeitar decifragem sem aprovação ética', async () => {
-    const res = await app.request('/api/homomorphic/cohorts/decrypt', {
+    const res = await adminRequest('/api/homomorphic/cohorts/decrypt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,11 +121,11 @@ describe('Rotas de Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem)',
   });
 
   it('POST /api/homomorphic/verify-seal deve verificar a autenticidade do selo WORM', async () => {
-    const overviewRes = await app.request('/api/homomorphic/overview');
+    const overviewRes = await adminRequest('/api/homomorphic/overview');
     const overviewData = await overviewRes.json();
     const token = overviewData.overview.cohorts[0].proofSealToken;
 
-    const res = await app.request('/api/homomorphic/verify-seal', {
+    const res = await adminRequest('/api/homomorphic/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

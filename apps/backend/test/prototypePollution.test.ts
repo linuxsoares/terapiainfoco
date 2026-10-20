@@ -5,12 +5,13 @@ import {
   SanitizationStrategy,
   PollutionAttackVector
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/prototype-pollution)', () => {
   let validSealToken: string;
 
   it('GET /api/prototype-pollution/overview - deve retornar telemetria, política ativa e incidentes', async () => {
-    const res = await app.request('/api/prototype-pollution/overview');
+    const res = await adminRequest('/api/prototype-pollution/overview');
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -32,7 +33,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
       }
     };
 
-    const res = await app.request('/api/prototype-pollution/scan-payload', {
+    const res = await adminRequest('/api/prototype-pollution/scan-payload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -56,7 +57,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
     // String serializada contendo injeção maliciosa de __proto__
     const malJson = '{"patientId":"pat_integ_002","__proto__":{"isAdmin":true,"role":"SUPERUSER"}}';
 
-    const res = await app.request('/api/prototype-pollution/scan-payload', {
+    const res = await adminRequest('/api/prototype-pollution/scan-payload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -80,7 +81,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
   });
 
   it('POST /api/prototype-pollution/scan-payload - deve retornar 400 se parâmetros obrigatórios faltarem', async () => {
-    const res = await app.request('/api/prototype-pollution/scan-payload', {
+    const res = await adminRequest('/api/prototype-pollution/scan-payload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -92,7 +93,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
   });
 
   it('POST /api/prototype-pollution/update-policy - deve atualizar parâmetros da política de segurança', async () => {
-    const res = await app.request('/api/prototype-pollution/update-policy', {
+    const res = await adminRequest('/api/prototype-pollution/update-policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +112,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
   });
 
   it('POST /api/prototype-pollution/simulate-attack - deve simular ataque adversarial com neutralização completa', async () => {
-    const res = await app.request('/api/prototype-pollution/simulate-attack', {
+    const res = await adminRequest('/api/prototype-pollution/simulate-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -130,7 +131,7 @@ describe('Prototype Pollution & Insecure Deserialization Guard REST API (/api/pr
   it('POST /api/prototype-pollution/verify-seal - deve atestar fé pública e autenticidade do selo WORM', async () => {
     expect(validSealToken).toBeDefined();
 
-    const res = await app.request('/api/prototype-pollution/verify-seal', {
+    const res = await adminRequest('/api/prototype-pollution/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

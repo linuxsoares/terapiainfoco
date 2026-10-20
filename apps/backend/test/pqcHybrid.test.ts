@@ -8,10 +8,11 @@ import {
   PqcQuantumAttackType,
   PqcDefenseOutcome
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST FIPS 203 & 204)', () => {
   it('GET /api/pqc-hybrid/overview deve retornar status 200 com inventário e métricas PQC', async () => {
-    const res = await app.request('/api/pqc-hybrid/overview', {
+    const res = await adminRequest('/api/pqc-hybrid/overview', {
       method: 'GET'
     });
 
@@ -28,7 +29,7 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/generate-keypair deve gerar novo par de chaves NIST Nível 5 com sucesso', async () => {
-    const res = await app.request('/api/pqc-hybrid/generate-keypair', {
+    const res = await adminRequest('/api/pqc-hybrid/generate-keypair', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -49,7 +50,7 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/generate-keypair deve rejeitar requisição sem alias', async () => {
-    const res = await app.request('/api/pqc-hybrid/generate-keypair', {
+    const res = await adminRequest('/api/pqc-hybrid/generate-keypair', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -62,11 +63,11 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
 
   it('POST /api/pqc-hybrid/encapsulate deve cifrar registro clínico com envelope híbrido PQC', async () => {
     // Obter chave ativa
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const activeKeyId = overviewBody.overview.activeHybridKeyPair.keyId;
 
-    const res = await app.request('/api/pqc-hybrid/encapsulate', {
+    const res = await adminRequest('/api/pqc-hybrid/encapsulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,11 +90,11 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
 
   it('POST /api/pqc-hybrid/decapsulate deve decifrar prontuário e verificar assinatura dual', async () => {
     // Obter registro existente
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const existingRecord = overviewBody.overview.protectedRecords[0];
 
-    const res = await app.request('/api/pqc-hybrid/decapsulate', {
+    const res = await adminRequest('/api/pqc-hybrid/decapsulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -110,14 +111,14 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/sign e POST /api/pqc-hybrid/verify-signature devem emitir e validar assinatura dual', async () => {
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const activeKeyId = overviewBody.overview.activeHybridKeyPair.keyId;
 
     const docContent = 'Termo de Consentimento Livre e Esclarecido (TCLE) com validade jurídica digital.';
 
     // Assinar
-    const signRes = await app.request('/api/pqc-hybrid/sign', {
+    const signRes = await adminRequest('/api/pqc-hybrid/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -133,7 +134,7 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
     expect(signBody.signatureResult.pqSignatureBase64).toBeDefined();
 
     // Verificar
-    const verifyRes = await app.request('/api/pqc-hybrid/verify-signature', {
+    const verifyRes = await adminRequest('/api/pqc-hybrid/verify-signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,11 +155,11 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/verify-signature deve rejeitar assinatura se o documento for modificado', async () => {
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const activeKeyId = overviewBody.overview.activeHybridKeyPair.keyId;
 
-    const signRes = await app.request('/api/pqc-hybrid/sign', {
+    const signRes = await adminRequest('/api/pqc-hybrid/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -168,7 +169,7 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
     });
     const signBody = await signRes.json();
 
-    const verifyRes = await app.request('/api/pqc-hybrid/verify-signature', {
+    const verifyRes = await adminRequest('/api/pqc-hybrid/verify-signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -185,11 +186,11 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/simulate-attack deve simular pentest de Shor e SNDL com proteção', async () => {
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const targetRecordId = overviewBody.overview.protectedRecords[0].id;
 
-    const res = await app.request('/api/pqc-hybrid/simulate-attack', {
+    const res = await adminRequest('/api/pqc-hybrid/simulate-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -209,11 +210,11 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/verify-seal deve validar pericialmente selo probatório WORM autêntico', async () => {
-    const overviewRes = await app.request('/api/pqc-hybrid/overview');
+    const overviewRes = await adminRequest('/api/pqc-hybrid/overview');
     const overviewBody = await overviewRes.json();
     const token = overviewBody.overview.protectedRecords[0].proofSeal.sealToken;
 
-    const res = await app.request('/api/pqc-hybrid/verify-seal', {
+    const res = await adminRequest('/api/pqc-hybrid/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -230,7 +231,7 @@ describe('Rotas de Criptografia Pós-Quântica Híbrida (/api/pqc-hybrid - NIST 
   });
 
   it('POST /api/pqc-hybrid/verify-seal deve rejeitar token adulterado', async () => {
-    const res = await app.request('/api/pqc-hybrid/verify-seal', {
+    const res = await adminRequest('/api/pqc-hybrid/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

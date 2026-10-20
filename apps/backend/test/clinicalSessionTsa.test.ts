@@ -6,6 +6,7 @@ import {
   TimestampTamperType,
   TsaAuthorityType
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Integração de Rotas REST — Certificação Notarial de Sessão Clínica RFC 3161 ICP-Brasil', () => {
   beforeEach(() => {
@@ -13,7 +14,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
   });
 
   it('GET /api/tsa-notary/overview deve retornar KPIs regulatórios e tokens recentes da ACT ICP-Brasil', async () => {
-    const res = await app.request('/api/tsa-notary/overview');
+    const res = await adminRequest('/api/tsa-notary/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -26,7 +27,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
   });
 
   it('POST /api/tsa-notary/stamp-session deve validar campos obrigatórios com erro 400', async () => {
-    const res = await app.request('/api/tsa-notary/stamp-session', {
+    const res = await adminRequest('/api/tsa-notary/stamp-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId: 'sess_incomplete' })
@@ -48,7 +49,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
       clinicalSummaryOrHash: 'sha256_soap_hash_registro_sessao_12'
     };
 
-    const res = await app.request('/api/tsa-notary/stamp-session', {
+    const res = await adminRequest('/api/tsa-notary/stamp-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-user-id': 'therapist_claudio' },
       body: JSON.stringify(payload)
@@ -77,7 +78,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
       clinicalSummaryOrHash: 'nota_soap_autentica'
     };
 
-    const stampRes = await app.request('/api/tsa-notary/stamp-session', {
+    const stampRes = await adminRequest('/api/tsa-notary/stamp-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -85,7 +86,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
     const { token } = await stampRes.json();
 
     // 2. Verifica token válido
-    const verifyRes = await app.request('/api/tsa-notary/verify-token', {
+    const verifyRes = await adminRequest('/api/tsa-notary/verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -104,7 +105,7 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
     expect(verifyData.result.messageImprintMatch).toBe(true);
 
     // 3. Testa verificação com digest divergente (detecção de fraude)
-    const falseVerifyRes = await app.request('/api/tsa-notary/verify-token', {
+    const falseVerifyRes = await adminRequest('/api/tsa-notary/verify-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -119,12 +120,12 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
   });
 
   it('POST /api/tsa-notary/simulate-tampering deve detectar adulteração com precisão forense', async () => {
-    const overviewRes = await app.request('/api/tsa-notary/overview');
+    const overviewRes = await adminRequest('/api/tsa-notary/overview');
     const { overview } = await overviewRes.json();
     const targetToken = overview.recentTokens[0];
 
     // Simula adulteração de data e hora (retrodatação)
-    const res = await app.request('/api/tsa-notary/simulate-tampering', {
+    const res = await adminRequest('/api/tsa-notary/simulate-tampering', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -143,19 +144,19 @@ describe('Integração de Rotas REST — Certificação Notarial de Sessão Clí
 
   it('GET /api/tsa-notary/session/:sessionId/token deve retornar o carimbo correspondente ou 404', async () => {
     // Demo session existente
-    const res = await app.request('/api/tsa-notary/session/sess_clinical_rec_001/token');
+    const res = await adminRequest('/api/tsa-notary/session/sess_clinical_rec_001/token');
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(data.token.sessionId).toBe('sess_clinical_rec_001');
 
     // Sessão inexistente
-    const res404 = await app.request('/api/tsa-notary/session/sess_inexistente_999/token');
+    const res404 = await adminRequest('/api/tsa-notary/session/sess_inexistente_999/token');
     expect(res404.status).toBe(404);
   });
 
   it('GET /api/tsa-notary/tsa-info deve retornar dados do certificado ACT ICP-Brasil e OIDs suportados', async () => {
-    const res = await app.request('/api/tsa-notary/tsa-info');
+    const res = await adminRequest('/api/tsa-notary/tsa-info');
     expect(res.status).toBe(200);
 
     const data = await res.json();

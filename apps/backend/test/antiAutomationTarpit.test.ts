@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { AntiAutomationTarpitService } from '../src/services/antiAutomationTarpitService';
 import { ScraperThreatCategory, TarpitDefenseStatus } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP OAT-011 / OAT-020 & RFC-001 §4.4)', () => {
   beforeEach(() => {
@@ -9,7 +10,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
   });
 
   it('GET /api/anti-automation/overview — deve retornar governança executiva de anti-automação e métricas', async () => {
-    const res = await app.request('/api/anti-automation/overview', {
+    const res = await adminRequest('/api/anti-automation/overview', {
       method: 'GET'
     });
 
@@ -25,7 +26,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
   });
 
   it('POST /api/anti-automation/trap/create — deve gerar armadilha Honeypot e snippet HTML invisível', async () => {
-    const res = await app.request('/api/anti-automation/trap/create', {
+    const res = await adminRequest('/api/anti-automation/trap/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -45,7 +46,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
 
   it('GET /api/anti-automation/trap/:token — deve acionar armadilha, calcular tarpit e emitir selo WORM', async () => {
     // Cria armadilha
-    const createRes = await app.request('/api/anti-automation/trap/create', {
+    const createRes = await adminRequest('/api/anti-automation/trap/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -57,7 +58,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
     const token = createData.trap.token;
 
     // Crawler acessa a armadilha com headers de bot
-    const trapRes = await app.request(`/api/anti-automation/trap/${token}`, {
+    const trapRes = await adminRequest(`/api/anti-automation/trap/${token}`, {
       method: 'GET',
       headers: {
         'x-forwarded-for': '198.51.100.77',
@@ -75,7 +76,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
   });
 
   it('POST /api/anti-automation/simulate-scraping — deve conter rajada de raspagem e colocar IP em quarentena', async () => {
-    const res = await app.request('/api/anti-automation/simulate-scraping', {
+    const res = await adminRequest('/api/anti-automation/simulate-scraping', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -96,7 +97,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
   });
 
   it('POST /api/anti-automation/release-ip — deve revogar quarentena com parecer DPO gravado no WORM', async () => {
-    const res = await app.request('/api/anti-automation/release-ip', {
+    const res = await adminRequest('/api/anti-automation/release-ip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +112,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
     expect(data.ipAddress).toBe('198.51.100.81');
 
     // Valida que o status do incidente no overview passou para RELEASED
-    const overviewRes = await app.request('/api/anti-automation/overview', { method: 'GET' });
+    const overviewRes = await adminRequest('/api/anti-automation/overview', { method: 'GET' });
     const overviewData = await overviewRes.json();
     const incident = overviewData.overview.recentIncidents.find((i: any) => i.ipAddress === '198.51.100.81');
     expect(incident.status).toBe(TarpitDefenseStatus.RELEASED);
@@ -119,11 +120,11 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
 
   it('POST /api/anti-automation/verify-seal — deve atestar fé pública e integridade matemática do selo WORM', async () => {
     // Obtém selo válido da demonstração
-    const overviewRes = await app.request('/api/anti-automation/overview', { method: 'GET' });
+    const overviewRes = await adminRequest('/api/anti-automation/overview', { method: 'GET' });
     const overviewData = await overviewRes.json();
     const seal = overviewData.overview.recentIncidents[0].proofSeal;
 
-    const res = await app.request('/api/anti-automation/verify-seal', {
+    const res = await adminRequest('/api/anti-automation/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ seal })
@@ -137,7 +138,7 @@ describe('Backend API — Proteção Anti-Automação, Honeypot & Tarpit (OWASP 
   });
 
   it('POST /api/anti-automation/release-ip — deve retornar 400 se o IP não existir', async () => {
-    const res = await app.request('/api/anti-automation/release-ip', {
+    const res = await adminRequest('/api/anti-automation/release-ip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

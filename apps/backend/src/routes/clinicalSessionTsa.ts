@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { ClinicalSessionTsaService } from '../services/clinicalSessionTsaService';
 import type {
   CreateSessionTimestampDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const clinicalSessionTsaRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+clinicalSessionTsaRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 const tsaService = ClinicalSessionTsaService.getInstance();
 

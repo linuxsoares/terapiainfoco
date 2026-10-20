@@ -5,11 +5,12 @@ import {
   Http2ValidationAction,
   Http2ProtocolTarget,
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-113, CWE-444)', () => {
   describe('GET /api/http2-guard/overview', () => {
     it('deve retornar telemetria completa, métricas de desincronização e incidentes', async () => {
-      const res = await app.request('/api/http2-guard/overview');
+      const res = await adminRequest('/api/http2-guard/overview');
       expect(res.status).toBe(200);
 
       const data = await res.json();
@@ -23,7 +24,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
 
   describe('POST /api/http2-guard/inspect', () => {
     it('deve autorizar e emitir selo WORM para requisição HTTP/2 legítima', async () => {
-      const res = await app.request('/api/http2-guard/inspect', {
+      const res = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,7 +48,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve retornar 400 se headers não for informado ou não for array', async () => {
-      const res = await app.request('/api/http2-guard/inspect', {
+      const res = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -60,7 +61,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve bloquear e registrar incidente para requisição com transfer-encoding (H2.TE Smuggling)', async () => {
-      const res = await app.request('/api/http2-guard/inspect', {
+      const res = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,7 +86,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve bloquear injeção CRLF em cabeçalho authorization (CWE-113)', async () => {
-      const res = await app.request('/api/http2-guard/inspect', {
+      const res = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +109,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve validar chamada gRPC legítima com trailers e timeout de 5 segundos', async () => {
-      const res = await app.request('/api/http2-guard/inspect', {
+      const res = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,7 +135,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
 
   describe('POST /api/http2-guard/policy', () => {
     it('deve atualizar diretrizes de governança HTTP/2 com sucesso', async () => {
-      const res = await app.request('/api/http2-guard/policy', {
+      const res = await adminRequest('/api/http2-guard/policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -153,7 +154,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
 
   describe('POST /api/http2-guard/simulate', () => {
     it('deve simular ataque H2_TE_SMUGGLING e interceptar', async () => {
-      const res = await app.request('/api/http2-guard/simulate', {
+      const res = await adminRequest('/api/http2-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +170,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve simular ataque CRLF_HEADER_SPLIT e neutralizar', async () => {
-      const res = await app.request('/api/http2-guard/simulate', {
+      const res = await adminRequest('/api/http2-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,7 +185,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve simular ataque GRPC_HEADER_TAMPERING com timeout adulterado', async () => {
-      const res = await app.request('/api/http2-guard/simulate', {
+      const res = await adminRequest('/api/http2-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,7 +200,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve retornar 400 se categoria não for informada', async () => {
-      const res = await app.request('/api/http2-guard/simulate', {
+      const res = await adminRequest('/api/http2-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -215,7 +216,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
   describe('POST /api/http2-guard/verify-seal', () => {
     it('deve verificar com sucesso um selo gerado na inspeção', async () => {
       // 1. Inspeciona para obter um selo válido
-      const inspectRes = await app.request('/api/http2-guard/inspect', {
+      const inspectRes = await adminRequest('/api/http2-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,7 +234,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
       expect(seal).toBeDefined();
 
       // 2. Valida o selo
-      const verifyRes = await app.request('/api/http2-guard/verify-seal', {
+      const verifyRes = await adminRequest('/api/http2-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sealToken: JSON.stringify(seal) }),
@@ -258,7 +259,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
         hmacSignature: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
       };
 
-      const res = await app.request('/api/http2-guard/verify-seal', {
+      const res = await adminRequest('/api/http2-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sealToken: JSON.stringify(forgedSeal) }),
@@ -271,7 +272,7 @@ describe('Backend API Integration - HTTP/2 & gRPC Header Guard (RFC 9113, CWE-11
     });
 
     it('deve retornar 400 se sealToken não for enviado', async () => {
-      const res = await app.request('/api/http2-guard/verify-seal', {
+      const res = await adminRequest('/api/http2-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

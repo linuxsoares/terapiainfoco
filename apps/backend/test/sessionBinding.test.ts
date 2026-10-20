@@ -10,6 +10,7 @@ import {
   generateClientDeviceKeyPair,
   createDpopProof
 } from '@terapiainfoco/crypto';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revogação Concorrente (RFC-001 §4.4)', () => {
   let app: Hono;
@@ -23,7 +24,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
   });
 
   it('GET /api/session-binding/overview — deve retornar indicadores de governança de sessões e DPoP', async () => {
-    const res = await app.request('/api/session-binding/overview?userId=user-therapist-001');
+    const res = await adminRequest('/api/session-binding/overview?userId=user-therapist-001');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -36,7 +37,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
   });
 
   it('GET /api/session-binding/sessions — deve listar sessões e sinalizar a sessão corrente', async () => {
-    const res = await app.request('/api/session-binding/sessions?userId=user-therapist-001&currentSessionId=sess-active-chrome-01');
+    const res = await adminRequest('/api/session-binding/sessions?userId=user-therapist-001&currentSessionId=sess-active-chrome-01');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -51,7 +52,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
   });
 
   it('POST /api/session-binding/terminate — deve encerrar forçadamente um dispositivo e emitir selo WORM', async () => {
-    const res = await app.request('/api/session-binding/terminate', {
+    const res = await adminRequest('/api/session-binding/terminate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -68,12 +69,12 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
     expect(json.proofSeal).toStartWith('session_rev_v1_');
 
     // Valida que a sessão agora está inativa no overview
-    const overviewRes = await app.request('/api/session-binding/overview');
+    const overviewRes = await adminRequest('/api/session-binding/overview');
     const overviewJson = await overviewRes.json();
     expect(overviewJson.overview.totalActiveSessions).toBe(1);
 
     // Valida fé pública do selo gerado via rota de verificação pericial
-    const verifyRes = await app.request(`/api/session-binding/verify-seal/${json.terminatedSessionId}`);
+    const verifyRes = await adminRequest(`/api/session-binding/verify-seal/${json.terminatedSessionId}`);
     expect(verifyRes.status).toBe(200);
     const verifyJson = await verifyRes.json();
     expect(verifyJson.success).toBe(true);
@@ -81,7 +82,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
   });
 
   it('POST /api/session-binding/terminate-others — deve acionar Kill Switch remoto encerrando todas as outras sessões', async () => {
-    const res = await app.request('/api/session-binding/terminate-others', {
+    const res = await adminRequest('/api/session-binding/terminate-others', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -97,7 +98,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
     expect(json.terminatedSessionIds).toContain('sess-active-ios-02');
 
     // Verifica que apenas a sessão principal permanece ativa
-    const listRes = await app.request('/api/session-binding/sessions');
+    const listRes = await adminRequest('/api/session-binding/sessions');
     const listJson = await listRes.json();
     const activeSessions = listJson.sessions.filter((s: any) => s.status === SessionLifecycleStatus.ACTIVE);
     expect(activeSessions.length).toBe(1);
@@ -106,7 +107,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
 
   it('POST /api/session-binding/simulate-concurrent (EXCEED_CONCURRENCY_LIMIT) — deve expulsar a sessão mais antiga ao exceder o limite', async () => {
     // Inicialmente temos 2 sessões ativas: sess-active-chrome-01 e sess-active-ios-02 (mais antiga)
-    const res = await app.request('/api/session-binding/simulate-concurrent', {
+    const res = await adminRequest('/api/session-binding/simulate-concurrent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -127,7 +128,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
   });
 
   it('POST /api/session-binding/simulate-concurrent (TOKEN_REPLAY_ATTACK) — deve interceptar ataque de replay com chave divergente', async () => {
-    const res = await app.request('/api/session-binding/simulate-concurrent', {
+    const res = await adminRequest('/api/session-binding/simulate-concurrent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -160,7 +161,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
     });
 
     // 1. Prova válida
-    const validRes = await app.request('/api/session-binding/verify-dpop', {
+    const validRes = await adminRequest('/api/session-binding/verify-dpop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -178,7 +179,7 @@ describe('Backend API — Gestão de Sessões Clínicas com Token Binding e Revo
     expect(validJson.verification.clientThumbprint).toBe(keyPair.thumbprint);
 
     // 2. Prova com divergência de método (ex: GET em vez de POST)
-    const invalidRes = await app.request('/api/session-binding/verify-dpop', {
+    const invalidRes = await adminRequest('/api/session-binding/verify-dpop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -15,10 +15,11 @@ import {
   type SimulateSessionAttackResponse,
   type VerifySessionSealResponse
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () => {
   it('GET /api/session-guard/overview - deve retornar telemetria, políticas e sessões ativas', async () => {
-    const res = await app.request('/api/session-guard/overview', {
+    const res = await adminRequest('/api/session-guard/overview', {
       method: 'GET'
     });
 
@@ -36,7 +37,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     const clientIp = '198.51.100.50';
     const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0';
 
-    const res = await app.request('/api/session-guard/evaluate', {
+    const res = await adminRequest('/api/session-guard/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +62,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     const legitimateUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/120.0.0.0';
 
     // 1. Inicializa a sessão com cliente legítimo
-    await app.request('/api/session-guard/evaluate', {
+    await adminRequest('/api/session-guard/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -73,7 +74,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     });
 
     // 2. Atacante tenta usar o mesmo sessionId com outro User-Agent (ex: Python/curl)
-    const hijackRes = await app.request('/api/session-guard/evaluate', {
+    const hijackRes = await adminRequest('/api/session-guard/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -97,7 +98,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     const clientIp = '198.51.100.80';
     const userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)';
 
-    const res = await app.request('/api/session-guard/rotate', {
+    const res = await adminRequest('/api/session-guard/rotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -118,7 +119,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     expect(body.seal.sealId).toStartWith('session_guard_v1_');
 
     // Agora tenta reutilizar o ID pré-autenticação para validar proteção contra Session Fixation (CWE-384)
-    const reuseRes = await app.request('/api/session-guard/evaluate', {
+    const reuseRes = await adminRequest('/api/session-guard/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -135,7 +136,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
   });
 
   it('PUT /api/session-guard/policy - deve atualizar parâmetros de política e registrar no WORM', async () => {
-    const res = await app.request('/api/session-guard/policy', {
+    const res = await adminRequest('/api/session-guard/policy', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,7 +155,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
   });
 
   it('POST /api/session-guard/simulate - deve executar probe adversarial e neutralizar ataque simulado', async () => {
-    const res = await app.request('/api/session-guard/simulate', {
+    const res = await adminRequest('/api/session-guard/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,7 +173,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
 
   it('POST /api/session-guard/verify-seal - deve verificar autenticidade de selo emitido e rejeitar forjado', async () => {
     // 1. Gera um selo autêntico via evaluate
-    const evalRes = await app.request('/api/session-guard/evaluate', {
+    const evalRes = await adminRequest('/api/session-guard/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -185,7 +186,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
     const validSeal = evalBody.evaluation.seal;
 
     // 2. Valida selo original
-    const verifyRes = await app.request('/api/session-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/session-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -201,7 +202,7 @@ describe('Session Fixation & Hijacking Guard REST API (/api/session-guard)', () 
 
     // 3. Rejeita selo adulterado
     const tamperedSeal = { ...validSeal, anomalyCount: 999 };
-    const tamperedRes = await app.request('/api/session-guard/verify-seal', {
+    const tamperedRes = await adminRequest('/api/session-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

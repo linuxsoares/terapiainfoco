@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectPathInputDTO,
   ResolveSafePathDTO,
@@ -9,6 +11,9 @@ import type {
 import { PathTraversalGuardService } from '../services/pathTraversalGuardService';
 
 export const pathTraversalGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+pathTraversalGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/path-traversal-guard/overview

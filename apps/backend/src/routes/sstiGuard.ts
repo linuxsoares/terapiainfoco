@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectTemplateDTO,
@@ -10,6 +11,9 @@ import type {
 import { SstiGuardService } from '../services/sstiGuardService';
 
 export const sstiGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+sstiGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/ssti-guard/overview

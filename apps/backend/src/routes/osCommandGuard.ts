@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectCommandInputDTO,
@@ -10,6 +11,9 @@ import type {
 import { OsCommandGuardService } from '../services/osCommandGuardService';
 
 export const osCommandGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+osCommandGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/os-command-guard/overview

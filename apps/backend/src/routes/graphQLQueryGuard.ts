@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectGraphQLQueryDTO,
   UpdateGraphQLPolicyDTO,
@@ -8,6 +10,9 @@ import type {
 import { GraphQLQueryGuardService } from '../services/graphQLQueryGuardService';
 
 export const graphQLQueryGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+graphQLQueryGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/graphql-guard/overview

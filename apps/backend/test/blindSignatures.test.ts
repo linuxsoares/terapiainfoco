@@ -5,10 +5,11 @@ import {
   BlindSignaturePurpose,
   BlindBallotDecision
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signatures)', () => {
   it('GET /api/blind-signatures/overview - deve retornar visão consolidada com chaves, urna e métricas', async () => {
-    const res = await app.request('/api/blind-signatures/overview', {
+    const res = await adminRequest('/api/blind-signatures/overview', {
       method: 'GET'
     });
 
@@ -28,7 +29,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
       authorityRole: 'AUTORIDADE_EMISSORA_COLEGIADO'
     };
 
-    const res = await app.request('/api/blind-signatures/generate-authority-key', {
+    const res = await adminRequest('/api/blind-signatures/generate-authority-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -43,7 +44,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
   });
 
   it('POST /api/blind-signatures/blind - deve validar payload obrigatório', async () => {
-    const res = await app.request('/api/blind-signatures/blind', {
+    const res = await adminRequest('/api/blind-signatures/blind', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -56,7 +57,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
 
   it('Fluxo Completo de Voto Ético Anônimo: Blind -> Sign-Blind -> Unblind -> Redeem-or-Vote -> Verify', async () => {
     // 0. Obter chave ativa
-    const overviewRes = await app.request('/api/blind-signatures/overview');
+    const overviewRes = await adminRequest('/api/blind-signatures/overview');
     const overviewBody = await overviewRes.json();
     const authorityKeyId = overviewBody.overview.activeAuthorityKey.keyId;
 
@@ -64,7 +65,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     const purpose = BlindSignaturePurpose.ETHICAL_COMMITTEE_BALLOT;
 
     // 1. Cegamento no Cliente
-    const blindRes = await app.request('/api/blind-signatures/blind', {
+    const blindRes = await adminRequest('/api/blind-signatures/blind', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -79,7 +80,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     const { blindedMessage } = blindBody;
 
     // 2. Assinatura Cega pela Autoridade
-    const signRes = await app.request('/api/blind-signatures/sign-blind', {
+    const signRes = await adminRequest('/api/blind-signatures/sign-blind', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -94,7 +95,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     const { signedResponse } = signBody;
 
     // 3. Descegamento pelo Cliente
-    const unblindRes = await app.request('/api/blind-signatures/unblind', {
+    const unblindRes = await adminRequest('/api/blind-signatures/unblind', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -112,7 +113,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     expect(unblindedToken.nullifierHash).toBeDefined();
 
     // 4. Apuração Anônima na Urna Ética (Resgate)
-    const redeemRes = await app.request('/api/blind-signatures/redeem-or-vote', {
+    const redeemRes = await adminRequest('/api/blind-signatures/redeem-or-vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -128,7 +129,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     expect(redeemBody.redemption.nullifierHash).toBe(unblindedToken.nullifierHash);
 
     // 5. Tentativa de Double-Spend com o mesmo token (deve ser barrado imediatamente)
-    const doubleSpendRes = await app.request('/api/blind-signatures/redeem-or-vote', {
+    const doubleSpendRes = await adminRequest('/api/blind-signatures/redeem-or-vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -143,7 +144,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     expect(doubleSpendBody.message).toContain('Double-Spending Blocked');
 
     // 6. Verificação Universal de Fé Pública
-    const verifyRes = await app.request('/api/blind-signatures/verify', {
+    const verifyRes = await adminRequest('/api/blind-signatures/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -160,7 +161,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     expect(verifyBody.verification.doubleSpendDetected).toBe(true); // Já resgatado!
 
     // 7. Simulação de Double-Spend Pentest Endpoint
-    const simRes = await app.request('/api/blind-signatures/simulate-double-spend', {
+    const simRes = await adminRequest('/api/blind-signatures/simulate-double-spend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -173,7 +174,7 @@ describe('Blind Signatures & Chaumian Protocol API Integration (/api/blind-signa
     expect(simBody.blocked).toBe(true);
 
     // 8. Validação de Selo Probatório WORM
-    const sealRes = await app.request('/api/blind-signatures/verify-seal', {
+    const sealRes = await adminRequest('/api/blind-signatures/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

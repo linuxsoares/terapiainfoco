@@ -15,10 +15,11 @@ import {
   type SimulateXmlAttackResponse,
   type VerifyXmlSealResponse
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('XML Security Guard REST API (/api/xml-guard)', () => {
   it('GET /api/xml-guard/overview - deve retornar telemetria, política ativa e esquemas suportados', async () => {
-    const res = await app.request('/api/xml-guard/overview', {
+    const res = await adminRequest('/api/xml-guard/overview', {
       method: 'GET'
     });
 
@@ -46,7 +47,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
   </component>
 </ClinicalDocument>`;
 
-    const res = await app.request('/api/xml-guard/scan', {
+    const res = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -74,7 +75,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
   <title>Prontuário com Injeção &xxe;</title>
 </ClinicalDocument>`;
 
-    const res = await app.request('/api/xml-guard/scan', {
+    const res = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -103,7 +104,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
 ]>
 <ClinicalDocument>&lol3;</ClinicalDocument>`;
 
-    const res = await app.request('/api/xml-guard/scan', {
+    const res = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -126,7 +127,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
   <xi:include href="file:///etc/hosts" parse="text"/>
 </ClinicalDocument>`;
 
-    const res = await app.request('/api/xml-guard/scan', {
+    const res = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +151,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
 ]>
 <note>&ext;</note>`;
 
-    const res = await app.request('/api/xml-guard/scan', {
+    const res = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -168,7 +169,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
   });
 
   it('PUT /api/xml-guard/policy - deve atualizar parâmetros da política de segurança XML', async () => {
-    const res = await app.request('/api/xml-guard/policy', {
+    const res = await adminRequest('/api/xml-guard/policy', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -187,7 +188,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
   });
 
   it('POST /api/xml-guard/simulate - deve executar simulações adversariais de vetores CWE-611 / CWE-776', async () => {
-    const res = await app.request('/api/xml-guard/simulate', {
+    const res = await adminRequest('/api/xml-guard/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -206,7 +207,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
 
   it('POST /api/xml-guard/verify-seal - deve verificar com sucesso selo probatório emitido e reprovar selo corrompido', async () => {
     // 1. Gera um selo válido através de scan
-    const scanRes = await app.request('/api/xml-guard/scan', {
+    const scanRes = await adminRequest('/api/xml-guard/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -218,7 +219,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
     const validSealToken = scanBody.result.seal.sealId;
 
     // 2. Valida selo original
-    const verifyRes = await app.request('/api/xml-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/xml-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -234,7 +235,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
 
     // 3. Valida rejeição de selo adulterado
     const tamperedToken = validSealToken + '_tampered';
-    const tamperedRes = await app.request('/api/xml-guard/verify-seal', {
+    const tamperedRes = await adminRequest('/api/xml-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

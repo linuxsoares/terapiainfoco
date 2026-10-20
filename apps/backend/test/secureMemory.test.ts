@@ -2,11 +2,12 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { MemorySanitizationAlgorithm, HeapSprayingThreatLevel, AuditAction } from '@terapiainfoco/shared';
 import { AuditService } from '../src/services/auditService';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)', () => {
   describe('GET /api/secure-memory/overview', () => {
     it('deve retornar overview completo com métricas, blocos ativos e selos WORM', async () => {
-      const res = await app.request('/api/secure-memory/overview');
+      const res = await adminRequest('/api/secure-memory/overview');
       expect(res.status).toBe(200);
 
       const data = await res.json();
@@ -21,7 +22,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
 
   describe('POST /api/secure-memory/allocate', () => {
     it('deve rejeitar requisição sem tag ou tamanho em bytes (HTTP 400)', async () => {
-      const res = await app.request('/api/secure-memory/allocate', {
+      const res = await adminRequest('/api/secure-memory/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -40,7 +41,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
         initialContentHex: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'
       };
 
-      const res = await app.request('/api/secure-memory/allocate', {
+      const res = await adminRequest('/api/secure-memory/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -62,7 +63,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
 
   describe('POST /api/secure-memory/zeroize', () => {
     it('deve rejeitar requisição sem blockId (HTTP 400)', async () => {
-      const res = await app.request('/api/secure-memory/zeroize', {
+      const res = await adminRequest('/api/secure-memory/zeroize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -73,7 +74,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
 
     it('deve sanitizar bloco e emitir selo probatório WORM (NIST SP 800-88)', async () => {
       // 1. Aloca um bloco
-      const allocRes = await app.request('/api/secure-memory/allocate', {
+      const allocRes = await adminRequest('/api/secure-memory/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag: 'TEMP_KEY_TO_ZEROIZE', sizeBytes: 16 })
@@ -81,7 +82,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       const { block } = await allocRes.json();
 
       // 2. Zeroiza com NIST SP 800-88
-      const zeroizeRes = await app.request('/api/secure-memory/zeroize', {
+      const zeroizeRes = await adminRequest('/api/secure-memory/zeroize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +107,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
 
   describe('POST /api/secure-memory/inspect-heap-spraying', () => {
     it('deve aprovar payload clínico regular sem anomalias', async () => {
-      const res = await app.request('/api/secure-memory/inspect-heap-spraying', {
+      const res = await adminRequest('/api/secure-memory/inspect-heap-spraying', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -127,7 +128,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       // 64 bytes de NOP sled em hexadecimal: "90" repetido 64 vezes
       const nopPayload = '90'.repeat(64);
 
-      const res = await app.request('/api/secure-memory/inspect-heap-spraying', {
+      const res = await adminRequest('/api/secure-memory/inspect-heap-spraying', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,7 +156,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
   describe('POST /api/secure-memory/purge-expired', () => {
     it('deve executar varredura de DEKs expiradas sem erros', async () => {
       // Aloca um bloco com TTL expirado imediatamente (1ms)
-      await app.request('/api/secure-memory/allocate', {
+      await adminRequest('/api/secure-memory/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag: 'INSTANT_EXPIRE_DEK', sizeBytes: 16, ttlMs: 1 })
@@ -164,7 +165,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       // Aguarda 10ms para garantir expiração
       await new Promise(r => setTimeout(r, 15));
 
-      const res = await app.request('/api/secure-memory/purge-expired', {
+      const res = await adminRequest('/api/secure-memory/purge-expired', {
         method: 'POST'
       });
 
@@ -178,14 +179,14 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
   describe('POST /api/secure-memory/verify-seal', () => {
     it('deve verificar autenticidade de selo gerado legitimamente', async () => {
       // Aloca e zeroiza para obter selo
-      const allocRes = await app.request('/api/secure-memory/allocate', {
+      const allocRes = await adminRequest('/api/secure-memory/allocate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag: 'KEY_FOR_SEAL_TEST', sizeBytes: 16 })
       });
       const { block } = await allocRes.json();
 
-      const zeroizeRes = await app.request('/api/secure-memory/zeroize', {
+      const zeroizeRes = await adminRequest('/api/secure-memory/zeroize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blockId: block.id })
@@ -193,7 +194,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       const { proofSeal } = await zeroizeRes.json();
 
       // Validação do selo via rota
-      const verifyRes = await app.request('/api/secure-memory/verify-seal', {
+      const verifyRes = await adminRequest('/api/secure-memory/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: proofSeal.token })
@@ -207,7 +208,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
     });
 
     it('deve acusar selo não localizado para token inexistente', async () => {
-      const res = await app.request('/api/secure-memory/verify-seal', {
+      const res = await adminRequest('/api/secure-memory/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: 'MEM-ZEROIZE-v1-naoexiste' })

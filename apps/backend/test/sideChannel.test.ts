@@ -5,10 +5,11 @@ import {
   SideChannelTargetOperation,
   SideChannelVulnerabilityLevel
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel)', () => {
   it('GET /api/side-channel/overview - deve retornar visão consolidada com status NIST e métricas', async () => {
-    const res = await app.request('/api/side-channel/overview', {
+    const res = await adminRequest('/api/side-channel/overview', {
       method: 'GET'
     });
 
@@ -25,7 +26,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/inspect-operation - deve validar payload obrigatório', async () => {
-    const res = await app.request('/api/side-channel/inspect-operation', {
+    const res = await adminRequest('/api/side-channel/inspect-operation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -38,7 +39,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/inspect-operation - deve inspecionar com sucesso em modo seguro', async () => {
-    const res = await app.request('/api/side-channel/inspect-operation', {
+    const res = await adminRequest('/api/side-channel/inspect-operation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -59,7 +60,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/run-welch-test - deve rodar análise estatística de Welch t-test com critério NIST e selo WORM', async () => {
-    const res = await app.request('/api/side-channel/run-welch-test', {
+    const res = await adminRequest('/api/side-channel/run-welch-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -81,7 +82,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/calibrate-jitter - deve calibrar jitter estocástico gaussiano', async () => {
-    const res = await app.request('/api/side-channel/calibrate-jitter', {
+    const res = await adminRequest('/api/side-channel/calibrate-jitter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -98,7 +99,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/update-policy - deve atualizar o modo operacional de blindagem', async () => {
-    const res = await app.request('/api/side-channel/update-policy', {
+    const res = await adminRequest('/api/side-channel/update-policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -113,7 +114,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/simulate-timing-attack - deve executar simulação comparativa de pentest seguro', async () => {
-    const res = await app.request('/api/side-channel/simulate-timing-attack', {
+    const res = await adminRequest('/api/side-channel/simulate-timing-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +132,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
   });
 
   it('POST /api/side-channel/simulate-timing-attack - deve detectar timing leak com algoritmo vulnerável', async () => {
-    const res = await app.request('/api/side-channel/simulate-timing-attack', {
+    const res = await adminRequest('/api/side-channel/simulate-timing-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +151,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
 
   it('POST /api/side-channel/verify-seal - deve verificar a integridade WORM do selo de benchmark', async () => {
     // 1. Gera um benchmark com selo WORM
-    const welchRes = await app.request('/api/side-channel/run-welch-test', {
+    const welchRes = await adminRequest('/api/side-channel/run-welch-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,7 +163,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
     const seal = welchBody.report.proofSeal;
 
     // 2. Valida o selo gerado
-    const verifyRes = await app.request('/api/side-channel/verify-seal', {
+    const verifyRes = await adminRequest('/api/side-channel/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: seal.sealToken })
@@ -175,7 +176,7 @@ describe('Side-Channel & Timing Attack Shield API Integration (/api/side-channel
     expect(verifyBody.seal).toBeDefined();
 
     // 3. Testa selo com token adulterado/inválido
-    const invalidRes = await app.request('/api/side-channel/verify-seal', {
+    const invalidRes = await adminRequest('/api/side-channel/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: 'side_channel_proof_v1_token_adulterado_falso_invalido' })

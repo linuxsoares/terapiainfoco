@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { SessionBindingService } from '../services/sessionBindingService';
 import type {
   TerminateSessionDTO,
@@ -8,6 +10,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const sessionBindingRoute = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+sessionBindingRoute.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const sessionService = SessionBindingService.getInstance();
 
 /**

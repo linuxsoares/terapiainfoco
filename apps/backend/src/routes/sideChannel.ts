@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { SideChannelService } from '../services/sideChannelService';
 import type {
   InspectSideChannelDTO,
@@ -10,6 +12,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const sideChannelRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+sideChannelRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const sideChannelService = SideChannelService.getInstance();
 
 /**

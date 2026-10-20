@@ -8,6 +8,8 @@
  */
 
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { SessionFixationGuardService } from '../services/sessionFixationGuardService';
 import type {
   EvaluateSessionDTO,
@@ -24,6 +26,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 const router = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+router.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = SessionFixationGuardService.getInstance();
 
 /**

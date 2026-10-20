@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { AntiAutomationTarpitService } from '../services/antiAutomationTarpitService';
 import type {
   CreateHoneypotTrapDTO,
@@ -8,6 +10,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const antiAutomationTarpitRoute = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+antiAutomationTarpitRoute.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const tarpitService = AntiAutomationTarpitService.getInstance();
 
 /**

@@ -7,10 +7,11 @@ import {
   CommandExecutionPolicyAction,
   ClinicalConverterJobType,
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave (CWE-78 & OWASP ASVS V5.3)', () => {
   it('GET /api/os-command-guard/overview - deve retornar telemetria, política, incidentes e pipelines clínicos', async () => {
-    const res = await app.request('/api/os-command-guard/overview');
+    const res = await adminRequest('/api/os-command-guard/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -23,7 +24,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/inspect - deve inspecionar e aprovar comando legítimo com binário aprovado', async () => {
-    const res = await app.request('/api/os-command-guard/inspect', {
+    const res = await adminRequest('/api/os-command-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +48,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/inspect - deve detectar e bloquear injeção de metacaracteres de shell', async () => {
-    const res = await app.request('/api/os-command-guard/inspect', {
+    const res = await adminRequest('/api/os-command-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,7 +69,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/inspect - deve bloquear binário não autorizado fora da allowlist', async () => {
-    const res = await app.request('/api/os-command-guard/inspect', {
+    const res = await adminRequest('/api/os-command-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -89,7 +90,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/execute - deve executar comando seguro em enclave sandboxed com sucesso', async () => {
-    const res = await app.request('/api/os-command-guard/execute', {
+    const res = await adminRequest('/api/os-command-guard/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/execute - deve retornar HTTP 400 e bloquear comando com flag proibida', async () => {
-    const res = await app.request('/api/os-command-guard/execute', {
+    const res = await adminRequest('/api/os-command-guard/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -138,7 +139,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/policy - deve atualizar política de segurança com sucesso', async () => {
-    const res = await app.request('/api/os-command-guard/policy', {
+    const res = await adminRequest('/api/os-command-guard/policy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -161,7 +162,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
   });
 
   it('POST /api/os-command-guard/simulate - deve simular ataque adversarial e registrar bloqueio', async () => {
-    const res = await app.request('/api/os-command-guard/simulate', {
+    const res = await adminRequest('/api/os-command-guard/simulate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,7 +184,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
 
   it('POST /api/os-command-guard/verify-seal - deve verificar autenticidade de selo probatório RFC 8785', async () => {
     // 1. Obter um selo via inspeção
-    const inspectRes = await app.request('/api/os-command-guard/inspect', {
+    const inspectRes = await adminRequest('/api/os-command-guard/inspect', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -197,7 +198,7 @@ describe('API Integration: OS Command Guard & Secure Sandboxed Converter Enclave
     const seal = inspectData.inspection.proofSeal;
 
     // 2. Verificar selo
-    const verifyRes = await app.request('/api/os-command-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/os-command-guard/verify-seal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

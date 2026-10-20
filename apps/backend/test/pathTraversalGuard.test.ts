@@ -7,6 +7,7 @@ import {
   PathThreatVector,
   PathValidationAction,
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-traversal-guard)', () => {
   const app = new Hono();
@@ -14,7 +15,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('GET /api/path-traversal-guard/overview', () => {
     it('deve retornar telemetria completa, presets de anexos clínicos e métricas operacionais', async () => {
-      const res = await app.request('/api/path-traversal-guard/overview');
+      const res = await adminRequest('/api/path-traversal-guard/overview');
       expect(res.status).toBe(200);
 
       const json = await res.json();
@@ -29,7 +30,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('POST /api/path-traversal-guard/inspect', () => {
     it('deve inspecionar caminho seguro retornando conformidade e isWithinJail true', async () => {
-      const res = await app.request('/api/path-traversal-guard/inspect', {
+      const res = await adminRequest('/api/path-traversal-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,7 +48,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve detectar tentativa de traversal relativo (../../etc/passwd) com severidade crítica', async () => {
-      const res = await app.request('/api/path-traversal-guard/inspect', {
+      const res = await adminRequest('/api/path-traversal-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,7 +66,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve retornar erro 400 se o caminho não for informado', async () => {
-      const res = await app.request('/api/path-traversal-guard/inspect', {
+      const res = await adminRequest('/api/path-traversal-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -80,7 +81,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('POST /api/path-traversal-guard/resolve', () => {
     it('deve resolver e emitir selo WORM para anexo legítimo', async () => {
-      const res = await app.request('/api/path-traversal-guard/resolve', {
+      const res = await adminRequest('/api/path-traversal-guard/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,7 +98,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve bloquear tentativa de invasão e quarentenar anexo malicioso', async () => {
-      const res = await app.request('/api/path-traversal-guard/resolve', {
+      const res = await adminRequest('/api/path-traversal-guard/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,7 +115,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve retornar erro 400 se campos obrigatórios forem omitidos', async () => {
-      const res = await app.request('/api/path-traversal-guard/resolve', {
+      const res = await adminRequest('/api/path-traversal-guard/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proposedPath: 'documento.pdf' }),
@@ -126,7 +127,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('POST /api/path-traversal-guard/policy', () => {
     it('deve atualizar política de confinamento e filtros de extensões permitidas', async () => {
-      const res = await app.request('/api/path-traversal-guard/policy', {
+      const res = await adminRequest('/api/path-traversal-guard/policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -145,7 +146,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('POST /api/path-traversal-guard/simulate', () => {
     it('deve simular ataque de Directory Traversal e neutralizar com sucesso', async () => {
-      const res = await app.request('/api/path-traversal-guard/simulate', {
+      const res = await adminRequest('/api/path-traversal-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -162,7 +163,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve simular ataque com Null Byte Termination e desarmar extensão maliciosa', async () => {
-      const res = await app.request('/api/path-traversal-guard/simulate', {
+      const res = await adminRequest('/api/path-traversal-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +179,7 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
     });
 
     it('deve simular ataque com Wrapper de URI e bloquear LFI', async () => {
-      const res = await app.request('/api/path-traversal-guard/simulate', {
+      const res = await adminRequest('/api/path-traversal-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,11 +196,11 @@ describe('Backend API Integration: Path Traversal & LFI Guard (/api/path-travers
 
   describe('POST /api/path-traversal-guard/verify-seal', () => {
     it('deve validar com sucesso um selo probatório WORM obtido da visão geral', async () => {
-      const overviewRes = await app.request('/api/path-traversal-guard/overview');
+      const overviewRes = await adminRequest('/api/path-traversal-guard/overview');
       const overviewJson = await overviewRes.json();
       const sampleSeal = overviewJson.overview.recentSealsSample[0];
 
-      const res = await app.request('/api/path-traversal-guard/verify-seal', {
+      const res = await adminRequest('/api/path-traversal-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sealToken: sampleSeal }),
