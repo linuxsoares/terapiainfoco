@@ -1,5 +1,10 @@
-import { Hono } from 'hono';
-import { UserRole, type CreateStaffMemberDTO, type CreateStaffMemberResponse } from '@terapiainfoco/shared';
+import { Hono, type Context } from 'hono';
+import {
+  UserRole,
+  type CreateStaffMemberDTO,
+  type CreateStaffMemberResponse,
+  type ResetStaffPasswordResponse
+} from '@terapiainfoco/shared';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { TeamService, TeamInputError } from '../services/teamService';
 
@@ -27,6 +32,36 @@ adminRoute.post('/users', async (c) => {
     return c.json(response, 201);
   } catch (err: any) {
     if (err instanceof TeamInputError) return c.json({ success: false, error: err.message }, 400);
+    throw err;
+  }
+});
+
+const adminContext = (c: Context) => ({
+  actorId: c.get('user').id,
+  ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1'
+});
+
+// Desativa / reativa conta da equipe
+for (const [path, disabled] of [['disable', true], ['enable', false]] as const) {
+  adminRoute.post(`/users/:id/${path}`, (c) => {
+    try {
+      const member = TeamService.setDisabled(c.req.param('id'), disabled, adminContext(c));
+      return c.json({ success: true, member });
+    } catch (err: any) {
+      if (err instanceof TeamInputError) return c.json({ success: false, error: err.message }, 404);
+      throw err;
+    }
+  });
+}
+
+// Reemite a senha inicial (exibida uma vez)
+adminRoute.post('/users/:id/reset-password', async (c) => {
+  try {
+    const { member, temporaryPassword } = await TeamService.resetPassword(c.req.param('id'), adminContext(c));
+    const response: ResetStaffPasswordResponse = { success: true, member, temporaryPassword };
+    return c.json(response);
+  } catch (err: any) {
+    if (err instanceof TeamInputError) return c.json({ success: false, error: err.message }, 404);
     throw err;
   }
 });

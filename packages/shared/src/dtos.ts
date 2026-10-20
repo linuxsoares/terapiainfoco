@@ -65,6 +65,8 @@ export interface AdminStaffMember {
   twoFactorEnabled: boolean;
   createdAt: Date | string;
   lastLoginAt?: Date | string | null;
+  disabled: boolean;
+  mustChangePassword: boolean;
 }
 
 export interface CreateStaffMemberDTO {
@@ -77,9 +79,11 @@ export interface CreateStaffMemberDTO {
 export interface CreateStaffMemberResponse {
   success: boolean;
   member: AdminStaffMember;
-  /** Exibida uma única vez; a pessoa deve trocá-la em Segurança no primeiro acesso */
+  /** Exibida uma única vez; a troca é exigida no primeiro acesso */
   temporaryPassword: string;
 }
+
+export type ResetStaffPasswordResponse = CreateStaffMemberResponse;
 
 /** Resultado da busca de pacientes por nome ou e-mail (restrita ao consultório) */
 export interface PatientSearchItem {

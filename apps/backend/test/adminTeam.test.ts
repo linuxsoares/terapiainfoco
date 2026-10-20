@@ -54,7 +54,8 @@ describe('Gestão de equipe pelo Admin', () => {
       body: JSON.stringify({ email: 'joana@clinica.com.br', password: body.temporaryPassword })
     })).json() as any;
     expect(login.user.therapistId).toBe(practice.therapistId);
-    expect((await app.request('/api/appointments/mine', { headers: { Authorization: `Bearer ${login.accessToken}` } })).status).toBe(200);
+    // Até trocar a senha inicial, o resto do sistema fica bloqueado
+    expect((await app.request('/api/appointments/mine', { headers: { Authorization: `Bearer ${login.accessToken}` } })).status).toBe(403);
 
     const list = await (await app.request('/api/admin/users', { headers: { Authorization: `Bearer ${admin.token}` } })).json() as any;
     expect(list.members.some((m: any) => m.email === 'joana@clinica.com.br')).toBe(true);
@@ -81,5 +82,79 @@ describe('Gestão de equipe pelo Admin', () => {
       expect((await createMember(token, { name: 'X', email: 'x@x.com', role: UserRole.RECEPCAO_SECRETARIA, therapistId: 'x' })).status).toBe(403);
     }
     expect((await app.request('/api/admin/users')).status).toBe(401);
+  });
+
+  // db.clear() preserva as contas: cada teste usa um e-mail próprio
+  async function newReceptionist(adminToken: string, email: string) {
+    const practice = (await (await app.request('/api/admin/practices', { headers: { Authorization: `Bearer ${adminToken}` } })).json() as any).practices[0];
+    const created = await (await createMember(adminToken, {
+      name: 'Rita Recepção', email, role: UserRole.RECEPCAO_SECRETARIA, therapistId: practice.therapistId
+    })).json() as any;
+    return created;
+  }
+
+  async function loginAs(email: string, password: string) {
+    return app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+  }
+
+  it('senha inicial exige troca antes de usar o sistema', async () => {
+    const admin = await tokenFor(UserRole.ADMIN);
+    const created = await newReceptionist(admin.token, 'rita.inicial@clinica.com.br');
+    expect(created.member.mustChangePassword).toBe(true);
+
+    const session = await (await loginAs('rita.inicial@clinica.com.br', created.temporaryPassword)).json() as any;
+    expect(session.user.mustChangePassword).toBe(true);
+    const auth = { Authorization: `Bearer ${session.accessToken}` };
+    const blocked = await app.request('/api/appointments/mine', { headers: auth });
+    expect(blocked.status).toBe(403);
+    expect((await blocked.json() as any).code).toBe('PASSWORD_CHANGE_REQUIRED');
+    expect((await app.request('/api/auth/me', { headers: auth })).status).toBe(200);
+
+    const changed = await (await app.request('/api/auth/password', {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: created.temporaryPassword, newPassword: 'MinhaSenha#2026' })
+    })).json() as any;
+    expect(changed.user.mustChangePassword).toBe(false);
+    expect((await app.request('/api/appointments/mine', { headers: { Authorization: `Bearer ${changed.accessToken}` } })).status).toBe(200);
+  });
+
+  it('desativar bloqueia login e tokens já emitidos; reativar devolve o acesso', async () => {
+    const admin = await tokenFor(UserRole.ADMIN);
+    const created = await newReceptionist(admin.token, 'rita.desativar@clinica.com.br');
+    const session = await (await loginAs('rita.desativar@clinica.com.br', created.temporaryPassword)).json() as any;
+    const adminAuth = { Authorization: `Bearer ${admin.token}` };
+
+    const disabled = await (await app.request(`/api/admin/users/${created.member.id}/disable`, { method: 'POST', headers: adminAuth })).json() as any;
+    expect(disabled.member.disabled).toBe(true);
+    expect((await app.request('/api/auth/me', { headers: { Authorization: `Bearer ${session.accessToken}` } })).status).toBe(401);
+    expect((await loginAs('rita.desativar@clinica.com.br', created.temporaryPassword)).status).toBeGreaterThanOrEqual(400);
+
+    await app.request(`/api/admin/users/${created.member.id}/enable`, { method: 'POST', headers: adminAuth });
+    expect((await loginAs('rita.desativar@clinica.com.br', created.temporaryPassword)).status).toBe(200);
+  });
+
+  it('reemitir senha encerra sessões e só vale para contas da equipe', async () => {
+    const admin = await tokenFor(UserRole.ADMIN);
+    const created = await newReceptionist(admin.token, 'rita.reemitir@clinica.com.br');
+    const session = await (await loginAs('rita.reemitir@clinica.com.br', created.temporaryPassword)).json() as any;
+    await Bun.sleep(1100);
+    const adminAuth = { Authorization: `Bearer ${admin.token}` };
+
+    const reset = await (await app.request(`/api/admin/users/${created.member.id}/reset-password`, { method: 'POST', headers: adminAuth })).json() as any;
+    expect(reset.temporaryPassword).not.toBe(created.temporaryPassword);
+    expect((await app.request('/api/auth/me', { headers: { Authorization: `Bearer ${session.accessToken}` } })).status).toBe(401);
+    expect((await loginAs('rita.reemitir@clinica.com.br', created.temporaryPassword)).status).toBe(401);
+    expect((await loginAs('rita.reemitir@clinica.com.br', reset.temporaryPassword)).status).toBe(200);
+    expect(db.auditLogs.some((l) => l.action === AuditAction.USER_PASSWORD_RESET && l.actorId === admin.userId)).toBe(true);
+
+    // Psicólogo titular e Admin não são geridos por aqui
+    const psychologist = Array.from(db.users.values()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
+    expect((await app.request(`/api/admin/users/${psychologist.id}/disable`, { method: 'POST', headers: adminAuth })).status).toBe(404);
+    expect((await app.request(`/api/admin/users/${admin.userId}/reset-password`, { method: 'POST', headers: adminAuth })).status).toBe(404);
   });
 });

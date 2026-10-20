@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
+  AuditAction,
+  AuditResourceType,
   UserRole,
   type AdminPractice,
   type AdminStaffMember,
@@ -8,12 +10,36 @@ import {
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { authService } from './authService';
+import { AuditService } from './auditService';
 
 /** Perfis da equipe que o Admin cria vinculados a um consultório */
 export const TEAM_ROLES: readonly UserRole[] = [UserRole.RECEPCAO_SECRETARIA, UserRole.SUPERVISOR_CLINICO];
 
 /** Erro de entrada do Admin (vira 400 na rota) */
 export class TeamInputError extends Error {}
+
+function newTemporaryPassword(): string {
+  return randomBytes(12).toString('base64url');
+}
+
+/** Conta da equipe que o Admin pode gerenciar (nunca psicólogos, pacientes ou administradores) */
+function teamMember(userId: string): User {
+  const user = db.users.get(userId);
+  if (!user || !TEAM_ROLES.includes(user.role)) {
+    throw new TeamInputError('Conta da equipe não encontrada.');
+  }
+  return user;
+}
+
+function auditTeamChange(user: User, action: AuditAction, context: { actorId: string; ipAddress: string }) {
+  AuditService.log({
+    actorId: context.actorId,
+    resourceType: AuditResourceType.USER,
+    resourceId: user.id,
+    action,
+    ipAddress: context.ipAddress
+  });
+}
 
 function practiceOwners(): Map<string, User> {
   const owners = new Map<string, User>();
@@ -33,7 +59,9 @@ function toStaffMember(user: User, owners: Map<string, User>): AdminStaffMember 
     practiceName: user.therapistId ? owners.get(user.therapistId)?.name : undefined,
     twoFactorEnabled: user.twoFactorEnabled,
     createdAt: user.createdAt,
-    lastLoginAt: user.lastLoginAt ?? null
+    lastLoginAt: user.lastLoginAt ?? null,
+    disabled: !!user.disabledAt,
+    mustChangePassword: user.mustChangePassword ?? false
   };
 }
 
@@ -70,18 +98,42 @@ export const TeamService = {
       throw new TeamInputError('Consultório não encontrado.');
     }
 
-    // Senha inicial aleatória, mostrada uma vez ao Admin; a pessoa troca em Segurança
-    const temporaryPassword = randomBytes(12).toString('base64url');
+    // Senha inicial aleatória, mostrada uma vez ao Admin; a troca é exigida no primeiro acesso
+    const temporaryPassword = newTemporaryPassword();
     let created;
     try {
       created = await authService.register(
         { name, email, password: temporaryPassword, role: dto.role },
         context.ipAddress,
-        { allowPrivilegedRole: true, practiceTherapistId: dto.therapistId, actorId: context.actorId }
+        { allowPrivilegedRole: true, practiceTherapistId: dto.therapistId, actorId: context.actorId, mustChangePassword: true }
       );
     } catch (err: any) {
       throw new TeamInputError(err.message || 'Não foi possível criar a conta.');
     }
     return { member: toStaffMember(db.users.get(created.id)!, owners), temporaryPassword };
+  },
+
+  /** Desativa (ou reativa) a conta: sem login e com os tokens já emitidos rejeitados */
+  setDisabled(userId: string, disabled: boolean, context: { actorId: string; ipAddress: string }): AdminStaffMember {
+    const user = teamMember(userId);
+    user.disabledAt = disabled ? new Date().toISOString() : undefined;
+    db.users.set(user.id, user);
+    auditTeamChange(user, disabled ? AuditAction.USER_DISABLED : AuditAction.USER_ENABLED, context);
+    return toStaffMember(user, practiceOwners());
+  },
+
+  /** Nova senha inicial: encerra as sessões abertas e exige troca no próximo acesso */
+  async resetPassword(
+    userId: string,
+    context: { actorId: string; ipAddress: string }
+  ): Promise<{ member: AdminStaffMember; temporaryPassword: string }> {
+    const user = teamMember(userId);
+    const temporaryPassword = newTemporaryPassword();
+    user.passwordHash = await Bun.password.hash(temporaryPassword);
+    user.passwordChangedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+    user.mustChangePassword = true;
+    db.users.set(user.id, user);
+    auditTeamChange(user, AuditAction.USER_PASSWORD_RESET, context);
+    return { member: toStaffMember(user, practiceOwners()), temporaryPassword };
   }
 };

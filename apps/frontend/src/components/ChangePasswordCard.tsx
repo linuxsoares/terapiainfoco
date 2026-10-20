@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { SafeUser } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 const INPUT_CLASS =
   'w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500';
 
 /** Troca da própria senha; as sessões abertas em outros dispositivos são encerradas */
-export function ChangePasswordCard() {
+export function ChangePasswordCard({ onChanged }: { onChanged?: (user: SafeUser) => void } = {}) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,7 +24,8 @@ export function ChangePasswordCard() {
     setError(null);
     setSuccess(false);
     try {
-      await api.changePassword(currentPassword, newPassword);
+      const user = await api.changePassword(currentPassword, newPassword);
+      if (user) onChanged?.(user);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

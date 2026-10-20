@@ -69,7 +69,9 @@ export class AuthService {
       twoFactorEnabled: user.twoFactorEnabled,
       passkeysCount: user.passkeysCount ?? 0,
       createdAt: user.createdAt,
-      lastLoginAt: user.lastLoginAt
+      lastLoginAt: user.lastLoginAt,
+      mustChangePassword: user.mustChangePassword ?? false,
+      disabled: !!user.disabledAt
     };
   }
 
@@ -85,6 +87,8 @@ export class AuthService {
       practiceTherapistId?: string;
       /** Quem criou a conta, quando não é a própria pessoa (auditoria) */
       actorId?: string;
+      /** Senha definida por outra pessoa: exige troca no primeiro acesso */
+      mustChangePassword?: boolean;
     } = {}
   ): Promise<SafeUser> {
     if (!options.allowPrivilegedRole && !SELF_SERVICE_ROLES.includes(dto.role)) {
@@ -149,6 +153,7 @@ export class AuthService {
       dpoCertification: dto.dpoCertification,
       socialProviders: providers,
       passwordHash,
+      mustChangePassword: options.mustChangePassword || undefined,
       twoFactorEnabled: false,
       createdAt: new Date()
     };
@@ -420,6 +425,7 @@ export class AuthService {
     }
 
     user.passwordHash = await Bun.password.hash(newPassword);
+    user.mustChangePassword = false;
     // Precisão de segundos, como o iat dos JWT: os tokens novos (mesmo segundo) continuam válidos
     user.passwordChangedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
     db.users.set(user.id, user);
@@ -512,6 +518,9 @@ export class AuthService {
    * Emissão padronizada de par Access + Refresh tokens
    */
   public async issueTokens(user: User, ipAddress: string): Promise<LoginResponse> {
+    if (user.disabledAt) {
+      throw new Error('Conta desativada. Procure o administrador da plataforma.');
+    }
     const now = Math.floor(Date.now() / 1000);
     const expiresIn = 3600; // 1 hora
     const refreshExpiresIn = 7 * 86400; // 7 dias
@@ -835,6 +844,9 @@ export class AuthService {
       throw new Error('Token fornecido não é um token de acesso válido.');
     }
     const user = db.users.get(payload.sub);
+    if (user?.disabledAt) {
+      throw new Error('Conta desativada. Procure o administrador da plataforma.');
+    }
     if (user && issuedBeforePasswordChange(user, payload.iat)) {
       throw new Error('Senha alterada: faça login novamente.');
     }

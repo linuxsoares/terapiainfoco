@@ -514,6 +514,9 @@ export interface User {
   passkeysCount?: number;
   createdAt: Date | string;
   lastLoginAt?: Date | string | null;
+  /** Conta desativada pelo Admin: não entra nem usa tokens já emitidos */
+  disabledAt?: Date | string;
+  mustChangePassword?: boolean;
 }
 
 /**
@@ -543,6 +546,9 @@ export interface SafeUser {
   passkeysCount?: number;
   createdAt: Date | string;
   lastLoginAt?: Date | string | null;
+  /** Senha inicial ou reemitida pelo Admin: precisa ser trocada antes de usar o sistema */
+  mustChangePassword?: boolean;
+  disabled?: boolean;
 }
 
 /**
