@@ -6533,7 +6533,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
   };
 
   React.useEffect(() => {
-    if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) {
+    if (currentUser.role === UserRole.ADMIN) {
       fetchWebrtcSessions();
       fetchWafOverview();
       fetchNetworkResilienceData();
@@ -7249,19 +7249,22 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
     setTimeout(() => setCopiedSecret(false), 2500);
   };
 
+  // A tela é a segurança da própria conta; ferramentas da plataforma ficam restritas ao Admin
+  const isAdmin = currentUser.role === UserRole.ADMIN;
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Cabeçalho */}
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700/50 text-teal-800 dark:text-teal-300 text-xs font-semibold mb-2">
           <KeyRound className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-          Módulo de Segurança, 2FA/MFA & RBAC • RFC-001 Opção C
+          Segurança da conta
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Gestão de Acesso Seguro & Conformidade LGPD
+          Segurança
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Controle de autenticação em duas etapas (TOTP RFC 6238), papéis de acesso clínico e integridade de sessões.
+          Senha, verificação em duas etapas e chaves de acesso (passkeys) da sua conta.
         </p>
       </div>
 
@@ -7331,7 +7334,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
             <Smartphone className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            Autenticação de Dois Fatores (TOTP RFC 6238)
+            Verificação em duas etapas (2FA)
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
             Adiciona uma camada extra de proteção ao exigir um código de 6 dígitos gerado pelo Google Authenticator,
@@ -7458,6 +7461,9 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
 
       <ChangePasswordCard />
 
+      {/* Ferramentas da plataforma (simuladores, infraestrutura, auditoria): só o Admin */}
+      {isAdmin && (
+      <>
       {/* Card 2: Demonstração e Matriz de Permissões RBAC */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
         <div>
@@ -7970,7 +7976,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 <p className="font-bold text-sm text-slate-900 dark:text-white font-mono">
                   {livenessProbe?.system.uptimeFormatted || '0s'}
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono">PID {livenessProbe?.system.pid || process.pid}</p>
+                <p className="text-[10px] text-slate-500 font-mono">PID {livenessProbe?.system.pid ?? "—"}</p>
               </div>
 
               {/* Memória RAM RSS */}
@@ -8340,6 +8346,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Card 7: Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 Opção O & LGPD Art. 46) */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
@@ -8351,19 +8359,12 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Autenticação Biométrica WebAuthn / Passkeys • RFC-001 Opção O
+                  Chaves de acesso (passkeys)
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
-                  FIDO2 / Level 3
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                  LGPD Art. 46
-                </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">
-                Autenticação sem senha (passwordless) e segundo fator resistente a phishing com chaves assimétricas 
-                ECDSA P-256 geradas no enclave de segurança (Apple TouchID / FaceID, Windows Hello ou YubiKey). 
-                Validação de signCount anti-clonagem e auditoria imutável WORM.
+                Entre sem digitar a senha usando a biometria do aparelho (Touch ID, Face ID, Windows Hello)
+                ou uma chave de segurança física. As chaves de acesso são resistentes a phishing.
               </p>
             </div>
           </div>
@@ -8436,7 +8437,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
                 Nenhuma Passkey Biométrica Cadastrada
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-                Adicione o TouchID do seu computador, FaceID do smartphone ou uma chave FIDO2 física para acessar sua conta de terapeuta com um único toque.
+                Adicione o TouchID do seu computador, FaceID do smartphone ou uma chave FIDO2 física para acessar sua conta com um único toque.
               </p>
             </div>
             <button
@@ -8518,6 +8519,9 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         )}
       </div>
 
+      {/* Ferramentas da plataforma (simuladores, infraestrutura, auditoria): só o Admin */}
+      {isAdmin && (
+      <>
       {/* Card 8: Conectores SIEM Externos (Datadog, Splunk, Elastic) & Retry Resiliente com DLQ (RFC §4.4 & §5.2) */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
@@ -32238,6 +32242,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      </>
+      )}
       {/* Modal de Desativação de 2FA */}
       {showDisableModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -32355,6 +32361,9 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
         </div>
       )}
 
+      {/* Ferramentas da plataforma (simuladores, infraestrutura, auditoria): só o Admin */}
+      {isAdmin && (
+      <>
       {/* Modal de Rotação de Chave Mestre KEK */}
       {showRotateKmsModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -39209,6 +39218,8 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
