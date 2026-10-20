@@ -5,7 +5,6 @@ import {
   Sparkles, 
   FileText,
   ShieldCheck, 
-  Lock,
   Activity,
   KeyRound,
   ChevronDown,
@@ -321,43 +320,10 @@ export default function App() {
             </div>
           </div>
 
-          {/* Controles do Topo: Vitrine, Tema, Anti-Shoulder Surfing, Meu Perfil, Status 2FA e Seletor de Perfil RBAC */}
+          {/* Controles do Topo: tema, anti-shoulder surfing e menu da conta (perfil, vitrine, sair) */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3">
-            <button
-              onClick={() => setShowPublicShowcase(true)}
-              className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all"
-              title="Ver Vitrine Pública da Plataforma (Sem Login)"
-            >
-              <Eye className="w-3.5 h-3.5 text-teal-500" />
-              <span>Vitrine Pública</span>
-            </button>
-
             <ThemeToggle />
             <PrivacyToggleButton />
-
-            {/* Botão Meu Perfil */}
-            <button
-              onClick={() => setProfileModalOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-800 dark:text-teal-300 border border-teal-500/25 transition-all"
-              title="Abrir Meu Perfil (Paciente, Psicólogo ou Admin)"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Meu Perfil</span>
-            </button>
-
-            {/* Indicador de 2FA */}
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                currentUser.twoFactorEnabled
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700'
-                  : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 hover:scale-105'
-              }`}
-              title="Clique para gerenciar 2FA"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>{currentUser.twoFactorEnabled ? '2FA Ativo 🔒' : 'Ativar 2FA'}</span>
-            </button>
 
             {/* Registro CRP se for psicólogo */}
             {currentUser.crp && (
@@ -428,18 +394,7 @@ export default function App() {
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       <User className="w-3.5 h-3.5 text-teal-500" />
-                      <span>Meu Perfil & Identidades Sociais</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setRoleDropdownOpen(false);
-                        setActiveTab('security');
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <KeyRound className="w-3.5 h-3.5 text-teal-500" />
-                      <span>Configurações de Segurança & 2FA</span>
+                      <span>Meu Perfil</span>
                     </button>
 
                     <button
@@ -528,23 +483,6 @@ export default function App() {
               })}
             </div>
           </div>
-
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-            <button
-              onClick={() => { setProfileModalOpen(true); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
-            >
-              <User className="w-4 h-4" />
-              <span>Meu Perfil ({ROLE_LABELS[currentUser.role]})</span>
-            </button>
-            <button
-              onClick={() => { setShowPublicShowcase(true); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-              <Eye className="w-4 h-4 text-teal-500" />
-              <span>Vitrine Pública (Sem Login)</span>
-            </button>
-          </div>
         </aside>
 
         {/* Main Layout */}
@@ -584,25 +522,11 @@ export default function App() {
                   <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Segurança & 2FA</span>
                 </div>
-                {currentUser.twoFactorEnabled && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                {currentUser.twoFactorEnabled ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" title="2FA ativo"></span>
+                ) : (
+                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">Ativar 2FA</span>
                 )}
-              </button>
-
-              <button
-                onClick={() => setProfileModalOpen(true)}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50 transition-all"
-              >
-                <User className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Meu Perfil ({ROLE_LABELS[currentUser.role]})</span>
-              </button>
-
-              <button
-                onClick={() => setShowPublicShowcase(true)}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50 transition-all"
-              >
-                <Eye className="w-4 h-4 text-indigo-500" />
-                <span>Vitrine Sem Login</span>
               </button>
             </div>
           </aside>
