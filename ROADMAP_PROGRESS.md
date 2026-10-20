@@ -2388,6 +2388,7 @@ terapiainfoco/
 | `feat/landing-dark-mode` | Dark Mode na landing page com botão de tema e preferência do sistema | [PR #148](https://github.com/linuxsoares/terapiainfoco/pull/148) | Merged |
 | `feat/equipe-desativar-reemitir` | Desativar/reativar conta da equipe, reemitir senha inicial e troca obrigatória no primeiro acesso | [PR #149](https://github.com/linuxsoares/terapiainfoco/pull/149) | Merged |
 | `fix/pacotes-conformidade-duraveis` | Pacotes de conformidade persistidos e métricas com versão real da KEK | [PR #150](https://github.com/linuxsoares/terapiainfoco/pull/150) | Merged |
+| `chore/remove-agendamento-anonimo` | Remove o agendamento público anônimo da API e estabiliza a simulação de timing attack | [PR #151](https://github.com/linuxsoares/terapiainfoco/pull/151) | Merged |
 
 ---
 
@@ -2443,7 +2444,8 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 #### 🎥 Teleconsulta Própria sem Gravação (ADR-005 — Prioridade antes do restante do roadmap)
 - [x] **Remoção do Google Meet:** OAuth, criação de salas, diagnóstico e campos `meet*` removidos; cada consulta tem o link da sala própria (`PUBLIC_APP_URL/?sala=<id>`); RFC-001 v1.2.0 com §3.2/§3.3 reescritos e ADR-005 (substitui o ADR-001); landing page e vitrine atualizadas.
 - [x] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores (barramento efêmero com cursor `época:seq`, JOIN/OFFER/ANSWER/ICE/BYE com `sessionId`), sala de espera autenticada (identidade e nome vindos da sessão), paciente só sinaliza após admitido, abertura pelo link `?sala=`, STUN/TURN configuráveis (`/ice-servers`), telemetria real via `getStats()`; novo `TeleconsultationRoom` substitui o modal com loopback; E2E com dois Chrome (`bun run e2e:teleconsulta`).
-- [ ] **Acesso de convidado à sala** (link assinado com validade) — só se o agendamento anônimo voltar: a landing não o oferece mais e `POST /api/appointments/public/book` pode ser removido.
+- [x] **Agendamento anônimo removido da API:** `POST /api/appointments/public/book` (sem autenticação, sem uso desde a nova landing) deixou de existir; o agendamento é feito pelo paciente logado (`/patient/book`). O método de serviço segue só para o monitor sintético. Acesso de convidado à sala deixa de ser necessário.
+- [ ] **Monitor sintético sem dados no consultório demo:** o passo de agendamento cria pacientes "[PROBE]" em `therapist-001`; usar um consultório isolado de sondagem ou limpar os registros ao fim.
 - [x] **Remoção da gravação:** sem `MediaRecorder` na sala, rota `/recording` e campos de gravação removidos, módulo de sharding/armazenamento de mídia (`/api/teleconsultation/media`, `packages/crypto/mediaSharding`) e seu card no painel de segurança removidos; escopo de consentimento rotulado como transcrição da fala.
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [x] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (gerava 403 em `/system/telemetry/*`).

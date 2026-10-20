@@ -125,22 +125,6 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     }
   });
 
-  it('agendamento público anônimo também exige psicólogo verificado', async () => {
-    const res = await app.request('/api/appointments/public/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        therapistId: 'consultorio-inexistente',
-        patientName: 'Anônimo',
-        patientEmail: 'anonimo@x.com',
-        patientPhone: '11999999999',
-        ...slot(4, 13),
-        consentTeleconsultationSigned: true
-      })
-    });
-    expect(res.status).toBe(400);
-  });
-
   it('horários são gerados no fuso da clínica (UTC-3), independentemente do fuso do servidor', async () => {
     const res = await app.request('/api/appointments/available-slots?therapistId=therapist-001&date=2027-03-15');
     const data = await res.json() as any;

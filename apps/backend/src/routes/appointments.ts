@@ -10,7 +10,6 @@ import {
   AuditResourceType,
   type CreateAppointmentDTO, 
   type UpdateAppointmentStatusDTO,
-  type PublicBookingDTO,
   type PatientBookingDTO,
   UserRole
 } from '@terapiainfoco/shared';
@@ -25,23 +24,6 @@ appointmentsRoute.get('/available-slots', async (c) => {
   try {
     const slotsResponse = AppointmentService.getAvailableSlots(therapistId, date);
     return c.json({ success: true, ...slotsResponse });
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 400);
-  }
-});
-
-// Agendamento público de teleconsulta diretamente pela landing page (com proteção anti-spam)
-appointmentsRoute.post('/public/book', publicBookingRateLimiter, async (c) => {
-  const body = await c.req.json<PublicBookingDTO>();
-  const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
-  const userAgent = c.req.header('user-agent');
-
-  try {
-    const booking = await AppointmentService.bookPublicAppointment(body, {
-      ipAddress: ip,
-      userAgent
-    });
-    return c.json({ success: true, booking }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
   }

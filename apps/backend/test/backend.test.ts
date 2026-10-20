@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
+import { AppointmentService } from '../src/services/appointmentService';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
@@ -455,7 +456,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(signedData.record.signatureHash).toBeDefined();
   });
 
-  it('Experiência do Paciente & Agendamento Público na Landing Page (RFC §3.1)', async () => {
+  it('Horários disponíveis e regras do agendamento direto (RFC §3.1)', async () => {
     // 1. Consulta horários disponíveis
     // Data sempre futura: horários passados não são oferecidos
     const futureDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -467,64 +468,32 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const firstOpenSlot = slotsData.slots.find((s: any) => s.available);
     expect(firstOpenSlot).toBeDefined();
 
-    // 2. Tentativa de agendamento SEM aceite do TCLE deve falhar
-    const noTcleRes = await staffRequest('/api/appointments/public/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        therapistId: 'therapist-001',
-        patientName: 'Lucas Ferreira',
-        patientEmail: 'lucas@email.com',
-        patientPhone: '11977778888',
-        scheduledStart: firstOpenSlot.start,
-        scheduledEnd: firstOpenSlot.end,
-        consentTeleconsultationSigned: false
-      })
-    });
-    expect(noTcleRes.status).toBe(400);
-    const noTcleData = await noTcleRes.json();
-    expect(noTcleData.error).toContain('Termo de Consentimento');
+    // 2. O agendamento anônimo não é mais exposto por HTTP (a landing leva à busca com login):
+    // sem token cai na autenticação das rotas do consultório; com token, a rota não existe
+    expect((await app.request('/api/appointments/public/book', { method: 'POST' })).status).toBe(401);
+    expect((await staffRequest('/api/appointments/public/book', { method: 'POST' })).status).toBe(404);
 
-    // 3. Agendamento com TCLE aceito deve ter sucesso e gerar link da sala própria
-    const bookingRes = await staffRequest('/api/appointments/public/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        therapistId: 'therapist-001',
-        patientName: 'Lucas Ferreira',
-        patientEmail: 'lucas@email.com',
-        patientPhone: '11977778888',
-        patientCpf: '333.444.555-66',
-        scheduledStart: firstOpenSlot.start,
-        scheduledEnd: firstOpenSlot.end,
-        consentTeleconsultationSigned: true
-      })
-    });
-    expect(bookingRes.status).toBe(201);
-    const bookingData = await bookingRes.json();
-    expect(bookingData.booking.appointmentId).toBeDefined();
-    expect(bookingData.booking.patientName).toBe('Lucas Ferreira');
-    expect(bookingData.booking.roomUrl).toContain(`sala=${bookingData.booking.appointmentId}`);
-    expect(bookingData.booking.bufferMinutes).toBe(10);
-    expect(bookingData.booking.instructions.length).toBeGreaterThanOrEqual(3);
+    // 3. Regras do agendamento direto, ainda usado pelo monitor sintético
+    const context = { ipAddress: '127.0.0.1' };
+    const base = {
+      therapistId: 'therapist-001',
+      patientName: 'Lucas Ferreira',
+      patientEmail: 'lucas@email.com',
+      patientPhone: '11977778888',
+      scheduledStart: firstOpenSlot.start,
+      scheduledEnd: firstOpenSlot.end
+    };
+    await expect(AppointmentService.bookPublicAppointment({ ...base, consentTeleconsultationSigned: false }, context))
+      .rejects.toThrow('Termo de Consentimento');
 
-    // 4. Tentativa de agendamento no mesmo horário deve falhar por conflito/buffer
-    const conflictRes = await staffRequest('/api/appointments/public/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        therapistId: 'therapist-001',
-        patientName: 'Outro Paciente',
-        patientEmail: 'outro@email.com',
-        patientPhone: '11966665555',
-        scheduledStart: firstOpenSlot.start,
-        scheduledEnd: firstOpenSlot.end,
-        consentTeleconsultationSigned: true
-      })
-    });
-    expect(conflictRes.status).toBe(400);
-    const conflictData = await conflictRes.json();
-    expect(conflictData.error).toContain('Conflito de agenda');
+    const booking = await AppointmentService.bookPublicAppointment({ ...base, patientCpf: '333.444.555-66', consentTeleconsultationSigned: true }, context);
+    expect(booking.roomUrl).toContain(`sala=${booking.appointmentId}`);
+    expect(booking.bufferMinutes).toBe(10);
+
+    await expect(AppointmentService.bookPublicAppointment(
+      { ...base, patientName: 'Outro Paciente', patientEmail: 'outro@email.com', consentTeleconsultationSigned: true },
+      context
+    )).rejects.toThrow('Conflito de agenda');
   });
 });
 
