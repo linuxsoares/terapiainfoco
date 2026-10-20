@@ -5,6 +5,7 @@ import { authService } from '../src/services/authService';
 import { AppointmentService } from '../src/services/appointmentService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, UserRole } from '@terapiainfoco/shared';
+import { decryptField } from '../src/services/cryptoContext';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
@@ -74,5 +75,24 @@ describe('Ciclo de vida da sessão na agenda', () => {
     const id = await appointmentStartingIn(10);
     expect((await setStatus(recepcao.id, id, AppointmentStatus.EM_ANDAMENTO)).status).toBe(400);
     expect((await setStatus(recepcao.id, id, AppointmentStatus.CANCELADA_PELO_TERAPEUTA)).status).toBe(200);
+  });
+});
+
+describe('Agenda do consultório', () => {
+  beforeEach(() => {
+    db.clear();
+    db.seedDemoSession();
+    globalRateLimitStore.reset();
+  });
+
+  it('lista as consultas com o nome do paciente', async () => {
+    const id = await appointmentStartingIn(60);
+    const res = await app.request('/api/appointments/mine', {
+      headers: { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` }
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    const listed = body.appointments.find((a: any) => a.id === id);
+    expect(listed.patientName).toBe(decryptField(db.patients.get(DEMO_PATIENT_ID)!.encryptedName));
   });
 });

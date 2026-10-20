@@ -395,7 +395,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-slate-900 dark:text-white text-base">
-                          Paciente ID: {app.patientId.slice(0, 8)}...
+                          {app.patientName ?? 'Paciente'}
                         </span>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${getStatusBadge(app.status)}`}>
                           {app.status}

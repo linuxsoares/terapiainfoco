@@ -2377,6 +2377,7 @@ terapiainfoco/
 | `fix/ajustes-perfil-interface` | Rótulos de papel amigáveis, sem "Criar Novo Perfil" para logado, erro real ao salvar perfil, Recepção fora da sala de teleconsulta | [PR #137](https://github.com/linuxsoares/terapiainfoco/pull/137) | Merged |
 | `fix/linguagem-produto-painel` | Remove jargão interno (RFC-001, numeração de módulos, enums crus) da navegação e dos módulos do consultório | [PR #138](https://github.com/linuxsoares/terapiainfoco/pull/138) | Merged |
 | `fix/acoes-duplicadas-topo-sidebar` | Um único ponto de acesso para Meu Perfil, Vitrine e Segurança & 2FA | [PR #139](https://github.com/linuxsoares/terapiainfoco/pull/139) | Merged |
+| `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | [PR #140](https://github.com/linuxsoares/terapiainfoco/pull/140) | Merged |
 
 ---
 
@@ -2428,7 +2429,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [x] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (gerava 403 em `/system/telemetry/*`).
 - [x] **Seleção de paciente no agendamento:** o modal da agenda busca pacientes do consultório por nome ou e-mail (`GET /api/patients/search`, com espera de 400 ms) em vez do campo de ID livre com `pat-001` pré-preenchido; sem paciente escolhido o agendamento não é enviado.
-- [ ] **Nome do paciente nos cartões da agenda** (hoje mostra "Paciente ID: xxxxxxxx...").
+- [x] **Nome do paciente nos cartões da agenda:** `GET /api/appointments/mine` traz `patientName` (decifrado só para pacientes do próprio consultório, como no dashboard) no lugar de "Paciente ID: xxxxxxxx...".
 
 #### 🔐 Sessão
 - [x] **Sessão persistente:** recarregar a página mantém o login e a última tela aberta; access token expirado é renovado com o refresh token (uma renovação em voo, compatível com a rotação); sessão inválida volta à vitrine; E2E `bun run e2e:sessao`.

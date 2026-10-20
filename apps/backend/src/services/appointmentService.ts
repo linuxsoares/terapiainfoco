@@ -157,10 +157,21 @@ export class AppointmentService {
    * Busca consultas do terapeuta
    */
   static getTherapistAppointments(therapistId: string): DecryptedAppointment[] {
+    // Nome decifrado só para pacientes do próprio consultório, como no dashboard clínico
+    const patientNames = new Map<string, string>();
+    for (const patient of db.patients.values()) {
+      if (patient.therapistId !== therapistId) continue;
+      try {
+        patientNames.set(patient.id, decryptField(patient.encryptedName));
+      } catch {
+        patientNames.set(patient.id, 'Paciente Cadastrado');
+      }
+    }
+
     const list: DecryptedAppointment[] = [];
     for (const app of db.appointments.values()) {
       if (app.therapistId === therapistId) {
-        list.push(toDecryptedAppointment(app));
+        list.push({ ...toDecryptedAppointment(app), patientName: patientNames.get(app.patientId) ?? 'Paciente Cadastrado' });
       }
     }
     return list;
