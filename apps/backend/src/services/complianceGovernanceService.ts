@@ -28,7 +28,13 @@ export class ComplianceInputError extends Error {}
 
 export class ComplianceGovernanceService {
   private static instance: ComplianceGovernanceService;
-  private packagesHistory: ExecutiveCompliancePackage[] = [];
+
+  /** Pacotes emitidos, mais recentes primeiro (persistidos no entity_store: são evidência de auditoria) */
+  private history(): ExecutiveCompliancePackage[] {
+    return Array.from(db.compliancePackages.values()).sort(
+      (a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()
+    );
+  }
 
   public static getInstance(): ComplianceGovernanceService {
     if (!ComplianceGovernanceService.instance) {
@@ -40,13 +46,13 @@ export class ComplianceGovernanceService {
   /**
    * Coleta evidências e métricas forenses em tempo real de todos os módulos do monorepo
    */
-  public collectForensicMetrics(): ForensicMetricsSnapshot {
+  public async collectForensicMetrics(): Promise<ForensicMetricsSnapshot> {
     // 1. Integridade da Trilha WORM
     const wormVerification = AuditService.verifyChainIntegrity();
     const wormChainIntegrity = wormVerification.isValid ? 'INTACT' : 'COMPROMISED';
 
     // 2. Chave Mestre KMS ativa
-    const kmsStatus = kmsService.getStatus();
+    const kmsStatus = await kmsService.getStatus();
     const activeKmsKeyVersion = kmsStatus.activeKeyVersion || 1;
 
     // 3. Snapshots de backup
@@ -54,7 +60,7 @@ export class ComplianceGovernanceService {
     const dataBackupsCount = backups.length;
 
     // 4. Rate Limiting
-    const storeStatus = globalRateLimitStore.getStatus();
+    const storeStatus = await globalRateLimitStore.getStatus();
 
     // 5. Autenticação Forte: 2FA medido em quem acessa dados clínicos ou administra (pacientes têm 2FA opcional)
     const usersList = Array.from(db.users.values());
@@ -83,10 +89,10 @@ export class ComplianceGovernanceService {
   /**
    * Retorna visão executiva consolidada de governança e conformidade
    */
-  public getGovernanceOverview(): ExecutiveComplianceOverviewResponse {
-    const forensicMetrics = this.collectForensicMetrics();
+  public async getGovernanceOverview(): Promise<ExecutiveComplianceOverviewResponse> {
+    const forensicMetrics = await this.collectForensicMetrics();
     const evaluation = evaluateGovernanceControls(forensicMetrics);
-    const lastPackage = this.packagesHistory[0];
+    const lastPackage = this.history()[0];
 
     return {
       success: true,
@@ -102,7 +108,7 @@ export class ComplianceGovernanceService {
 
   /** Identificação do último pacote emitido ou, na falta dele, a configurada no ambiente */
   private currentIdentity(): { organization: string; dpoName: string; technicalResponsibleCrp: string } {
-    const last = this.packagesHistory[0];
+    const last = this.history()[0];
     return {
       organization: last?.organization || config.compliance.organization,
       dpoName: last?.dpoName || config.compliance.dpoName,
@@ -113,11 +119,11 @@ export class ComplianceGovernanceService {
   /**
    * Gera um novo Pacote Executivo de Conformidade assinado canonicamente
    */
-  public generateExecutivePackage(
+  public async generateExecutivePackage(
     dto: GenerateCompliancePackageDTO,
     actorId = 'admin',
     ip = '127.0.0.1'
-  ): ExecutiveCompliancePackage {
+  ): Promise<ExecutiveCompliancePackage> {
     const identity = this.currentIdentity();
     const organization = dto.organization?.trim() || identity.organization;
     const dpoName = dto.dpoName?.trim() || identity.dpoName;
@@ -131,13 +137,10 @@ export class ComplianceGovernanceService {
       organization,
       dpoName,
       technicalResponsibleCrp,
-      forensicMetrics: this.collectForensicMetrics()
+      forensicMetrics: await this.collectForensicMetrics()
     });
 
-    this.packagesHistory.unshift(pkg);
-    if (this.packagesHistory.length > 20) {
-      this.packagesHistory.pop();
-    }
+    db.compliancePackages.set(pkg.id, pkg);
 
     // Registra emissão na trilha WORM
     AuditService.log({
@@ -165,12 +168,11 @@ export class ComplianceGovernanceService {
     actorId = 'admin',
     ip = '127.0.0.1'
   ): ExecutiveCompliancePackage {
-    const pkgIndex = this.packagesHistory.findIndex((p) => p.id === dto.packageId);
-    if (pkgIndex === -1) {
+    const currentPkg = db.compliancePackages.get(dto.packageId);
+    if (!currentPkg) {
       throw new Error(`Pacote de conformidade ${dto.packageId} não encontrado.`);
     }
 
-    const currentPkg = this.packagesHistory[pkgIndex];
     const signedPkg = applyDpoSignOffToPackage(
       currentPkg,
       dto.dpoName,
@@ -178,7 +180,7 @@ export class ComplianceGovernanceService {
       dto.statement
     );
 
-    this.packagesHistory[pkgIndex] = signedPkg;
+    db.compliancePackages.set(signedPkg.id, signedPkg);
 
     // Registra chancela formal do DPO no WORM
     AuditService.log({
@@ -206,8 +208,8 @@ export class ComplianceGovernanceService {
     ip = '127.0.0.1'
   ): { package: ExecutiveCompliancePackage; integrityValid: boolean } {
     let pkg = packageId
-      ? this.packagesHistory.find((p) => p.id === packageId)
-      : this.packagesHistory[0];
+      ? db.compliancePackages.get(packageId)
+      : this.history()[0];
 
     if (!pkg) {
       throw new ComplianceInputError('Nenhum pacote de conformidade emitido ainda.');
@@ -235,16 +237,16 @@ export class ComplianceGovernanceService {
   }
 
   public getPackageById(id: string): ExecutiveCompliancePackage | undefined {
-    return this.packagesHistory.find((p) => p.id === id);
+    return db.compliancePackages.get(id);
   }
 
   public listPackages(): ExecutiveCompliancePackage[] {
-    return [...this.packagesHistory];
+    return this.history();
   }
 
   /** Esvazia o histórico de pacotes (isolamento entre testes) */
   public reset(): void {
-    this.packagesHistory = [];
+    db.compliancePackages.clear();
   }
 }
 

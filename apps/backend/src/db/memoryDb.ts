@@ -14,6 +14,7 @@ import type {
   DPIAReport,
   StoredLiveTranscript,
   StoredLead,
+  ExecutiveCompliancePackage,
   StoredAppointmentReminder,
   StoredClinicalSessionMarker,
   StoredTherapeuticGoal,
@@ -76,6 +77,7 @@ export class MemoryDatabase {
   /** Transcrição das teleconsultas (texto cifrado; o áudio nunca é armazenado) */
   public liveTranscripts: TrackedMap<string, StoredLiveTranscript> = new TrackedMap();
   public leads: TrackedMap<string, StoredLead> = new TrackedMap();
+  public compliancePackages: TrackedMap<string, ExecutiveCompliancePackage> = new TrackedMap();
 
 
   constructor() {
@@ -254,6 +256,7 @@ export class MemoryDatabase {
     this.dpiaReports.clear();
     this.liveTranscripts.clear();
     this.leads.clear();
+    this.compliancePackages.clear();
     this.seedDefaultTherapist();
     this.seedDefaultUsers();
   }
@@ -269,7 +272,7 @@ const MAP_COLLECTIONS = [
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',
   'therapeuticExercises', 'diagnosticReports', 'psychiatricReferrals', 'patientAccessCodes', 'users',
-  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState', 'liveTranscripts', 'leads'
+  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState', 'liveTranscripts', 'leads', 'compliancePackages'
 ] as const satisfies readonly (keyof MemoryDatabase)[];
 
 /** Persistência durável do cache de domínio no PostgreSQL (ADR-004) */

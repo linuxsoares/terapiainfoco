@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { complianceGovernanceService } from '../src/services/complianceGovernanceService';
+import { complianceGovernanceService, ComplianceGovernanceService } from '../src/services/complianceGovernanceService';
+import { kmsService } from '../src/services/kmsService';
 import { UserRole } from '@terapiainfoco/shared';
 import { AuditAction, ComplianceFramework, ComplianceControlStatus } from '@terapiainfoco/shared';
 
@@ -246,6 +247,25 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
       headers: { Authorization: `Bearer ${adminToken}` }
     });
     expect(res.status).toBe(404);
+  });
+
+  it('pacotes emitidos ficam no cache persistido, não na instância do serviço', async () => {
+    const res = await app.request('/api/audit/governance/package/generate', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dpoName: 'Dra. Beatriz Santos', technicalResponsibleCrp: 'CRP 06/142857-SP' })
+    });
+    const { package: pkg } = await res.json() as any;
+    expect(db.compliancePackages.get(pkg.id)).toBeDefined();
+    // Nova instância (como após um restart com o cache hidratado do entity_store) enxerga o pacote
+    const overview = await new ComplianceGovernanceService().getGovernanceOverview();
+    expect(overview.lastPackage?.id).toBe(pkg.id);
+  });
+
+  it('métricas usam a versão ativa real da KEK', async () => {
+    const overview = await complianceGovernanceService.getGovernanceOverview();
+    expect(overview.forensicMetrics.activeKmsKeyVersion).toBe((await kmsService.getStatus()).activeKeyVersion);
+    expect(overview.forensicMetrics.rateLimitingStoreType).toBeTruthy();
   });
 
   it('deve rejeitar acesso não autenticado com HTTP 401', async () => {
