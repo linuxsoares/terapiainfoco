@@ -4,6 +4,7 @@ import type {
   AdminStaffMember,
   CreateStaffMemberDTO,
   CreateStaffMemberResponse,
+  ResetStaffPasswordResponse,
   LiveTranscriptStatusResponse,
   LiveTranscriptChunkDTO,
   LiveTranscriptUtterance,
@@ -1175,13 +1176,26 @@ export const api = {
   },
 
   /** Troca a própria senha; guarda os tokens novos (os anteriores deixam de valer) */
-  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(currentPassword: string, newPassword: string): Promise<SafeUser | undefined> {
     const res = await request<LoginResponse>('/auth/password', {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword })
     });
     if (res.accessToken) authStorage.setToken(res.accessToken);
     if (res.refreshToken) authStorage.setRefreshToken(res.refreshToken);
+    return res.user;
+  },
+
+  async setStaffMemberDisabled(id: string, disabled: boolean): Promise<AdminStaffMember> {
+    const res = await request<{ success: boolean; member: AdminStaffMember }>(
+      `/admin/users/${encodeURIComponent(id)}/${disabled ? 'disable' : 'enable'}`,
+      { method: 'POST' }
+    );
+    return res.member;
+  },
+
+  async resetStaffPassword(id: string): Promise<ResetStaffPasswordResponse> {
+    return await request<ResetStaffPasswordResponse>(`/admin/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST' });
   },
 
   async validateLogin2FA(tempToken: string, code: string): Promise<LoginResponse> {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UsersRound, UserPlus, RefreshCw, Copy, Check, AlertCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { UserRole } from '@terapiainfoco/shared';
-import type { AdminPractice, AdminStaffMember, CreateStaffMemberResponse } from '@terapiainfoco/shared';
+import type { AdminPractice, AdminStaffMember } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -11,6 +11,12 @@ const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.PACIENTE]: 'Paciente',
   [UserRole.ADMIN]: 'Administrador(a)'
 };
+
+/** Contas que o Admin gerencia (desativar, reemitir senha) */
+const MANAGED_ROLES: readonly UserRole[] = [UserRole.RECEPCAO_SECRETARIA, UserRole.SUPERVISOR_CLINICO];
+
+const ROW_BUTTON =
+  'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer disabled:opacity-50';
 
 const INPUT_CLASS =
   'w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500';
@@ -28,7 +34,9 @@ export function TeamModule() {
   const [therapistId, setTherapistId] = useState('');
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [created, setCreated] = useState<CreateStaffMemberResponse | null>(null);
+  // Senha inicial recém-criada ou reemitida: exibida uma única vez
+  const [issued, setIssued] = useState<{ name: string; temporaryPassword: string; reset: boolean } | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const load = async () => {
@@ -57,7 +65,7 @@ export function TeamModule() {
       setFormError(null);
       setCopied(false);
       const res = await api.createStaffMember({ name: name.trim(), email: email.trim(), role, therapistId });
-      setCreated(res);
+      setIssued({ name: res.member.name, temporaryPassword: res.temporaryPassword, reset: false });
       setName('');
       setEmail('');
       await load();
@@ -69,9 +77,41 @@ export function TeamModule() {
   };
 
   const copyPassword = () => {
-    if (!created) return;
-    navigator.clipboard.writeText(created.temporaryPassword);
+    if (!issued) return;
+    navigator.clipboard.writeText(issued.temporaryPassword);
     setCopied(true);
+  };
+
+  const toggleDisabled = async (member: AdminStaffMember) => {
+    const action = member.disabled ? 'reativar' : 'desativar';
+    if (!window.confirm(`Deseja ${action} a conta de ${member.name}?`)) return;
+    try {
+      setBusyId(member.id);
+      setError(null);
+      await api.setStaffMemberDisabled(member.id, !member.disabled);
+      await load();
+    } catch (err: any) {
+      setError(err.message || `Não foi possível ${action} a conta.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const resetPassword = async (member: AdminStaffMember) => {
+    if (!window.confirm(`Gerar nova senha inicial para ${member.name}? As sessões abertas serão encerradas.`)) return;
+    try {
+      setBusyId(member.id);
+      setError(null);
+      setCopied(false);
+      const res = await api.resetStaffPassword(member.id);
+      setIssued({ name: res.member.name, temporaryPassword: res.temporaryPassword, reset: true });
+      await load();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível reemitir a senha.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -158,15 +198,16 @@ export function TeamModule() {
           </div>
         )}
 
-        {created && (
+        {issued && (
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs space-y-2">
             <p className="text-slate-800 dark:text-slate-200">
-              Conta de <strong>{created.member.name}</strong> criada. Entregue a senha inicial por um canal seguro:
-              ela não será exibida de novo. No primeiro acesso, a pessoa deve trocá-la e ativar o 2FA em Segurança.
+              {issued.reset ? 'Nova senha inicial' : 'Conta'} de <strong>{issued.name}</strong>{issued.reset ? ' gerada' : ' criada'}.
+              Entregue a senha por um canal seguro: ela não será exibida de novo. No primeiro acesso a pessoa
+              define uma senha pessoal; recomende ativar o 2FA em Segurança.
             </p>
             <div className="flex items-center gap-2">
               <code className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/60 font-mono text-sm text-slate-900 dark:text-white select-all">
-                {created.temporaryPassword}
+                {issued.temporaryPassword}
               </code>
               <button
                 type="button"
@@ -191,7 +232,8 @@ export function TeamModule() {
                 <th className="py-2.5 pr-4">Nome</th>
                 <th className="py-2.5 pr-4">Perfil</th>
                 <th className="py-2.5 pr-4">Consultório</th>
-                <th className="py-2.5 text-right">2FA</th>
+                <th className="py-2.5 pr-4">2FA</th>
+                <th className="py-2.5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -200,21 +242,53 @@ export function TeamModule() {
                   <td className="py-3 pr-4">
                     <span className="font-semibold text-slate-900 dark:text-white block">{m.name}</span>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400">{m.email}</span>
+                    {m.disabled && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">Desativada</span>
+                    )}
+                    {!m.disabled && m.mustChangePassword && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Aguardando primeiro acesso</span>
+                    )}
                   </td>
                   <td className="py-3 pr-4 whitespace-nowrap">{ROLE_LABELS[m.role]}</td>
                   <td className="py-3 pr-4">{m.practiceName ?? '—'}</td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 pr-4">
                     {m.twoFactorEnabled ? (
                       <ShieldCheck className="w-4 h-4 inline text-emerald-600 dark:text-emerald-400" aria-label="2FA ativo" />
                     ) : (
                       <ShieldAlert className="w-4 h-4 inline text-amber-600 dark:text-amber-400" aria-label="Sem 2FA" />
                     )}
                   </td>
+                  <td className="py-3 text-right whitespace-nowrap space-x-1.5">
+                    {MANAGED_ROLES.includes(m.role) && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => resetPassword(m)}
+                          disabled={busyId === m.id || m.disabled}
+                          className={`${ROW_BUTTON} border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800`}
+                        >
+                          Nova senha
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleDisabled(m)}
+                          disabled={busyId === m.id}
+                          className={`${ROW_BUTTON} ${
+                            m.disabled
+                              ? 'border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                              : 'border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                          }`}
+                        >
+                          {m.disabled ? 'Reativar' : 'Desativar'}
+                        </button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
               {members.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="py-4 text-center text-slate-500 dark:text-slate-400">Nenhuma conta da equipe.</td>
+                  <td colSpan={5} className="py-4 text-center text-slate-500 dark:text-slate-400">Nenhuma conta da equipe.</td>
                 </tr>
               )}
             </tbody>

@@ -17,6 +17,9 @@ export const PRACTICE_STAFF_ROLES: UserRole[] = [
   UserRole.RECEPCAO_SECRETARIA
 ];
 
+/** Rotas liberadas enquanto a troca da senha inicial está pendente */
+const PASSWORD_CHANGE_ALLOWED = ['/api/auth/me', '/api/auth/password', '/api/auth/logout'];
+
 export interface AuthMiddlewareOptions {
   optional?: boolean;
   /** @deprecated a autenticação agora é sempre obrigatória (exceto com `optional`) */
@@ -37,6 +40,10 @@ export function authMiddleware(options: AuthMiddlewareOptions = {}) {
         const user = db.users.get(payload.sub);
         if (!user) {
           return c.json({ success: false, error: 'Usuário do token não localizado no sistema.' }, 401);
+        }
+        // Senha inicial/reemitida: só a troca de senha (e o próprio perfil/saída) até ela acontecer
+        if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.some((path) => c.req.path.endsWith(path))) {
+          return c.json({ success: false, code: 'PASSWORD_CHANGE_REQUIRED', error: 'Troque a senha inicial para continuar.' }, 403);
         }
         const safeUser = authService.toSafeUser(user);
         c.set('user', safeUser);
