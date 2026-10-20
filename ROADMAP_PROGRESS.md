@@ -2383,6 +2383,7 @@ terapiainfoco/
 | `fix/remove-fallback-supabase-auth` | Remove login e tokens via Supabase Auth (tomada de conta pelo e-mail e papel declarado pelo próprio usuário) | [PR #143](https://github.com/linuxsoares/terapiainfoco/pull/143) | Merged |
 | `feat/admin-gestao-equipe` | Módulo Equipe: Admin cria Recepção/Supervisor vinculados a um consultório | [PR #144](https://github.com/linuxsoares/terapiainfoco/pull/144) | Merged |
 | `fix/landing-sem-simulacoes` | Landing sem respostas simuladas (inclusive documento "válido" falso) e URL da API configurada no deploy | [PR #145](https://github.com/linuxsoares/terapiainfoco/pull/145) | Merged |
+| `feat/landing-busca-e-entrar` | Landing leva à busca de psicólogos e ao login do painel (fim do agendamento fixo em uma psicóloga) | [PR #146](https://github.com/linuxsoares/terapiainfoco/pull/146) | Merged |
 
 ---
 
@@ -2428,7 +2429,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [ ] **Equipe: desativar conta e reemitir senha inicial** (e exigir a troca da senha inicial no primeiro acesso).
 - [ ] **Histórico de pacotes de conformidade durável** (hoje em memória do processo, como os backups).
 - [x] **Landing page (1/4) — sem simulações e com API configurada no deploy:** removidos os fallbacks que simulavam horários, agendamento confirmado e **documento válido para qualquer token de 32 caracteres** quando a API não respondia; o build do GitHub Pages recebe `VITE_API_URL`/`VITE_APP_URL` das variáveis `LANDING_API_URL`/`LANDING_APP_URL` do repositório (aviso no workflow se faltarem; sem elas a página informa indisponibilidade, nunca chama `localhost`); meta description sem "Google Meet nativo".
-- [ ] **Landing page (2/4):** agendamento pela busca de psicólogos do painel (com login do paciente) em vez do widget fixo em `therapist-001`/"Dra. Vanessa Andrade", e link para entrar no painel.
+- [x] **Landing page (2/4) — busca de psicólogos e entrada no painel:** widget de agendamento anônimo fixo em `therapist-001`/"Dra. Vanessa Andrade" substituído pela seção "Encontre seu psicólogo" com links para o painel (`?vitrine=psicologos` abre a busca pública; `?cadastro=paciente` e `?entrar` abrem o cadastro/login); botão "Entrar" na navbar. Links ocultos se `VITE_APP_URL` não estiver configurada.
 - [ ] **Landing page (3/4):** formulário de demonstração (`LeadModal`) enviando o lead a um destino real.
 - [ ] **Landing page (4/4):** Dark Mode.
 - [x] **Agendamento a partir do perfil (backend):** `POST /api/appointments/patient/book` e `GET /api/appointments/patient/mine`; registro do paciente criado no consultório escolhido e vinculado à conta (`linkedUserId`); cadastro de paciente não cria mais prontuário em `therapist-001` nem aceita `patientId` informado (IDOR); agendamento público anônimo exige psicólogo verificado, busca CPF no consultório e não presume consentimento.
@@ -2437,7 +2438,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 #### 🎥 Teleconsulta Própria sem Gravação (ADR-005 — Prioridade antes do restante do roadmap)
 - [x] **Remoção do Google Meet:** OAuth, criação de salas, diagnóstico e campos `meet*` removidos; cada consulta tem o link da sala própria (`PUBLIC_APP_URL/?sala=<id>`); RFC-001 v1.2.0 com §3.2/§3.3 reescritos e ADR-005 (substitui o ADR-001); landing page e vitrine atualizadas.
 - [x] **Chamada real psicólogo ↔ paciente:** sinalização WebRTC entre os dois navegadores (barramento efêmero com cursor `época:seq`, JOIN/OFFER/ANSWER/ICE/BYE com `sessionId`), sala de espera autenticada (identidade e nome vindos da sessão), paciente só sinaliza após admitido, abertura pelo link `?sala=`, STUN/TURN configuráveis (`/ice-servers`), telemetria real via `getStats()`; novo `TeleconsultationRoom` substitui o modal com loopback; E2E com dois Chrome (`bun run e2e:teleconsulta`).
-- [ ] **Acesso de convidado à sala** para pacientes de agendamentos anônimos da landing page (link assinado com validade).
+- [ ] **Acesso de convidado à sala** (link assinado com validade) — só se o agendamento anônimo voltar: a landing não o oferece mais e `POST /api/appointments/public/book` pode ser removido.
 - [x] **Remoção da gravação:** sem `MediaRecorder` na sala, rota `/recording` e campos de gravação removidos, módulo de sharding/armazenamento de mídia (`/api/teleconsultation/media`, `packages/crypto/mediaSharding`) e seu card no painel de segurança removidos; escopo de consentimento rotulado como transcrição da fala.
 - [x] **Transcrição ao vivo por STT no servidor:** trechos de ~8 s do microfone de cada participante (Opus 32 kbps, sem envio de silêncio) → `POST /transcription/chunk` → provedor de STT (OpenAI `gpt-4o-mini-transcribe`, configurável; `simulated` fora de produção) → texto cifrado em `liveTranscripts`; áudio zerado após o STT; exige consentimento vigente e paciente admitido; painel de transcrição para o psicólogo; rascunho SOAP usa a transcrição da sessão (diálogo de exemplo só em `DEMO_MODE`); E2E valida falas dos dois participantes.
 - [x] **Dashboard do psicólogo sem chamadas de telemetria administrativa** (gerava 403 em `/system/telemetry/*`).
