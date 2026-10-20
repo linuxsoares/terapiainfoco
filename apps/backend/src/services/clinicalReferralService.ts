@@ -257,7 +257,7 @@ export class ClinicalReferralService {
       actorId: context.actorId,
       resourceType: AuditResourceType.CLINICAL_REFERRAL,
       resourceId: patientId,
-      action: AuditAction.QUERY,
+      action: AuditAction.DECRYPT_READ,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
     });

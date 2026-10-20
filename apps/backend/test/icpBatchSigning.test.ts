@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
+import { AuditService } from '../src/services/auditService';
 import {
   IcpCertificateType,
   IcpSignatureStandard,
@@ -38,13 +39,11 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
       therapistId,
       appointmentId: '00000000-0000-0000-0000-000000000010',
       sessionNumber: 1,
-      sessionDate: new Date(),
-      encryptedSubjective: encryptField('Paciente relata ansiedade moderada.'),
-      encryptedObjective: encryptField('Contato visual preservado.'),
-      encryptedAssessment: encryptField('Quadro adaptativo favorável.'),
-      encryptedPlan: encryptField('Treino de respiração.'),
-      cid11Code: '6B00',
-      signedHash: 'hash-soap-1',
+      encryptedSoapSubjective: encryptField('Paciente relata ansiedade moderada.'),
+      encryptedSoapObjective: encryptField('Contato visual preservado.'),
+      encryptedSoapAssessment: encryptField('Quadro adaptativo favorável.'),
+      encryptedSoapPlan: encryptField('Treino de respiração.'),
+      isSigned: false,
       createdAt: new Date(),
       signedAt: new Date()
     });
@@ -56,13 +55,11 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
       therapistId,
       appointmentId: '00000000-0000-0000-0000-000000000010',
       sessionNumber: 2,
-      sessionDate: new Date(),
-      encryptedSubjective: encryptField('Paciente relata melhora no sono.'),
-      encryptedObjective: encryptField('Afeto estável.'),
-      encryptedAssessment: encryptField('Progresso terapêutico evidente.'),
-      encryptedPlan: encryptField('Manutenção das estratégias.'),
-      cid11Code: '6B00',
-      signedHash: 'hash-soap-2',
+      encryptedSoapSubjective: encryptField('Paciente relata melhora no sono.'),
+      encryptedSoapObjective: encryptField('Afeto estável.'),
+      encryptedSoapAssessment: encryptField('Progresso terapêutico evidente.'),
+      encryptedSoapPlan: encryptField('Manutenção das estratégias.'),
+      isSigned: false,
       createdAt: new Date(),
       signedAt: new Date()
     });
@@ -248,6 +245,8 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
       l => l.action === AuditAction.ICP_BATCH_SIGNED
     );
     expect(auditLogs.length).toBeGreaterThan(0);
-    expect(auditLogs[0].metadata).toContain('2.16.76.1.4.1');
+    expect(JSON.stringify(auditLogs[0].details)).toContain('2.16.76.1.4.1');
+    // O registro entra na hash-chain: a trilha continua íntegra
+    expect(AuditService.verifyChainIntegrity().isValid).toBe(true);
   });
 });

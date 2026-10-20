@@ -152,8 +152,8 @@ export class SecurePurgeService {
       let resolvedDate: Date;
       if (records.length > 0 && records[records.length - 1].createdAt) {
         resolvedDate = new Date(records[records.length - 1].createdAt);
-      } else if (appts.length > 0 && appts[appts.length - 1].date) {
-        resolvedDate = new Date(appts[appts.length - 1].date);
+      } else if (appts.length > 0 && appts[appts.length - 1].scheduledStart) {
+        resolvedDate = new Date(appts[appts.length - 1].scheduledStart);
       } else if (patient && (patient as any).createdAt) {
         resolvedDate = new Date((patient as any).createdAt);
       } else {
@@ -207,18 +207,18 @@ export class SecurePurgeService {
     const isLegalOverride = dto.override5YearRuleWithLegalOrder && dto.legalOrderNumber;
 
     if (candidate && !candidate.isEligibleForPurge && !isLegalOverride) {
-      AuditService.log(
-        actor.id,
-        AuditAction.DATA_PURGE_RETENTION_BLOCKED,
-        AuditResourceType.PURGE_LEDGER,
-        dto.patientId,
-        {
+      AuditService.log({
+        actorId: actor.id,
+        action: AuditAction.DATA_PURGE_RETENTION_BLOCKED,
+        resourceType: AuditResourceType.PURGE_LEDGER,
+        resourceId: dto.patientId,
+        details: {
           reason: candidate.blockingReason,
           inactivityMonths: candidate.inactivityMonths,
           attemptedByRole: actor.role
         },
-        actor.ipAddress
-      );
+        ipAddress: actor.ipAddress
+      });
 
       throw new Error(
         `Expurgamento bloqueado: O prontuário está sob o prazo de guarda compulsória de 5 anos (Resolução CFP nº 001/2009). Restam ${60 - candidate.inactivityMonths} meses para expiração, salvo ordem judicial irrecorrível.`
@@ -283,12 +283,12 @@ export class SecurePurgeService {
     });
 
     // Registro na trilha WORM inviolável
-    const wormLog = AuditService.log(
-      actor.id,
-      AuditAction.DATA_PURGE_EXECUTED,
-      AuditResourceType.PURGE_LEDGER,
-      dto.patientId,
-      {
+    const wormLog = AuditService.log({
+      actorId: actor.id,
+      action: AuditAction.DATA_PURGE_EXECUTED,
+      resourceType: AuditResourceType.PURGE_LEDGER,
+      resourceId: dto.patientId,
+      details: {
         certificateId,
         patientBlindIndex,
         recordsPurgedCount: recordIdsPurged.length,
@@ -300,8 +300,8 @@ export class SecurePurgeService {
         isLegalOverride: !!isLegalOverride,
         legalOrderNumber: dto.legalOrderNumber
       },
-      actor.ipAddress
-    );
+      ipAddress: actor.ipAddress
+    });
 
     const certificate: DataPurgeCertificate = {
       certificateId,
@@ -382,19 +382,19 @@ export class SecurePurgeService {
 
     const integrity = verifyPurgeCertificateIntegrity(cert);
 
-    AuditService.log(
-      actor?.id || 'PUBLIC_VERIFIER',
-      AuditAction.DATA_PURGE_PROOF_VERIFIED,
-      AuditResourceType.PURGE_LEDGER,
-      cert.certificateId,
-      {
+    AuditService.log({
+      actorId: actor?.id || 'PUBLIC_VERIFIER',
+      action: AuditAction.DATA_PURGE_PROOF_VERIFIED,
+      resourceType: AuditResourceType.PURGE_LEDGER,
+      resourceId: cert.certificateId,
+      details: {
         query,
         valid: integrity.valid,
         status: integrity.status,
         patientBlindIndex: cert.patientBlindIndex
       },
-      actor?.ipAddress
-    );
+      ipAddress: actor?.ipAddress
+    });
 
     return {
       valid: integrity.valid,

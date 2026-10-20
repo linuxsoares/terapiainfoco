@@ -117,7 +117,7 @@ export class ClinicalNotaryService {
 
     // Verificar se há retificações vinculadas
     const rectifications = Array.from(db.clinicalRecordRectifications.values()).filter(
-      r => r.originalRecordId === params.recordId
+      r => r.clinicalRecordId === params.recordId
     );
 
     const block = createClinicalNotaryBlock({

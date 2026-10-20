@@ -36,8 +36,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
         name: 'Ana Paula Ferreira',
         email: patientEmail,
         cpf: '123.456.789-00',
-        phone: '(11) 98765-4321',
-        birthDate: '1992-05-14'
+        phone: '(11) 98765-4321'
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );
@@ -52,7 +51,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
         modality: BillingModality.PER_SESSION,
         amountCents: 22000,
         paymentMethod: PaymentMethod.PIX,
-        sessionDates: ['2026-10-10']
+        sessionsCovered: [{ data: '2026-10-10', modalidade: 'ONLINE' }]
       },
       context: {
         actorId: '00000000-0000-0000-0000-000000000001',
@@ -298,8 +297,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
         name: 'Carlos Alberto Mendes',
         email: 'carlos.mendes@gmail.com',
         cpf: '987.654.321-99',
-        phone: '(11) 91111-2222',
-        birthDate: '1985-02-10'
+        phone: '(11) 91111-2222'
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );
@@ -383,5 +381,20 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
     const receiptAudit = db.auditLogs.find(a => a.action === AuditAction.PATIENT_RECEIPT_ACCESSED);
     expect(receiptAudit).toBeDefined();
     expect(receiptAudit?.actorId).toBe(patientId);
+  });
+
+  it('portal recusa refresh tokens e tokens de outros perfis', async () => {
+    const loginRes = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'psicologo@terapiainfoco.com.br', password: 'Senha@123456' })
+    });
+    const { accessToken, refreshToken } = await loginRes.json() as any;
+    expect(accessToken).toBeDefined();
+    expect(refreshToken).toBeDefined();
+    for (const token of [accessToken, refreshToken]) {
+      const res = await app.request('/api/patient-portal/overview', { headers: { Authorization: `Bearer ${token}` } });
+      expect(res.status).toBe(401);
+    }
   });
 });

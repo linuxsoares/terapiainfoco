@@ -13,6 +13,7 @@ import type {
   ExecuteBatchSignatureDTO
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { AuditService } from './auditService';
 import { decryptField } from './cryptoContext';
 
 /**
@@ -38,10 +39,11 @@ export class IcpBatchSigningService {
         const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
         const maskedName = this.maskPatientName(rawName);
 
-        const sub = decryptField(record.encryptedSubjective);
-        const obj = decryptField(record.encryptedObjective);
-        const ass = decryptField(record.encryptedAssessment);
-        const pla = decryptField(record.encryptedPlan);
+        // Campos SOAP são opcionais (prontuário em rascunho): ausentes entram vazios no digest
+        const sub = record.encryptedSoapSubjective ? decryptField(record.encryptedSoapSubjective) : '';
+        const obj = record.encryptedSoapObjective ? decryptField(record.encryptedSoapObjective) : '';
+        const ass = record.encryptedSoapAssessment ? decryptField(record.encryptedSoapAssessment) : '';
+        const pla = record.encryptedSoapPlan ? decryptField(record.encryptedSoapPlan) : '';
 
         const canonicalSha256 = crypto.createHash('sha256')
           .update(`SOAP|${record.id}|${sub}|${obj}|${ass}|${pla}|${record.sessionNumber}`)
@@ -52,9 +54,9 @@ export class IcpBatchSigningService {
           type: 'SOAP_RECORD',
           patientId: record.patientId,
           patientNameMasked: maskedName,
-          title: `Evolução SOAP — Sessão #${record.sessionNumber || 1} (${record.cid11Code || 'CID-11'})`,
+          title: `Evolução SOAP — Sessão #${record.sessionNumber || 1}`,
           itemCanonicalSha256: canonicalSha256,
-          itemDate: new Date(record.sessionDate || record.createdAt).toISOString(),
+          itemDate: new Date(record.createdAt).toISOString(),
           sessionNumber: record.sessionNumber
         });
       }
@@ -68,7 +70,7 @@ export class IcpBatchSigningService {
         const maskedName = this.maskPatientName(rawName);
 
         const canonicalSha256 = crypto.createHash('sha256')
-          .update(`DOC|${doc.id}|${doc.documentType}|${doc.validationToken}`)
+          .update(`DOC|${doc.id}|${doc.type}|${doc.validationToken}`)
           .digest('hex');
 
         items.push({
@@ -76,7 +78,7 @@ export class IcpBatchSigningService {
           type: 'PSYCHOLOGICAL_DOCUMENT',
           patientId: doc.patientId,
           patientNameMasked: maskedName,
-          title: `Documento CFP: ${doc.documentType}`,
+          title: `Documento CFP: ${doc.title || doc.type}`,
           itemCanonicalSha256: canonicalSha256,
           itemDate: new Date(doc.createdAt).toISOString()
         });
@@ -95,9 +97,9 @@ export class IcpBatchSigningService {
           type: 'CONSOLIDATED_REPORT',
           patientId: report.patientId,
           patientNameMasked: maskedName,
-          title: `Relatório Consolidado: ${report.title}`,
-          itemCanonicalSha256: report.canonicalSha256,
-          itemDate: report.createdAt
+          title: 'Relatório Psicológico Consolidado',
+          itemCanonicalSha256: report.documentHashSha256,
+          itemDate: new Date(report.createdAt).toISOString()
         });
       }
     }
@@ -115,8 +117,8 @@ export class IcpBatchSigningService {
           patientId: receipt.patientId,
           patientNameMasked: maskedName,
           title: `Recibo #${receipt.receiptNumber} — R$ ${receipt.amountCents / 100}`,
-          itemCanonicalSha256: receipt.receiptHashSha256,
-          itemDate: receipt.createdAt
+          itemCanonicalSha256: receipt.documentHashSha256,
+          itemDate: new Date(receipt.createdAt).toISOString()
         });
       }
     }
@@ -461,14 +463,13 @@ export class IcpBatchSigningService {
     resourceId: string,
     metadata?: Record<string, any>
   ): void {
-    db.auditLogs.push({
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      userId,
+    // Pela AuditService: entrar na hash-chain (um push direto quebrava a verificação da trilha)
+    AuditService.log({
+      actorId: userId,
       action,
       resourceType,
       resourceId,
-      metadata: metadata ? JSON.stringify(metadata) : undefined
+      details: metadata
     });
   }
 }

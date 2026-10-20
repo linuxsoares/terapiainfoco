@@ -201,7 +201,7 @@ export class SessionBindingService {
       actorId: operator,
       resourceType: AuditResourceType.SESSION_MANAGEMENT,
       resourceId: session.sessionId,
-      action: AuditAction.SESSION_TERMINATE,
+      action: AuditAction.SESSION_FORCE_TERMINATED,
       ipAddress,
       userAgent: session.deviceName
     });
@@ -248,7 +248,7 @@ export class SessionBindingService {
       actorId: operator,
       resourceType: AuditResourceType.SESSION_MANAGEMENT,
       resourceId: dto.currentSessionId,
-      action: AuditAction.SESSION_TERMINATE_ALL_OTHERS,
+      action: AuditAction.SESSION_ALL_OTHER_REVOKED,
       ipAddress,
       userAgent: retainedSession.deviceName
     });
@@ -321,7 +321,7 @@ export class SessionBindingService {
           actorId: 'SYSTEM_CONCURRENCY_SENTINEL',
           resourceType: AuditResourceType.SESSION_MANAGEMENT,
           resourceId: victim.sessionId,
-          action: AuditAction.SESSION_CONCURRENT_DISPLACEMENT,
+          action: AuditAction.SESSION_CONCURRENT_REVOKED,
           ipAddress: dto.ipAddress || ipAddress,
           userAgent: dto.deviceName || 'Concorrência Clínica Automática'
         });
@@ -352,7 +352,7 @@ export class SessionBindingService {
       actorId: userId,
       resourceType: AuditResourceType.SESSION_MANAGEMENT,
       resourceId: newSession.sessionId,
-      action: AuditAction.SESSION_CREATE,
+      action: AuditAction.SESSION_BOUND_CREATED,
       ipAddress: newSession.ipAddress,
       userAgent: newSession.deviceName
     });

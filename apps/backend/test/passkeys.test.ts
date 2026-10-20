@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { AuditAction } from '@terapiainfoco/shared';
 import {
   createSimulatedWebAuthnKeyPair,
   createSimulatedWebAuthnAssertion
@@ -118,7 +119,7 @@ describe('Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / Face
 
       const auditEvent = db.auditLogs.find(l => l.resourceId === stored.id);
       expect(auditEvent).toBeDefined();
-      expect(auditEvent?.action).toBe('PASSKEY_REGISTER');
+      expect(auditEvent?.action).toBe(AuditAction.PASSKEY_REGISTER);
     });
 
     it('deve rejeitar registro se o desafio WebAuthn for incorreto ou manipulado', async () => {

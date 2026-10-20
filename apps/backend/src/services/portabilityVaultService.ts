@@ -161,7 +161,7 @@ export class PortabilityVaultService {
         scaleType: p.scaleType,
         totalScore: p.totalScore,
         severityLevel: p.severityLevel,
-        assessedAt: p.assessedAt
+        assessedAt: new Date(p.createdAt).toISOString()
       }));
 
     // 6. Árvore de Decisão Diagnóstica & Triagem Inicial
@@ -181,10 +181,10 @@ export class PortabilityVaultService {
     const therapeuticGoalsSmart = Array.from(db.therapeuticGoals.values())
       .filter((g) => g.patientId === dto.patientId)
       .map((g) => {
-        let title = '';
+        // O título da meta não é cifrado; só descrição e notas
+        const title = g.title;
         let description = '';
         try {
-          title = decryptField(g.encryptedTitle);
           description = decryptField(g.encryptedDescription);
         } catch {
           // fallback

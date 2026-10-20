@@ -29,7 +29,7 @@ export class AdvancedRateLimiterService {
   private clientBuckets: Map<string, TokenBucketState> = new Map();
   private clientWindowLogs: Map<string, SlidingWindowLogEntry[]> = new Map();
   private clientViolations: Map<string, number> = new Map();
-  private clientQuarantines: Map<string, { quarantinedUntil: string; reason: string; totalViolations: number }> = new Map();
+  private clientQuarantines: Map<string, { clientId: string; quarantinedUntil: string; reason: string; totalViolations: number }> = new Map();
   private proofSeals: Map<string, RateLimitProofSeal> = new Map();
 
   private metrics: AdvancedRateLimitMetrics = {
@@ -313,10 +313,10 @@ export class AdvancedRateLimiterService {
           action: AuditAction.RATE_LIMIT_QUARANTINE_APPLIED,
           resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
           resourceId: dto.clientId,
-          therapistId: reqMeta?.therapistId,
+          actorId: reqMeta?.therapistId,
           ipAddress: reqMeta?.ip || dto.clientId,
           userAgent: reqMeta?.userAgent || 'Rate-Limiter',
-          details: `Cliente ${dto.clientId} isolado em quarentena por ${rule.penaltyQuarantineMinutes} min: ${reason}`
+          details: { message: `Cliente ${dto.clientId} isolado em quarentena por ${rule.penaltyQuarantineMinutes} min: ${reason}` }
         });
       } else {
         AuditService.log({
@@ -325,10 +325,10 @@ export class AdvancedRateLimiterService {
             : AuditAction.RATE_LIMIT_SLIDING_WINDOW_EXCEEDED,
           resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
           resourceId: dto.clientId,
-          therapistId: reqMeta?.therapistId,
+          actorId: reqMeta?.therapistId,
           ipAddress: reqMeta?.ip || dto.clientId,
           userAgent: reqMeta?.userAgent || 'Rate-Limiter',
-          details: `Requisição limitada por taxa em ${rule.pathPattern}: [Decisão: ${evalOutput.result.decision}] [Retry-After: ${evalOutput.result.retryAfterSeconds}s]`
+          details: { message: `Requisição limitada por taxa em ${rule.pathPattern}: [Decisão: ${evalOutput.result.decision}] [Retry-After: ${evalOutput.result.retryAfterSeconds}s]` }
         });
       }
 
@@ -369,12 +369,13 @@ export class AdvancedRateLimiterService {
     this.rules.set(updated.id, updated);
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.RATE_LIMIT_TIER_CONFIGURED,
       resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
       resourceId: updated.id,
       ipAddress: '127.0.0.1',
       userAgent: 'Rate-Limit-Configurator',
-      details: `Regra ${updated.id} reconfigurada: [Bucket: ${updated.bucketCapacity}] [Refill: ${updated.refillRatePerSecond}/s] [Window: ${updated.windowSizeSeconds}s/Max: ${updated.maxRequestsPerWindow}]`
+      details: { message: `Regra ${updated.id} reconfigurada: [Bucket: ${updated.bucketCapacity}] [Refill: ${updated.refillRatePerSecond}/s] [Window: ${updated.windowSizeSeconds}s/Max: ${updated.maxRequestsPerWindow}]` }
     });
 
     return {
@@ -401,12 +402,13 @@ export class AdvancedRateLimiterService {
     }
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.RATE_LIMIT_QUARANTINE_APPLIED,
       resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
       resourceId: dto.clientId,
       ipAddress: '127.0.0.1',
       userAgent: 'Rate-Limit-Admin',
-      details: `Quarentena e limites do cliente ${dto.clientId} resetados manualmente. Motivo: ${dto.reason || 'Liberação administrativa de falso positivo'}`
+      details: { message: `Quarentena e limites do cliente ${dto.clientId} resetados manualmente. Motivo: ${dto.reason || 'Liberação administrativa de falso positivo'}` }
     });
 
     return {
@@ -437,12 +439,13 @@ export class AdvancedRateLimiterService {
     const verification = verifyRateLimitProofSeal(seal);
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.RATE_LIMIT_PROOF_SEAL_VERIFIED,
       resourceType: AuditResourceType.ADVANCED_RATE_LIMIT_ENGINE,
       resourceId: seal.token,
       ipAddress: '127.0.0.1',
       userAgent: 'Rate-Limit-Auditor',
-      details: `Validação pericial de selo probatório de rate limiting: [Válido: ${verification.isValid}] [Cliente: ${seal.clientId}]`
+      details: { message: `Validação pericial de selo probatório de rate limiting: [Válido: ${verification.isValid}] [Cliente: ${seal.clientId}]` }
     });
 
     return {

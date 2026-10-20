@@ -2268,7 +2268,9 @@ export interface TerminateSessionDTO {
 
 export interface TerminateSessionResponse {
   success: boolean;
-  sessionId: string;
+  sessionId?: string;
+  /** Sessão encerrada (campo devolvido pela API) */
+  terminatedSessionId?: string;
   proofSeal?: string;
   message: string;
 }
