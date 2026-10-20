@@ -1211,7 +1211,8 @@ export interface PasskeyRegistrationVerifyDTO {
   attestationObject?: string;
   authenticatorData?: string;
   credentialId: string;
-  publicKeyPem?: string; // Para registro simulado/headless
+  /** @deprecated Ignorado: a chave pública vem sempre do authenticatorData */
+  publicKeyPem?: string;
 }
 
 export interface PasskeyAuthenticationOptionsResponse {

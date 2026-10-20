@@ -1,4 +1,4 @@
-import { randomBytes, createHash, createVerify, generateKeyPairSync, createSign } from 'node:crypto';
+import { randomBytes, createHash, createVerify, createPublicKey, generateKeyPairSync, createSign, verify as verifyRaw } from 'node:crypto';
 
 /**
  * Utilitários de codificação Base64URL conforme RFC 4648 §5
@@ -17,6 +17,112 @@ export function base64UrlToBuffer(base64url: string): Buffer {
     base64 += '=';
   }
   return Buffer.from(base64, 'base64');
+}
+
+/**
+ * Decodificador CBOR mínimo (RFC 8949) para attestationObject e chaves COSE:
+ * inteiros, byte/text strings, arrays, mapas e valores simples. Devolve o valor e o próximo offset.
+ */
+export function decodeCbor(buf: Buffer, offset = 0): { value: unknown; offset: number } {
+  if (offset >= buf.length) throw new Error('CBOR truncado');
+  const initial = buf[offset];
+  const major = initial >> 5;
+  const info = initial & 0x1f;
+  let pos = offset + 1;
+
+  const readLength = (): number => {
+    if (info < 24) return info;
+    if (info === 24) { if (pos + 1 > buf.length) throw new Error('CBOR truncado'); return buf[pos++]; }
+    if (info === 25) { if (pos + 2 > buf.length) throw new Error('CBOR truncado'); const v = buf.readUInt16BE(pos); pos += 2; return v; }
+    if (info === 26) { if (pos + 4 > buf.length) throw new Error('CBOR truncado'); const v = buf.readUInt32BE(pos); pos += 4; return v; }
+    throw new Error('CBOR: tamanho não suportado');
+  };
+
+  switch (major) {
+    case 0: return { value: readLength(), offset: pos };
+    case 1: return { value: -1 - readLength(), offset: pos };
+    case 2:
+    case 3: {
+      const len = readLength();
+      if (pos + len > buf.length) throw new Error('CBOR truncado');
+      const bytes = buf.subarray(pos, pos + len);
+      return { value: major === 2 ? Buffer.from(bytes) : bytes.toString('utf-8'), offset: pos + len };
+    }
+    case 4: {
+      const len = readLength();
+      const items: unknown[] = [];
+      for (let i = 0; i < len; i++) {
+        const item = decodeCbor(buf, pos);
+        items.push(item.value);
+        pos = item.offset;
+      }
+      return { value: items, offset: pos };
+    }
+    case 5: {
+      const len = readLength();
+      const map = new Map<unknown, unknown>();
+      for (let i = 0; i < len; i++) {
+        const key = decodeCbor(buf, pos);
+        const val = decodeCbor(buf, key.offset);
+        map.set(key.value, val.value);
+        pos = val.offset;
+      }
+      return { value: map, offset: pos };
+    }
+    case 7:
+      if (info === 20) return { value: false, offset: pos };
+      if (info === 21) return { value: true, offset: pos };
+      if (info === 22) return { value: null, offset: pos };
+      throw new Error('CBOR: valor simples não suportado');
+    default:
+      throw new Error('CBOR: tipo não suportado');
+  }
+}
+
+/** Codificador CBOR mínimo (usado pelo simulador de autenticador) */
+export function encodeCbor(value: unknown): Buffer {
+  const head = (major: number, len: number): Buffer => {
+    if (len < 24) return Buffer.from([(major << 5) | len]);
+    if (len < 256) return Buffer.from([(major << 5) | 24, len]);
+    if (len < 65536) { const b = Buffer.alloc(3); b[0] = (major << 5) | 25; b.writeUInt16BE(len, 1); return b; }
+    const b = Buffer.alloc(5); b[0] = (major << 5) | 26; b.writeUInt32BE(len, 1); return b;
+  };
+  if (typeof value === 'number') return value >= 0 ? head(0, value) : head(1, -1 - value);
+  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, value.length), value]);
+  if (typeof value === 'string') { const b = Buffer.from(value, 'utf-8'); return Buffer.concat([head(3, b.length), b]); }
+  if (Array.isArray(value)) return Buffer.concat([head(4, value.length), ...value.map(encodeCbor)]);
+  if (value instanceof Map) {
+    const parts: Buffer[] = [head(5, value.size)];
+    for (const [k, v] of value) parts.push(encodeCbor(k), encodeCbor(v));
+    return Buffer.concat(parts);
+  }
+  throw new Error('CBOR: tipo não suportado no codificador');
+}
+
+/**
+ * Converte uma chave pública COSE (RFC 9053) em PEM SPKI: EC2 P-256 (ES256), RSA (RS256) e OKP Ed25519 (EdDSA)
+ */
+export function coseKeyToPem(cose: Map<unknown, unknown>): string {
+  const b64 = (v: unknown) => {
+    if (!Buffer.isBuffer(v)) throw new Error('Chave COSE inválida');
+    return v.toString('base64url');
+  };
+  const kty = cose.get(1);
+  let jwk: Record<string, string>;
+  if (kty === 2 && cose.get(-1) === 1) jwk = { kty: 'EC', crv: 'P-256', x: b64(cose.get(-2)), y: b64(cose.get(-3)) };
+  else if (kty === 3) jwk = { kty: 'RSA', n: b64(cose.get(-1)), e: b64(cose.get(-2)) };
+  else if (kty === 1 && cose.get(-1) === 6) jwk = { kty: 'OKP', crv: 'Ed25519', x: b64(cose.get(-2)) };
+  else throw new Error('Tipo de chave COSE não suportado');
+  return createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' }) as string;
+}
+
+/** Extrai o authenticatorData do attestationObject (CBOR { fmt, attStmt, authData }) */
+export function parseAttestationObject(attestationObjectBase64: string): { fmt: string; authData: Buffer } {
+  const { value } = decodeCbor(base64UrlToBuffer(attestationObjectBase64));
+  if (!(value instanceof Map)) throw new Error('attestationObject inválido');
+  const authData = value.get('authData');
+  if (!Buffer.isBuffer(authData)) throw new Error('attestationObject sem authData');
+  return { fmt: String(value.get('fmt') ?? ''), authData };
 }
 
 /**
@@ -57,7 +163,8 @@ export interface ParsedAuthenticatorData {
   signCount: number;
   aaguid?: string;
   credentialId?: string; // base64url
-  credentialPublicKeySpki?: string; // SPKI PEM
+  /** Chave pública da credencial (COSE convertida para PEM SPKI) */
+  credentialPublicKeyPem?: string;
 }
 
 /**
@@ -102,10 +209,11 @@ export function parseAuthenticatorData(authDataBufferOrBase64: Buffer | string):
       result.aaguid = aaguid;
       result.credentialId = bufferToBase64Url(credId);
 
-      // O restante do buffer após credentialId contém a chave pública (COSE Key)
+      // Após o credentialId vem a chave pública em COSE (mapa CBOR); extensões podem seguir
       if (buf.length > credIdEnd) {
-        const rawKeyBytes = buf.subarray(credIdEnd);
-        result.credentialPublicKeySpki = bufferToBase64Url(rawKeyBytes);
+        const { value } = decodeCbor(buf, credIdEnd);
+        if (!(value instanceof Map)) throw new Error('authenticatorData: chave COSE inválida');
+        result.credentialPublicKeyPem = coseKeyToPem(value);
       }
     }
   }
@@ -139,9 +247,12 @@ export function verifyWebAuthnAssertionSignature(params: {
     const clientDataHash = createHash('sha256').update(clientDataBuf).digest();
     const signedData = Buffer.concat([authDataBuf, clientDataHash]);
 
+    const key = createPublicKey(params.publicKeyPem);
+    // EdDSA assina a mensagem inteira (sem hash prévio); ES256/RS256 usam SHA-256
+    if (key.asymmetricKeyType === 'ed25519') return verifyRaw(null, signedData, key, sigBuf);
     const verifier = createVerify('SHA256');
     verifier.update(signedData);
-    return verifier.verify(params.publicKeyPem, sigBuf);
+    return verifier.verify(key, sigBuf);
   } catch (err) {
     return false;
   }
@@ -156,6 +267,15 @@ export function createSimulatedWebAuthnKeyPair(rpId: string, challenge: string, 
   });
 
   const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+  // Chave pública em COSE EC2 (kty 2, alg ES256, crv P-256), como num autenticador real
+  const jwk = publicKey.export({ format: 'jwk' }) as { x: string; y: string };
+  const coseKey = encodeCbor(new Map<unknown, unknown>([
+    [1, 2],
+    [3, -7],
+    [-1, 1],
+    [-2, Buffer.from(jwk.x, 'base64url')],
+    [-3, Buffer.from(jwk.y, 'base64url')]
+  ]));
   const credentialIdBuf = randomBytes(32);
   const credentialId = bufferToBase64Url(credentialIdBuf);
 
@@ -185,17 +305,23 @@ export function createSimulatedWebAuthnKeyPair(rpId: string, challenge: string, 
     aaguid,
     credIdLen,
     credentialIdBuf,
-    Buffer.from(publicKeyPem) // Armazenamento simplificado da chave pública SPKI
+    coseKey
   ]);
 
   const authenticatorData = bufferToBase64Url(authDataHeader);
+  const attestationObject = bufferToBase64Url(encodeCbor(new Map<unknown, unknown>([
+    ['fmt', 'none'],
+    ['attStmt', new Map()],
+    ['authData', authDataHeader]
+  ])));
 
   return {
     credentialId,
     publicKeyPem,
     privateKey,
     clientDataJSON,
-    authenticatorData
+    authenticatorData,
+    attestationObject
   };
 }
 
