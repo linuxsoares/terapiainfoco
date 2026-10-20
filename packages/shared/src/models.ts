@@ -5988,4 +5988,12 @@ export interface StoredLead {
   practiceType: string;
   consentAt: Date | string;
   createdAt: Date | string;
+  /** Ausente nos pedidos gravados antes da triagem: equivale a PENDING */
+  status?: LeadStatus;
+  handledAt?: Date | string;
+  /** Conta de psicólogo criada na aprovação */
+  userId?: string;
 }
+
+/** Triagem do pedido de acesso pelo Admin */
+export type LeadStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

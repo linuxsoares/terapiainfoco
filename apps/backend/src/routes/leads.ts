@@ -1,9 +1,10 @@
-import { Hono } from 'hono';
-import { UserRole, type AdminLead, type CreateLeadDTO } from '@terapiainfoco/shared';
+import { Hono, type Context } from 'hono';
+import { UserRole, type ApproveLeadDTO, type ApproveLeadResponse, type CreateLeadDTO } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
-import { encryptField, decryptField } from '../services/cryptoContext';
+import { encryptField } from '../services/cryptoContext';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { leadRateLimiter } from '../middlewares/rateLimiter';
+import { LeadService, LeadInputError } from '../services/leadService';
 
 export const leadsRoute = new Hono();
 
@@ -45,18 +46,33 @@ leadsRoute.post('/', leadRateLimiter, async (c) => {
   return c.json({ success: true }, 201);
 });
 
+const adminContext = (c: Context) => ({
+  actorId: c.get('user').id,
+  ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1'
+});
+
 // Pedidos recebidos, mais recentes primeiro (Admin)
-leadsRoute.get('/', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]), (c) => {
-  const leads: AdminLead[] = Array.from(db.leads.values())
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .map((lead) => ({
-      id: lead.id,
-      name: lead.name,
-      email: decryptField(lead.encryptedEmail),
-      whatsapp: lead.encryptedWhatsapp ? decryptField(lead.encryptedWhatsapp) : undefined,
-      crp: lead.crp,
-      practiceType: lead.practiceType,
-      createdAt: lead.createdAt
-    }));
-  return c.json({ success: true, leads });
+leadsRoute.get('/', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]), (c) => c.json({ success: true, leads: LeadService.list() }));
+
+// Aprova o pedido: cria a conta de psicólogo com senha inicial (Admin)
+leadsRoute.post('/:id/approve', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]), async (c) => {
+  const body = await c.req.json<ApproveLeadDTO>().catch(() => null);
+  try {
+    const { lead, temporaryPassword } = await LeadService.approve(c.req.param('id') ?? '', body?.crpRegion ?? '', adminContext(c));
+    const response: ApproveLeadResponse = { success: true, lead, temporaryPassword };
+    return c.json(response, 201);
+  } catch (err) {
+    if (err instanceof LeadInputError) return c.json({ success: false, error: err.message }, 400);
+    throw err;
+  }
+});
+
+// Recusa o pedido (Admin)
+leadsRoute.post('/:id/reject', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]), (c) => {
+  try {
+    return c.json({ success: true, lead: LeadService.reject(c.req.param('id') ?? '', adminContext(c)) });
+  } catch (err) {
+    if (err instanceof LeadInputError) return c.json({ success: false, error: err.message }, 400);
+    throw err;
+  }
 });

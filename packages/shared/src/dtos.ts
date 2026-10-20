@@ -19,7 +19,8 @@ import type {
   IcpCertificateInfo, 
   IcpSignatureData, 
   DecryptedAppointment,
-  PsychometricAssessment
+  PsychometricAssessment,
+  LeadStatus
 } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
@@ -44,6 +45,20 @@ export interface AdminLead {
   crp: string;
   practiceType: string;
   createdAt: Date | string;
+  status: LeadStatus;
+  handledAt?: Date | string;
+}
+
+/** Aprovação do pedido: cria a conta de psicólogo com senha inicial */
+export interface ApproveLeadDTO {
+  /** UF do conselho regional (ex.: SP para o CRP 06) */
+  crpRegion: string;
+}
+
+export interface ApproveLeadResponse {
+  success: boolean;
+  lead: AdminLead;
+  temporaryPassword: string;
 }
 
 /** Consultório (psicólogo titular) ao qual contas da equipe podem ser vinculadas */
