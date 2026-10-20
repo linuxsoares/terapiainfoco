@@ -379,17 +379,6 @@ export interface AvailableSlotsResponse {
   slots: AvailableSlot[];
 }
 
-export interface PublicBookingDTO {
-  therapistId?: string;
-  patientName: string;
-  patientEmail: string;
-  patientPhone: string;
-  patientCpf?: string;
-  scheduledStart: string; // ISO
-  scheduledEnd: string;   // ISO
-  consentTeleconsultationSigned: boolean;
-}
-
 /** Agendamento feito pelo paciente autenticado a partir do perfil público do psicólogo */
 export interface PatientBookingDTO {
   therapistId: string;
@@ -407,18 +396,6 @@ export interface PatientAppointmentView {
   scheduledEnd: string;
   status: string;
   roomUrl: string;
-}
-
-export interface PublicBookingResponse {
-  appointmentId: string;
-  patientName: string;
-  therapistName: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  roomUrl: string;
-  bufferMinutes: number;
-  consentRecordedAt: string;
-  instructions: string[];
 }
 
 /**

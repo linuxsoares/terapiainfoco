@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { SyntheticService } from '../src/services/syntheticService';
+import { SyntheticService, SYNTHETIC_PROBE_THERAPIST_ID } from '../src/services/syntheticService';
 import { AuditService } from '../src/services/auditService';
 import type { 
   SyntheticJourneyResult, 
@@ -120,6 +120,32 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
       expect(stepResilience?.status).toBe('passed');
       expect(stepResilience?.details?.pgliteOperational).toBe(true);
       expect(stepResilience?.details?.schemaTableCount).toBe(7);
+    });
+
+    it('roda num consultório isolado e não deixa pacientes, consultas nem documentos para trás', async () => {
+      const sizes = () => ({
+        patients: db.patients.size,
+        appointments: db.appointments.size,
+        clinicalRecords: db.clinicalRecords.size,
+        documents: db.documents.size
+      });
+      const before = sizes();
+      const auditBefore = AuditService.getAllLogs().length;
+
+      const result = await SyntheticService.runProbe({ scenario: 'full_clinical_journey' });
+      expect(result.status).toBe('passed');
+
+      // A jornada criou registros no consultório de sondagem, nunca no demo
+      const probeActions = AuditService.getAllLogs().slice(auditBefore);
+      expect(probeActions.length).toBeGreaterThan(0);
+      expect(probeActions.some((log) => log.actorId === 'therapist-001')).toBe(false);
+
+      expect(sizes()).toEqual(before);
+      for (const patient of db.patients.values()) {
+        expect(patient.therapistId).not.toBe(SYNTHETIC_PROBE_THERAPIST_ID);
+      }
+      // A trilha WORM segue íntegra após a limpeza
+      expect(AuditService.verifyChainIntegrity().isValid).toBe(true);
     });
 
     it('deve executar o cenário restrito de resiliência e failover PGlite (resilience_only)', async () => {

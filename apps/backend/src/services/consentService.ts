@@ -54,6 +54,18 @@ export class ConsentService {
   }
 
   /**
+   * Descarta o ledger e os recibos de um paciente sintético (monitor), apagado junto com o registro
+   */
+  public discardPatientLedger(patientId: string): void {
+    this.ledgers.delete(patientId);
+    for (const receipt of this.allReceipts.filter((r) => r.patientId === patientId)) {
+      this.receiptsById.delete(receipt.receiptId);
+      this.receiptsByToken.delete(receipt.verificationToken);
+    }
+    this.allReceipts = this.allReceipts.filter((r) => r.patientId !== patientId);
+  }
+
+  /**
    * Inicializa consentimentos para os pacientes existentes no banco em memória
    */
   private seedDefaultPatients(): void {
