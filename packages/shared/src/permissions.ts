@@ -14,6 +14,7 @@ export const APP_MODULES = [
   'publicProfile',
   'audit',
   'crpVerification',
+  'team',
   'backups',
   'observability',
   'security'
@@ -40,6 +41,8 @@ export const MODULE_ACCESS: Record<AppModule, readonly UserRole[]> = {
   publicProfile: [UserRole.PSICOLOGO_TITULAR],
   audit: [UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN],
   crpVerification: [UserRole.ADMIN],
+  // Contas da equipe (Recepção/Supervisor) vinculadas a um consultório
+  team: [UserRole.ADMIN],
   backups: [UserRole.ADMIN],
   // Segurança da plataforma e telemetria de infraestrutura (operação), fora do consultório
   observability: [UserRole.ADMIN],

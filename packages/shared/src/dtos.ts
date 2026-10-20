@@ -23,6 +23,41 @@ import type {
 } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
+/** Consultório (psicólogo titular) ao qual contas da equipe podem ser vinculadas */
+export interface AdminPractice {
+  therapistId: string;
+  name: string;
+  email: string;
+  crp?: string;
+}
+
+/** Conta não-paciente listada na gestão de equipe do Admin */
+export interface AdminStaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  therapistId?: string;
+  practiceName?: string;
+  twoFactorEnabled: boolean;
+  createdAt: Date | string;
+  lastLoginAt?: Date | string | null;
+}
+
+export interface CreateStaffMemberDTO {
+  name: string;
+  email: string;
+  role: UserRole;
+  therapistId: string;
+}
+
+export interface CreateStaffMemberResponse {
+  success: boolean;
+  member: AdminStaffMember;
+  /** Exibida uma única vez; a pessoa deve trocá-la em Segurança no primeiro acesso */
+  temporaryPassword: string;
+}
+
 /** Resultado da busca de pacientes por nome ou e-mail (restrita ao consultório) */
 export interface PatientSearchItem {
   id: string;
