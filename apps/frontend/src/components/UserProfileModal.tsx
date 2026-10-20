@@ -128,7 +128,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const roleBadgeLabel =
     user.role === UserRole.PACIENTE
-      ? 'Perfil Paciente (Titular LGPD Art. 18)'
+      ? 'Perfil Paciente'
       : user.role === UserRole.ADMIN
       ? 'Perfil Admin TI & Encarregado de Dados (DPO)'
       : user.role === UserRole.PSICOLOGO_TITULAR

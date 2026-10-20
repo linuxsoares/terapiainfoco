@@ -270,7 +270,7 @@ export function BillingReceiptsModule({
         <div>
           <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 font-bold text-xs uppercase tracking-wider">
             <DollarSign className="w-4 h-4" />
-            <span>Faturamento Clínico & Honorários (RFC-001 §3.6)</span>
+            <span>Faturamento Clínico & Honorários</span>
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
             Recibos de Honorários & Termos de Serviços
@@ -612,7 +612,7 @@ export function BillingReceiptsModule({
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                Emitir Recibo de Honorários Clínicos (RFC-001 §3.6)
+                Emitir Recibo de Honorários Clínicos
               </h3>
               <button onClick={() => setShowCreateReceiptModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">✕</button>
             </div>

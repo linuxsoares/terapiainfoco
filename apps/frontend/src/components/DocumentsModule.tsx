@@ -449,10 +449,10 @@ export function DocumentsModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <FileCheck2 className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-            Módulo 5: Documentos CFP 006/2019 & Laudos Periciais
+            Documentos CFP 006/2019 & Laudos Periciais
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Laudos Periciais Multi-Sessões, Encaminhamentos Multidisciplinares e Documentos Oficiais com Assinatura Digital e WORM (RFC-001 §3.5)
+            Laudos Periciais Multi-Sessões, Encaminhamentos Multidisciplinares e Documentos Oficiais com Assinatura Digital e WORM
           </p>
         </div>
 
@@ -552,7 +552,7 @@ export function DocumentsModule() {
           }`}
         >
           <DollarSign className="w-4 h-4" />
-          <span>Faturamento & Recibos de Honorários (RFC §3.6)</span>
+          <span>Faturamento & Recibos de Honorários</span>
         </button>
       </div>
 
@@ -1730,7 +1730,7 @@ export function DocumentsModule() {
               {/* Toggles de Agregação Automática */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                  Agregação Automatizada da Linha do Tempo Clínica (RFC-001 §3.5):
+                  Agregação Automatizada da Linha do Tempo Clínica:
                 </span>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-slate-700 dark:text-slate-300">
                   <label className="flex items-center gap-2 cursor-pointer">

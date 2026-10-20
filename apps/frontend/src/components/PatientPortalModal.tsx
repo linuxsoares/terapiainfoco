@@ -346,9 +346,6 @@ export const PatientPortalModal: React.FC<PatientPortalModalProps> = ({
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
                   Portal do Paciente & Exercícios Terapêuticos
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                  RFC-001 §3.6, §3.7
-                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Espaço protegido para tarefas entre sessões (TCC/ACT/DBT), teleconsulta ética e recibos de reembolso

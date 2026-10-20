@@ -145,9 +145,6 @@ export function PortabilityVaultModal({
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   Cofre de Portabilidade Clínica Cifrado (.enc) — Argon2id + AES-256-GCM
                 </h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-                  RFC-001 §3.3, §4.4 & LGPD Art. 18
-                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Titular: <strong className="text-slate-700 dark:text-slate-200">{patientName || patientId}</strong> • 11 Seções Clínicas Consolidadas com Merkle Tree SHA-256

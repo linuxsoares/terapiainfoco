@@ -231,7 +231,7 @@ export const DiagnosticDecisionTreeModal: React.FC<DiagnosticDecisionTreeModalPr
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Árvore de Decisão Diagnóstica & Triagem Inicial (RFC-001 §3.4)
+                  Árvore de Decisão Diagnóstica & Triagem Inicial
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
                   CID-11 & CFP

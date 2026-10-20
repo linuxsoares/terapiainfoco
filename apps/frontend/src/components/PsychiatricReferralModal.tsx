@@ -252,9 +252,6 @@ export const PsychiatricReferralModal: React.FC<PsychiatricReferralModalProps> =
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 Prescrição & Encaminhamento Psiquiátrico
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-medium">
-                  RFC-001 §3.5 / CFP
-                </span>
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Paciente: <strong className="text-slate-700 dark:text-slate-200">{patientName}</strong> • Avaliação Farmacológica & Emissão Notarial

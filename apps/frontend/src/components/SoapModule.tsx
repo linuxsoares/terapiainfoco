@@ -389,10 +389,10 @@ export function SoapModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Módulo 3 & 4: Transcrição, Diarização & SOAP com IA
+            Transcrição, Diarização & SOAP com IA
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Pipeline integrado de teleconsulta com Sanitização LGPD Art. 11 e Human-in-the-Loop compulsório (RFC §3.3, §3.4)
+            Pipeline integrado de teleconsulta com Sanitização LGPD Art. 11 e Human-in-the-Loop compulsório
           </p>
         </div>
 
@@ -747,9 +747,6 @@ export function SoapModule() {
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   Marcadores Clínicos em Tempo Real
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
-                  RFC-001 §3.3
-                </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                   {markers.length} {markers.length === 1 ? 'marcador' : 'marcadores'}
                 </span>
@@ -942,7 +939,7 @@ export function SoapModule() {
           <Sparkle className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
           <div className="text-xs space-y-1">
             <h4 className="font-bold text-purple-900 dark:text-purple-200">
-              Minuta Clínica Assistida por IA Gerada com Sucesso (RFC §3.3)
+              Minuta Clínica Assistida por IA Gerada com Sucesso
             </h4>
             <p className="text-purple-800/90 dark:text-purple-300/90 leading-relaxed">
               Os 4 quadrantes SOAP foram pré-preenchidos a partir da transcrição sanitizada. O princípio <strong>Human-in-the-Loop</strong> é legalmente obrigatório pelo CFP: revise o texto abaixo, faça os ajustes clínicos pertinentes e confirme antes de assinar.
@@ -1251,7 +1248,7 @@ export function SoapModule() {
               className="mt-0.5 rounded border-slate-300 dark:border-slate-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
             />
             <label htmlFor="humanLoopCheck" className="text-xs text-purple-900 dark:text-purple-200 leading-relaxed cursor-pointer font-medium">
-              <strong>Human-in-the-Loop Obrigatório (RFC §3.3 & CFP nº 001/2009):</strong> Eu, psicólogo(a) responsável, atesto que revisei integralmente a minuta SOAP acima, confirmo a correspondência dos fatos clínicos com o atendimento realizado e assumo a responsabilidade técnica perante o Conselho Federal de Psicologia.
+              <strong>Human-in-the-Loop Obrigatório (CFP nº 001/2009):</strong> Eu, psicólogo(a) responsável, atesto que revisei integralmente a minuta SOAP acima, confirmo a correspondência dos fatos clínicos com o atendimento realizado e assumo a responsabilidade técnica perante o Conselho Federal de Psicologia.
             </label>
           </div>
 

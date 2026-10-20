@@ -63,7 +63,7 @@ const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; 
     email: 'paciente@terapiainfoco.com.br',
     name: 'Mariana Silva de Oliveira',
     patientId: '00000000-0000-0000-0000-000000000002',
-    roleName: 'Paciente (Titular LGPD)'
+    roleName: 'Paciente'
   },
   [UserRole.ADMIN]: {
     email: 'admin@terapiainfoco.com.br',
@@ -117,13 +117,13 @@ const ROOM_ROLES: readonly UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_T
 const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
   portal: { label: 'Meu Espaço', shortLabel: 'Início', icon: HeartHandshake, iconClass: 'text-indigo-600 dark:text-indigo-400' },
   directory: { label: 'Encontrar Psicólogo', shortLabel: 'Buscar', icon: UserSearch, iconClass: 'text-teal-600 dark:text-teal-400' },
-  dashboard: { label: '0. Dashboard & Métricas', shortLabel: 'Início', icon: BarChart3, iconClass: 'text-teal-600 dark:text-teal-400' },
-  agenda: { label: '1. Agenda & Teleconsulta', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
-  patients: { label: '2. Pacientes & Portal', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
-  soap: { label: '3 & 4. SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
-  documents: { label: '5. Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },
+  dashboard: { label: 'Dashboard', shortLabel: 'Início', icon: BarChart3, iconClass: 'text-teal-600 dark:text-teal-400' },
+  agenda: { label: 'Agenda & Teleconsulta', shortLabel: 'Agenda', icon: Calendar, iconClass: 'text-teal-600 dark:text-teal-400' },
+  patients: { label: 'Pacientes', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
+  soap: { label: 'Evolução SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
+  documents: { label: 'Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },
   publicProfile: { label: 'Meu Perfil Público', shortLabel: 'Perfil Público', icon: Globe, iconClass: 'text-teal-600 dark:text-teal-400' },
-  audit: { label: 'Trilha WORM (Audit)', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
+  audit: { label: 'Auditoria', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   crpVerification: { label: 'Verificação de CRP', shortLabel: 'CRP', icon: BadgeCheck, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   backups: { label: 'Backups & DR (KMS)', shortLabel: 'Backups', icon: Database, iconClass: 'text-teal-600 dark:text-teal-400' },
   observability: { label: 'Segurança & Observabilidade', shortLabel: 'Observabilidade', icon: Gauge, iconClass: 'text-teal-600 dark:text-teal-400' }
@@ -317,7 +317,7 @@ export default function App() {
                   {isPatient ? 'Portal do Paciente' : currentUser.role === UserRole.ADMIN ? 'Painel DPO / Admin' : 'Painel Clínico'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">Plataforma de Gestão Clínica • RFC-001</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">Gestão clínica e teleconsulta</p>
             </div>
           </div>
 
@@ -505,7 +505,7 @@ export default function App() {
 
             <div className="space-y-1">
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Módulos RFC-001
+                Módulos
               </div>
 
               {[...navModules, 'security' as const].map((module) => {
@@ -552,7 +552,7 @@ export default function App() {
           {/* Sidebar Nav (Desktop) */}
           <aside className="hidden md:flex w-64 border-r border-slate-200 bg-white/70 dark:border-slate-800/80 dark:bg-slate-900/40 p-4 flex-col gap-1 shrink-0 transition-colors duration-200">
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Módulos RFC-001
+              Módulos
             </div>
 
             {navModules.map((module) => {
