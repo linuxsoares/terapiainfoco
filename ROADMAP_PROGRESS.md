@@ -2395,7 +2395,7 @@ terapiainfoco/
 | `fix/webauthn-endurecimento` | Corrige tomada de conta por passkey (chave MOCK sem verificação de assinatura) e implementa as checagens WebAuthn | [PR #155](https://github.com/linuxsoares/terapiainfoco/pull/155) | Merged |
 | `feat/leads-aprovacao` | Admin aprova (cria conta de psicólogo com senha inicial) ou recusa os pedidos de acesso da landing | [PR #156](https://github.com/linuxsoares/terapiainfoco/pull/156) | Merged |
 | `fix/auditoria-ator-servicos-seguranca` | Exige login de Admin nas 33 rotas de ferramentas da plataforma, antes abertas sem autenticação | [PR #157](https://github.com/linuxsoares/terapiainfoco/pull/157) | Merged |
-| `fix/auditoria-ator-real` | Auditoria de tokens efêmeros, GraphQL Guard e DID grava o usuário autenticado como ator | PR_PLACEHOLDER | Merged |
+| `fix/auditoria-ator-real` | Auditoria de tokens efêmeros, GraphQL Guard e DID grava o usuário autenticado como ator | [PR #158](https://github.com/linuxsoares/terapiainfoco/pull/158) | Merged |
 
 ---
 
