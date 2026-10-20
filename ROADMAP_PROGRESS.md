@@ -2399,7 +2399,7 @@ terapiainfoco/
 | `fix/monitor-sintetico-isolado` | Monitor sintético roda em consultório isolado e limpa os registros ao fim | [PR #159](https://github.com/linuxsoares/terapiainfoco/pull/159) | Merged |
 | `fix/typecheck-crypto-exports` | Zera os erros de tipo do pacote crypto (barrel ambíguo, enums do shared, JWK, política de supply chain) | [PR #160](https://github.com/linuxsoares/terapiainfoco/pull/160) | Merged |
 | `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | [PR #161](https://github.com/linuxsoares/terapiainfoco/pull/161) | Merged |
-| `feat/backups-object-storage` | Snapshots de backup cifrados em object storage S3/R2, recarregados no boot, e documentação dos backups gerenciados do PostgreSQL | PR_PLACEHOLDER | Merged |
+| `feat/backups-object-storage` | Snapshots de backup cifrados em object storage S3/R2, recarregados no boot, e documentação dos backups gerenciados do PostgreSQL | [PR #162](https://github.com/linuxsoares/terapiainfoco/pull/162) | Merged |
 
 ---
 
