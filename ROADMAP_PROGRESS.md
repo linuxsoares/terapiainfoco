@@ -2396,7 +2396,7 @@ terapiainfoco/
 | `feat/leads-aprovacao` | Admin aprova (cria conta de psicólogo com senha inicial) ou recusa os pedidos de acesso da landing | [PR #156](https://github.com/linuxsoares/terapiainfoco/pull/156) | Merged |
 | `fix/auditoria-ator-servicos-seguranca` | Exige login de Admin nas 33 rotas de ferramentas da plataforma, antes abertas sem autenticação | [PR #157](https://github.com/linuxsoares/terapiainfoco/pull/157) | Merged |
 | `fix/auditoria-ator-real` | Auditoria de tokens efêmeros, GraphQL Guard e DID grava o usuário autenticado como ator | [PR #158](https://github.com/linuxsoares/terapiainfoco/pull/158) | Merged |
-| `fix/monitor-sintetico-isolado` | Monitor sintético roda em consultório isolado e limpa os registros ao fim | PR_PLACEHOLDER | Merged |
+| `fix/monitor-sintetico-isolado` | Monitor sintético roda em consultório isolado e limpa os registros ao fim | [PR #159](https://github.com/linuxsoares/terapiainfoco/pull/159) | Merged |
 
 ---
 
