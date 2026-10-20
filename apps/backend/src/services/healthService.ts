@@ -184,7 +184,7 @@ export class HealthService {
         message: 'Cache cifrado com AES-256-GCM operacional em memória.',
         details: {
           hitRatio: stats.hitRatio,
-          itemsCount: stats.itemsCount
+          itemsCount: stats.itemsInMemoryEncrypted
         }
       };
     } catch (err: any) {
@@ -259,7 +259,7 @@ export class HealthService {
     // 6. Checagem do Despachante de Webhooks Assinados (HMAC-SHA256)
     const webhookStart = Date.now();
     try {
-      const subs = webhookService.getAllSubscriptions();
+      const subs = webhookService.listSubscriptions();
       const whLatency = Math.max(0.1, Date.now() - webhookStart);
 
       checks['webhooks_engine'] = {

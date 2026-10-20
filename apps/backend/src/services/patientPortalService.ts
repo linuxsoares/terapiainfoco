@@ -60,7 +60,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.PATIENT_PORTAL,
       resourceId: patient.id,
       ipAddress,
-      details: `Solicitação de código de acesso para o Portal do Paciente (${normalizedEmail}).`
+      details: { message: `Solicitação de código de acesso para o Portal do Paciente (${normalizedEmail}).` }
     });
 
     return {
@@ -122,9 +122,9 @@ export class PatientPortalService {
 
     const therapist = db.therapists.get(patient.therapistId);
     const user = Array.from(db.users.values()).find(u => u.therapistId === patient.therapistId);
-    const therapistName = user?.name || therapist?.name || 'Dra. Beatriz Santos';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
+    const therapistName = user?.name || 'Psicólogo(a) responsável';
+    const rawCrp = therapist?.crp || user?.crp || '';
+    const therapistCrp = !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
 
     const profile: PatientPortalProfile = {
       id: patient.id,
@@ -162,7 +162,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.PATIENT_PORTAL,
       resourceId: patient.id,
       ipAddress,
-      details: `Paciente ${profile.initials} autenticado no Portal do Paciente com fé pública e sessão isolada.`
+      details: { message: `Paciente ${profile.initials} autenticado no Portal do Paciente com fé pública e sessão isolada.` }
     });
 
     return {
@@ -187,9 +187,9 @@ export class PatientPortalService {
 
     const therapist = db.therapists.get(patient.therapistId);
     const user = Array.from(db.users.values()).find(u => u.therapistId === patient.therapistId);
-    const therapistName = user?.name || therapist?.name || 'Dra. Beatriz Santos';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
+    const therapistName = user?.name || 'Psicólogo(a) responsável';
+    const rawCrp = therapist?.crp || user?.crp || '';
+    const therapistCrp = !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
 
     const profile: PatientPortalProfile = {
       id: patient.id,
@@ -207,34 +207,34 @@ export class PatientPortalService {
     // Identifica próxima consulta
     const allAppointments = Array.from(db.appointments.values())
       .filter(a => a.patientId === patientId && a.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && a.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
 
     let nextAppointment: PatientPortalAppointment | undefined = undefined;
     const now = new Date();
 
     const upcoming = allAppointments.find(a => {
-      const apptDate = new Date(a.date);
+      const apptDate = new Date(a.scheduledStart);
       return apptDate.getTime() >= now.getTime() - 60 * 60 * 1000; // Até 1h atrás
     });
 
     if (upcoming) {
       // Pode entrar na sala de espera se for no mesmo dia e até 30 min antes
-      const apptDate = new Date(upcoming.date);
+      const apptDate = new Date(upcoming.scheduledStart);
       const diffMs = apptDate.getTime() - now.getTime();
       const canEnterWaitingRoom = diffMs <= 30 * 60 * 1000 && diffMs >= -60 * 60 * 1000;
 
       let timeFormatted = '14:00';
       try {
-        timeFormatted = new Date(upcoming.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        timeFormatted = new Date(upcoming.scheduledStart).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
       } catch {
         timeFormatted = '14:00';
       }
 
       nextAppointment = {
         id: upcoming.id,
-        date: upcoming.date.split('T')[0] || upcoming.date,
+        date: new Date(upcoming.scheduledStart).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }),
         time: timeFormatted,
-        type: upcoming.type || 'Sessão Individual Online',
+        type: 'Sessão Individual Online',
         status: upcoming.status as AppointmentStatus,
         roomUrl: teleconsultationRoomUrl(upcoming.id),
         canEnterWaitingRoom,
@@ -255,7 +255,7 @@ export class PatientPortalService {
 
     // Recibos disponíveis
     const availableReceiptsCount = Array.from(db.receipts.values()).filter(
-      r => r.patientId === patientId && r.status !== 'CANCELLED'
+      r => r.patientId === patientId && !r.cancelledAt
     ).length;
 
     return {
@@ -283,7 +283,7 @@ export class PatientPortalService {
       let answers: Record<string, any> | undefined = undefined;
       if (e.encryptedPayload) {
         try {
-          const raw = decryptField(e.encryptedPayload, patientId);
+          const raw = decryptField(e.encryptedPayload);
           answers = JSON.parse(raw);
         } catch {
           answers = undefined;
@@ -343,7 +343,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
       resourceId: id,
       ipAddress: context.ipAddress,
-      details: `Exercício terapêutico '${dto.title}' (${dto.type}) prescrito para paciente ${patient.name}.`
+      details: { message: `Exercício terapêutico '${dto.title}' (${dto.type}) prescrito para paciente ${patient.name}.` }
     });
 
     exercise.wormAuditId = auditLog.id;
@@ -376,7 +376,7 @@ export class PatientPortalService {
       notes: dto.notes,
       submittedAt: new Date().toISOString()
     });
-    const encryptedPayload = encryptField(payloadString, patientId);
+    const encryptedPayload = encryptField(payloadString);
 
     const updated: TherapeuticExercise = {
       ...exercise,
@@ -395,7 +395,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
       resourceId: exercise.id,
       ipAddress: context.ipAddress,
-      details: `Resolução de exercício terapêutico '${exercise.title}' submetida pelo paciente com cifragem em repouso AES-256-GCM.`
+      details: { message: `Resolução de exercício terapêutico '${exercise.title}' submetida pelo paciente com cifragem em repouso AES-256-GCM.` }
     });
 
     return updated;
@@ -432,7 +432,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
       resourceId: exercise.id,
       ipAddress: context.ipAddress,
-      details: `Exercício '${exercise.title}' revisado pelo terapeuta com feedback clínico registrado.`
+      details: { message: `Exercício '${exercise.title}' revisado pelo terapeuta com feedback clínico registrado.` }
     });
 
     return updated;
@@ -447,7 +447,7 @@ export class PatientPortalService {
   ): Promise<any[]> {
     const receipts = Array.from(db.receipts.values())
       .filter(r => r.patientId === patientId)
-      .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Auditoria WORM
     await AuditService.log({
@@ -456,7 +456,7 @@ export class PatientPortalService {
       resourceType: AuditResourceType.CLINICAL_RECEIPT,
       resourceId: patientId,
       ipAddress: context.ipAddress,
-      details: `Histórico de ${receipts.length} recibos consultado pelo paciente para fins de reembolso / fiscal.`
+      details: { message: `Histórico de ${receipts.length} recibos consultado pelo paciente para fins de reembolso / fiscal.` }
     });
 
     return receipts;

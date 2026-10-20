@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context, type Next } from 'hono';
 import { verify } from 'hono/jwt';
 import {
   type AssignExerciseDTO,
@@ -18,7 +18,19 @@ export const patientPortalRouter = new Hono();
 /**
  * Middleware para validar token de sessão do Portal do Paciente
  */
-const patientAuthMiddleware = async (c: any, next: () => Promise<void>) => {
+interface PatientSession {
+  patientId: string;
+  email: string;
+  name: string;
+}
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    patientSession: PatientSession;
+  }
+}
+
+const patientAuthMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return c.json({ success: false, message: 'Autenticação de paciente obrigatória.' }, 401);
@@ -27,11 +39,15 @@ const patientAuthMiddleware = async (c: any, next: () => Promise<void>) => {
   const token = authHeader.substring(7).trim();
   try {
     const payload = (await verify(token, config.jwtSecret, 'HS256')) as any;
-    if (!payload || (!payload.patientId && !payload.sub)) {
+    // Só o token do portal (código por e-mail) ou o access token de uma conta de paciente com prontuário:
+    // refresh tokens e tokens de outros perfis não abrem o portal
+    const isPortalToken = payload?.type === 'patient_portal_token';
+    const isPatientAccess = payload?.type === 'access' && payload?.role === UserRole.PACIENTE;
+    if (!payload?.patientId || (!isPortalToken && !isPatientAccess)) {
       return c.json({ success: false, message: 'Token de paciente inválido.' }, 401);
     }
     c.set('patientSession', {
-      patientId: (payload.patientId || payload.sub) as string,
+      patientId: payload.patientId as string,
       email: payload.email as string,
       name: payload.name as string
     });

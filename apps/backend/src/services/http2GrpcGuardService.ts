@@ -205,7 +205,7 @@ export class Http2GrpcGuardService {
 
       // Auditoria WORM
       const auditAction = primaryThreat.category === Http2ThreatCategory.H2_TE_SMUGGLING
-        ? AuditAction.HTTP2_SMUGGLING_ATTOCKED || AuditAction.HTTP2_SMUGGLING_ATTEMPT_BLOCKED
+        ? AuditAction.HTTP2_SMUGGLING_ATTEMPT_BLOCKED || AuditAction.HTTP2_SMUGGLING_ATTEMPT_BLOCKED
         : primaryThreat.category === Http2ThreatCategory.CRLF_HEADER_SPLIT
         ? AuditAction.HTTP2_HEADER_INJECTION_DETECTED
         : primaryThreat.category === Http2ThreatCategory.GRPC_HEADER_TAMPERING

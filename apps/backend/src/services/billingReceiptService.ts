@@ -334,7 +334,7 @@ export class BillingReceiptService {
       actorId: context.actorId,
       resourceType: AuditResourceType.CLINICAL_RECEIPT,
       resourceId: patientId || 'all_patients',
-      action: AuditAction.QUERY,
+      action: AuditAction.DECRYPT_READ,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
     });

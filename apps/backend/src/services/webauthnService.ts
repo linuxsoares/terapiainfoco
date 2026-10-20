@@ -23,10 +23,11 @@ import {
 
 export class WebAuthnService {
   private static getRpId(): string {
+    // O RP ID é o domínio do painel: em produção, o mesmo de PUBLIC_APP_URL
     const defaultRp = 'localhost';
-    if (!config.frontendUrl) return defaultRp;
+    if (!config.publicAppUrl) return defaultRp;
     try {
-      const url = new URL(config.frontendUrl);
+      const url = new URL(config.publicAppUrl);
       return url.hostname || defaultRp;
     } catch {
       return defaultRp;

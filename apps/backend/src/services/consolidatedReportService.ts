@@ -60,13 +60,13 @@ export class ConsolidatedReportService {
     // 2. Coleta de sessões do paciente
     const patientAppointments = Array.from(db.appointments.values())
       .filter(a => a.patientId === dto.patientId)
-      .sort((a, b) => new Date(a.scheduledStartTime).getTime() - new Date(b.scheduledStartTime).getTime());
+      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
 
-    const startDate = dto.dataInicio || (patientAppointments[0]?.scheduledStartTime ? new Date(patientAppointments[0].scheduledStartTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    const startDate = dto.dataInicio || (patientAppointments[0]?.scheduledStart ? new Date(patientAppointments[0].scheduledStart).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     const endDate = dto.dataFim || new Date().toISOString().split('T')[0];
 
     const sessoesFiltradas = patientAppointments.filter(a => {
-      const appDate = new Date(a.scheduledStartTime).toISOString().split('T')[0];
+      const appDate = new Date(a.scheduledStart).toISOString().split('T')[0];
       return appDate >= startDate && appDate <= endDate;
     });
 
@@ -112,7 +112,7 @@ export class ConsolidatedReportService {
     // Montagem do Procedimento
     const sessoesResumo = (dto.includeTimelineSessions !== false && sessoesFiltradas.length > 0)
       ? sessoesFiltradas.map((sess, idx) => ({
-          data: new Date(sess.scheduledStartTime).toISOString().split('T')[0],
+          data: new Date(sess.scheduledStart).toISOString().split('T')[0],
           titulo: `Sessão #${idx + 1} - Atendimento Clínico`,
           resumoClinico: `Atendimento regular realizado na modalidade individual para acompanhamento do plano terapêutico.`
         }))
@@ -249,7 +249,7 @@ export class ConsolidatedReportService {
       actorId: context.actorId,
       resourceType: AuditResourceType.CONSOLIDATED_REPORT,
       resourceId: reportId,
-      action: AuditAction.SIGN,
+      action: AuditAction.SIGN_RECORD,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
     });
@@ -298,7 +298,7 @@ export class ConsolidatedReportService {
       actorId: context.actorId,
       resourceType: AuditResourceType.CONSOLIDATED_REPORT,
       resourceId: patientId,
-      action: AuditAction.QUERY,
+      action: AuditAction.DECRYPT_READ,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
     });

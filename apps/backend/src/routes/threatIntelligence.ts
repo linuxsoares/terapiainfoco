@@ -47,7 +47,7 @@ threatIntelligenceRoute.post('/check', authMiddleware({ strict: true }), async (
 threatIntelligenceRoute.post('/scan', authMiddleware({ strict: true }), requireSecurityStaff, async (c) => {
   try {
     const user = c.get('user');
-    const body = await c.req.json<TriggerDarkWebScanDTO>().catch(() => ({}));
+    const body: Partial<TriggerDarkWebScanDTO> = await c.req.json<TriggerDarkWebScanDTO>().catch(() => ({}));
 
     const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
 

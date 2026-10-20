@@ -166,7 +166,7 @@ systemRoute.post('/synthetic/run', async (c) => {
     actorId: actor?.id || 'admin-system',
     resourceType: AuditResourceType.SECURITY,
     resourceId: result.executionId,
-    action: AuditAction.READ,
+    action: AuditAction.GENERATE_REPORT,
     ipAddress: ip,
     userAgent: `Synthetic clinical probe executed: status=${result.status}, steps=${result.summary.passed}/${result.summary.total}`
   }).catch(() => {});

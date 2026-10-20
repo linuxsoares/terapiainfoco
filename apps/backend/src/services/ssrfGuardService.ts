@@ -227,7 +227,7 @@ export class SsrfGuardService {
         this.metrics.dnsRebindingAttemptsPrevented++;
       }
       if (inspection.detectedThreats.includes(SsrfAttackCategory.CLOUD_METADATA_EXFILTRATION)) {
-        this.metrics.cloudMetadataProbecsBlocked = (this.metrics as any).cloudMetadataProbecsBlocked || 0;
+        this.metrics.cloudMetadataProbesBlocked = (this.metrics as any).cloudMetadataProbecsBlocked || 0;
         this.metrics.cloudMetadataProbesBlocked++;
       }
       if (inspection.detectedThreats.includes(SsrfAttackCategory.PRIVATE_SUBNET_RECONNAISSANCE)) {
@@ -261,10 +261,10 @@ export class SsrfGuardService {
           : AuditAction.SSRF_ATTACK_BLOCKED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: incidentId,
-        therapistId: reqMeta?.therapistId,
+        actorId: reqMeta?.therapistId,
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'SSRF-Simulation-Agent',
-        details: `Ataque SSRF neutralizado: [Ameaças: ${inspection.detectedThreats.join(', ')}] [Severidade: ${inspection.severity}] [Alvo: ${dto.url}] [Digest: ${seal.canonicalDigest.substring(0, 16)}]`
+        details: { message: `Ataque SSRF neutralizado: [Ameaças: ${inspection.detectedThreats.join(', ')}] [Severidade: ${inspection.severity}] [Alvo: ${dto.url}] [Digest: ${seal.canonicalDigest.substring(0, 16)}]` }
       });
     } else {
       seal = createSsrfProofSeal(inspection);
@@ -274,10 +274,10 @@ export class SsrfGuardService {
         action: AuditAction.EXTERNAL_WEBHOOK_VALIDATED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        therapistId: reqMeta?.therapistId,
+        actorId: reqMeta?.therapistId,
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'SSRF-Inspection-Agent',
-        details: `Webhook validado com sucesso e liberado para conexão de saída: [Alvo: ${dto.url}] [IP Resolvido: ${inspection.resolvedIps.join(', ')}]`
+        details: { message: `Webhook validado com sucesso e liberado para conexão de saída: [Alvo: ${dto.url}] [IP Resolvido: ${inspection.resolvedIps.join(', ')}]` }
       });
     }
 
@@ -332,20 +332,20 @@ export class SsrfGuardService {
         action: AuditAction.SSRF_ATTACK_BLOCKED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        therapistId: reqMeta?.therapistId,
+        actorId: reqMeta?.therapistId,
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'Webhook-Validator',
-        details: `Conexão de Webhook rejeitada por política SSRF: [Alvo: ${dto.url}] [Motivo: ${inspection.reason}]`
+        details: { message: `Conexão de Webhook rejeitada por política SSRF: [Alvo: ${dto.url}] [Motivo: ${inspection.reason}]` }
       });
     } else {
       AuditService.log({
         action: AuditAction.EXTERNAL_WEBHOOK_VALIDATED,
         resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
         resourceId: seal.token,
-        therapistId: reqMeta?.therapistId,
+        actorId: reqMeta?.therapistId,
         ipAddress: reqMeta?.ip || '127.0.0.1',
         userAgent: reqMeta?.userAgent || 'Webhook-Validator',
-        details: `Webhook homologado e autorizado: [Alvo: ${dto.url}] [Host: ${inspection.parsedHost}]`
+        details: { message: `Webhook homologado e autorizado: [Alvo: ${dto.url}] [Host: ${inspection.parsedHost}]` }
       });
     }
 
@@ -381,12 +381,13 @@ export class SsrfGuardService {
     const verification = verifySsrfProofSeal(seal);
 
     AuditService.log({
+      actorId: 'system',
       action: AuditAction.SSRF_SEAL_VERIFIED,
       resourceType: AuditResourceType.SSRF_PROTECTION_GUARD,
       resourceId: seal.token,
       ipAddress: '127.0.0.1',
       userAgent: 'SSRF-Seal-Verifier',
-      details: `Verificação criptográfica de selo probatório SSRF: [Válido: ${verification.isValid}] [Alvo: ${seal.urlChecked}]`
+      details: { message: `Verificação criptográfica de selo probatório SSRF: [Válido: ${verification.isValid}] [Alvo: ${seal.urlChecked}]` }
     });
 
     return {

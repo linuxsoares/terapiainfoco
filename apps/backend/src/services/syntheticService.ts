@@ -296,7 +296,7 @@ export class SyntheticService {
           actorId: 'therapist-001',
           resourceType: AuditResourceType.CLINICAL_RECORD,
           resourceId: 'PROBE-DDM-CHECK',
-          action: AuditAction.UNMASK_SENSITIVE_DATA,
+          action: AuditAction.UNMASK_DATA,
           ipAddress: '127.0.0.1',
           userAgent: 'Synthetic Probe - DDM Verification'
         });
