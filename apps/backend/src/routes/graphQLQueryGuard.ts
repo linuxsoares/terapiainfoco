@@ -46,7 +46,7 @@ graphQLQueryGuardRoutes.post('/inspect', async (c) => {
     const userAgent = c.req.header('user-agent') || 'GraphQL-Client';
 
     const service = GraphQLQueryGuardService.getInstance();
-    const result = service.inspectQuery(body, clientIp, userAgent);
+    const result = service.inspectQuery(body, clientIp, userAgent, c.get('userId'));
 
     return c.json(result);
   } catch (err: any) {
@@ -69,7 +69,7 @@ graphQLQueryGuardRoutes.post('/policy', async (c) => {
     const userAgent = c.req.header('user-agent') || 'Admin-Console';
 
     const service = GraphQLQueryGuardService.getInstance();
-    const result = service.updatePolicy(body, undefined, clientIp, userAgent);
+    const result = service.updatePolicy(body, c.get('user').role, clientIp, userAgent, c.get('userId'));
 
     return c.json(result);
   } catch (err: any) {
@@ -92,7 +92,7 @@ graphQLQueryGuardRoutes.post('/simulate', async (c) => {
     const userAgent = c.req.header('user-agent') || 'Adversarial-Simulator';
 
     const service = GraphQLQueryGuardService.getInstance();
-    const result = service.simulateAttack(body, clientIp, userAgent);
+    const result = service.simulateAttack(body, clientIp, userAgent, c.get('userId'));
 
     return c.json(result);
   } catch (err: any) {
@@ -112,7 +112,7 @@ graphQLQueryGuardRoutes.post('/verify-seal', async (c) => {
     }
 
     const service = GraphQLQueryGuardService.getInstance();
-    const result = service.verifySeal(body);
+    const result = service.verifySeal(body, c.get('userId'));
 
     return c.json(result);
   } catch (err: any) {

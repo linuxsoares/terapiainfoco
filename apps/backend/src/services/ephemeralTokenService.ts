@@ -164,7 +164,7 @@ export class EphemeralTokenService {
   /**
    * Emite um novo token efêmero para paciente
    */
-  public async issueToken(dto: IssueEphemeralTokenDTO): Promise<IssueEphemeralTokenResponse> {
+  public async issueToken(dto: IssueEphemeralTokenDTO, actorId: string): Promise<IssueEphemeralTokenResponse> {
     if (!dto.patientId || !dto.therapistCrp || !dto.roomId) {
       throw new Error('Parâmetros obrigatórios ausentes: patientId, therapistCrp e roomId.');
     }
@@ -192,8 +192,7 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
-      // O serviço não recebe quem chamou; o contexto do token fica em details
-      actorId: 'system',
+      actorId,
       action: AuditAction.EPHEMERAL_TOKEN_ISSUED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: token.tokenId,
@@ -221,7 +220,7 @@ export class EphemeralTokenService {
   /**
    * Consome um token efêmero no ingresso à teleconsulta
    */
-  public async consumeToken(dto: ConsumeEphemeralTokenDTO): Promise<ConsumeEphemeralTokenResponse> {
+  public async consumeToken(dto: ConsumeEphemeralTokenDTO, actorId: string): Promise<ConsumeEphemeralTokenResponse> {
     if (!dto.tokenString || !dto.roomId) {
       throw new Error('Parâmetros obrigatórios ausentes: tokenString e roomId.');
     }
@@ -301,8 +300,7 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
-      // O serviço não recebe quem chamou; o contexto do token fica em details
-      actorId: 'system',
+      actorId,
       action: granted ? AuditAction.EPHEMERAL_TOKEN_CONSUMED : AuditAction.EPHEMERAL_TOKEN_ACCESS_BLOCKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: tokenId,
@@ -331,7 +329,7 @@ export class EphemeralTokenService {
   /**
    * Revoga deliberadamente um token efêmero ativo (RFC 7009)
    */
-  public async revokeToken(dto: RevokeEphemeralTokenDTO): Promise<RevokeEphemeralTokenResponse> {
+  public async revokeToken(dto: RevokeEphemeralTokenDTO, actorId: string): Promise<RevokeEphemeralTokenResponse> {
     const token = this.tokens.get(dto.tokenId);
     if (!token) {
       throw new Error(`Token efêmero ${dto.tokenId} não encontrado.`);
@@ -358,8 +356,7 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
-      // O serviço não recebe quem chamou; o contexto do token fica em details
-      actorId: 'system',
+      actorId,
       action: AuditAction.EPHEMERAL_TOKEN_REVOKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: token.tokenId,
@@ -381,7 +378,7 @@ export class EphemeralTokenService {
   /**
    * Simula cenários adversariais de tentativa de intrusão
    */
-  public async simulateIntrusion(dto: SimulateTokenIntrusionDTO): Promise<SimulateTokenIntrusionResponse> {
+  public async simulateIntrusion(dto: SimulateTokenIntrusionDTO, actorId: string): Promise<SimulateTokenIntrusionResponse> {
     const scenario = dto.scenario;
     let syntheticTokenString: string;
     let testRoomId = 'room_telepsi_sala_01';
@@ -460,7 +457,7 @@ export class EphemeralTokenService {
       roomId: testRoomId,
       clientIp: '203.0.113.42 (Adversary Sim)',
       userAgent: 'Adversary-Script/1.0'
-    });
+    }, actorId);
 
     return {
       success: true,
@@ -493,13 +490,12 @@ export class EphemeralTokenService {
   /**
    * Valida a autenticidade de um selo probatório WORM
    */
-  public async verifyProofSeal(sealToken: string): Promise<VerifyEphemeralTokenSealResponse> {
+  public async verifyProofSeal(sealToken: string, actorId: string): Promise<VerifyEphemeralTokenSealResponse> {
     const res = verifyEphemeralProofSeal(sealToken);
 
     // Auditoria WORM
     await AuditService.log({
-      // O serviço não recebe quem chamou; o contexto do token fica em details
-      actorId: 'system',
+      actorId,
       action: AuditAction.EPHEMERAL_TOKEN_PROOF_VERIFIED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: res.payload?.tokenId || 'unknown_seal',

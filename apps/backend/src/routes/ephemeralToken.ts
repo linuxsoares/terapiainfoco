@@ -50,7 +50,7 @@ ephemeralTokenRouter.post('/issue', async (c) => {
       }, 400);
     }
 
-    const response = await service.issueToken(body);
+    const response = await service.issueToken(body, c.get('userId'));
     return c.json(response, 200);
   } catch (err: any) {
     return c.json({
@@ -81,7 +81,7 @@ ephemeralTokenRouter.post('/consume', async (c) => {
       ...body,
       clientIp,
       userAgent
-    });
+    }, c.get('userId'));
 
     return c.json(response, 200);
   } catch (err: any) {
@@ -106,7 +106,7 @@ ephemeralTokenRouter.post('/revoke', async (c) => {
       }, 400);
     }
 
-    const response = await service.revokeToken(body);
+    const response = await service.revokeToken(body, c.get('userId'));
     return c.json(response, 200);
   } catch (err: any) {
     return c.json({
@@ -130,7 +130,7 @@ ephemeralTokenRouter.post('/simulate-intrusion', async (c) => {
       }, 400);
     }
 
-    const response = await service.simulateIntrusion(body);
+    const response = await service.simulateIntrusion(body, c.get('userId'));
     return c.json(response, 200);
   } catch (err: any) {
     return c.json({
@@ -171,7 +171,7 @@ ephemeralTokenRouter.post('/verify-seal', async (c) => {
       }, 400);
     }
 
-    const response = await service.verifyProofSeal(body.sealToken);
+    const response = await service.verifyProofSeal(body.sealToken, c.get('userId'));
     return c.json(response, 200);
   } catch (err: any) {
     return c.json({
