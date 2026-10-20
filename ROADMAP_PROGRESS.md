@@ -2383,7 +2383,7 @@ terapiainfoco/
 | `fix/remove-fallback-supabase-auth` | Remove login e tokens via Supabase Auth (tomada de conta pelo e-mail e papel declarado pelo próprio usuário) | [PR #143](https://github.com/linuxsoares/terapiainfoco/pull/143) | Merged |
 | `feat/admin-gestao-equipe` | Módulo Equipe: Admin cria Recepção/Supervisor vinculados a um consultório | [PR #144](https://github.com/linuxsoares/terapiainfoco/pull/144) | Merged |
 | `fix/landing-sem-simulacoes` | Landing sem respostas simuladas (inclusive documento "válido" falso) e URL da API configurada no deploy | [PR #145](https://github.com/linuxsoares/terapiainfoco/pull/145) | Merged |
-| `feat/landing-busca-e-entrar` | Landing leva à busca de psicólogos e ao login do painel (fim do agendamento fixo em uma psicóloga) | PR #TBD | Merged |
+| `feat/landing-busca-e-entrar` | Landing leva à busca de psicólogos e ao login do painel (fim do agendamento fixo em uma psicóloga) | [PR #146](https://github.com/linuxsoares/terapiainfoco/pull/146) | Merged |
 
 ---
 
