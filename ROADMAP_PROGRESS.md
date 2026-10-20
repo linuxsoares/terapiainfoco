@@ -2380,7 +2380,7 @@ terapiainfoco/
 | `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | [PR #140](https://github.com/linuxsoares/terapiainfoco/pull/140) | Merged |
 | `fix/admin-governanca-dados-reais` | Pacote de conformidade sem identidade fixa e score calculado com 2FA da equipe, backups e OTLP reais | [PR #141](https://github.com/linuxsoares/terapiainfoco/pull/141) | Merged |
 | `feat/troca-de-senha` | Troca da própria senha em Segurança, com encerramento das demais sessões | [PR #142](https://github.com/linuxsoares/terapiainfoco/pull/142) | Merged |
-| `fix/remove-fallback-supabase-auth` | Remove login e tokens via Supabase Auth (tomada de conta pelo e-mail e papel declarado pelo próprio usuário) | PR #TBD | Merged |
+| `fix/remove-fallback-supabase-auth` | Remove login e tokens via Supabase Auth (tomada de conta pelo e-mail e papel declarado pelo próprio usuário) | [PR #143](https://github.com/linuxsoares/terapiainfoco/pull/143) | Merged |
 
 ---
 
