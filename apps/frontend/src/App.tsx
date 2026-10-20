@@ -15,7 +15,6 @@ import {
   Menu,
   X,
   User,
-  UserPlus,
   LogOut,
   Eye,
   HeartHandshake,
@@ -102,6 +101,17 @@ function writeLastTab(tab: AppModule): void {
     // Armazenamento indisponível (aba anônima/bloqueio): apenas não lembra a tela
   }
 }
+
+/** Nome do papel exibido ao usuário (nunca o valor cru do enum) */
+const ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.PSICOLOGO_TITULAR]: 'Psicólogo(a)',
+  [UserRole.SUPERVISOR_CLINICO]: 'Supervisor(a) Clínico(a)',
+  [UserRole.RECEPCAO_SECRETARIA]: 'Recepção',
+  [UserRole.PACIENTE]: 'Paciente',
+  [UserRole.ADMIN]: 'Administrador(a)'
+};
+
+const ROOM_ROLES: readonly UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO];
 
 /** Itens de navegação; a visibilidade por perfil vem de MODULE_ACCESS (@terapiainfoco/shared) */
 const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
@@ -370,7 +380,7 @@ export default function App() {
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{currentUser.name}</p>
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
-                      {DEMO_USERS[currentUser.role]?.roleName || currentUser.role}
+                      {ROLE_LABELS[currentUser.role]}
                     </span>
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   </div>
@@ -419,17 +429,6 @@ export default function App() {
                     >
                       <User className="w-3.5 h-3.5 text-teal-500" />
                       <span>Meu Perfil & Identidades Sociais</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setRoleDropdownOpen(false);
-                        handleOpenAuth('register', currentUser.role);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Criar Novo Perfil / Login Social</span>
                     </button>
 
                     <button
@@ -536,7 +535,7 @@ export default function App() {
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
             >
               <User className="w-4 h-4" />
-              <span>Meu Perfil ({currentUser.role})</span>
+              <span>Meu Perfil ({ROLE_LABELS[currentUser.role]})</span>
             </button>
             <button
               onClick={() => { setShowPublicShowcase(true); setMobileMenuOpen(false); }}
@@ -595,7 +594,7 @@ export default function App() {
                 className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50 transition-all"
               >
                 <User className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Meu Perfil ({currentUser.role === UserRole.PACIENTE ? 'Paciente' : currentUser.role === UserRole.ADMIN ? 'Admin' : 'Psicólogo'})</span>
+                <span>Meu Perfil ({ROLE_LABELS[currentUser.role]})</span>
               </button>
 
               <button
@@ -662,7 +661,8 @@ export default function App() {
           </main>
         </div>
 
-        {roomAppointmentId && (
+        {/* Só paciente e quem atende entram na sala; recepção e admin não têm papel na chamada */}
+        {roomAppointmentId && ROOM_ROLES.includes(currentUser.role) && (
           <TeleconsultationRoom
             appointmentId={roomAppointmentId}
             role={currentUser.role === UserRole.PACIENTE ? 'PATIENT' : 'THERAPIST'}

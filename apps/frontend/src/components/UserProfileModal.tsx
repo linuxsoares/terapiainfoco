@@ -12,7 +12,8 @@ import {
   Fingerprint,
   Phone,
   Sparkles,
-  FolderLock
+  FolderLock,
+  AlertCircle
 } from 'lucide-react';
 import { UserRole, SocialAuthProvider } from '@terapiainfoco/shared';
 import type { SafeUser } from '@terapiainfoco/shared';
@@ -52,6 +53,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [allProfiles, setAllProfiles] = useState<SafeUser[]>([]);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setDepartment(user.department || '');
     setDpoCertification(user.dpoCertification || '');
     setSavedSuccess(false);
+    setSaveError(null);
 
     if (isOpen && user.role === UserRole.ADMIN) {
       api.listProfiles()
@@ -81,6 +84,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     e.preventDefault();
     setSaving(true);
     setSavedSuccess(false);
+    setSaveError(null);
     try {
       const updated = await api.updateProfile({
         name,
@@ -97,23 +101,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       });
       onProfileUpdated(updated);
       setSavedSuccess(true);
-    } catch {
-      // Fallback local update
-      onProfileUpdated({
-        ...user,
-        name,
-        phone,
-        crp,
-        crpRegion,
-        specialty,
-        bio,
-        sessionFeeCents: Math.round(Number(sessionFee || 250) * 100),
-        emergencyContactName,
-        emergencyContactPhone,
-        department,
-        dpoCertification
-      });
-      setSavedSuccess(true);
+    } catch (err: any) {
+      // Nada é alterado localmente: o perfil exibido continua igual ao salvo no servidor
+      setSaveError(err?.message || 'Não foi possível salvar o perfil. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -181,6 +171,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>Dados do perfil atualizados e selados na trilha de auditoria WORM!</span>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{saveError}</span>
             </div>
           )}
 

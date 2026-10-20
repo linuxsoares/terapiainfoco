@@ -417,23 +417,28 @@ export function AgendaModule({ role }: { role: UserRole }) {
 
                   {/* Ações de Estado */}
                   <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-slate-800">
-                    <button
-                      onClick={() => setSelectedTeleconsultationApp(app)}
-                      className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Abrir a sala de teleconsulta com sala de espera ética (RFC-001 §3.2)"
-                    >
-                      <Video className="w-3.5 h-3.5" />
-                      <span>Sala de Teleconsulta</span>
-                    </button>
+                    {/* Recepção agenda e envia lembretes, mas não entra na sala nem acessa conteúdo clínico */}
+                    {isClinician && (
+                      <>
+                      <button
+                        onClick={() => setSelectedTeleconsultationApp(app)}
+                        className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Abrir a sala de teleconsulta com sala de espera ética (RFC-001 §3.2)"
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        <span>Sala de Teleconsulta</span>
+                      </button>
 
-                    <button
-                      onClick={() => setSelectedAiSoapApp(app)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>SOAP IA</span>
-                    </button>
+                      <button
+                        onClick={() => setSelectedAiSoapApp(app)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real (RFC-001 §3.3)"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>SOAP IA</span>
+                      </button>
+                      </>
+                    )}
 
                     <button
                       onClick={() => handleOpenReminderModal(app)}
