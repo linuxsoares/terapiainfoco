@@ -302,7 +302,7 @@ export class DevicePostureService {
       action: auditAction,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
-      userId: therapistId,
+      actorId: therapistId,
       details: {
         assessmentId: assessment.assessmentId,
         trustScore: assessment.trustScore,
@@ -341,7 +341,7 @@ export class DevicePostureService {
       action: AuditAction.DEVICE_QUARANTINED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
-      userId: operatorId,
+      actorId: operatorId,
       details: {
         reason,
         quarantinedAt: nowIso,
@@ -374,7 +374,7 @@ export class DevicePostureService {
       action: AuditAction.DEVICE_QUARANTINE_RELEASED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
-      userId: operatorId,
+      actorId: operatorId,
       details: {
         dpoNotes,
         releasedAt: new Date().toISOString(),
@@ -400,7 +400,7 @@ export class DevicePostureService {
       action: AuditAction.DEVICE_POSTURE_POLICY_UPDATED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: 'policy_config',
-      userId: operatorId,
+      actorId: operatorId,
       details: {
         oldPolicy,
         newPolicy: policy,
@@ -445,7 +445,7 @@ export class DevicePostureService {
       action: AuditAction.DEVICE_POSTURE_SEAL_VERIFIED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: assessment.deviceId,
-      userId: 'SYSTEM_VERIFIER',
+      actorId: 'SYSTEM_VERIFIER',
       details: {
         sealToken,
         assessmentId: assessment.assessmentId,

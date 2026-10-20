@@ -192,6 +192,8 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
+      // O serviço não recebe quem chamou; o contexto do token fica em details
+      actorId: 'system',
       action: AuditAction.EPHEMERAL_TOKEN_ISSUED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: token.tokenId,
@@ -299,6 +301,8 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
+      // O serviço não recebe quem chamou; o contexto do token fica em details
+      actorId: 'system',
       action: granted ? AuditAction.EPHEMERAL_TOKEN_CONSUMED : AuditAction.EPHEMERAL_TOKEN_ACCESS_BLOCKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: tokenId,
@@ -354,6 +358,8 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
+      // O serviço não recebe quem chamou; o contexto do token fica em details
+      actorId: 'system',
       action: AuditAction.EPHEMERAL_TOKEN_REVOKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: token.tokenId,
@@ -492,6 +498,8 @@ export class EphemeralTokenService {
 
     // Auditoria WORM
     await AuditService.log({
+      // O serviço não recebe quem chamou; o contexto do token fica em details
+      actorId: 'system',
       action: AuditAction.EPHEMERAL_TOKEN_PROOF_VERIFIED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
       resourceId: res.payload?.tokenId || 'unknown_seal',

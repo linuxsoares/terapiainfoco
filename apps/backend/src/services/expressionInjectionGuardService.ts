@@ -242,7 +242,7 @@ export class ExpressionInjectionGuardService {
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
         resourceId: incident.id,
         severity: 'CRITICAL',
-        clientIp,
+        ipAddress: clientIp,
         userAgent,
         details: {
           expression: dto.expression,
@@ -284,7 +284,7 @@ export class ExpressionInjectionGuardService {
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
         resourceId: result.proofSeal.sealId,
         severity: 'LOW',
-        clientIp,
+        ipAddress: clientIp,
         userAgent,
         details: {
           expression: dto.expression,
@@ -337,7 +337,7 @@ export class ExpressionInjectionGuardService {
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
         resourceId: incident.id,
         severity: 'CRITICAL',
-        clientIp,
+        ipAddress: clientIp,
         userAgent,
         details: {
           expression: dto.expression,
@@ -372,7 +372,7 @@ export class ExpressionInjectionGuardService {
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
       resourceId: 'policy_code_expression_guard_v1',
       severity: 'MEDIUM',
-      clientIp,
+      ipAddress: clientIp,
       userAgent,
       details: {
         newPolicy: this.policy,
@@ -428,7 +428,7 @@ export class ExpressionInjectionGuardService {
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
       resourceId: incident.id,
       severity: 'CRITICAL',
-      clientIp,
+      ipAddress: clientIp,
       userAgent,
       details: {
         attackLabel: preset.label,
@@ -485,7 +485,7 @@ export class ExpressionInjectionGuardService {
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
       resourceId: sealToVerify.sealId || 'unknown',
       severity: 'LOW',
-      clientIp,
+      ipAddress: clientIp,
       userAgent,
       details: {
         isValid: verification.isValid,

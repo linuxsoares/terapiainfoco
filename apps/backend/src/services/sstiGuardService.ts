@@ -135,12 +135,12 @@ export class SstiGuardService {
       this.metrics.lastIncidentTimestamp = new Date().toISOString();
 
       await AuditService.log({
-        userId,
+        actorId: userId,
         action: AuditAction.SSTI_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SSTI_GUARD,
         resourceId: `ssti_inspect_${randomBytes(6).toString('hex')}`,
         ipAddress: clientIp,
-        metadata: {
+        details: {
           threatVector: inspection.threatVector,
           riskSeverity: inspection.riskSeverity,
           detectedThreats: inspection.detectedThreats,
@@ -222,12 +222,12 @@ export class SstiGuardService {
       if (this.incidents.length > 100) this.incidents.pop();
 
       await AuditService.log({
-        userId,
+        actorId: userId,
         action: AuditAction.SSTI_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SSTI_GUARD,
         resourceId: incidentId,
         ipAddress: clientIp,
-        metadata: {
+        details: {
           threatVector: inspection.threatVector,
           riskSeverity: inspection.riskSeverity,
           sealId: seal.sealId
@@ -245,12 +245,12 @@ export class SstiGuardService {
     if (renderResult.wasSanitized) {
       this.metrics.sanitizedExpressions++;
       await AuditService.log({
-        userId,
+        actorId: userId,
         action: AuditAction.SSTI_TEMPLATE_SANITIZED,
         resourceType: AuditResourceType.SSTI_GUARD,
         resourceId: seal.sealId,
         ipAddress: clientIp,
-        metadata: {
+        details: {
           interpolatedCount: renderResult.variablesInterpolated,
           sealId: seal.sealId
         }
@@ -258,12 +258,12 @@ export class SstiGuardService {
     } else {
       this.metrics.safeTemplatesRendered++;
       await AuditService.log({
-        userId,
+        actorId: userId,
         action: AuditAction.SSTI_SANDBOX_RENDER_SUCCESS,
         resourceType: AuditResourceType.SSTI_GUARD,
         resourceId: seal.sealId,
         ipAddress: clientIp,
-        metadata: {
+        details: {
           interpolatedCount: renderResult.variablesInterpolated,
           sealId: seal.sealId
         }
@@ -294,12 +294,12 @@ export class SstiGuardService {
     };
 
     await AuditService.log({
-      userId,
+      actorId: userId,
       action: AuditAction.SSTI_POLICY_UPDATED,
       resourceType: AuditResourceType.SSTI_GUARD,
       resourceId: `ssti_policy_${Date.now()}`,
       ipAddress: clientIp,
-      metadata: { updatedPolicy: this.policy }
+      details: { updatedPolicy: this.policy }
     });
 
     return {
@@ -445,12 +445,12 @@ export class SstiGuardService {
     const isValid = verifySstiProofSeal(targetSeal);
 
     await AuditService.log({
-      userId,
+      actorId: userId,
       action: AuditAction.SSTI_SEAL_VERIFIED,
       resourceType: AuditResourceType.SSTI_GUARD,
       resourceId: targetSeal.sealId,
       ipAddress: clientIp,
-      metadata: {
+      details: {
         sealId: targetSeal.sealId,
         isValid,
         templateHash: targetSeal.templateHash

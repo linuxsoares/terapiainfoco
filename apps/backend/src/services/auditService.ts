@@ -11,6 +11,30 @@ import { db } from '../db/memoryDb';
 
 const GENESIS_HASH = '0'.repeat(64);
 
+/** Detalhes serializáveis (estrutura circular não pode impedir o registro do evento) */
+function normalizeDetails(value: Record<string, unknown>): Record<string, unknown> {
+  try {
+    return JSON.parse(canonicalJson(value)) as Record<string, unknown>;
+  } catch {
+    return { detailsUnserializable: true };
+  }
+}
+
+/** JSON com chaves ordenadas: o mesmo conteúdo sempre gera o mesmo hash */
+function canonicalJson(value: unknown): string {
+  if (value === undefined) return 'null';
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(typeof value === 'bigint' ? value.toString() : value) ?? 'null';
+  }
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  const entries = Object.keys(value as Record<string, unknown>)
+    .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`);
+  return `{${entries.join(',')}}`;
+}
+
 export class AuditService {
   /**
    * Computa o hash criptográfico SHA-256 canônico de um bloco da trilha WORM
@@ -25,6 +49,7 @@ export class AuditService {
     ipAddress: string;
     timestampIso: string;
     previousHash: string;
+    details?: Record<string, unknown>;
   }): string {
     const rawPayload = [
       params.sequenceNumber,
@@ -35,7 +60,9 @@ export class AuditService {
       params.action,
       params.ipAddress,
       params.timestampIso,
-      params.previousHash
+      params.previousHash,
+      // Registros sem detalhes mantêm o hash de antes (a cadeia já gravada continua válida)
+      ...(params.details ? [canonicalJson(params.details)] : [])
     ].join('|');
 
     return createHash('sha256').update(rawPayload).digest('hex');
@@ -50,9 +77,17 @@ export class AuditService {
     resourceType: AuditResourceType;
     resourceId: string;
     action: AuditAction;
-    ipAddress: string;
+    ipAddress?: string;
     userAgent?: string;
+    details?: Record<string, unknown>;
+    /** Gravados em details */
+    severity?: string;
+    actorRole?: string;
   }): AuditLog {
+    const extra = { ...params.details, severity: params.severity, actorRole: params.actorRole };
+    // Cópia normalizada: alterações posteriores no objeto de quem chamou não invalidam o hash
+    const details = Object.values(extra).some((v) => v !== undefined) ? normalizeDetails(extra) : undefined;
+    const ipAddress = params.ipAddress ?? 'system';
     const sequenceNumber = db.auditLogs.length + 1;
     const previousHash = db.auditLogs.length > 0 
       ? (db.auditLogs[db.auditLogs.length - 1].hash || GENESIS_HASH)
@@ -69,9 +104,10 @@ export class AuditService {
       resourceType: params.resourceType,
       resourceId: params.resourceId,
       action: params.action,
-      ipAddress: params.ipAddress,
+      ipAddress,
       timestampIso,
-      previousHash
+      previousHash,
+      details
     });
 
     const logEntry: AuditLog = {
@@ -80,12 +116,13 @@ export class AuditService {
       resourceType: params.resourceType,
       resourceId: params.resourceId,
       action: params.action,
-      ipAddress: params.ipAddress,
+      ipAddress,
       userAgent: params.userAgent,
       timestamp,
       sequenceNumber,
       previousHash,
-      hash
+      hash,
+      ...(details ? { details } : {})
     };
 
     // Imutabilidade WORM: append-only estrito e congelado
@@ -157,7 +194,8 @@ export class AuditService {
         action: log.action,
         ipAddress: log.ipAddress,
         timestampIso,
-        previousHash: log.previousHash
+        previousHash: log.previousHash,
+        details: log.details
       });
 
       if (recalculatedHash !== log.hash) {

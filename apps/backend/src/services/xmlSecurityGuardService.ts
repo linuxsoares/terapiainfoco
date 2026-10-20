@@ -189,7 +189,7 @@ export class XmlSecurityGuardService {
         action: auditAction,
         resourceType: AuditResourceType.XML_SECURITY_GUARD,
         resourceId: incident.id,
-        userId: actorId,
+        actorId: actorId,
         details: {
           threatCount: result.threats.length,
           threats: result.threats,
@@ -210,7 +210,7 @@ export class XmlSecurityGuardService {
         action: AuditAction.SAFE_XML_NORMALIZED,
         resourceType: AuditResourceType.XML_SECURITY_GUARD,
         resourceId: result.seal.sealId,
-        userId: actorId,
+        actorId: actorId,
         details: {
           schemaType,
           originalDigest: result.seal.canonicalXmlHash,
@@ -241,7 +241,7 @@ export class XmlSecurityGuardService {
       action: AuditAction.XML_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.XML_SECURITY_GUARD,
       resourceId: 'xml-guard-policy',
-      userId: actorId,
+      actorId: actorId,
       details: {
         updatedFields: Object.keys(dto.policy),
         newPolicy: this.policy
@@ -380,7 +380,7 @@ export class XmlSecurityGuardService {
       action: AuditAction.XML_GUARD_SEAL_VERIFIED,
       resourceType: AuditResourceType.XML_SECURITY_GUARD,
       resourceId: sealId,
-      userId: actorId,
+      actorId: actorId,
       details: {
         isValid: verification.isValid,
         reason: verification.reason,

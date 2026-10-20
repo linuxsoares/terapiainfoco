@@ -191,7 +191,7 @@ export class VisualWatermarkService {
       action: AuditAction.VISUAL_WATERMARK_EMBEDDED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: seed.seedId,
-      userId,
+      actorId: userId,
       details: {
         sessionId: seed.sessionId,
         therapistCrp: seed.therapistCrp,
@@ -238,7 +238,7 @@ export class VisualWatermarkService {
       action: AuditAction.VISUAL_WATERMARK_EMBEDDED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: result.embeddingId,
-      userId,
+      actorId: userId,
       details: {
         seedId: seed.seedId,
         psnrDb: result.psnrDb,
@@ -297,7 +297,7 @@ export class VisualWatermarkService {
         action: AuditAction.LEAK_SOURCE_IDENTIFIED,
         resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
         resourceId: incident.id,
-        userId,
+        actorId: userId,
         details: {
           correlationScore: result.correlationScore,
           confidence: result.confidence,
@@ -310,7 +310,7 @@ export class VisualWatermarkService {
         action: AuditAction.LEAK_EXTRACTION_ATTEMPTED,
         resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
         resourceId: result.extractionId,
-        userId,
+        actorId: userId,
         details: {
           correlationScore: result.correlationScore,
           confidence: result.confidence
@@ -361,7 +361,7 @@ export class VisualWatermarkService {
       action: AuditAction.LEAK_EXTRACTION_ATTEMPTED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: seed.seedId,
-      userId,
+      actorId: userId,
       details: {
         crop,
         quality,
@@ -392,7 +392,7 @@ export class VisualWatermarkService {
       action: AuditAction.WATERMARK_POLICY_UPDATED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: 'global_policy',
-      userId,
+      actorId: userId,
       details: { activeStrength: this.activeStrength }
     });
 

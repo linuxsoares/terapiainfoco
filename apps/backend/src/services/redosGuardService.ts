@@ -531,7 +531,7 @@ export class RedosGuardService {
         action,
         resourceType: AuditResourceType.REDOS_GUARD,
         resourceId: metadata?.incidentId || metadata?.sealId || 'redos_guard',
-        userId: userId || 'SYSTEM',
+        actorId: userId || 'SYSTEM',
         details,
         ipAddress: '127.0.0.1',
         userAgent: 'TerapiaInFoco-ReDoS-Guard/1.0',
