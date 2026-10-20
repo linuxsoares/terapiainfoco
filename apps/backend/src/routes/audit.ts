@@ -224,9 +224,9 @@ auditRoute.get('/compliance/download-ripd', dpoOnly, async (c) => {
 });
 
 // 10. Panorama Executivo de Governança & Conformidade Multi-Normativa (RFC-001 §4.4, §5.2)
-auditRoute.get('/governance/overview', dpoOnly, (c) => {
+auditRoute.get('/governance/overview', dpoOnly, async (c) => {
   try {
-    const overview = complianceGovernanceService.getGovernanceOverview();
+    const overview = await complianceGovernanceService.getGovernanceOverview();
     return c.json(overview, 200);
   } catch (err: any) {
     return c.json({ success: false, error: err.message || 'Falha ao obter panorama de governança.' }, 500);
@@ -240,7 +240,7 @@ auditRoute.post('/governance/package/generate', dpoOnly, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as GenerateCompliancePackageDTO;
 
   try {
-    const pkg = complianceGovernanceService.generateExecutivePackage(
+    const pkg = await complianceGovernanceService.generateExecutivePackage(
       body,
       user?.id || 'admin',
       ipAddress
