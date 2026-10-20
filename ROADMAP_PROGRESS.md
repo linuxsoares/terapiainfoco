@@ -2398,7 +2398,7 @@ terapiainfoco/
 | `fix/auditoria-ator-real` | Auditoria de tokens efêmeros, GraphQL Guard e DID grava o usuário autenticado como ator | [PR #158](https://github.com/linuxsoares/terapiainfoco/pull/158) | Merged |
 | `fix/monitor-sintetico-isolado` | Monitor sintético roda em consultório isolado e limpa os registros ao fim | [PR #159](https://github.com/linuxsoares/terapiainfoco/pull/159) | Merged |
 | `fix/typecheck-crypto-exports` | Zera os erros de tipo do pacote crypto (barrel ambíguo, enums do shared, JWK, política de supply chain) | [PR #160](https://github.com/linuxsoares/terapiainfoco/pull/160) | Merged |
-| `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | PR_PLACEHOLDER | Merged |
+| `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | [PR #161](https://github.com/linuxsoares/terapiainfoco/pull/161) | Merged |
 
 ---
 
