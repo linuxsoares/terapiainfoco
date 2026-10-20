@@ -2385,7 +2385,7 @@ terapiainfoco/
 | `fix/landing-sem-simulacoes` | Landing sem respostas simuladas (inclusive documento "válido" falso) e URL da API configurada no deploy | [PR #145](https://github.com/linuxsoares/terapiainfoco/pull/145) | Merged |
 | `feat/landing-busca-e-entrar` | Landing leva à busca de psicólogos e ao login do painel (fim do agendamento fixo em uma psicóloga) | [PR #146](https://github.com/linuxsoares/terapiainfoco/pull/146) | Merged |
 | `feat/landing-leads` | Formulário de demonstração grava pedidos de acesso (contato cifrado) e Admin os vê em "Pedidos de Acesso" | [PR #147](https://github.com/linuxsoares/terapiainfoco/pull/147) | Merged |
-| `feat/landing-dark-mode` | Dark Mode na landing page com botão de tema e preferência do sistema | PR #TBD | Merged |
+| `feat/landing-dark-mode` | Dark Mode na landing page com botão de tema e preferência do sistema | [PR #148](https://github.com/linuxsoares/terapiainfoco/pull/148) | Merged |
 
 ---
 
