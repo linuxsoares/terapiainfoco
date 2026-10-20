@@ -2387,7 +2387,7 @@ terapiainfoco/
 | `feat/landing-leads` | Formulário de demonstração grava pedidos de acesso (contato cifrado) e Admin os vê em "Pedidos de Acesso" | [PR #147](https://github.com/linuxsoares/terapiainfoco/pull/147) | Merged |
 | `feat/landing-dark-mode` | Dark Mode na landing page com botão de tema e preferência do sistema | [PR #148](https://github.com/linuxsoares/terapiainfoco/pull/148) | Merged |
 | `feat/equipe-desativar-reemitir` | Desativar/reativar conta da equipe, reemitir senha inicial e troca obrigatória no primeiro acesso | [PR #149](https://github.com/linuxsoares/terapiainfoco/pull/149) | Merged |
-| `fix/pacotes-conformidade-duraveis` | Pacotes de conformidade persistidos e métricas com versão real da KEK | PR #TBD | Merged |
+| `fix/pacotes-conformidade-duraveis` | Pacotes de conformidade persistidos e métricas com versão real da KEK | [PR #150](https://github.com/linuxsoares/terapiainfoco/pull/150) | Merged |
 
 ---
 
