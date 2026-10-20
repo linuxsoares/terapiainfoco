@@ -2374,7 +2374,7 @@ terapiainfoco/
 | `feat/paciente-meus-psicologos` | "Meu psicólogo" no Meu Espaço com agendamento direto da próxima sessão; paciente vinculado agenda mesmo com perfil fora da busca | [PR #134](https://github.com/linuxsoares/terapiainfoco/pull/134) | Merged |
 | `feat/admin-observabilidade` | Dashboard do psicólogo só com indicadores clínicos; segurança e telemetria em módulo próprio do Admin (fim dos 403 em `/system/telemetry/*`) | [PR #135](https://github.com/linuxsoares/terapiainfoco/pull/135) | Merged |
 | `feat/agenda-selecao-paciente` | Agendamento pela agenda escolhe o paciente por busca de nome/e-mail no consultório (fim do campo de ID livre) | [PR #136](https://github.com/linuxsoares/terapiainfoco/pull/136) | Merged |
-| `fix/ajustes-perfil-interface` | Rótulos de papel amigáveis, sem "Criar Novo Perfil" para logado, erro real ao salvar perfil, Recepção fora da sala de teleconsulta | PR #TBD | Merged |
+| `fix/ajustes-perfil-interface` | Rótulos de papel amigáveis, sem "Criar Novo Perfil" para logado, erro real ao salvar perfil, Recepção fora da sala de teleconsulta | [PR #137](https://github.com/linuxsoares/terapiainfoco/pull/137) | Merged |
 
 ---
 
