@@ -1653,24 +1653,12 @@ export const api = {
         if (err.name === 'NotAllowedError') {
           throw new Error('Operação de biometria cancelada pelo usuário ou não permitida no dispositivo.');
         }
-        console.warn('Falha no autenticador nativo, usando modo simulado:', err);
+        throw new Error(err?.message || 'Não foi possível cadastrar a passkey neste dispositivo.');
       }
     }
 
-    // Modo Simulado de Compatibilidade (para ambientes sem hardware FIDO2 ou headless)
-    const simulatedCredId = 'simulated_' + Math.random().toString(36).substring(2, 12);
-    const clientData = {
-      type: 'webauthn.create',
-      challenge: options.challenge,
-      origin: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5174'
-    };
-    const clientDataJSON = btoa(JSON.stringify(clientData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-    return await this.verifyPasskeyRegistration({
-      friendlyName: friendlyName.trim() || 'Simulador Biométrico (TouchID)',
-      credentialId: simulatedCredId,
-      clientDataJSON
-    });
+    // Sem simulação: uma passkey falsa não teria chave pública verificável
+    throw new Error('Este navegador ou dispositivo não oferece passkeys (WebAuthn).');
   },
 
   async authenticatePasskeyWithBrowser(email?: string): Promise<LoginResponse> {
@@ -1721,27 +1709,11 @@ export const api = {
         if (err.name === 'NotAllowedError') {
           throw new Error('Operação biométrica cancelada pelo usuário.');
         }
-        console.warn('Falha no autenticador nativo, usando modo simulado:', err);
+        throw new Error(err?.message || 'Não foi possível entrar com a passkey neste dispositivo.');
       }
     }
 
-    // Modo Simulado
-    const credId = options.allowCredentials?.[0]?.id || 'simulated_fallback_key';
-    const clientData = {
-      type: 'webauthn.get',
-      challenge: options.challenge,
-      origin: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5174'
-    };
-    const clientDataJSON = btoa(JSON.stringify(clientData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const dummyAuthData = btoa('dummy_authenticator_data_37_bytes_pad_len____').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const dummySig = btoa('dummy_signature_bytes_mock_____________').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-    return await this.verifyPasskeyAuth({
-      credentialId: credId,
-      clientDataJSON,
-      authenticatorData: dummyAuthData,
-      signature: dummySig
-    });
+    throw new Error('Este navegador ou dispositivo não oferece passkeys (WebAuthn).');
   },
 
   // 17. Auditoria Contínua, Pentest Automatizado & Relatório RIPD/DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)

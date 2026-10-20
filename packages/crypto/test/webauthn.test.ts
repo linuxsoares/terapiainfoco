@@ -7,6 +7,9 @@ import {
   parseAuthenticatorData,
   verifyWebAuthnAssertionSignature,
   createSimulatedWebAuthnKeyPair,
+  parseAttestationObject,
+  decodeCbor,
+  encodeCbor,
   createSimulatedWebAuthnAssertion
 } from '../src/webauthn';
 
@@ -155,5 +158,24 @@ describe('WebAuthn / Passkeys Engine (FIDO2 / TouchID / FaceID - RFC-001 Opção
     });
 
     expect(isValid).toBe(false);
+  });
+
+  it('extrai a chave COSE do attestationObject e a converte para o mesmo PEM do autenticador', () => {
+    const credential = createSimulatedWebAuthnKeyPair('localhost', generateWebAuthnChallenge(), 'http://localhost:5174');
+    const { fmt, authData } = parseAttestationObject(credential.attestationObject);
+    expect(fmt).toBe('none');
+    const parsed = parseAuthenticatorData(authData);
+    expect(parsed.credentialId).toBe(credential.credentialId);
+    expect(parsed.credentialPublicKeyPem).toBe(credential.publicKeyPem);
+  });
+
+  it('CBOR: codifica e decodifica mapas, inteiros negativos e bytes', () => {
+    const value = new Map<unknown, unknown>([[1, 2], [-1, 1], ['k', Buffer.from([1, 2, 3])], ['l', [true, null]]]);
+    const decoded = decodeCbor(encodeCbor(new Map<unknown, unknown>([[1, 2], [-1, 1], ['k', Buffer.from([1, 2, 3])]]))).value as Map<unknown, unknown>;
+    expect(decoded.get(1)).toBe(2);
+    expect(decoded.get(-1)).toBe(1);
+    expect(decoded.get('k')).toEqual(Buffer.from([1, 2, 3]));
+    expect(() => decodeCbor(Buffer.from([0x5a, 0xff]))).toThrow();
+    expect(value.size).toBe(4);
   });
 });

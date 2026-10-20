@@ -18,8 +18,12 @@ import {
   generateWebAuthnChallenge,
   parseClientDataJSON,
   parseAuthenticatorData,
-  verifyWebAuthnAssertionSignature
+  parseAttestationObject,
+  verifyWebAuthnAssertionSignature,
+  type ParsedAuthenticatorData,
+  type ParsedClientDataJSON
 } from '@terapiainfoco/crypto';
+import { createHash } from 'node:crypto';
 
 export class WebAuthnService {
   private static getRpId(): string {
@@ -31,6 +35,32 @@ export class WebAuthnService {
       return url.hostname || defaultRp;
     } catch {
       return defaultRp;
+    }
+  }
+
+  /** Origem esperada no clientDataJSON: o painel (PUBLIC_APP_URL) */
+  private static expectedOrigin(): string {
+    try {
+      return new URL(config.publicAppUrl).origin;
+    } catch {
+      return 'http://localhost:5174';
+    }
+  }
+
+  /**
+   * Checagens que tornam a passkey resistente a phishing e replay: origem do site,
+   * hash do RP ID no autenticador e presença do usuário (W3C WebAuthn §7.1/§7.2)
+   */
+  private static assertCeremonyBinding(clientData: ParsedClientDataJSON, authData: ParsedAuthenticatorData): void {
+    if (clientData.origin !== this.expectedOrigin()) {
+      throw new Error('Origem da cerimônia WebAuthn não corresponde ao site.');
+    }
+    const expectedRpIdHash = createHash('sha256').update(this.getRpId()).digest('hex');
+    if (authData.rpIdHash !== expectedRpIdHash) {
+      throw new Error('RP ID do autenticador não corresponde ao site.');
+    }
+    if (!authData.flags.userPresent) {
+      throw new Error('O autenticador não confirmou a presença do usuário.');
     }
   }
 
@@ -133,32 +163,31 @@ export class WebAuthnService {
     // Remove desafio consumido (One-Time Token)
     db.webauthnChallenges.delete(clientData.challenge);
 
-    // Extrai chave pública e metadados
-    let publicKeyPem = dto.publicKeyPem || '';
-    let counter = 0;
-    let deviceType: 'singleDevice' | 'multiDevice' = 'multiDevice';
-    let backedUp = true;
-    let aaguid: string | undefined;
-
-    if (dto.authenticatorData) {
-      try {
-        const authData = parseAuthenticatorData(dto.authenticatorData);
-        counter = authData.signCount;
-        deviceType = authData.flags.backupEligible ? 'multiDevice' : 'singleDevice';
-        backedUp = authData.flags.backupState;
-        aaguid = authData.aaguid;
-        if (!publicKeyPem && authData.credentialPublicKeySpki) {
-          publicKeyPem = authData.credentialPublicKeySpki;
-        }
-      } catch (err) {
-        // Fallback gracioso
-      }
+    // A chave pública vem do authenticatorData (dentro do attestationObject enviado pelo navegador);
+    // nunca de um campo informado pelo cliente nem de um valor de reserva
+    let authData: ParsedAuthenticatorData;
+    try {
+      const rawAuthData = dto.attestationObject
+        ? parseAttestationObject(dto.attestationObject).authData
+        : dto.authenticatorData;
+      if (!rawAuthData) throw new Error('sem authenticatorData');
+      authData = parseAuthenticatorData(rawAuthData);
+    } catch {
+      throw new Error('Resposta do autenticador inválida: não foi possível ler a chave pública da passkey.');
+    }
+    this.assertCeremonyBinding(clientData, authData);
+    if (!authData.flags.attestedDataIncluded || !authData.credentialPublicKeyPem) {
+      throw new Error('O autenticador não enviou a chave pública da passkey.');
+    }
+    if (authData.credentialId !== dto.credentialId) {
+      throw new Error('credentialId não corresponde ao autenticador.');
     }
 
-    // Se a chave pública não pôde ser extraída, utiliza chave gerada ou fornecida no payload
-    if (!publicKeyPem) {
-      publicKeyPem = `MOCK_SPKI_KEY_${dto.credentialId}`;
-    }
+    const publicKeyPem = authData.credentialPublicKeyPem;
+    const counter = authData.signCount;
+    const deviceType: 'singleDevice' | 'multiDevice' = authData.flags.backupEligible ? 'multiDevice' : 'singleDevice';
+    const backedUp = authData.flags.backupState;
+    const aaguid = authData.aaguid;
 
     const passkeyId = randomUUID();
     const newPasskey: PasskeyCredential = {
@@ -286,34 +315,45 @@ export class WebAuthnService {
     // Consome o desafio (One-Time Token)
     db.webauthnChallenges.delete(clientData.challenge);
 
-    // 4. Validação criptográfica da assinatura se for chave PEM real
-    if (passkey.publicKeyPem.includes('BEGIN PUBLIC KEY')) {
-      const isSignatureValid = verifyWebAuthnAssertionSignature({
-        publicKeyPem: passkey.publicKeyPem,
-        authenticatorData: dto.authenticatorData,
-        clientDataJSON: dto.clientDataJSON,
-        signature: dto.signature
-      });
-
-      if (!isSignatureValid) {
-        throw new Error('Assinatura biométrica Passkey inválida.');
-      }
-    }
-
-    // 5. Atualiza contador e último uso (Anti-Replay)
+    // 4. Origem, RP ID e presença do usuário
+    let authData: ParsedAuthenticatorData;
     try {
-      const authData = parseAuthenticatorData(dto.authenticatorData);
-      if (authData.signCount > 0 && passkey.counter > 0 && authData.signCount < passkey.counter) {
-        throw new Error('Alerta de segurança: clone de credencial detectado (signCount inválido).');
-      }
-      passkey.counter = authData.signCount;
+      authData = parseAuthenticatorData(dto.authenticatorData);
     } catch {
-      // Ignora erro de parsing em simulações manuais
+      throw new Error('authenticatorData inválido.');
     }
+    this.assertCeremonyBinding(clientData, authData);
+
+    // Desafio emitido para um e-mail só vale para as passkeys dessa conta
+    if (session.userId && session.userId !== passkey.userId) {
+      throw new Error('Credencial Passkey não pertence à conta do desafio.');
+    }
+
+    // 5. Assinatura sempre verificada; passkeys antigas sem chave pública real precisam ser recadastradas
+    if (!passkey.publicKeyPem.includes('BEGIN PUBLIC KEY')) {
+      throw new Error('Esta passkey foi cadastrada sem chave pública verificável. Remova-a e cadastre novamente em Segurança.');
+    }
+    const isSignatureValid = verifyWebAuthnAssertionSignature({
+      publicKeyPem: passkey.publicKeyPem,
+      authenticatorData: dto.authenticatorData,
+      clientDataJSON: dto.clientDataJSON,
+      signature: dto.signature
+    });
+    if (!isSignatureValid) {
+      throw new Error('Assinatura biométrica Passkey inválida.');
+    }
+
+    // 6. Contador anti-clonagem: se o autenticador usa contador, ele só pode crescer
+    if (authData.signCount > 0 || passkey.counter > 0) {
+      if (authData.signCount <= passkey.counter) {
+        throw new Error('Alerta de segurança: possível clone de credencial detectado (signCount inválido).');
+      }
+    }
+    passkey.counter = authData.signCount;
 
     passkey.lastUsedAt = new Date();
 
-    // 6. Localiza o usuário associado e emite tokens JWT
+    // 7. Localiza o usuário associado e emite tokens JWT
     const user = db.users.get(passkey.userId);
     if (!user) {
       throw new Error('Usuário associado à Passkey não encontrado.');
