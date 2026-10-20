@@ -35,6 +35,12 @@ function maskCpfForProfile(cpf?: string): string | undefined {
 /** Perfis que podem ser criados pelo cadastro público (e-mail/senha ou login social) */
 const SELF_SERVICE_ROLES: UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR];
 
+/** Token emitido antes da última troca de senha (iat em segundos) */
+function issuedBeforePasswordChange(user: User, issuedAt: number | undefined): boolean {
+  if (!user.passwordChangedAt) return false;
+  return (issuedAt ?? 0) * 1000 < new Date(user.passwordChangedAt).getTime();
+}
+
 export class AuthService {
   /**
    * Remove campos sensíveis como hash de senha e segredo 2FA
@@ -423,6 +429,47 @@ export class AuthService {
   }
 
   /**
+   * Troca da própria senha: exige a senha atual e encerra as sessões abertas em outros
+   * dispositivos (tokens emitidos antes da troca). A sessão atual recebe tokens novos.
+   */
+  public async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    ipAddress: string = '127.0.0.1'
+  ): Promise<LoginResponse> {
+    const user = db.users.get(userId);
+    if (!user) {
+      throw new Error('Usuário não localizado.');
+    }
+    if (!currentPassword || !(await Bun.password.verify(currentPassword, user.passwordHash))) {
+      throw new Error('Senha atual incorreta.');
+    }
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('A nova senha deve conter no mínimo 8 caracteres.');
+    }
+    if (newPassword === currentPassword) {
+      throw new Error('A nova senha deve ser diferente da atual.');
+    }
+
+    user.passwordHash = await Bun.password.hash(newPassword);
+    // Precisão de segundos, como o iat dos JWT: os tokens novos (mesmo segundo) continuam válidos
+    user.passwordChangedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+    db.users.set(user.id, user);
+
+    await auditService.logAccess({
+      actorId: user.id,
+      resourceType: AuditResourceType.SECURITY,
+      resourceId: user.id,
+      action: AuditAction.AUTH_PASSWORD_CHANGED,
+      ipAddress,
+      userAgent: 'Password changed by the account owner; previous sessions revoked'
+    });
+
+    return await this.issueTokens(user, ipAddress);
+  }
+
+  /**
    * Renovação de Access Token via Refresh Token com rotação de tokens
    */
   public async refreshToken(refreshToken: string, ipAddress: string = '127.0.0.1') {
@@ -445,6 +492,9 @@ export class AuthService {
     const user = db.users.get(payload.sub);
     if (!user) {
       throw new Error('Usuário não localizado.');
+    }
+    if (issuedBeforePasswordChange(user, payload.iat)) {
+      throw new Error('Senha alterada: faça login novamente.');
     }
 
     // Revoga o refresh token anterior (Token Rotation)
@@ -816,6 +866,10 @@ export class AuthService {
       const payload = (await verify(token, config.jwtSecret, 'HS256')) as any;
       if (payload.type !== 'access') {
         throw new Error('Token fornecido não é um token de acesso válido.');
+      }
+      const user = db.users.get(payload.sub);
+      if (user && issuedBeforePasswordChange(user, payload.iat)) {
+        throw new Error('Senha alterada: faça login novamente.');
       }
       return payload;
     } catch (localError) {

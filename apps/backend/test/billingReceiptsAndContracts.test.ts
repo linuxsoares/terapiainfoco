@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { 
   ReceiptPurpose,
   BillingModality,
@@ -241,6 +242,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
     let authToken: string;
 
     beforeEach(async () => {
+      // Login por HTTP: o limite de autenticação é compartilhado entre os arquivos da suíte
+      globalRateLimitStore.reset();
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

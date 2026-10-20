@@ -506,6 +506,8 @@ export interface User {
   socialProviders?: SocialAuthProvider[];
   avatarUrl?: string;
   passwordHash: string;
+  /** Tokens emitidos antes da última troca de senha deixam de valer */
+  passwordChangedAt?: Date | string;
   twoFactorEnabled: boolean;
   twoFactorSecret?: string;
   twoFactorBackupCodes?: string[];

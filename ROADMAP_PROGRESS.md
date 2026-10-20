@@ -2379,6 +2379,7 @@ terapiainfoco/
 | `fix/acoes-duplicadas-topo-sidebar` | Um único ponto de acesso para Meu Perfil, Vitrine e Segurança & 2FA | [PR #139](https://github.com/linuxsoares/terapiainfoco/pull/139) | Merged |
 | `feat/agenda-nome-paciente` | Cartões da agenda mostram o nome do paciente (`patientName` na agenda do consultório) | [PR #140](https://github.com/linuxsoares/terapiainfoco/pull/140) | Merged |
 | `fix/admin-governanca-dados-reais` | Pacote de conformidade sem identidade fixa e score calculado com 2FA da equipe, backups e OTLP reais | [PR #141](https://github.com/linuxsoares/terapiainfoco/pull/141) | Merged |
+| `feat/troca-de-senha` | Troca da própria senha em Segurança, com encerramento das demais sessões | [PR #142](https://github.com/linuxsoares/terapiainfoco/pull/142) | Merged |
 
 ---
 
@@ -2418,6 +2419,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Ações duplicadas no topo e na sidebar:** módulos (inclusive "Segurança & 2FA", agora com aviso "Ativar 2FA") ficam só na sidebar/menu mobile; "Meu Perfil", "Vitrine Pública" e "Sair" só no menu da conta no topo (fim das pílulas do topo e dos atalhos repetidos na sidebar e no menu mobile).
 - [x] **Dashboard do psicólogo sem observabilidade de infraestrutura:** o Dashboard Clínico mostra só indicadores do consultório; as visões de segurança (trilha WORM, alertas) e de desempenho (RED, traces, Prometheus, exportador OTLP) foram para o módulo "Segurança & Observabilidade" (`observability`, exclusivo do Admin), com teste de contrato menu ↔ backend.
 - [x] **Painel Admin (1/2) — governança com dados reais:** sem CRP/DPO fixos no código nem pacote fictício no boot (identidade informada pelo Admin, sugerida do último pacote ou de `COMPLIANCE_*` opcionais; sem DPO e CRP o pacote não é emitido); score reflete 2FA da equipe (contas não-paciente), backups (snapshots só em memória = parcialmente conforme) e exportador OTLP; status traduzidos e coloridos por situação.
+- [x] **Troca da própria senha:** `POST /api/auth/password` (exige a senha atual, rate limit de autenticação, auditoria `AUTH_PASSWORD_CHANGED`) com cartão "Alterar senha" em Segurança; tokens emitidos antes da troca deixam de valer (outras sessões encerradas) e a sessão atual recebe tokens novos.
 - [ ] **Painel Admin (2/2) — gestão de usuários:** criar Recepção/Supervisor vinculados a um consultório pelo painel (hoje só via script).
 - [ ] **Histórico de pacotes de conformidade durável** (hoje em memória do processo, como os backups).
 - [ ] **Landing page alinhada às decisões do produto:** build do GitHub Pages sem `VITE_API_URL` (o bundle publicado chama `http://localhost:3000/api`); agendamento e horários com fallback simulado de sucesso (paciente acredita ter agendado); agendamento público fixo em `therapist-001`/"Dra. Vanessa Andrade" em vez da busca de psicólogos com login do paciente; formulário de demonstração (`LeadModal`) não envia o lead a lugar nenhum; meta description ainda cita "Google Meet nativo" (ADR-005: sala WebRTC própria); sem Dark Mode; sem link para entrar no painel.
