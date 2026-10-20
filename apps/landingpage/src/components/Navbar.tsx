@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Sparkles, Menu, X, ArrowRight, Lock } from 'lucide-react';
 import { PANEL_LINKS } from '../config';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
   onOpenDemo: () => void;
@@ -111,6 +112,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               Conforme CFP Res. 011/2018
             </div>
 
+            <ThemeToggle />
+
             {PANEL_LINKS.login && (
               <a
                 href={PANEL_LINKS.login}
@@ -128,6 +131,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
             </button>
           </div>
+
+          {/* Tema no mobile (as ações de desktop ficam ocultas) */}
+          <ThemeToggle className="sm:hidden ml-auto mr-1" />
 
           {/* Mobile Menu Toggle */}
           <button

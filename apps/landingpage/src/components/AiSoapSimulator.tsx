@@ -60,7 +60,7 @@ export const AiSoapSimulator: React.FC = () => {
   };
 
   return (
-    <section id="simulador-ia" className="py-24 bg-slate-900 text-white relative overflow-hidden">
+    <section id="simulador-ia" className="theme-keep py-24 bg-slate-900 text-white relative overflow-hidden">
       {/* Decorative gradient backdrops */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-10 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
