@@ -2390,7 +2390,7 @@ terapiainfoco/
 | `fix/pacotes-conformidade-duraveis` | Pacotes de conformidade persistidos e métricas com versão real da KEK | [PR #150](https://github.com/linuxsoares/terapiainfoco/pull/150) | Merged |
 | `chore/remove-agendamento-anonimo` | Remove o agendamento público anônimo da API e estabiliza a simulação de timing attack | [PR #151](https://github.com/linuxsoares/terapiainfoco/pull/151) | Merged |
 | `fix/seguranca-pessoal-e-linguagem` | Segurança mostra só a própria conta (ferramentas da plataforma para o Admin), linguagem da vitrine e correção da tela do Admin | [PR #152](https://github.com/linuxsoares/terapiainfoco/pull/152) | Merged |
-| `fix/auditoria-ator-e-detalhes` | Auditoria grava o ator correto e os detalhes do evento (com hash compatível com a cadeia existente) | PR #TBD | Merged |
+| `fix/auditoria-ator-e-detalhes` | Auditoria grava o ator correto e os detalhes do evento (com hash compatível com a cadeia existente) | [PR #153](https://github.com/linuxsoares/terapiainfoco/pull/153) | Merged |
 
 ---
 
