@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { app } from '../src/index';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS)', () => {
   let sampleSealToken = '';
 
   it('GET /api/device-posture/overview — deve retornar visão consolidada de métricas e dispositivos', async () => {
-    const res = await app.request('/api/device-posture/overview');
+    const res = await adminRequest('/api/device-posture/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -18,7 +19,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/assess — deve avaliar terminal corporativo conforme (COMPLIANT_MAC_WORKSTATION)', async () => {
-    const res = await app.request('/api/device-posture/assess', {
+    const res = await adminRequest('/api/device-posture/assess', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -42,7 +43,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/assess — deve bloquear terminal comprometido com Root e Frida (ROOTED_ANDROID_WITH_FRIDA)', async () => {
-    const res = await app.request('/api/device-posture/assess', {
+    const res = await adminRequest('/api/device-posture/assess', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -62,7 +63,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/assess — deve exigir Step-up 2FA para terminal com disco descriptografado', async () => {
-    const res = await app.request('/api/device-posture/assess', {
+    const res = await adminRequest('/api/device-posture/assess', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -81,7 +82,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/quarantine — deve rejeitar chamada sem deviceId ou reason com HTTP 400', async () => {
-    const res = await app.request('/api/device-posture/quarantine', {
+    const res = await adminRequest('/api/device-posture/quarantine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -94,7 +95,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/quarantine — deve colocar terminal em quarentena administrativa imediata', async () => {
-    const res = await app.request('/api/device-posture/quarantine', {
+    const res = await adminRequest('/api/device-posture/quarantine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -112,7 +113,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/release-quarantine — deve rejeitar liberação sem parecer dpoNotes com HTTP 400', async () => {
-    const res = await app.request('/api/device-posture/release-quarantine', {
+    const res = await adminRequest('/api/device-posture/release-quarantine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -126,7 +127,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/release-quarantine — deve liberar terminal da quarentena após parecer técnico', async () => {
-    const res = await app.request('/api/device-posture/release-quarantine', {
+    const res = await adminRequest('/api/device-posture/release-quarantine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -143,7 +144,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/update-policy — deve atualizar a política ativa Zero Trust', async () => {
-    const res = await app.request('/api/device-posture/update-policy', {
+    const res = await adminRequest('/api/device-posture/update-policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,7 +159,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
     expect(data.policy).toBe('READ_ONLY_DEGRADATION');
 
     // Restaura a política para STRICT_BLOCK
-    await app.request('/api/device-posture/update-policy', {
+    await adminRequest('/api/device-posture/update-policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -169,7 +170,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
   });
 
   it('POST /api/device-posture/verify-seal — deve rejeitar requisição sem sealToken com HTTP 400', async () => {
-    const res = await app.request('/api/device-posture/verify-seal', {
+    const res = await adminRequest('/api/device-posture/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -184,7 +185,7 @@ describe('Backend API — Avaliação Contínua de Postura de Dispositivo Zero T
     expect(sampleSealToken).toBeDefined();
     expect(sampleSealToken.length).toBeGreaterThan(10);
 
-    const res = await app.request('/api/device-posture/verify-seal', {
+    const res = await adminRequest('/api/device-posture/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

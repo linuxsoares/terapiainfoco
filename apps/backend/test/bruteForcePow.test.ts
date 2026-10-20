@@ -7,6 +7,7 @@ import {
   BruteForceThreatCategory
 } from '@terapiainfoco/shared';
 import { solvePowChallenge } from '@terapiainfoco/crypto';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico (RFC-001 §4.4, OWASP OAT-007 / OAT-008)', () => {
   let app: Hono;
@@ -20,7 +21,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
   });
 
   it('GET /api/brute-force-pow/overview — deve retornar governança executiva de força bruta e lista de IPs', async () => {
-    const res = await app.request('/api/brute-force-pow/overview');
+    const res = await adminRequest('/api/brute-force-pow/overview');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -34,7 +35,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
 
   it('POST /api/brute-force-pow/challenge — deve emitir desafio proporcional ao histórico do IP', async () => {
     // 1. IP Seguro: Dificuldade 0 (PoW dispensado)
-    const cleanRes = await app.request('/api/brute-force-pow/challenge', {
+    const cleanRes = await adminRequest('/api/brute-force-pow/challenge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '189.120.45.10' }
     });
@@ -44,7 +45,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     expect(cleanJson.difficulty).toBe(0);
 
     // 2. IP com falhas repetidas (177.18.230.88): Dificuldade elevada (PoW requerido)
-    const suspectRes = await app.request('/api/brute-force-pow/challenge', {
+    const suspectRes = await adminRequest('/api/brute-force-pow/challenge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' }
     });
@@ -57,7 +58,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
 
   it('POST /api/brute-force-pow/verify — deve validar solução correta de PoW e emitir selo WORM', async () => {
     // Solicita desafio para o IP suspeito
-    const chalRes = await app.request('/api/brute-force-pow/challenge', {
+    const chalRes = await adminRequest('/api/brute-force-pow/challenge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' }
     });
@@ -67,7 +68,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     const solution = solvePowChallenge(challenge);
 
     // Submete solução ao backend
-    const verifyRes = await app.request('/api/brute-force-pow/verify', {
+    const verifyRes = await adminRequest('/api/brute-force-pow/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' },
       body: JSON.stringify({
@@ -85,7 +86,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
   });
 
   it('POST /api/brute-force-pow/verify — deve bloquear tentativa de Replay Attack com mesmo desafio consumido', async () => {
-    const chalRes = await app.request('/api/brute-force-pow/challenge', {
+    const chalRes = await adminRequest('/api/brute-force-pow/challenge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' }
     });
@@ -93,7 +94,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     const solution = solvePowChallenge(challenge);
 
     // 1ª submissão: Sucesso
-    const res1 = await app.request('/api/brute-force-pow/verify', {
+    const res1 = await adminRequest('/api/brute-force-pow/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' },
       body: JSON.stringify({ challenge, nonce: solution.nonce })
@@ -101,7 +102,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     expect(res1.status).toBe(200);
 
     // 2ª submissão idêntica: Replay Attack bloqueado
-    const res2 = await app.request('/api/brute-force-pow/verify', {
+    const res2 = await adminRequest('/api/brute-force-pow/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '177.18.230.88' },
       body: JSON.stringify({ challenge, nonce: solution.nonce })
@@ -113,7 +114,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
   });
 
   it('POST /api/brute-force-pow/simulate-attack — deve conter rajada de Credential Stuffing elevando para dificuldade máxima', async () => {
-    const res = await app.request('/api/brute-force-pow/simulate-attack', {
+    const res = await adminRequest('/api/brute-force-pow/simulate-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -134,7 +135,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
   });
 
   it('POST /api/brute-force-pow/reset-ip — deve remover quarentena de IP com justificativa formal gravada no WORM', async () => {
-    const res = await app.request('/api/brute-force-pow/reset-ip', {
+    const res = await adminRequest('/api/brute-force-pow/reset-ip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -149,7 +150,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     expect(json.ipAddress).toBe('198.51.100.99');
 
     // Valida que o IP não está mais bloqueado
-    const overviewRes = await app.request('/api/brute-force-pow/overview');
+    const overviewRes = await adminRequest('/api/brute-force-pow/overview');
     const overviewJson = await overviewRes.json();
     const target = overviewJson.overview.recentIpIncidents.find((i: any) => i.ipAddress === '198.51.100.99');
     expect(target.isBlocked).toBe(false);
@@ -157,7 +158,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
   });
 
   it('POST /api/brute-force-pow/verify-seal — deve atestar fé pública e integridade matemática do selo WORM', async () => {
-    const simRes = await app.request('/api/brute-force-pow/simulate-attack', {
+    const simRes = await adminRequest('/api/brute-force-pow/simulate-attack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -168,7 +169,7 @@ describe('Backend API — Defesa Ativa contra Força Bruta & PoW Criptográfico 
     });
     const { defenseSeal } = await simRes.json();
 
-    const verifyRes = await app.request('/api/brute-force-pow/verify-seal', {
+    const verifyRes = await adminRequest('/api/brute-force-pow/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ seal: defenseSeal })

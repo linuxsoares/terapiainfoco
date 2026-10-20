@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { secureMemoryService } from '../services/secureMemoryService';
 import {
   type AllocateSecureBufferDTO,
@@ -9,6 +11,9 @@ import {
 } from '@terapiainfoco/shared';
 
 export const secureMemoryRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+secureMemoryRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/secure-memory/overview

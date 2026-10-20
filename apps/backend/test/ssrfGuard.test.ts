@@ -9,10 +9,11 @@ import {
   type ValidateWebhookUrlResponse,
   type VerifySsrfSealResponse
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0)', () => {
   it('GET /api/ssrf-guard/overview deve retornar métricas, conectores e catálogo de proteção', async () => {
-    const res = await app.request('/api/ssrf-guard/overview');
+    const res = await adminRequest('/api/ssrf-guard/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json() as SsrfOverviewResponse;
@@ -29,7 +30,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
 
   describe('POST /api/ssrf-guard/simulate-ssrf', () => {
     it('deve aprovar webhook legítimo público com emissão de selo probatório', async () => {
-      const res = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const res = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,7 +48,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve bloquear tentativa de extração de Cloud Metadata (169.254.169.254) e registrar incidente', async () => {
-      const res = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const res = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,7 +67,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve decodificar e bloquear ataque com IP decimal ofuscado (2130706433 -> 127.0.0.1)', async () => {
-      const res = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const res = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,7 +83,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve interceptar simulação de DNS Rebinding e bloquear requisição', async () => {
-      const res = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const res = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +100,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve retornar 400 se a URL não for enviada', async () => {
-      const res = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const res = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -110,7 +111,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
 
   describe('POST /api/ssrf-guard/validate-url', () => {
     it('deve validar e aprovar URL de webhook segura com código HTTP 200', async () => {
-      const res = await app.request('/api/ssrf-guard/validate-url', {
+      const res = await adminRequest('/api/ssrf-guard/validate-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -127,7 +128,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve rejeitar com HTTP 403 Forbidden se a URL for privada ou apontar para loopback', async () => {
-      const res = await app.request('/api/ssrf-guard/validate-url', {
+      const res = await adminRequest('/api/ssrf-guard/validate-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
   describe('POST /api/ssrf-guard/verify-seal', () => {
     it('deve verificar com sucesso um selo probatório emitido', async () => {
       // 1. Simula requisição para emitir selo
-      const simRes = await app.request('/api/ssrf-guard/simulate-ssrf', {
+      const simRes = await adminRequest('/api/ssrf-guard/simulate-ssrf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -157,7 +158,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
       const token = simData.proofSeal!.token;
 
       // 2. Valida o selo
-      const verifyRes = await app.request('/api/ssrf-guard/verify-seal', {
+      const verifyRes = await adminRequest('/api/ssrf-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: token })
@@ -171,7 +172,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
     });
 
     it('deve retornar 422 para token de selo inexistente', async () => {
-      const res = await app.request('/api/ssrf-guard/verify-seal', {
+      const res = await adminRequest('/api/ssrf-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofSealToken: 'SSRF-SEAL-v1-invalid-nonexistent' })
@@ -184,7 +185,7 @@ describe('SSRF & DNS Rebinding Protection Guard API (OWASP API8:2023 & ASVS v4.0
 
   describe('GET /api/ssrf-guard/incidents', () => {
     it('deve retornar o feed ordenado de incidentes SSRF interceptados', async () => {
-      const res = await app.request('/api/ssrf-guard/incidents');
+      const res = await adminRequest('/api/ssrf-guard/incidents');
       expect(res.status).toBe(200);
 
       const data = await res.json() as { success: boolean; incidents: any[] };

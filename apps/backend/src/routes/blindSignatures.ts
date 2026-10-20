@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { BlindSignaturesService } from '../services/blindSignaturesService';
 import type {
   GenerateBlindAuthorityKeyDTO,
@@ -12,6 +14,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const blindSignaturesRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+blindSignaturesRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const blindService = BlindSignaturesService.getInstance();
 
 /**

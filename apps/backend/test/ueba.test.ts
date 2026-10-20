@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { Hono } from 'hono';
 import { uebaRouter } from '../src/routes/ueba';
 import { UebaRiskLevel, UebaAnomalyType, UebaContainmentAction, UebaContainmentStatus } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 & LGPD Art. 46)', () => {
   let app: Hono;
@@ -12,7 +13,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('GET /api/ueba/overview — deve retornar métricas do motor UEBA e distribuição de risco', async () => {
-    const res = await app.request('/api/ueba/overview');
+    const res = await adminRequest('/api/ueba/overview');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -24,7 +25,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('GET /api/ueba/profile/:userId — deve retornar baseline comportamental do usuário', async () => {
-    const res = await app.request('/api/ueba/profile/usr-therapist-1');
+    const res = await adminRequest('/api/ueba/profile/usr-therapist-1');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -37,7 +38,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('POST /api/ueba/evaluate — deve validar acesso normal e retornar score baixo', async () => {
-    const res = await app.request('/api/ueba/evaluate', {
+    const res = await adminRequest('/api/ueba/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -59,7 +60,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('POST /api/ueba/evaluate — deve rejeitar payload incompleto com status 400', async () => {
-    const res = await app.request('/api/ueba/evaluate', {
+    const res = await adminRequest('/api/ueba/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -74,7 +75,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('POST /api/ueba/evaluate — deve detectar anomalia fora de horário na madrugada e criar incidente', async () => {
-    const res = await app.request('/api/ueba/evaluate', {
+    const res = await adminRequest('/api/ueba/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -99,7 +100,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
 
   it('POST /api/ueba/simulate — deve simular cenários anômalos de forma interativa', async () => {
     // 1. Simulação de raspagem massiva (Bulk Scraping)
-    const resBulk = await app.request('/api/ueba/simulate', {
+    const resBulk = await adminRequest('/api/ueba/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,7 +116,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
     expect(jsonBulk.assessment.detectedAnomalies.some((a: any) => a.type === UebaAnomalyType.BULK_RECORD_SCRAPING)).toBe(true);
 
     // 2. Simulação de salto de IP impossível
-    const resGeo = await app.request('/api/ueba/simulate', {
+    const resGeo = await adminRequest('/api/ueba/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -132,7 +133,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
 
   it('POST /api/ueba/contain — deve aplicar e liberar contenção administrativa com registro WORM', async () => {
     // 1. Aplicar contenção
-    const resContain = await app.request('/api/ueba/contain', {
+    const resContain = await adminRequest('/api/ueba/contain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +151,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
     expect(jsonContain.status).toBe(UebaContainmentStatus.ACTIVE_CONTAINMENT);
 
     // 2. Liberar contenção
-    const resRelease = await app.request('/api/ueba/contain', {
+    const resRelease = await adminRequest('/api/ueba/contain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -169,7 +170,7 @@ describe('Backend API — Rotas de Análise Comportamental UEBA (RFC-001 §4.4 &
   });
 
   it('GET /api/ueba/incidents — deve listar os incidentes anômalos detectados', async () => {
-    const res = await app.request('/api/ueba/incidents');
+    const res = await adminRequest('/api/ueba/incidents');
     expect(res.status).toBe(200);
 
     const json = await res.json();

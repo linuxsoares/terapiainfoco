@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { CustodianRole, LegalJustificationType, CourtOrderVaultStatus } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/court-order-threshold)', () => {
   it('GET /api/court-order-threshold/overview deve retornar telemetria e cofres judiciais ativos', async () => {
-    const res = await app.request('/api/court-order-threshold/overview', {
+    const res = await adminRequest('/api/court-order-threshold/overview', {
       method: 'GET'
     });
 
@@ -19,7 +20,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
   });
 
   it('POST /api/court-order-threshold/create-vault deve rejeitar requisição sem parâmetros obrigatórios', async () => {
-    const res = await app.request('/api/court-order-threshold/create-vault', {
+    const res = await adminRequest('/api/court-order-threshold/create-vault', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -52,7 +53,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
       ]
     };
 
-    const res = await app.request('/api/court-order-threshold/create-vault', {
+    const res = await adminRequest('/api/court-order-threshold/create-vault', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -71,7 +72,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
 
   it('Fluxo Ponta a Ponta: submissão de cotas até o quorum e decifragem do prontuário', async () => {
     // 1. Cria novo cofre
-    const createRes = await app.request('/api/court-order-threshold/create-vault', {
+    const createRes = await adminRequest('/api/court-order-threshold/create-vault', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -96,7 +97,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     const shares = created.generatedShares;
 
     // 2. Tenta decifrar prematuramente sem cotas suficientes -> Falha com quorum insuficiente
-    const prematureRes = await app.request('/api/court-order-threshold/reconstruct-decrypt', {
+    const prematureRes = await adminRequest('/api/court-order-threshold/reconstruct-decrypt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaultId })
@@ -106,7 +107,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     expect(prematureBody.result.verdict).toBe('INSUFFICIENT_SHARES');
 
     // 3. Submete cota 1 (Lead Psychologist)
-    const share1Res = await app.request('/api/court-order-threshold/submit-share', {
+    const share1Res = await adminRequest('/api/court-order-threshold/submit-share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -122,7 +123,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     expect(share1Body.isQuorumReached).toBe(false);
 
     // 4. Submete cota duplicada (deve falhar)
-    const dupRes = await app.request('/api/court-order-threshold/submit-share', {
+    const dupRes = await adminRequest('/api/court-order-threshold/submit-share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -135,7 +136,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     expect(dupRes.status).toBe(400);
 
     // 5. Submete cota 2 (DPO)
-    await app.request('/api/court-order-threshold/submit-share', {
+    await adminRequest('/api/court-order-threshold/submit-share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -147,7 +148,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     });
 
     // 6. Submete cota 3 (Ethics Committee) -> Atinge o quorum de 3!
-    const share3Res = await app.request('/api/court-order-threshold/submit-share', {
+    const share3Res = await adminRequest('/api/court-order-threshold/submit-share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,7 +163,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     expect(share3Body.isQuorumReached).toBe(true);
 
     // 7. Agora executa a reconstrução e decifragem
-    const decryptRes = await app.request('/api/court-order-threshold/reconstruct-decrypt', {
+    const decryptRes = await adminRequest('/api/court-order-threshold/reconstruct-decrypt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaultId })
@@ -184,7 +185,7 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
     ] as const;
 
     for (const scenario of scenarios) {
-      const res = await app.request('/api/court-order-threshold/simulate-attack', {
+      const res = await adminRequest('/api/court-order-threshold/simulate-attack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenario })
@@ -200,11 +201,11 @@ describe('Court Order Threshold Cryptography & Shamir Quorum REST API (/api/cour
   });
 
   it('POST /api/court-order-threshold/verify-seal deve validar autenticidade notarial WORM', async () => {
-    const overviewRes = await app.request('/api/court-order-threshold/overview', { method: 'GET' });
+    const overviewRes = await adminRequest('/api/court-order-threshold/overview', { method: 'GET' });
     const overview = await overviewRes.json();
     const sealToken = overview.overview.activeVaults[0].proofSeal.sealToken;
 
-    const res = await app.request('/api/court-order-threshold/verify-seal', {
+    const res = await adminRequest('/api/court-order-threshold/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken })

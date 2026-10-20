@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { AdvancedRateLimiterService } from '../services/advancedRateLimiterService';
 import type {
   EvaluateRateLimitDTO,
@@ -8,6 +10,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const advancedRateLimiterRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+advancedRateLimiterRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = AdvancedRateLimiterService.getInstance();
 
 /**

@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'bun:test';
 import { app } from '../src/index';
 import { HppAttackCategory, HppDefensePolicy, HppSeverityLevel } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injection (CRLF)', () => {
   it('GET /api/http-guard/overview deve retornar visão geral e métricas de proteção', async () => {
-    const res = await app.request('/api/http-guard/overview');
+    const res = await adminRequest('/api/http-guard/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -26,7 +27,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
       clientIp: '189.40.55.12'
     };
 
-    const res = await app.request('/api/http-guard/simulate-hpp', {
+    const res = await adminRequest('/api/http-guard/simulate-hpp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -51,7 +52,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
       defensePolicy: HppDefensePolicy.REJECT_REQUEST
     };
 
-    const res = await app.request('/api/http-guard/simulate-hpp', {
+    const res = await adminRequest('/api/http-guard/simulate-hpp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -74,7 +75,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
       clientIp: '200.19.40.77'
     };
 
-    const res = await app.request('/api/http-guard/simulate-header-injection', {
+    const res = await adminRequest('/api/http-guard/simulate-header-injection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -99,7 +100,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
       headerValue: 'TerapiaInFoco-Web-2.4.0'
     };
 
-    const res = await app.request('/api/http-guard/simulate-header-injection', {
+    const res = await adminRequest('/api/http-guard/simulate-header-injection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -114,7 +115,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
 
   it('POST /api/http-guard/verify-seal deve validar com fé pública selo gerado por incidente', async () => {
     // 1. Gera incidente via simulação
-    const simRes = await app.request('/api/http-guard/simulate-hpp', {
+    const simRes = await adminRequest('/api/http-guard/simulate-hpp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -126,7 +127,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
     const token = simData.incident.proofSealToken;
 
     // 2. Valida o selo
-    const verifyRes = await app.request('/api/http-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/http-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ proofSealToken: token })
@@ -141,7 +142,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
   });
 
   it('POST /api/http-guard/verify-seal deve rejeitar token inexistente', async () => {
-    const res = await app.request('/api/http-guard/verify-seal', {
+    const res = await adminRequest('/api/http-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ proofSealToken: 'seal_http_guard_invalid_token_999999' })
@@ -154,7 +155,7 @@ describe('HTTP Security Guard API — Parameter Pollution (HPP) & Header Injecti
   });
 
   it('GET /api/http-guard/incidents deve retornar lista de incidentes registrados', async () => {
-    const res = await app.request('/api/http-guard/incidents');
+    const res = await adminRequest('/api/http-guard/incidents');
     expect(res.status).toBe(200);
 
     const data = await res.json();

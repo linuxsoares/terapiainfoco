@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { ClinicalDidService } from '../services/clinicalDidService';
 import type {
   IssueVerifiableCredentialDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 const didRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+didRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const didService = ClinicalDidService.getInstance();
 
 /**

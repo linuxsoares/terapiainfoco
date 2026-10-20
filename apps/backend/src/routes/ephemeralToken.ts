@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { EphemeralTokenService } from '../services/ephemeralTokenService';
 import type {
   IssueEphemeralTokenDTO,
@@ -10,6 +12,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const ephemeralTokenRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+ephemeralTokenRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = EphemeralTokenService.getInstance();
 
 /**

@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectWebSocketFrameDTO,
   SimulateWebSocketAttackDTO,
@@ -8,6 +10,9 @@ import type {
 import { WebSocketGuardService } from '../services/webSocketGuardService';
 
 export const webSocketGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+webSocketGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 webSocketGuardRoutes.get('/overview', (c) => {
   const service = WebSocketGuardService.getInstance();

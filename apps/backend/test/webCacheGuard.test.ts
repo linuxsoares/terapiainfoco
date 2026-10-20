@@ -14,10 +14,11 @@ import {
   type UpdateCachePolicyResponseDTO,
   type VerifyCacheSealResponseDTO
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard)', () => {
   it('GET /api/cache-guard/overview - deve retornar telemetria e governança de cache', async () => {
-    const res = await app.request('/api/cache-guard/overview', {
+    const res = await adminRequest('/api/cache-guard/overview', {
       method: 'GET'
     });
 
@@ -31,7 +32,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
   });
 
   it('POST /api/cache-guard/inspect - deve aprovar requisição clínica íntegra com diretiva no-store', async () => {
-    const res = await app.request('/api/cache-guard/inspect', {
+    const res = await adminRequest('/api/cache-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -54,7 +55,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
   });
 
   it('POST /api/cache-guard/inspect - deve interceptar injeção de cabeçalho não-chaveado (X-Forwarded-Host)', async () => {
-    const res = await app.request('/api/cache-guard/inspect', {
+    const res = await adminRequest('/api/cache-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -77,7 +78,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
   });
 
   it('POST /api/cache-guard/inspect - deve interceptar tentativa de Web Cache Deception em rota clínica', async () => {
-    const res = await app.request('/api/cache-guard/inspect', {
+    const res = await adminRequest('/api/cache-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -98,7 +99,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
   });
 
   it('PUT /api/cache-guard/policy - deve atualizar parâmetros de política e registrar na trilha WORM', async () => {
-    const res = await app.request('/api/cache-guard/policy', {
+    const res = await adminRequest('/api/cache-guard/policy', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,7 +116,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
   });
 
   it('POST /api/cache-guard/simulate - deve executar simulação de ataque de envenenamento e deception', async () => {
-    const res = await app.request('/api/cache-guard/simulate', {
+    const res = await adminRequest('/api/cache-guard/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -134,7 +135,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
 
   it('POST /api/cache-guard/verify-seal - deve validar selo probatório emitido com fé pública', async () => {
     // 1. Obtém um selo válido através de uma inspeção
-    const inspectRes = await app.request('/api/cache-guard/inspect', {
+    const inspectRes = await adminRequest('/api/cache-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -148,7 +149,7 @@ describe('Web Cache Poisoning & Cache Deception Guard REST API (/api/cache-guard
     const seal = inspectData.inspection.seal;
 
     // 2. Valida o selo
-    const verifyRes = await app.request('/api/cache-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/cache-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

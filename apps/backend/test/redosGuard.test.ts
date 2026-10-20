@@ -6,10 +6,11 @@ import {
   RegexComplexityRisk,
   RegexSanitizationAction
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASVS V5.5)', () => {
   it('GET /api/redos-guard/overview - deve retornar telemetria, presets e políticas ativas', async () => {
-    const res = await app.request('/api/redos-guard/overview');
+    const res = await adminRequest('/api/redos-guard/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -21,7 +22,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
   });
 
   it('POST /api/redos-guard/analyze - deve aprovar e analisar regex linear seguro', async () => {
-    const res = await app.request('/api/redos-guard/analyze', {
+    const res = await adminRequest('/api/redos-guard/analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +48,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
 
   it('POST /api/redos-guard/analyze - deve bloquear Evil Regex exponencial sob modo estrito', async () => {
     // Primeiro garante que autoRewrite esteja desativado para testar bloqueio estrito
-    await app.request('/api/redos-guard/policy', {
+    await adminRequest('/api/redos-guard/policy', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -62,7 +63,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
       })
     });
 
-    const res = await app.request('/api/redos-guard/analyze', {
+    const res = await adminRequest('/api/redos-guard/analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,7 +85,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
     expect(data.seal).toBeDefined();
 
     // Restaura política com autoRewrite habilitado
-    await app.request('/api/redos-guard/policy', {
+    await adminRequest('/api/redos-guard/policy', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
   });
 
   it('POST /api/redos-guard/execute - deve executar regex seguro e retornar métricas de tempo', async () => {
-    const res = await app.request('/api/redos-guard/execute', {
+    const res = await adminRequest('/api/redos-guard/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -119,7 +120,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
   });
 
   it('PUT /api/redos-guard/policy - deve rejeitar alteração de política por perfil não autorizado', async () => {
-    const res = await app.request('/api/redos-guard/policy', {
+    const res = await adminRequest('/api/redos-guard/policy', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -136,7 +137,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
   });
 
   it('POST /api/redos-guard/simulate - deve simular e neutralizar ataque de ReDoS', async () => {
-    const res = await app.request('/api/redos-guard/simulate', {
+    const res = await adminRequest('/api/redos-guard/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -155,7 +156,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
 
   it('POST /api/redos-guard/verify-seal - deve verificar validade notarial WORM do selo', async () => {
     // 1. Gera um selo via analyze
-    const analyzeRes = await app.request('/api/redos-guard/analyze', {
+    const analyzeRes = await adminRequest('/api/redos-guard/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -168,7 +169,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
     const validSeal = analyzeData.seal;
 
     // 2. Valida o selo autêntico
-    const verifyRes = await app.request('/api/redos-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/redos-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: validSeal })
@@ -180,7 +181,7 @@ describe('API Integration: ReDoS Guard & Safe Regex Engine (CWE-1333 & OWASP ASV
 
     // 3. Valida selo forjado/adulterado
     const tamperedSeal = { ...validSeal, complexity: RegexComplexityRisk.CRITICAL_EXPONENTIAL_EVIL };
-    const tamperedRes = await app.request('/api/redos-guard/verify-seal', {
+    const tamperedRes = await adminRequest('/api/redos-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealToken: tamperedSeal })

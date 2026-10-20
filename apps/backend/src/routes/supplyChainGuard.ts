@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectDependenciesDTO,
   InspectDynamicImportDTO,
@@ -9,6 +11,9 @@ import type {
 import { SupplyChainGuardService } from '../services/supplyChainGuardService';
 
 export const supplyChainGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+supplyChainGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/supply-chain-guard/overview

@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import type {
   InspectHttp2HeadersDTO,
   UpdateHttp2PolicyDTO,
@@ -8,6 +10,9 @@ import type {
 import { Http2GrpcGuardService } from '../services/http2GrpcGuardService';
 
 export const http2GrpcGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+http2GrpcGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * GET /api/http2-guard/overview

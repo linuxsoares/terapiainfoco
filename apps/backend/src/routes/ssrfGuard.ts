@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { SsrfGuardService } from '../services/ssrfGuardService';
 import type {
   SimulateSsrfDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const ssrfGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+ssrfGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = SsrfGuardService.getInstance();
 
 /**

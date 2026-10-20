@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { PrototypePollutionService } from '../services/prototypePollutionService';
 import type {
   ScanObjectPayloadDTO,
@@ -8,6 +10,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const prototypePollutionRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+prototypePollutionRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = PrototypePollutionService.getInstance();
 
 /**

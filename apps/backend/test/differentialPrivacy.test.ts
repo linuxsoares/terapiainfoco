@@ -8,6 +8,7 @@ import {
   DpCohortMetric,
   DpBudgetStatus
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa Clínica (LGPD Art. 13 & CFP nº 001/2009)', () => {
   let app: Hono;
@@ -21,7 +22,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
   });
 
   it('GET /api/differential-privacy/overview — deve retornar governança executiva e métricas de DP', async () => {
-    const res = await app.request('/api/differential-privacy/overview');
+    const res = await adminRequest('/api/differential-privacy/overview');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -34,7 +35,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
   });
 
   it('GET /api/differential-privacy/projects — deve listar projetos de pesquisa homologados', async () => {
-    const res = await app.request('/api/differential-privacy/projects');
+    const res = await adminRequest('/api/differential-privacy/projects');
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -45,7 +46,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
   });
 
   it('POST /api/differential-privacy/query — deve executar consulta com Laplace, debitar cota e gerar selo WORM', async () => {
-    const res = await app.request('/api/differential-privacy/query', {
+    const res = await adminRequest('/api/differential-privacy/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -70,7 +71,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
 
   it('POST /api/differential-privacy/query — deve bloquear consulta quando orçamento for excedido', async () => {
     // Projeto proj-fiocruz-burnout-2026 tem 0.3 de orçamento restante
-    const res = await app.request('/api/differential-privacy/query', {
+    const res = await adminRequest('/api/differential-privacy/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,7 +90,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
   });
 
   it('POST /api/differential-privacy/benchmark — deve consolidar benchmark epidemiológico multicêntrico', async () => {
-    const res = await app.request('/api/differential-privacy/benchmark', {
+    const res = await adminRequest('/api/differential-privacy/benchmark', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +112,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
 
   it('POST /api/differential-privacy/verify-proof — deve atestar veracidade de selo notarial válido', async () => {
     // 1. Executa consulta para obter selo
-    const queryRes = await app.request('/api/differential-privacy/query', {
+    const queryRes = await adminRequest('/api/differential-privacy/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -127,7 +128,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
     const seal = queryJson.result.proofSeal;
 
     // 2. Verifica selo
-    const verifyRes = await app.request('/api/differential-privacy/verify-proof', {
+    const verifyRes = await adminRequest('/api/differential-privacy/verify-proof', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ proofSeal: seal })
@@ -141,7 +142,7 @@ describe('Backend API — Rotas de Privacidade Diferencial (ε-DP) para Pesquisa
   });
 
   it('POST /api/differential-privacy/allocate-budget — deve permitir que DPO aloque novo orçamento para projeto', async () => {
-    const res = await app.request('/api/differential-privacy/allocate-budget', {
+    const res = await adminRequest('/api/differential-privacy/allocate-budget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

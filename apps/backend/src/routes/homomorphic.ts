@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { HomomorphicService } from '../services/homomorphicService';
 import type {
   CreateHomomorphicCohortDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const homomorphicRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+homomorphicRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = HomomorphicService.getInstance();
 
 /**

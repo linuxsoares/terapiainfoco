@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { app } from '../src/index';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS)', () => {
   let sampleSealToken = '';
 
   it('GET /api/tls-pinning/overview — deve retornar a visão geral executiva e métricas de pins', async () => {
-    const res = await app.request('/api/tls-pinning/overview');
+    const res = await adminRequest('/api/tls-pinning/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -18,7 +19,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve rejeitar requisição sem hostname com HTTP 400', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -31,7 +32,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve validar e aprovar conexão legítima (PIN_MATCH_PRIMARY)', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -52,7 +53,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve bloquear ataque MitM com Burp Suite CA (CHAIN_UNTRUSTED_ROGUE_CA)', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -71,7 +72,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve acusar CERTIFICATE_EXPIRED em certificado vencido', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,7 +89,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve acusar SAN_MISMATCH quando certificado divergir do domínio', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -105,7 +106,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/validate — deve reconhecer Backup Pin de Rotação Suave (PIN_MATCH_BACKUP)', async () => {
-    const res = await app.request('/api/tls-pinning/validate', {
+    const res = await adminRequest('/api/tls-pinning/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -122,7 +123,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/register-pin — deve cadastrar novo Pin SPKI de contingência com HTTP 201', async () => {
-    const res = await app.request('/api/tls-pinning/register-pin', {
+    const res = await adminRequest('/api/tls-pinning/register-pin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -144,7 +145,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/rotate-ca — deve executar rotação atômica de CA promovendo Backup Pin a Primary', async () => {
-    const res = await app.request('/api/tls-pinning/rotate-ca', {
+    const res = await adminRequest('/api/tls-pinning/rotate-ca', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -163,7 +164,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   });
 
   it('POST /api/tls-pinning/quarantine-ca — deve colocar CA suspeita em quarentena compulsória', async () => {
-    const res = await app.request('/api/tls-pinning/quarantine-ca', {
+    const res = await adminRequest('/api/tls-pinning/quarantine-ca', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -181,7 +182,7 @@ describe('Backend API — Rotas de TLS Certificate Pinning & Rotação de CAs (R
   it('POST /api/tls-pinning/verify-seal — deve atestar com 100% de autenticidade selo emitido na validação', async () => {
     expect(sampleSealToken).toMatch(/^tls_pin_v1_/);
 
-    const res = await app.request('/api/tls-pinning/verify-seal', {
+    const res = await adminRequest('/api/tls-pinning/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

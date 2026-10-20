@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { HttpGuardService } from '../services/httpGuardService';
 import type {
   SimulateHppAttackDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const httpGuardRoutes = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+httpGuardRoutes.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const guardService = HttpGuardService.getInstance();
 
 /**

@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { UebaService } from '../services/uebaService';
 import type {
   EvaluateAccessRiskDTO,
@@ -7,6 +9,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 const uebaRouter = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+uebaRouter.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const uebaService = UebaService.getInstance();
 
 /**

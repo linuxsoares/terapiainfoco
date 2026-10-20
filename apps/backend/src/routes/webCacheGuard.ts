@@ -8,6 +8,8 @@
  */
 
 import { Hono } from 'hono';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
 import { WebCacheGuardService } from '../services/webCacheGuardService';
 import type {
   InspectCacheRequestDTO,
@@ -22,6 +24,9 @@ import type {
 } from '@terapiainfoco/shared';
 
 const router = new Hono();
+
+// Ferramenta da plataforma (painel de Segurança): exclusiva do Admin
+router.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 const service = WebCacheGuardService.getInstance();
 
 /**

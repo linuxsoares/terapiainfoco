@@ -5,11 +5,12 @@ import {
   GraphQLValidationAction,
   UserRole,
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)', () => {
   describe('GET /api/graphql-guard/overview', () => {
     it('deve retornar telemetria completa, métricas, políticas e incidentes', async () => {
-      const res = await app.request('/api/graphql-guard/overview');
+      const res = await adminRequest('/api/graphql-guard/overview');
       expect(res.status).toBe(200);
 
       const data = await res.json();
@@ -24,7 +25,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
 
   describe('POST /api/graphql-guard/inspect', () => {
     it('deve autorizar e emitir selo WORM para consulta médica legítima e rasa', async () => {
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,7 +44,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
     });
 
     it('deve retornar 400 se o campo query não for informado', async () => {
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -56,7 +57,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
     });
 
     it('deve bloquear tentativa de introspecção maliciosa (__schema) para usuário comum', async () => {
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +80,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
           a { b { c { d { e { f { g { h { i { j { id } } } } } } } } } }
         }
       `;
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +110,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
           }
         }
       `;
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,7 +135,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
           m5: sign(id: "5") { id }
         }
       `;
-      const res = await app.request('/api/graphql-guard/inspect', {
+      const res = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -151,7 +152,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
 
   describe('POST /api/graphql-guard/policy', () => {
     it('deve atualizar diretrizes de custo e profundidade da política ativa', async () => {
-      const res = await app.request('/api/graphql-guard/policy', {
+      const res = await adminRequest('/api/graphql-guard/policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,7 +171,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
     });
 
     it('deve retornar 400 se o corpo da política não for fornecido', async () => {
-      const res = await app.request('/api/graphql-guard/policy', {
+      const res = await adminRequest('/api/graphql-guard/policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -184,7 +185,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
 
   describe('POST /api/graphql-guard/simulate', () => {
     it('deve simular ataque de introspecção adversarial e retornar bloqueio com certidão', async () => {
-      const res = await app.request('/api/graphql-guard/simulate', {
+      const res = await adminRequest('/api/graphql-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,7 +202,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
     });
 
     it('deve retornar 400 se a categoria da ameaça não for fornecida', async () => {
-      const res = await app.request('/api/graphql-guard/simulate', {
+      const res = await adminRequest('/api/graphql-guard/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -214,7 +215,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
   describe('POST /api/graphql-guard/verify-seal', () => {
     it('deve verificar autenticidade de selo emitido na inspeção', async () => {
       // 1. Gera selo através de inspeção legítima
-      const inspectRes = await app.request('/api/graphql-guard/inspect', {
+      const inspectRes = await adminRequest('/api/graphql-guard/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,7 +226,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
       const seal = inspectData.inspection.seal;
 
       // 2. Valida o selo via endpoint
-      const verifyRes = await app.request('/api/graphql-guard/verify-seal', {
+      const verifyRes = await adminRequest('/api/graphql-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -240,7 +241,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
     });
 
     it('deve retornar 400 se o sealToken não for enviado', async () => {
-      const res = await app.request('/api/graphql-guard/verify-seal', {
+      const res = await adminRequest('/api/graphql-guard/verify-seal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -252,7 +253,7 @@ describe('Backend API Integration - GraphQL Query Guard (OWASP ASVS v4.0 V5.1)',
 
   describe('GET /api/graphql-guard/schemas', () => {
     it('deve listar os 3 schemas homologados da plataforma', async () => {
-      const res = await app.request('/api/graphql-guard/schemas');
+      const res = await adminRequest('/api/graphql-guard/schemas');
       expect(res.status).toBe(200);
 
       const data = await res.json();

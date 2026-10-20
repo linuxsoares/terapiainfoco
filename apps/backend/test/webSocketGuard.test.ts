@@ -8,6 +8,7 @@ import {
   WebSocketThreatCategory,
   WebSocketValidationAction
 } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Proteção contra Injeção de Objetos e Desserialização Não Segura em WebSocket (RFC 6455 & CWE-502)', () => {
   beforeEach(() => {
@@ -15,7 +16,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
   });
 
   it('1. GET /api/websocket-guard/overview deve retornar métricas, política ativa, incidentes e canais homologados', async () => {
-    const res = await app.request('/api/websocket-guard/overview');
+    const res = await adminRequest('/api/websocket-guard/overview');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -25,7 +26,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
   });
 
   it('2. POST /api/websocket-guard/inspect deve permitir frame clínico legítimo de sinalização WebRTC', async () => {
-    const res = await app.request('/api/websocket-guard/inspect', {
+    const res = await adminRequest('/api/websocket-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -49,7 +50,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
   });
 
   it('3. POST /api/websocket-guard/inspect deve bloquear gadget de desserialização CWE-502 e emitir incidente WORM', async () => {
-    const res = await app.request('/api/websocket-guard/inspect', {
+    const res = await adminRequest('/api/websocket-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -73,7 +74,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
   });
 
   it('4. POST /api/websocket-guard/simulate deve executar simulação adversarial e neutralizar o ataque', async () => {
-    const res = await app.request('/api/websocket-guard/simulate', {
+    const res = await adminRequest('/api/websocket-guard/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,7 +90,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
   });
 
   it('5. POST /api/websocket-guard/policy e /verify-seal devem atualizar política e validar selo notarial RFC 8785', async () => {
-    const polRes = await app.request('/api/websocket-guard/policy', {
+    const polRes = await adminRequest('/api/websocket-guard/policy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -100,7 +101,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
     const polBody = await polRes.json();
     expect(polBody.policy.maxJsonNestingDepth).toBe(6);
 
-    const inspectRes = await app.request('/api/websocket-guard/inspect', {
+    const inspectRes = await adminRequest('/api/websocket-guard/inspect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +112,7 @@ describe('Proteção contra Injeção de Objetos e Desserialização Não Segura
     });
     const { seal } = await inspectRes.json();
 
-    const verifyRes = await app.request('/api/websocket-guard/verify-seal', {
+    const verifyRes = await adminRequest('/api/websocket-guard/verify-seal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sealId: seal.sealId, seal })

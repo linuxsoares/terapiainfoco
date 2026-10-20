@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { VerifiableCredentialType, DidVerificationStatus, CredentialRevocationStatus } from '@terapiainfoco/shared';
+import { adminRequest } from './helpers/adminRequest';
 
 describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () => {
   it('GET /api/did/resolve/:did deve resolver DID Document no padrão W3C DID v1.0', async () => {
-    const res = await app.request('/api/did/resolve/did:terapiainfoco:crp-06-123456');
+    const res = await adminRequest('/api/did/resolve/did:terapiainfoco:crp-06-123456');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -16,7 +17,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
   });
 
   it('GET /api/did/resolve/:did deve retornar 404 para formato de DID desconhecido', async () => {
-    const res = await app.request('/api/did/resolve/did:unknown-method:abc123xyz');
+    const res = await adminRequest('/api/did/resolve/did:unknown-method:abc123xyz');
     expect(res.status).toBe(404);
 
     const data = await res.json();
@@ -36,7 +37,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
       expirationMonths: 12
     };
 
-    const res = await app.request('/api/did/credentials/issue', {
+    const res = await adminRequest('/api/did/credentials/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -55,7 +56,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
   });
 
   it('POST /api/did/credentials/issue deve rejeitar requisição com campos obrigatórios ausentes', async () => {
-    const res = await app.request('/api/did/credentials/issue', {
+    const res = await adminRequest('/api/did/credentials/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -70,7 +71,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
 
   it('POST /api/did/credentials/verify deve validar credencial tanto por ID quanto por token JWT', async () => {
     // 1. Emite credencial para teste de verificação
-    const issueRes = await app.request('/api/did/credentials/issue', {
+    const issueRes = await adminRequest('/api/did/credentials/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -86,7 +87,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
     const jwtToken = issueData.jwtToken;
 
     // 2. Validação por ID
-    const verifyByIdRes = await app.request('/api/did/credentials/verify', {
+    const verifyByIdRes = await adminRequest('/api/did/credentials/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credentialOrPresentationPayload: credId })
@@ -98,7 +99,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
     expect(verifyByIdData.result.status).toBe(DidVerificationStatus.VALID_VERIFIED);
 
     // 3. Validação por JWT
-    const verifyByJwtRes = await app.request('/api/did/credentials/verify', {
+    const verifyByJwtRes = await adminRequest('/api/did/credentials/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credentialOrPresentationPayload: jwtToken })
@@ -112,7 +113,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
 
   it('POST /api/did/credentials/revoke deve revogar formalmente credencial e refletir na verificação', async () => {
     // 1. Emite credencial
-    const issueRes = await app.request('/api/did/credentials/issue', {
+    const issueRes = await adminRequest('/api/did/credentials/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -127,7 +128,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
     const credId = issueData.credential.id;
 
     // 2. Revogação formal
-    const revokeRes = await app.request('/api/did/credentials/revoke', {
+    const revokeRes = await adminRequest('/api/did/credentials/revoke', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -141,7 +142,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
     expect(revokeData.credentialId).toBe(credId);
 
     // 3. Verificação pós-revogação
-    const verifyRes = await app.request('/api/did/credentials/verify', {
+    const verifyRes = await adminRequest('/api/did/credentials/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credentialOrPresentationPayload: credId })
@@ -153,7 +154,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
   });
 
   it('GET /api/did/overview deve retornar métricas e estatísticas de governança da federação', async () => {
-    const res = await app.request('/api/did/overview');
+    const res = await adminRequest('/api/did/overview');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -167,7 +168,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
   it('GET /api/did/credentials/patient/:patientId deve listar credenciais emitidas para o paciente', async () => {
     const patientId = 'patient-search-test-88';
 
-    await app.request('/api/did/credentials/issue', {
+    await adminRequest('/api/did/credentials/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -179,7 +180,7 @@ describe('Clinical DID & Verifiable Credentials REST API (RFC-001 §3.5)', () =>
       })
     });
 
-    const res = await app.request(`/api/did/credentials/patient/${patientId}`);
+    const res = await adminRequest(`/api/did/credentials/patient/${patientId}`);
     expect(res.status).toBe(200);
 
     const data = await res.json();
