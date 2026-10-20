@@ -4,6 +4,7 @@ import {
   AppointmentStatus, 
   AuditAction, 
   AuditResourceType, 
+  ConsentScope,
   DocumentType, 
   SpeakerRole,
   type SyntheticJourneyResult,
@@ -30,7 +31,17 @@ import { ClinicalRecordService } from './clinicalRecordService';
 import { DocumentService } from './documentService';
 import { IcpBrasilService } from './icpBrasilService';
 import { AuditService } from './auditService';
+import { ConsentService } from './consentService';
 import { db } from '../db/memoryDb';
+import { config } from '../config';
+
+/**
+ * Consultório isolado do monitor sintético: os registros da jornada nunca caem num consultório
+ * real nem no demo e são apagados ao fim de cada execução (a trilha WORM é preservada).
+ */
+export const SYNTHETIC_PROBE_THERAPIST_ID = 'synthetic-probe';
+const SYNTHETIC_PROBE_ACTOR_ID = 'synthetic-monitor';
+const PROBE_CONTEXT = { actorId: SYNTHETIC_PROBE_ACTOR_ID, ipAddress: '127.0.0.1', userAgent: 'Synthetic-Monitor/1.0' };
 
 export class SyntheticService {
   private static executionHistory: SyntheticJourneyResult[] = [];
@@ -76,7 +87,7 @@ export class SyntheticService {
       }
     } else {
       // -------------------------------------------------------------
-      // PASSO 1: Agendamento Público na Landing Page com Buffer 10m (RFC §3.1)
+      // PASSO 1: Agendamento com Buffer 10m & Sala de Teleconsulta (RFC §3.1)
       // -------------------------------------------------------------
       const p1Start = Date.now();
       let createdAppointmentId = '';
@@ -86,46 +97,56 @@ export class SyntheticService {
         appointmentTime.setMinutes(0, 0, 0);
         const endTime = new Date(appointmentTime.getTime() + 50 * 60 * 1000);
 
-        const booking = await AppointmentService.bookPublicAppointment(
+        const patient = PatientService.createPatient(
+          SYNTHETIC_PROBE_THERAPIST_ID,
           {
-            therapistId: 'therapist-001',
-            patientName: `[PROBE] Paciente Sintético ${Date.now() % 10000}`,
-            patientEmail: `probe_${Date.now()}@clinicasintetica.com.br`,
-            patientPhone: '(11) 98765-4321',
-            patientCpf: '123.456.789-00',
-            scheduledStart: appointmentTime.toISOString(),
-            scheduledEnd: endTime.toISOString(),
-            consentTeleconsultationSigned: true
+            name: `[PROBE] Paciente Sintético ${Date.now() % 10000}`,
+            email: `probe_${Date.now()}@clinicasintetica.com.br`,
+            phone: '(11) 98765-4321',
+            consentTranscriptionSigned: false
           },
-          { ipAddress: '127.0.0.1', userAgent: 'Synthetic-Monitor/1.0' }
+          PROBE_CONTEXT
+        );
+        testPatientId = patient.id;
+        // Consentimento explícito do paciente sintético para a síntese SOAP (nunca presumido)
+        ConsentService.getInstance().grantGranularConsent(
+          { patientId: patient.id, scopes: [{ scope: ConsentScope.AI_CLINICAL_SYNTHESIS, granted: true }] },
+          PROBE_CONTEXT
         );
 
-        createdAppointmentId = booking.appointmentId;
-        const appRecord = db.appointments.get(createdAppointmentId);
-        testPatientId = appRecord?.patientId || '';
+        const appointment = await AppointmentService.createAppointment(
+          SYNTHETIC_PROBE_THERAPIST_ID,
+          {
+            patientId: patient.id,
+            scheduledStart: appointmentTime.toISOString(),
+            scheduledEnd: endTime.toISOString()
+          },
+          PROBE_CONTEXT
+        );
+        createdAppointmentId = appointment.id;
 
-        if (!booking.roomUrl || !booking.roomUrl.includes(`sala=${booking.appointmentId}`)) {
+        if (!appointment.roomUrl || !appointment.roomUrl.includes(`sala=${appointment.id}`)) {
           throw new Error('Link da sala de teleconsulta não foi gerado para a consulta (RFC §3.2)');
         }
 
         steps.push({
           id: 'step_booking',
-          name: 'Agendamento Público na Landing Page com Buffer 10m (RFC §3.1)',
-          description: 'Criação de agendamento online com verificação determinística de buffer e sala de teleconsulta própria.',
+          name: 'Agendamento com Buffer 10m & Sala de Teleconsulta (RFC §3.1)',
+          description: 'Criação de consulta no consultório de sondagem com verificação determinística de buffer e sala de teleconsulta própria.',
           status: 'passed',
           durationMs: Math.max(1, Date.now() - p1Start),
           details: {
-            appointmentId: booking.appointmentId,
-            roomUrl: booking.roomUrl,
-            bufferMinutes: booking.bufferMinutes,
-            patientName: booking.patientName
+            appointmentId: appointment.id,
+            roomUrl: appointment.roomUrl,
+            bufferMinutes: config.defaultBufferMinutes,
+            patientName: patient.name
           }
         });
       } catch (err: any) {
         steps.push({
           id: 'step_booking',
-          name: 'Agendamento Público na Landing Page com Buffer 10m (RFC §3.1)',
-          description: 'Criação de agendamento online com verificação de buffer e sala de teleconsulta própria.',
+          name: 'Agendamento com Buffer 10m & Sala de Teleconsulta (RFC §3.1)',
+          description: 'Criação de consulta no consultório de sondagem com verificação de buffer e sala de teleconsulta própria.',
           status: 'failed',
           durationMs: Math.max(1, Date.now() - p1Start),
           error: err.message
@@ -232,10 +253,11 @@ export class SyntheticService {
           }
         ];
 
+        requireProbeBooking(createdAppointmentId);
         const proposal = AiSoapService.generateSoapProposal({
-          appointmentId: createdAppointmentId || '00000000-0000-0000-0000-000000000010',
+          appointmentId: createdAppointmentId,
           utterances: dummyUtterances,
-          context: { actorId: 'therapist-001', ipAddress: '127.0.0.1', userAgent: 'Synthetic-Monitor' }
+          context: PROBE_CONTEXT
         });
 
         if (!proposal.humanReviewRequired) {
@@ -244,13 +266,13 @@ export class SyntheticService {
 
         // Salva rascunho SOAP
         const draft = ClinicalRecordService.saveDraft({
-          appointmentId: createdAppointmentId || '00000000-0000-0000-0000-000000000010',
-          patientId: testPatientId || '00000000-0000-0000-0000-000000000001',
-          therapistId: 'therapist-001',
+          appointmentId: createdAppointmentId,
+          patientId: testPatientId,
+          therapistId: SYNTHETIC_PROBE_THERAPIST_ID,
           sessionNumber: 1,
           soap: proposal.soap,
           privateNotes: 'Notas confidenciais segregadas sob sigilo ético (RFC §3.4)',
-          context: { actorId: 'therapist-001', ipAddress: '127.0.0.1' }
+          context: PROBE_CONTEXT
         });
 
         steps.push({
@@ -293,7 +315,7 @@ export class SyntheticService {
 
         // Registra acesso de revelação na trilha WORM
         AuditService.log({
-          actorId: 'therapist-001',
+          actorId: SYNTHETIC_PROBE_ACTOR_ID,
           resourceType: AuditResourceType.CLINICAL_RECORD,
           resourceId: 'PROBE-DDM-CHECK',
           action: AuditAction.UNMASK_DATA,
@@ -330,14 +352,14 @@ export class SyntheticService {
       // -------------------------------------------------------------
       const p6Start = Date.now();
       try {
-        const patientRef = testPatientId || '00000000-0000-0000-0000-000000000001';
+        requireProbeBooking(createdAppointmentId);
         const docDraft = DocumentService.generateDraft({
-          patientId: patientRef,
-          therapistId: 'therapist-001',
+          patientId: testPatientId,
+          therapistId: SYNTHETIC_PROBE_THERAPIST_ID,
           type: DocumentType.ATESTADO,
           title: 'Atestado Psicológico para Fim de Validação Sintética',
           content: 'Atesto para os devidos fins de conformidade técnica e regulatória que o paciente compareceu ao atendimento.',
-          context: { actorId: 'therapist-001', ipAddress: '127.0.0.1' }
+          context: PROBE_CONTEXT
         });
 
         const prep = await IcpBrasilService.prepareSignature(docDraft.id);
@@ -349,7 +371,7 @@ export class SyntheticService {
             signatureBase64: 'U1lOVEhFVElDLVNJR05BVFVSRS1QQURFQw==',
             certificate: mockCert
           },
-          { actorId: 'therapist-001', ipAddress: '127.0.0.1' }
+          PROBE_CONTEXT
         );
 
         const validation = DocumentService.validatePublicToken(docDraft.validationToken);
@@ -439,6 +461,8 @@ export class SyntheticService {
           error: err.message
         });
       }
+
+      this.purgeProbeRecords();
     }
 
     const completedAt = new Date().toISOString();
@@ -478,6 +502,32 @@ export class SyntheticService {
     }
 
     return result;
+  }
+
+  /**
+   * Apaga os registros do consultório de sondagem (pacientes, consultas, prontuários, documentos…)
+   * e o ledger de consentimento dos pacientes sintéticos. A trilha de auditoria fica intacta.
+   */
+  private static purgeProbeRecords(): void {
+    const probePatientIds = new Set<string>();
+    for (const [id, patient] of db.patients) {
+      if (patient.therapistId === SYNTHETIC_PROBE_THERAPIST_ID) probePatientIds.add(id);
+    }
+
+    for (const collection of Object.values(db)) {
+      if (!(collection instanceof Map)) continue;
+      for (const [id, entity] of collection) {
+        if (!entity || typeof entity !== 'object') continue;
+        const { therapistId, patientId } = entity as { therapistId?: string; patientId?: string };
+        if (therapistId === SYNTHETIC_PROBE_THERAPIST_ID || (patientId && probePatientIds.has(patientId))) {
+          collection.delete(id);
+        }
+      }
+    }
+
+    for (const patientId of probePatientIds) {
+      ConsentService.getInstance().discardPatientLedger(patientId);
+    }
   }
 
   /**
@@ -530,5 +580,11 @@ export class SyntheticService {
    */
   public static getLastExecution(): SyntheticJourneyResult | null {
     return this.executionHistory[0] || null;
+  }
+}
+
+function requireProbeBooking(appointmentId: string): void {
+  if (!appointmentId) {
+    throw new Error('Passo dependente do agendamento sintético, que falhou.');
   }
 }

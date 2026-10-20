@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { AppointmentService } from '../src/services/appointmentService';
+import { PatientService } from '../src/services/patientService';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
@@ -473,27 +474,16 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect((await app.request('/api/appointments/public/book', { method: 'POST' })).status).toBe(401);
     expect((await staffRequest('/api/appointments/public/book', { method: 'POST' })).status).toBe(404);
 
-    // 3. Regras do agendamento direto, ainda usado pelo monitor sintético
-    const context = { ipAddress: '127.0.0.1' };
-    const base = {
-      therapistId: 'therapist-001',
-      patientName: 'Lucas Ferreira',
-      patientEmail: 'lucas@email.com',
-      patientPhone: '11977778888',
-      scheduledStart: firstOpenSlot.start,
-      scheduledEnd: firstOpenSlot.end
-    };
-    await expect(AppointmentService.bookPublicAppointment({ ...base, consentTeleconsultationSigned: false }, context))
-      .rejects.toThrow('Termo de Consentimento');
+    // 3. O horário ocupado não aceita uma segunda consulta (buffer entre sessões)
+    const context = { actorId: 'therapist-001', ipAddress: '127.0.0.1' };
+    const slot = { scheduledStart: firstOpenSlot.start, scheduledEnd: firstOpenSlot.end };
+    const first = PatientService.createPatient('therapist-001', { name: 'Lucas Ferreira', email: 'lucas@email.com', phone: '11977778888', consentTranscriptionSigned: false }, context);
+    const other = PatientService.createPatient('therapist-001', { name: 'Outro Paciente', email: 'outro@email.com', phone: '11966667777', consentTranscriptionSigned: false }, context);
+    const appointment = await AppointmentService.createAppointment('therapist-001', { patientId: first.id, ...slot }, context);
+    expect(appointment.roomUrl).toContain(`sala=${appointment.id}`);
 
-    const booking = await AppointmentService.bookPublicAppointment({ ...base, patientCpf: '333.444.555-66', consentTeleconsultationSigned: true }, context);
-    expect(booking.roomUrl).toContain(`sala=${booking.appointmentId}`);
-    expect(booking.bufferMinutes).toBe(10);
-
-    await expect(AppointmentService.bookPublicAppointment(
-      { ...base, patientName: 'Outro Paciente', patientEmail: 'outro@email.com', consentTeleconsultationSigned: true },
-      context
-    )).rejects.toThrow('Conflito de agenda');
+    await expect(AppointmentService.createAppointment('therapist-001', { patientId: other.id, ...slot }, context))
+      .rejects.toThrow('Conflito de agenda');
   });
 });
 

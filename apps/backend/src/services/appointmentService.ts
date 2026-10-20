@@ -10,8 +10,6 @@ import {
   type DecryptedAppointment,
   type AvailableSlot,
   type AvailableSlotsResponse,
-  type PublicBookingDTO,
-  type PublicBookingResponse,
   type PatientBookingDTO,
   type PatientAppointmentView,
   type TherapistPublicProfile,
@@ -226,81 +224,6 @@ export class AppointmentService {
       date: dateFormatted,
       bufferMinutes,
       slots
-    };
-  }
-
-  /**
-   * Agendamento público de teleconsulta diretamente pela landing page
-   * Aplica Field-Level Encryption e Blind Indexing aos dados do visitante e gera o link da sala própria
-   */
-  static async bookPublicAppointment(
-    dto: PublicBookingDTO,
-    context: { ipAddress: string; userAgent?: string }
-  ): Promise<PublicBookingResponse> {
-    if (!dto.consentTeleconsultationSigned) {
-      throw new Error(
-        'É obrigatório aceitar o Termo de Consentimento Livre e Esclarecido (TCLE) para agendamento de teleconsulta (Res. CFP nº 011/2018 e LGPD Art. 11).'
-      );
-    }
-
-    const therapistId = dto.therapistId || 'therapist-001';
-    const profile = await this.requireBookableTherapist(therapistId);
-
-    // 1. Localiza paciente do mesmo consultório via Blind Index (se CPF informado) ou cria novo com FLE
-    let patient = dto.patientCpf ? PatientService.findByCpf(dto.patientCpf, {
-      actorId: therapistId,
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
-    }, therapistId) : null;
-
-    if (!patient) {
-      patient = PatientService.createPatient(
-        therapistId,
-        {
-          name: dto.patientName,
-          email: dto.patientEmail,
-          phone: dto.patientPhone,
-          cpf: dto.patientCpf,
-          // O TCLE de teleconsulta não implica consentimento de transcrição (LGPD Art. 11)
-          consentTranscriptionSigned: false
-        },
-        {
-          actorId: therapistId,
-          ipAddress: context.ipAddress,
-          userAgent: context.userAgent
-        }
-      );
-    }
-
-    // 2. Agenda a consulta com verificação de buffers (sala de teleconsulta própria)
-    const appointment = await this.createAppointment(
-      therapistId,
-      {
-        patientId: patient.id,
-        scheduledStart: dto.scheduledStart,
-        scheduledEnd: dto.scheduledEnd
-      },
-      {
-        actorId: therapistId,
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
-      }
-    );
-
-    return {
-      appointmentId: appointment.id,
-      patientName: patient.name,
-      therapistName: `${profile.displayName} (CRP ${profile.crp})`,
-      scheduledStart: appointment.scheduledStart.toString(),
-      scheduledEnd: appointment.scheduledEnd.toString(),
-      roomUrl: appointment.roomUrl,
-      bufferMinutes: config.defaultBufferMinutes,
-      consentRecordedAt: new Date().toISOString(),
-      instructions: [
-        'Acesse a sala de teleconsulta pelo link com 5 minutos de antecedência, já com sua conta da plataforma.',
-        'Utilize fones de ouvido para garantir o sigilo e a privacidade do seu atendimento.',
-        'Certifique-se de estar em um ambiente privativo, silencioso e com boa conexão à internet.'
-      ]
     };
   }
 
