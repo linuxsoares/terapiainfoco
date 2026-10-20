@@ -175,6 +175,8 @@ export type StoredAppointment = Appointment;
 export interface DecryptedAppointment extends Appointment {
   /** Link da sala de teleconsulta própria da plataforma (acesso exige login e posse da consulta) */
   roomUrl: string;
+  /** Nome do paciente, presente só na agenda do próprio consultório */
+  patientName?: string;
 }
 
 /**
