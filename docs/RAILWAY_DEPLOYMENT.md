@@ -110,6 +110,33 @@ Para que os psicólogos acessem o painel administrativo:
 
 ---
 
+### 6. Backups (duas camadas)
+
+**a) Snapshots cifrados da aplicação (módulo Backup & DR).** O Admin gera snapshots do banco cifrados por Envelope Encryption com a `KMS_MASTER_KEY`. Para que eles sobrevivam a restarts e deploys, configure um bucket S3-compatível (AWS S3, Cloudflare R2, MinIO) no serviço do backend:
+
+| Variável | Exemplo de Valor | Descrição |
+|---|---|---|
+| `BACKUP_S3_BUCKET` | `terapiainfoco-backups` | Bucket de destino. Sem ela, os snapshots ficam só na memória (o painel avisa). |
+| `BACKUP_S3_ACCESS_KEY_ID` | *(chave de acesso)* | Obrigatória quando há bucket |
+| `BACKUP_S3_SECRET_ACCESS_KEY` | *(segredo)* | Obrigatória quando há bucket |
+| `BACKUP_S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` | Necessária para R2/MinIO; omita para AWS S3 |
+| `BACKUP_S3_REGION` | `us-east-1` / `auto` (R2) | Região do bucket |
+| `BACKUP_S3_PREFIX` | `backups/` | Prefixo das chaves (padrão `backups/`) |
+
+- Cada snapshot é gravado como `<prefixo><id>.kms-backup.json` (mesmo formato do download no painel). O bucket só recebe dados já cifrados, mas mantenha-o **privado** e com credenciais restritas a esse prefixo.
+- Se o envio ao bucket falhar, a geração do backup falha (não há cópia apenas em memória).
+- No boot, os 20 snapshots mais recentes são recarregados do bucket; os anteriores continuam acessíveis por id (verificação/restauração/download).
+- A aplicação não apaga snapshots do bucket: defina a retenção com uma **regra de ciclo de vida** no provedor.
+- A restauração exige a mesma `KMS_MASTER_KEY` usada na geração. Guarde-a fora do Railway (cofre de senhas da organização): sem ela, nenhum snapshot pode ser decifrado.
+
+**b) Backups gerenciados do PostgreSQL.** Os snapshots da aplicação não substituem o backup do banco. Confira no provedor do `DATABASE_URL` se há backups diários ou PITR habilitados no seu plano e qual é a janela de retenção:
+- **Supabase:** *Project Settings* ➔ *Database* ➔ *Backups* (e o add-on de *Point in Time Recovery*).
+- **Railway PostgreSQL** (se usado no lugar do Supabase): aba *Backups* do serviço do banco.
+
+Teste periodicamente as duas restaurações (o módulo Backup & DR tem a simulação de DR para a primeira).
+
+---
+
 ## 🔍 Verificação & Healthcheck
 
 Após o Railway realizar o build e deploy, valide se a API conectou com sucesso no Supabase:

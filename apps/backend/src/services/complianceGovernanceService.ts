@@ -17,7 +17,7 @@ import {
 } from '@terapiainfoco/crypto';
 import { AuditService } from './auditService';
 import { kmsService } from './kmsService';
-import { backupStore } from './backupService';
+import { backupStore, BackupService } from './backupService';
 import { globalRateLimitStore } from '../middlewares/rateLimiter';
 import { otlpBatchExporter } from '../telemetry/otlpBatchExporter';
 import { db } from '../db/memoryDb';
@@ -77,8 +77,8 @@ export class ComplianceGovernanceService {
       wormChainIntegrity,
       activeKmsKeyVersion,
       dataBackupsCount,
-      // Snapshots ainda vivem só na memória do BackupService (sem object storage)
-      backupsOffsite: false,
+      // Offsite só com object storage configurado (BACKUP_S3_BUCKET); senão os snapshots vivem na memória
+      backupsOffsite: BackupService.isOffsite(),
       twoFactorAdoptionRate,
       passkeysCount: totalPasskeys,
       rateLimitingStoreType: storeStatus.storeType,

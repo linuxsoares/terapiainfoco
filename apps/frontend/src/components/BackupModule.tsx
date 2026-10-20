@@ -168,6 +168,26 @@ export function BackupModule({ currentUser }: BackupModuleProps) {
         </div>
       )}
 
+      {/* Destino dos snapshots: fora do processo (object storage) ou só na memória */}
+      {overview && (
+        overview.storage.offsite ? (
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>
+              Snapshots cifrados guardados fora do servidor em <code className="font-mono text-xs">{overview.storage.location}</code>.
+            </span>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>
+              Object storage não configurado: os snapshots ficam só na memória do servidor e se perdem no próximo
+              restart ou deploy. Configure <code className="font-mono text-xs">BACKUP_S3_BUCKET</code> e as credenciais de acesso.
+            </span>
+          </div>
+        )
+      )}
+
       {/* KPI Cards de Disaster Recovery */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* RPO */}

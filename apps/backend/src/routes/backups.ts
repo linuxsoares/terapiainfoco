@@ -35,7 +35,7 @@ backupsRoute.post('/', requireRoles([UserRole.ADMIN]), async (c) => {
 // 3. Download do arquivo completo do backup cifrado (.kms-backup.json)
 backupsRoute.get('/:id/download', requireRoles([UserRole.ADMIN]), async (c) => {
   const id = c.req.param('id');
-  const file = BackupService.getBackupFile(id);
+  const file = await BackupService.getBackupFile(id);
 
   if (!file) {
     return c.json({ success: false, error: 'Snapshot de backup não localizado.' }, 404);

@@ -80,6 +80,7 @@ import { securityHeadersMiddleware } from './middlewares/securityHeadersMiddlewa
 import { honeypotMiddleware } from './middlewares/honeypotMiddleware';
 import { wafMiddleware } from './middlewares/wafMiddleware';
 import { getDb } from './db';
+import { BackupService } from './services/backupService';
 import { persistence } from './db/memoryDb';
 import { persistenceMiddleware } from './middlewares/persistenceMiddleware';
 
@@ -93,6 +94,16 @@ try {
   console.error('❌ Erro ao inicializar banco de dados no boot:', err);
   // Em produção não servimos requisições sem persistência confiável
   if (config.isProduction) process.exit(1);
+}
+
+// Snapshots de backup guardados fora do processo (object storage): indisponibilidade do bucket não impede o boot
+if (BackupService.isOffsite()) {
+  try {
+    const restoredBackups = await BackupService.hydrateFromObjectStorage();
+    console.log(`✅ ${restoredBackups} snapshot(s) de backup recarregado(s) do object storage.`);
+  } catch (err) {
+    console.error('⚠️ Não foi possível recarregar os snapshots de backup do object storage:', err);
+  }
 }
 
 
