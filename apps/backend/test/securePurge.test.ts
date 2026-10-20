@@ -7,6 +7,7 @@ import {
   PurgeProofVerificationStatus
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 16 & CFP nº 001/2009)', () => {
   let authToken: string;
@@ -16,6 +17,10 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
   let issuedCertificateId: string;
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     // 1. Autenticação como psicólogo titular / admin
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

@@ -13,6 +13,7 @@ import { encryptField } from '../src/services/cryptoContext';
 import { ConsolidatedReportService } from '../src/services/consolidatedReportService';
 import { ClinicalReferralService } from '../src/services/clinicalReferralService';
 import { app } from '../src/index';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006/2019) & Encaminhamento Multidisciplinar (§3.5)', () => {
   const mockContext = {
@@ -317,6 +318,10 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
     let authToken: string;
 
     beforeEach(async () => {
+
+      // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+      globalRateLimitStore.reset();
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

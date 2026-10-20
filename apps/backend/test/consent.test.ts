@@ -7,6 +7,7 @@ import {
   ConsentLegalBasis
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18 & CFP 006/2019)', () => {
   let authToken: string;
@@ -15,6 +16,10 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
   let generatedToken: string;
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     // Autentica como psicólogo titular padrão
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

@@ -9,6 +9,7 @@ import {
   AuditAction,
   ClinicalMarkerCategory
 } from '@terapiainfoco/shared';
+import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
 describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOAP (RFC-001 §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
@@ -16,6 +17,10 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
   let token: string;
 
   beforeAll(async () => {
+
+    // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
+
+    globalRateLimitStore.reset();
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
