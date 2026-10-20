@@ -3,7 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { UserRole } from '@terapiainfoco/shared';
+import { AuditAction, UserRole } from '@terapiainfoco/shared';
 
 const LEAD = { name: 'Dra. Ana Lima', email: 'Ana@Consultorio.com.br', crp: '06/123456', whatsapp: '11999990000', practiceType: 'clinica', consent: true };
 
@@ -52,5 +52,56 @@ describe('Pedidos de acesso da landing page', () => {
     expect((await app.request('/api/leads')).status).toBe(401);
     const psychologist = await tokenFor(UserRole.PSICOLOGO_TITULAR);
     expect((await app.request('/api/leads', { headers: { Authorization: `Bearer ${psychologist}` } })).status).toBe(403);
+  });
+
+  async function adminPost(path: string, body?: object) {
+    return app.request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await tokenFor(UserRole.ADMIN)}` },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  }
+
+  it('aprovar cria a conta de psicólogo com troca de senha obrigatória', async () => {
+    await postLead(LEAD);
+    const lead = Array.from(db.leads.values())[0];
+    expect((await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'xx1' })).status).toBe(400);
+
+    const res = await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'sp' });
+    expect(res.status).toBe(201);
+    const body = await res.json() as any;
+    expect(body.lead.status).toBe('APPROVED');
+    expect(body.temporaryPassword.length).toBeGreaterThanOrEqual(12);
+
+    const user = Array.from(db.users.values()).find((u) => u.email === 'ana@consultorio.com.br')!;
+    expect(user).toMatchObject({ role: UserRole.PSICOLOGO_TITULAR, crp: '06/123456', crpRegion: 'SP', mustChangePassword: true });
+    expect(user.therapistId).toBeTruthy();
+    expect(await Bun.password.verify(body.temporaryPassword, user.passwordHash)).toBe(true);
+    expect(db.auditLogs.some((l) => l.action === AuditAction.LEAD_APPROVED && l.resourceId === user.id)).toBe(true);
+
+    // Pedido analisado não é aprovado de novo
+    expect((await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'SP' })).status).toBe(400);
+  });
+
+  it('recusar marca o pedido sem criar conta; só o Admin faz a triagem', async () => {
+    await postLead({ ...LEAD, email: 'recusado@consultorio.com.br' });
+    const lead = Array.from(db.leads.values())[0];
+    const psychologist = await tokenFor(UserRole.PSICOLOGO_TITULAR);
+    const forbidden = await app.request(`/api/leads/${lead.id}/reject`, { method: 'POST', headers: { Authorization: `Bearer ${psychologist}` } });
+    expect(forbidden.status).toBe(403);
+
+    const res = await adminPost(`/api/leads/${lead.id}/reject`);
+    expect(((await res.json()) as any).lead.status).toBe('REJECTED');
+    expect(Array.from(db.users.values()).some((u) => u.email === 'recusado@consultorio.com.br')).toBe(false);
+    expect((await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'SP' })).status).toBe(400);
+  });
+
+  it('e-mail já cadastrado não aprova e mantém o pedido pendente', async () => {
+    const existing = Array.from(db.users.values()).find((u) => u.role === UserRole.PACIENTE)!;
+    await postLead({ ...LEAD, email: existing.email });
+    const lead = Array.from(db.leads.values())[0];
+    const res = await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'SP' });
+    expect(res.status).toBe(400);
+    expect(db.leads.get(lead.id)!.status ?? 'PENDING').toBe('PENDING');
   });
 });

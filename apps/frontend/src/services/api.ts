@@ -1,5 +1,6 @@
 import type {
   AdminLead,
+  ApproveLeadResponse,
   AdminPractice,
   AdminStaffMember,
   CreateStaffMemberDTO,
@@ -1156,6 +1157,18 @@ export const api = {
   async listLeads(): Promise<AdminLead[]> {
     const res = await request<{ success: boolean; leads: AdminLead[] }>('/leads');
     return res.leads;
+  },
+
+  async approveLead(id: string, crpRegion: string): Promise<ApproveLeadResponse> {
+    return await request<ApproveLeadResponse>(`/leads/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ crpRegion })
+    });
+  },
+
+  async rejectLead(id: string): Promise<AdminLead> {
+    const res = await request<{ success: boolean; lead: AdminLead }>(`/leads/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+    return res.lead;
   },
 
   async listAdminPractices(): Promise<AdminPractice[]> {
