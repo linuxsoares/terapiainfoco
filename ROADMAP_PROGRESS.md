@@ -2392,7 +2392,7 @@ terapiainfoco/
 | `fix/seguranca-pessoal-e-linguagem` | Segurança mostra só a própria conta (ferramentas da plataforma para o Admin), linguagem da vitrine e correção da tela do Admin | [PR #152](https://github.com/linuxsoares/terapiainfoco/pull/152) | Merged |
 | `fix/auditoria-ator-e-detalhes` | Auditoria grava o ator correto e os detalhes do evento (com hash compatível com a cadeia existente) | [PR #153](https://github.com/linuxsoares/terapiainfoco/pull/153) | Merged |
 | `fix/tipos-portal-e-modelos` | Corrige bugs revelados pelo typecheck: ICP em lote, laudo consolidado, WebAuthn RP ID, descarte seguro, notário, portabilidade, health check, portal do paciente | [PR #154](https://github.com/linuxsoares/terapiainfoco/pull/154) | Merged |
-| `fix/webauthn-endurecimento` | Corrige tomada de conta por passkey (chave MOCK sem verificação de assinatura) e implementa as checagens WebAuthn | PR #TBD | Merged |
+| `fix/webauthn-endurecimento` | Corrige tomada de conta por passkey (chave MOCK sem verificação de assinatura) e implementa as checagens WebAuthn | [PR #155](https://github.com/linuxsoares/terapiainfoco/pull/155) | Merged |
 
 ---
 
