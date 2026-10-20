@@ -162,7 +162,6 @@ antiReplayRouter.post('/simulate-replay-attack', async (c) => {
     const result = await antiReplayService.simulateReplayAttack(body);
 
     return c.json({
-      success: true,
       ...result
     });
   } catch (error: any) {

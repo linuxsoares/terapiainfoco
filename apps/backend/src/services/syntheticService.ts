@@ -241,14 +241,12 @@ export class SyntheticService {
         const dummyUtterances = [
           {
             speaker: SpeakerRole.PACIENTE,
-            speakerName: 'Paciente Sintético',
-            timestamp: '00:01:15',
+            time: '00:01:15',
             text: 'Olá doutora, meu CPF é 123.456.789-00 e meu telefone é (11) 98765-4321. Tenho sentido muita angústia e insônia.'
           },
           {
             speaker: SpeakerRole.TERAPEUTA,
-            speakerName: 'Dra. Vanessa Andrade',
-            timestamp: '00:01:45',
+            time: '00:01:45',
             text: 'Compreendo perfeitamente. Vamos estruturar nosso plano de intervenção focando em higiene do sono e regulação emocional.'
           }
         ];

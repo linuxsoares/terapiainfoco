@@ -3,7 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { siemService } from '../src/services/siemService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { AuditAction, AuditResourceType, type SiemQueueItem } from '@terapiainfoco/shared';
 
 describe('Conectores SIEM Externos & Dispatcher Resiliente com Exponential Backoff (RFC §4.4 & §5.2)', () => {
   let adminToken: string;
@@ -229,7 +229,7 @@ describe('Conectores SIEM Externos & Dispatcher Resiliente com Exponential Backo
     it('deve mover item para Dead-Letter Queue (DLQ) após 5 tentativas sem sucesso e registrar WORM', async () => {
       // Cria item simulado com tentativa 5 para forçar esgotamento
       const conn = siemService.listConnectors()[0];
-      const item = {
+      const item: SiemQueueItem = {
         id: 'sq-test-dlq-exhaustion',
         connectorId: conn.id,
         provider: conn.provider,

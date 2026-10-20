@@ -35,12 +35,19 @@ import {
 } from '@terapiainfoco/crypto';
 import { AuditService } from './auditService';
 
+/** Contadores que o serviço mantém sempre preenchidos (o modelo traz aliases opcionais) */
+type TrackedDependencyMetrics = DependencyGuardMetrics &
+  Required<Pick<DependencyGuardMetrics,
+    | 'totalDependenciesAudited' | 'cleanDependenciesApproved' | 'quarantinedPackages' | 'blockedThreats'
+    | 'dependencyConfusionBlocked' | 'lifecycleBackdoorsBlocked' | 'dynamicImportsBlocked'
+    | 'typosquattingDetected' | 'sriChecksumViolations' | 'avgAuditDurationUs' | 'slsaLevelAttained'>>;
+
 export class SupplyChainGuardService {
   private static instance: SupplyChainGuardService;
 
   private engine: SupplyChainGuardEngine;
 
-  private metrics: DependencyGuardMetrics = {
+  private metrics: TrackedDependencyMetrics = {
     totalDependenciesAudited: 8420,
     cleanDependenciesApproved: 8380,
     quarantinedPackages: 28,
@@ -162,7 +169,7 @@ export class SupplyChainGuardService {
     const elapsedUs = (performance.now() - startTime) * 1000;
 
     // Atualiza métricas
-    this.metrics.totalDependenciesAudited += inspection.totalDependenciesScanned;
+    this.metrics.totalDependenciesAudited += inspection.totalDependenciesScanned ?? 0;
     this.metrics.avgAuditDurationUs = Number(
       ((this.metrics.avgAuditDurationUs * 0.9) + (elapsedUs * 0.1)).toFixed(1)
     );
@@ -170,8 +177,8 @@ export class SupplyChainGuardService {
     let incident: DependencySecurityIncident | undefined;
 
     if (!inspection.isValid) {
-      this.metrics.blockedThreats += inspection.blockedCount;
-      this.metrics.quarantinedPackages += inspection.quarantinedCount;
+      this.metrics.blockedThreats += inspection.blockedCount ?? 0;
+      this.metrics.quarantinedPackages += inspection.quarantinedCount ?? 0;
       this.metrics.lastIncidentTimestamp = new Date().toISOString();
 
       for (const t of inspection.threats) {
@@ -217,12 +224,12 @@ export class SupplyChainGuardService {
         actorId: context.userId || 'system',
         action: AuditAction.DEPENDENCY_INJECTION_BLOCKED,
         resourceType: AuditResourceType.SUPPLY_CHAIN_GUARD,
-        resourceId: incident.incidentId,
+        resourceId: incident.incidentId ?? incident.id,
         ipAddress: context.ip,
         userAgent: context.userAgent
       });
     } else {
-      this.metrics.cleanDependenciesApproved += inspection.totalDependenciesScanned;
+      this.metrics.cleanDependenciesApproved += inspection.totalDependenciesScanned ?? 0;
 
       AuditService.log({
         actorId: context.userId || 'system',
@@ -288,7 +295,7 @@ export class SupplyChainGuardService {
         actorId: context.userId || 'system',
         action: AuditAction.DEPENDENCY_INJECTION_BLOCKED,
         resourceType: AuditResourceType.SUPPLY_CHAIN_GUARD,
-        resourceId: incident.incidentId,
+        resourceId: incident.incidentId ?? incident.id,
         ipAddress: context.ip,
         userAgent: context.userAgent
       });

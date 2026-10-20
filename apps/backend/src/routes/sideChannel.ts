@@ -172,7 +172,6 @@ sideChannelRouter.post('/simulate-timing-attack', async (c) => {
     const result = await sideChannelService.simulateTimingAttack(body);
 
     return c.json({
-      success: true,
       ...result
     });
   } catch (error: any) {
@@ -201,7 +200,6 @@ sideChannelRouter.post('/verify-seal', async (c) => {
     const verification = sideChannelService.verifySeal(body);
 
     return c.json({
-      success: true,
       ...verification
     });
   } catch (error: any) {

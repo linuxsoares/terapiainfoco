@@ -130,6 +130,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
       therapistId,
       type: DocumentType.ATESTADO,
       title: 'Atestado Psicológico de Comparecimento',
+      regulationReference: 'Resolução CFP nº 006/2019',
       encryptedContent: encryptField('Atesto para os devidos fins que o paciente compareceu ao atendimento.'),
       isSigned: true,
       signedAt: new Date(),

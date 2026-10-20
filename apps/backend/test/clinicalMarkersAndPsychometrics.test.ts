@@ -28,7 +28,6 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
     db.patients.set(patientId, {
       id: patientId,
       therapistId: 'therapist-001',
-      name: 'João Silva Oliveira',
       encryptedName: {} as any,
       encryptedEmail: {} as any,
       encryptedPhone: {} as any,

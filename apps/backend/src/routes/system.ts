@@ -21,13 +21,7 @@ import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 export const systemRoute = new Hono();
 
 // Acesso a diagnóstico e controle de infraestrutura é restrito a perfil Administrador
-systemRoute.use('*', async (c, next) => {
-  const auth = authMiddleware({ strict: true });
-  return auth(c, async () => {
-    const rbac = requireRoles([UserRole.ADMIN]);
-    return rbac(c, next);
-  });
-});
+systemRoute.use('*', authMiddleware(), requireRoles([UserRole.ADMIN]));
 
 /**
  * 1. Status do Rate Limiting Distribuído (Redis / In-Memory Fallback)

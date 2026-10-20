@@ -16,7 +16,8 @@ import type {
   DiagnosticAssessmentReportResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
-import { encryptField, decryptField, type EncryptedPayload } from './cryptoContext';
+import { encryptField, decryptField } from './cryptoContext';
+import type { EncryptedPayload } from '@terapiainfoco/shared';
 import { AuditService } from './auditService';
 
 /**

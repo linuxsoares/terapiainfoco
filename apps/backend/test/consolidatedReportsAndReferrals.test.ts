@@ -48,9 +48,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       therapistId,
       patientId,
       scheduledStart: '2026-02-01T14:00:00Z',
-      scheduledEndTime: '2026-02-01T14:50:00Z',
+      scheduledEnd: '2026-02-01T14:50:00Z',
       status: 'COMPLETED' as any,
-      type: 'REGULAR' as any,
       createdAt: new Date('2026-02-01')
     });
 
@@ -59,9 +58,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       therapistId,
       patientId,
       scheduledStart: '2026-02-08T14:00:00Z',
-      scheduledEndTime: '2026-02-08T14:50:00Z',
+      scheduledEnd: '2026-02-08T14:50:00Z',
       status: 'COMPLETED' as any,
-      type: 'REGULAR' as any,
       createdAt: new Date('2026-02-08')
     });
 

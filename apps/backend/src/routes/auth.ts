@@ -204,7 +204,7 @@ authRoute.post('/password', authRateLimiter, authMiddleware({ strict: true }), a
   try {
     const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
     const tokens = await authService.changePassword(c.get('user').id, body.currentPassword, body.newPassword, ip);
-    return c.json({ success: true, ...tokens }, 200);
+    return c.json(tokens, 200);
   } catch (err: any) {
     return c.json({ success: false, error: err.message || 'Não foi possível alterar a senha.' }, 400);
   }

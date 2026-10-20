@@ -41,6 +41,9 @@ function issuedBeforePasswordChange(user: User, issuedAt: number | undefined): b
   return (issuedAt ?? 0) * 1000 < new Date(user.passwordChangedAt).getTime();
 }
 
+/** Login concluído: os tokens sempre vêm preenchidos */
+type IssuedTokens = LoginResponse & Required<Pick<LoginResponse, 'user' | 'accessToken' | 'refreshToken' | 'expiresIn'>>;
+
 export class AuthService {
   /**
    * Remove campos sensíveis como hash de senha e segredo 2FA
@@ -517,7 +520,7 @@ export class AuthService {
   /**
    * Emissão padronizada de par Access + Refresh tokens
    */
-  public async issueTokens(user: User, ipAddress: string): Promise<LoginResponse> {
+  public async issueTokens(user: User, ipAddress: string): Promise<IssuedTokens> {
     if (user.disabledAt) {
       throw new Error('Conta desativada. Procure o administrador da plataforma.');
     }

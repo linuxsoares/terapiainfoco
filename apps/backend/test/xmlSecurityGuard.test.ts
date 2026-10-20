@@ -212,7 +212,7 @@ describe('XML Security Guard REST API (/api/xml-guard)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         xmlPayload: '<ClinicalDocument><title>Teste Selo</title></ClinicalDocument>',
-        schemaType: XmlClinicalSchemaType.GENERIC_CLINICAL_XML
+        schemaType: XmlClinicalSchemaType.CUSTOM_EMR_EXPORT
       })
     });
     const scanBody = (await scanRes.json()) as ScanXmlPayloadResponse;

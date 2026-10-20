@@ -30,7 +30,7 @@ describe('Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais (RF
         email: 'mariana.silva@email.com',
         cpf: '123.456.789-00',
         phone: '(11) 98765-4321',
-        birthDate: '1992-05-14'
+        consentTranscriptionSigned: false
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );

@@ -30,7 +30,7 @@ describe('Prescrição & Encaminhamento Psiquiátrico com Validação Farmacoló
         email: 'carlos.alberto@email.com',
         cpf: '321.654.987-11',
         phone: '(11) 97654-3210',
-        birthDate: '1988-11-20'
+        consentTranscriptionSigned: false
       },
       { actorId: '00000000-0000-0000-0000-000000000001', ipAddress: '127.0.0.1' }
     );

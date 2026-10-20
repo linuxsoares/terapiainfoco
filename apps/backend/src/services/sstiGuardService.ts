@@ -59,7 +59,7 @@ export class SstiGuardService {
     ]
   };
 
-  private metrics: SstiGuardMetrics = {
+  private metrics: Required<SstiGuardMetrics> = {
     totalRenders: 1420,
     totalTemplatesEvaluated: 1420,
     safeRenders: 1409,
@@ -382,12 +382,12 @@ export class SstiGuardService {
     }
 
     await AuditService.log({
-      userId,
+      actorId: userId,
       action: AuditAction.SSTI_ATTEMPT_BLOCKED,
       resourceType: AuditResourceType.SSTI_GUARD,
-      resourceId: incident.incidentId,
+      resourceId: incident.incidentId ?? seal.sealId,
       ipAddress: clientIp,
-      metadata: {
+      details: {
         simulation: true,
         threatVector,
         threatBlocked,

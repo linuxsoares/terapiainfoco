@@ -1,4 +1,4 @@
-import type { Context, Next } from 'hono';
+import type { Context, MiddlewareHandler, Next } from 'hono';
 import { authService } from '../services/authService';
 import { db } from '../db/memoryDb';
 import { UserRole, type SafeUser } from '@terapiainfoco/shared';
@@ -29,7 +29,7 @@ export interface AuthMiddlewareOptions {
 /**
  * Middleware de Autenticação JWT com extração de usuário e perfil RBAC
  */
-export function authMiddleware(options: AuthMiddlewareOptions = {}) {
+export function authMiddleware(options: AuthMiddlewareOptions = {}): MiddlewareHandler {
   return async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization');
 
@@ -67,7 +67,7 @@ export function authMiddleware(options: AuthMiddlewareOptions = {}) {
  * Middleware RBAC (Role-Based Access Control)
  * Bloqueia perfis não autorizados com status HTTP 403 Forbidden
  */
-export function requireRoles(allowedRoles: UserRole[]) {
+export function requireRoles(allowedRoles: UserRole[]): MiddlewareHandler {
   return async (c: Context, next: Next) => {
     const user = c.get('user');
     if (!user) {
@@ -93,7 +93,7 @@ export function requireRoles(allowedRoles: UserRole[]) {
 /**
  * Alias flexível para requireRoles, aceitando array ou múltiplos argumentos
  */
-export function requireRole(roles: UserRole[] | UserRole, ...moreRoles: UserRole[]) {
+export function requireRole(roles: UserRole[] | UserRole, ...moreRoles: UserRole[]): MiddlewareHandler {
   const allowed = Array.isArray(roles) ? roles : [roles, ...moreRoles];
   return requireRoles(allowed);
 }
