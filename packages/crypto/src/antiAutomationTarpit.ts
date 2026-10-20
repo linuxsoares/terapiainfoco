@@ -1,10 +1,8 @@
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 
-export type ScraperThreatCategory =
-  | 'DATA_SCRAPING_OAT011'
-  | 'ACCOUNT_ENUMERATION_OAT020'
-  | 'HEADLESS_BOT_PROBE'
-  | 'RESOURCE_EXHAUSTION_OAT015';
+import { ScraperThreatCategory } from '@terapiainfoco/shared';
+
+export { ScraperThreatCategory };
 
 export type TarpitDefenseStatus =
   | 'ACTIVE'
@@ -246,10 +244,10 @@ export function detectCrawlerHeuristics(headers: Record<string, string | undefin
   let threatCategory: ScraperThreatCategory | undefined;
   if (threatScore >= 75) {
     threatCategory = detectedVectors.some(v => v.includes('HEADLESS') || v.includes('SELENIUM') || v.includes('PUPPETEER'))
-      ? 'HEADLESS_BOT_PROBE'
-      : 'DATA_SCRAPING_OAT011';
+      ? ScraperThreatCategory.HEADLESS_BOT_PROBE
+      : ScraperThreatCategory.DATA_SCRAPING_OAT011;
   } else if (threatScore >= 50) {
-    threatCategory = 'ACCOUNT_ENUMERATION_OAT020';
+    threatCategory = ScraperThreatCategory.ACCOUNT_ENUMERATION_OAT020;
   }
 
   return {
@@ -265,7 +263,7 @@ export function detectCrawlerHeuristics(headers: Record<string, string | undefin
  */
 export function calculateTarpitDelay(
   violationsCount: number,
-  threatCategory: ScraperThreatCategory = 'DATA_SCRAPING_OAT011'
+  threatCategory: ScraperThreatCategory = ScraperThreatCategory.DATA_SCRAPING_OAT011
 ): TarpitDelayCalculation {
   let baseDelayMs = 1500;
   let severityLevel: 'MILD' | 'ELEVATED' | 'SEVERE' | 'MAXIMUM' = 'MILD';
@@ -290,9 +288,9 @@ export function calculateTarpitDelay(
   }
 
   // Multiplicador específico por categoria de risco
-  if (threatCategory === 'DATA_SCRAPING_OAT011' || threatCategory === 'RESOURCE_EXHAUSTION_OAT015') {
+  if (threatCategory === ScraperThreatCategory.DATA_SCRAPING_OAT011 || threatCategory === ScraperThreatCategory.RESOURCE_EXHAUSTION_OAT015) {
     baseDelayMs = Math.round(baseDelayMs * 1.2);
-  } else if (threatCategory === 'HEADLESS_BOT_PROBE') {
+  } else if (threatCategory === ScraperThreatCategory.HEADLESS_BOT_PROBE) {
     baseDelayMs = Math.round(baseDelayMs * 1.3);
   }
 
@@ -351,7 +349,7 @@ export function verifyTarpitDefenseSeal(
       proofSeal: seal,
       trapId: '',
       clientIp: '',
-      threatCategory: 'DATA_SCRAPING_OAT011',
+      threatCategory: ScraperThreatCategory.DATA_SCRAPING_OAT011,
       delayMs: 0,
       trappedAt: '',
       details: 'Formato inválido de selo notarial WORM de Tarpit.'
@@ -369,7 +367,7 @@ export function verifyTarpitDefenseSeal(
         proofSeal: seal,
         trapId: '',
         clientIp: '',
-        threatCategory: 'DATA_SCRAPING_OAT011',
+        threatCategory: ScraperThreatCategory.DATA_SCRAPING_OAT011,
         delayMs: 0,
         trappedAt: '',
         details: 'Estrutura interna do selo corrompida.'
@@ -424,7 +422,7 @@ export function verifyTarpitDefenseSeal(
       proofSeal: seal,
       trapId: '',
       clientIp: '',
-      threatCategory: 'DATA_SCRAPING_OAT011',
+      threatCategory: ScraperThreatCategory.DATA_SCRAPING_OAT011,
       delayMs: 0,
       trappedAt: '',
       details: `Falha na verificação forense do selo: ${err.message}`

@@ -167,18 +167,12 @@ export function generateBlindKeyPair(
   const keySize = scheme === BlindSignatureScheme.RSA_BLIND_4096 ? 4096 : 2048;
 
   // Geração de chave RSA pelo motor criptográfico com expoente padrão 65537
-  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+  const keyPair = crypto.generateKeyPairSync('rsa', {
     modulusLength: keySize,
-    publicExponent: 65537,
-    publicKeyEncoding: {
-      type: 'spki',
-      format: 'jwk'
-    },
-    privateKeyEncoding: {
-      type: 'pkcs8',
-      format: 'jwk'
-    }
+    publicExponent: 65537
   });
+  const publicKey = keyPair.publicKey.export({ format: 'jwk' });
+  const privateKey = keyPair.privateKey.export({ format: 'jwk' });
 
   if (!publicKey.n || !publicKey.e || !privateKey.d) {
     throw new Error('Falha ao extrair componentes modulares RSA da chave gerada.');
