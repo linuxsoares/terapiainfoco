@@ -11,7 +11,7 @@ import { PricingSection } from './components/PricingSection';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { LeadModal } from './components/LeadModal';
-import { BookingWidget } from './components/BookingWidget';
+import { FindTherapistSection } from './components/FindTherapistSection';
 import { ValidationPortal } from './components/ValidationPortal';
 
 
@@ -41,8 +41,8 @@ export function App() {
           onExploreSimulator={handleScrollToSimulator}
         />
 
-        {/* Public Booking Widget: Experience for Patients (RFC §3.1) */}
-        <BookingWidget />
+        {/* Entrada do paciente: busca de psicólogos e agendamento no painel */}
+        <FindTherapistSection />
 
         {/* 5 Functional RFC Modules */}
         <FeatureModules />

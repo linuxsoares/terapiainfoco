@@ -1,9 +1,4 @@
-import type {
-  AvailableSlotsResponse,
-  PublicBookingDTO,
-  PublicBookingResponse,
-  ValidateDocumentResponse
-} from '@terapiainfoco/shared';
+import type { ValidateDocumentResponse } from '@terapiainfoco/shared';
 
 // Em produção a URL da API vem do build (VITE_API_URL); localhost só no desenvolvimento
 const configuredApiUrl = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : '')).trim().replace(/\/+$/, '');
@@ -40,25 +35,9 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
 
 /**
  * Sem respostas simuladas: se a API não responde, a página informa a indisponibilidade
- * (um agendamento ou documento "válido" de mentira engana o paciente e quem valida o documento).
+ * (um documento "válido" de mentira engana quem valida o documento).
  */
 export const landingApi = {
-  /** Horários disponíveis para o agendamento público */
-  async getAvailableSlots(date?: string): Promise<AvailableSlotsResponse> {
-    return await fetchJson<AvailableSlotsResponse>(
-      `/appointments/available-slots${date ? `?date=${encodeURIComponent(date)}` : ''}`
-    );
-  },
-
-  /** Agendamento público de teleconsulta pela landing page */
-  async bookPublicAppointment(dto: PublicBookingDTO): Promise<PublicBookingResponse> {
-    const res = await fetchJson<{ success: boolean; booking: PublicBookingResponse }>('/appointments/public/book', {
-      method: 'POST',
-      body: JSON.stringify(dto)
-    });
-    return res.booking;
-  },
-
   /** Consulta pública de autenticidade documental via QR Code / token */
   async validateDocumentToken(token: string): Promise<ValidateDocumentResponse> {
     try {

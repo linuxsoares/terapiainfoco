@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Sparkles, Menu, X, ArrowRight, Lock } from 'lucide-react';
+import { PANEL_LINKS } from '../config';
 
 interface NavbarProps {
   onOpenDemo: () => void;
@@ -60,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               href="#agendamento-online"
               className="hover:text-teal-600 transition-colors text-teal-700 font-semibold flex items-center gap-1"
             >
-              📅 Agendar Sessão
+              Encontrar Psicólogo
             </a>
             <a
               href="#simulador-ia"
@@ -110,6 +111,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               Conforme CFP Res. 011/2018
             </div>
 
+            {PANEL_LINKS.login && (
+              <a
+                href={PANEL_LINKS.login}
+                className="px-3 py-2.5 text-sm font-semibold text-slate-700 hover:text-teal-700 transition-colors"
+              >
+                Entrar
+              </a>
+            )}
+
             <button
               onClick={onOpenDemo}
               className="relative inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-lg shadow-sm hover:bg-teal-700 transition-all duration-200 active:scale-95 group"
@@ -144,7 +154,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               onClick={() => setMobileMenuOpen(false)}
               className="block py-2 text-sm font-bold text-teal-700 hover:text-teal-800"
             >
-              📅 Agendar Teleconsulta
+              Encontrar Psicólogo
             </a>
             <a
               href="#simulador-ia"
@@ -190,7 +200,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenDemo }) => {
               Perguntas Frequentes
             </a>
 
-            <div className="pt-2 border-t border-slate-100">
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              {PANEL_LINKS.login && (
+                <a
+                  href={PANEL_LINKS.login}
+                  className="w-full flex items-center justify-center py-3 rounded-xl border border-slate-200 text-slate-800 font-semibold text-sm"
+                >
+                  Entrar
+                </a>
+              )}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);

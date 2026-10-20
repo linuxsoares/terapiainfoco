@@ -103,6 +103,10 @@ function writeLastTab(tab: AppModule): void {
   }
 }
 
+function urlParam(name: string): string | null {
+  return typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get(name) : null;
+}
+
 /** Nome do papel exibido ao usuário (nunca o valor cru do enum) */
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.PSICOLOGO_TITULAR]: 'Psicólogo(a)',
@@ -145,7 +149,10 @@ export default function App() {
   const [roomAppointmentId, setRoomAppointmentId] = useState<string | null>(
     () => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sala') : null)
   );
-  const [publicView, setPublicView] = useState<'showcase' | 'directory'>('showcase');
+  // Links vindos da landing page: ?vitrine=psicologos abre a busca; ?entrar / ?cadastro=paciente abrem o acesso
+  const [publicView, setPublicView] = useState<'showcase' | 'directory'>(
+    () => (urlParam('vitrine') === 'psicologos' ? 'directory' : 'showcase')
+  );
 
   // Modais de Autenticação, Criação de Perfil, Meu Perfil e Atalhos do Paciente
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
@@ -224,15 +231,18 @@ export default function App() {
 
   // Recupera a sessão salva ao abrir/recarregar a página (o cliente renova o token expirado)
   useEffect(() => {
-    if (!hasStoredSession()) {
+    const openEntryAuth = () => {
       if (roomAppointmentId) handleOpenAuth('login', UserRole.PACIENTE);
+      else if (urlParam('cadastro') === 'paciente') handleOpenAuth('register', UserRole.PACIENTE);
+      else if (urlParam('entrar') !== null) handleOpenAuth('login');
+    };
+    if (!hasStoredSession()) {
+      openEntryAuth();
       return;
     }
     api.getMe()
       .then(restoreAuthenticated)
-      .catch(() => {
-        if (roomAppointmentId) handleOpenAuth('login', UserRole.PACIENTE);
-      })
+      .catch(openEntryAuth)
       .finally(() => setRestoringSession(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

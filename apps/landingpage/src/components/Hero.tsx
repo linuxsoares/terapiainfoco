@@ -91,7 +91,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenDemo, onExploreSimulator }) =>
                 href="#agendamento-online"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-teal-50 hover:bg-teal-100/80 text-teal-800 font-semibold text-base border border-teal-200 shadow-xs transition-all duration-200 cursor-pointer"
               >
-                <span>📅 Agendar Consulta</span>
+                <span>Encontrar Psicólogo</span>
               </a>
             </div>
 
