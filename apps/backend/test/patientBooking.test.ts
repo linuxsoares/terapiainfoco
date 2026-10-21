@@ -5,7 +5,7 @@ import { authService } from '../src/services/authService';
 import { TherapistProfileRepository } from '../src/repositories/therapistProfileRepository';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
-import { requireUser, requirePatient } from './helpers/db';
+import { requireUser, requirePatient, requireAppointment } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -49,7 +49,7 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     expect(appointment.therapistName).toBe('Dra. Beatriz Santos');
     expect(appointment.roomUrl).toContain(`sala=${appointment.id}`);
 
-    const record = await requirePatient(db.appointments.get(appointment.id)!.patientId);
+    const record = await requirePatient((await requireAppointment(appointment.id)).patientId);
     expect(record.therapistId).toBe('therapist-001');
     expect(record.linkedUserId).toBe(user.id);
     expect(record.consentTranscriptionSigned).toBe(false);
@@ -59,7 +59,7 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     const again = await book(headers, { therapistId: 'therapist-001', ...slot(1, 13), consentTeleconsultationSigned: true });
     expect(again.status).toBe(201);
     const second = (await again.json() as any).appointment;
-    expect(db.appointments.get(second.id)!.patientId).toBe(record.id);
+    expect((await requireAppointment(second.id)).patientId).toBe(record.id);
 
     // O consultório passa a enxergar o paciente
     const staff = { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` };

@@ -6,7 +6,7 @@ import { AppointmentService } from '../src/services/appointmentService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, UserRole } from '@terapiainfoco/shared';
 import { decryptField } from '../src/services/cryptoContext';
-import { resetDb, requireUser, seedDemoSession, requirePatient } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession, requirePatient, requireAppointment, updateAppointment } from './helpers/db';
 import { UserRepository } from '../src/repositories/userRepository';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
@@ -26,7 +26,7 @@ async function appointmentStartingIn(minutes: number): Promise<string> {
     scheduledEnd: new Date(start.getTime() + 50 * 60 * 1000).toISOString(),
     bufferMinutes: 10
   }, { actorId: PSICOLOGA_ID, ipAddress: '127.0.0.1' });
-  db.appointments.get(appt.id)!.status = AppointmentStatus.CONFIRMADA;
+  await updateAppointment(appt.id, { status: AppointmentStatus.CONFIRMADA });
   return appt.id;
 }
 
@@ -50,7 +50,7 @@ describe('Ciclo de vida da sessão na agenda', () => {
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.EM_ANDAMENTO)).status).toBe(400);
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.CONCLUIDA)).status).toBe(400);
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.NAO_COMPARECEU)).status).toBe(400);
-    expect(db.appointments.get(id)!.status).toBe(AppointmentStatus.CONFIRMADA);
+    expect((await requireAppointment(id)).status).toBe(AppointmentStatus.CONFIRMADA);
   });
 
   it('psicóloga inicia perto do horário e não conclui antes do início sem a sessão estar em andamento', async () => {
@@ -58,7 +58,7 @@ describe('Ciclo de vida da sessão na agenda', () => {
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.CONCLUIDA)).status).toBe(400);
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.EM_ANDAMENTO)).status).toBe(200);
     expect((await setStatus(PSICOLOGA_ID, id, AppointmentStatus.CONCLUIDA)).status).toBe(200);
-    expect(db.appointments.get(id)!.status).toBe(AppointmentStatus.CONCLUIDA);
+    expect((await requireAppointment(id)).status).toBe(AppointmentStatus.CONCLUIDA);
   });
 
   it('sessão passada pode ser concluída retroativamente', async () => {

@@ -18,6 +18,7 @@ import { envelopeService } from './cryptoContext';
 import { AuditService } from './auditService';
 import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } from './backupObjectStorage';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 interface StoredBackupSnapshot {
   metadata: BackupSnapshotMetadata;
   envelope: EnvelopeEncryptedData;
@@ -129,7 +130,7 @@ export class BackupService {
     // 1. Extração de todas as tabelas e coleções relacionais
     const therapists = Array.from(db.therapists.values());
     const patients = await PatientRepository.list();
-    const appointments = Array.from(db.appointments.values());
+    const appointments = await AppointmentRepository.list();
     const clinicalRecords = Array.from(db.clinicalRecords.values());
     const documents = Array.from(db.documents.values());
     const sessionTranscriptions = Array.from(db.sessionTranscriptions.values());
@@ -331,10 +332,8 @@ export class BackupService {
     await PatientRepository.deleteAll();
     await PatientRepository.upsertMany(dump.data.patients || []);
 
-    db.appointments.clear();
-    for (const a of dump.data.appointments || []) {
-      db.appointments.set(a.id, a);
-    }
+    await AppointmentRepository.deleteAll();
+    await AppointmentRepository.upsertMany(dump.data.appointments || []);
 
     db.clinicalRecords.clear();
     for (const r of dump.data.clinicalRecords || []) {

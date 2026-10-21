@@ -15,7 +15,6 @@ import {
   type TherapistPublicProfile,
   type CreateRecurrentAppointmentsResponse
 } from '@terapiainfoco/shared';
-import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
@@ -25,6 +24,7 @@ import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultat
 import { TherapistProfileRepository } from '../repositories/therapistProfileRepository';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 
 /** "-03:00" -> -180 */
@@ -52,7 +52,7 @@ export class AppointmentService {
     const bufferMin = dto.bufferMinutes ?? config.defaultBufferMinutes;
 
     // Validação de conflito de horário e buffer de respiro
-    this.validateScheduleConflicts(therapistId, start, end, bufferMin);
+    await this.validateScheduleConflicts(therapistId, start, end, bufferMin);
 
     const id = randomUUID();
     const storedAppointment: StoredAppointment = {
@@ -65,7 +65,7 @@ export class AppointmentService {
       createdAt: new Date()
     };
 
-    db.appointments.set(id, storedAppointment);
+    await AppointmentRepository.create(storedAppointment);
 
     AuditService.log({
       actorId: context.actorId,
@@ -84,13 +84,13 @@ export class AppointmentService {
    * são atos clínicos (psicólogo/supervisor) e dependem do horário: uma sessão de amanhã não
    * pode constar como concluída nas métricas nem sumir da lista do paciente.
    */
-  static assertStaffTransition(
+  static async assertStaffTransition(
     appointmentId: string,
     newStatus: AppointmentStatus,
     role: UserRole,
     now: Date = new Date()
-  ): void {
-    const appointment = db.appointments.get(appointmentId);
+  ): Promise<void> {
+    const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new Error('Consulta não encontrada');
 
     const clinicalStatuses = [AppointmentStatus.EM_ANDAMENTO, AppointmentStatus.CONCLUIDA, AppointmentStatus.NAO_COMPARECEU];
@@ -115,12 +115,12 @@ export class AppointmentService {
   /**
    * Atualiza o estado da sessão conforme fluxo da RFC §3.1
    */
-  static updateStatus(
+  static async updateStatus(
     appointmentId: string,
     newStatus: AppointmentStatus,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedAppointment {
-    const appointment = db.appointments.get(appointmentId);
+  ): Promise<DecryptedAppointment> {
+    const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) {
       throw new Error('Consulta não encontrada');
     }
@@ -139,7 +139,7 @@ export class AppointmentService {
     }
 
     appointment.status = newStatus;
-
+    await AppointmentRepository.save(appointment);
 
     AuditService.log({
       actorId: context.actorId,
@@ -167,23 +167,20 @@ export class AppointmentService {
       }
     }
 
-    const list: DecryptedAppointment[] = [];
-    for (const app of db.appointments.values()) {
-      if (app.therapistId === therapistId) {
-        list.push({ ...toDecryptedAppointment(app), patientName: patientNames.get(app.patientId) ?? 'Paciente Cadastrado' });
-      }
-    }
-    return list;
+    return (await AppointmentRepository.list({ therapistId })).map((app) => ({
+      ...toDecryptedAppointment(app),
+      patientName: patientNames.get(app.patientId) ?? 'Paciente Cadastrado'
+    }));
   }
 
   /**
    * Consulta horários disponíveis de teleatendimento para a landing page pública
    * Respeita buffer obrigatório de 10 minutos e horários já ocupados
    */
-  static getAvailableSlots(
+  static async getAvailableSlots(
     therapistId: string,
     targetDateStr?: string
-  ): AvailableSlotsResponse {
+  ): Promise<AvailableSlotsResponse> {
     const bufferMinutes = config.defaultBufferMinutes;
 
     // Data no fuso da clínica (sem data informada, usa a data atual da clínica)
@@ -205,7 +202,7 @@ export class AppointmentService {
       let isAvailable = slotStart.getTime() > now;
       if (isAvailable) {
         try {
-          this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMinutes);
+          await this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMinutes);
         } catch {
           isAvailable = false;
         }
@@ -317,10 +314,8 @@ export class AppointmentService {
 
   /** Consultas do paciente em todos os consultórios a que sua conta está vinculada */
   static async getPatientUserAppointments(userId: string): Promise<PatientAppointmentView[]> {
-    const patientIds = new Set((await this.linkedPatientRecords(userId)).map((p) => p.id));
-    const appointments = Array.from(db.appointments.values())
-      .filter((a) => patientIds.has(a.patientId))
-      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+    const patientIds = (await this.linkedPatientRecords(userId)).map((p) => p.id);
+    const appointments = await AppointmentRepository.list({ patientIds });
 
     const names = new Map<string, string>();
     for (const therapistId of new Set(appointments.map((a) => a.therapistId))) {
@@ -338,34 +333,23 @@ export class AppointmentService {
     }));
   }
 
-  private static validateScheduleConflicts(
-
-    therapistId: string, 
-    start: Date, 
-    end: Date, 
+  private static async validateScheduleConflicts(
+    therapistId: string,
+    start: Date,
+    end: Date,
     bufferMinutes: number
-  ) {
+  ): Promise<void> {
+    // Conflito considerando o buffer de respiro
     const bufferMs = bufferMinutes * 60 * 1000;
-    const targetStartWithBuffer = start.getTime() - bufferMs;
-    const targetEndWithBuffer = end.getTime() + bufferMs;
-
-    for (const app of db.appointments.values()) {
-      if (
-        app.therapistId === therapistId &&
-        app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE &&
-        app.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA
-      ) {
-        const appStart = new Date(app.scheduledStart).getTime();
-        const appEnd = new Date(app.scheduledEnd).getTime();
-
-        // Conflito considerando o buffer de respiro
-        const overlaps = (targetStartWithBuffer < appEnd) && (targetEndWithBuffer > appStart);
-        if (overlaps) {
-          throw new Error(
-            `Conflito de agenda: o horário solicitado colide com outra sessão ou com o buffer obrigatório de ${bufferMinutes} min.`
-          );
-        }
-      }
+    const conflicts = await AppointmentRepository.listActiveOverlapping(
+      therapistId,
+      new Date(start.getTime() - bufferMs),
+      new Date(end.getTime() + bufferMs)
+    );
+    if (conflicts.length > 0) {
+      throw new Error(
+        `Conflito de agenda: o horário solicitado colide com outra sessão ou com o buffer obrigatório de ${bufferMinutes} min.`
+      );
     }
   }
 
@@ -416,7 +400,7 @@ export class AppointmentService {
 
       // Checa conflito
       try {
-        this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMin);
+        await this.validateScheduleConflicts(therapistId, slotStart, slotEnd, bufferMin);
       } catch (conflictErr: any) {
         conflictSlots.push({
           scheduledStart: slotStart.toISOString(),
@@ -434,12 +418,13 @@ export class AppointmentService {
 
       const created = await this.createAppointment(therapistId, apptDto, context);
       
-      const stored = db.appointments.get(created.id);
+      const stored = await AppointmentRepository.findById(created.id);
       if (stored) {
         stored.seriesId = seriesId;
         stored.sequenceNumber = i + 1;
         stored.totalInSeries = count;
         stored.recurrenceFrequency = frequency;
+        await AppointmentRepository.save(stored);
       }
       created.seriesId = seriesId;
       created.sequenceNumber = i + 1;
@@ -471,21 +456,21 @@ export class AppointmentService {
   /**
    * Cancela em lote todas as sessões futuras de uma série recorrente (RFC-001 §3.1)
    */
-  static cancelSeries(
+  static async cancelSeries(
     seriesId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): { canceledCount: number; seriesId: string } {
+  ): Promise<{ canceledCount: number; seriesId: string }> {
     let canceledCount = 0;
     const now = new Date();
 
-    for (const app of db.appointments.values()) {
+    for (const app of await AppointmentRepository.list({ seriesId })) {
       if (
-        app.seriesId === seriesId &&
         new Date(app.scheduledStart) > now &&
         app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE &&
         app.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA
       ) {
         app.status = AppointmentStatus.CANCELADA_PELO_TERAPEUTA;
+        await AppointmentRepository.save(app);
         canceledCount++;
       }
     }

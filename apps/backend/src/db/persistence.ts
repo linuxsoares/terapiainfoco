@@ -221,11 +221,6 @@ export class EntityPersistence {
     return this.db !== null;
   }
 
-  /** Coleção com ao menos uma entidade persistida */
-  hasPersisted(name: string): boolean {
-    return (this.snapshots.get(name)?.size ?? 0) > 0;
-  }
-
   /**
    * Carrega as entidades persistidas. Coleções sem registros no banco mantêm o conteúdo
    * atual em memória (seed demo / importação legada), que é gravado no primeiro flush.

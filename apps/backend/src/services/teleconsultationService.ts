@@ -28,6 +28,7 @@ import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 import { TeleconsultationSignalBus } from './teleconsultationSignalBus';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 /** Perfis que conduzem a sessão do lado do consultório */
 const CLINICIAN_ROLES: UserRole[] = [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO];
 
@@ -92,7 +93,7 @@ export class TeleconsultationService {
       return this.decryptStoredRoom(existing);
     }
 
-    const appointment = db.appointments.get(appointmentId);
+    const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) {
       throw new Error('Consulta não encontrada.');
     }

@@ -11,6 +11,7 @@ import {
 } from '@terapiainfoco/shared';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 /** Quarentena LGPD pseudonimiza o nome com um marcador fixo (PatientService.quarantinePatient) */
 function isQuarantined(encryptedName: Parameters<typeof decryptField>[0]): boolean {
   try {
@@ -32,7 +33,7 @@ export class AnalyticsService {
     const activePatients = Math.max(0, totalPatients - quarantinedPatients);
 
     // 2. Sessões / Agenda
-    const appointments = Array.from(db.appointments.values()).filter(a => !therapistId || a.therapistId === therapistId);
+    const appointments = await AppointmentRepository.list({ therapistId });
     const totalSessions = appointments.length;
     const completedSessions = appointments.filter(a => a.status === AppointmentStatus.CONCLUIDA || (a.status as any) === 'COMPLETED').length;
     const scheduledSessions = appointments.filter(a => a.status === AppointmentStatus.CONFIRMADA || a.status === AppointmentStatus.SOLICITADA || (a.status as any) === 'SCHEDULED' || (a.status as any) === 'CONFIRMED').length;
@@ -227,9 +228,7 @@ export class AnalyticsService {
     }
 
     // Sessões do paciente
-    const appts = Array.from(db.appointments.values())
-      .filter(a => a.patientId === patientId)
-      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+    const appts = await AppointmentRepository.list({ patientIds: [patientId] });
 
     const totalAppointments = appts.length;
     const completedAppointments = appts.filter(a => a.status === AppointmentStatus.CONCLUIDA || (a.status as any) === 'COMPLETED').length;

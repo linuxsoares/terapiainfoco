@@ -11,6 +11,7 @@ import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 const GENESIS_HASH = '0'.repeat(64);
 
 /** Detalhes serializáveis (estrutura circular não pode impedir o registro do evento) */
@@ -35,6 +36,13 @@ function canonicalJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`);
   return `{${entries.join(',')}}`;
+}
+
+/** Recursos de um consultório já promovidos a tabelas SQL (ADR-004 fase 2) */
+export interface PracticeScope {
+  staffIds: Set<string>;
+  patientIds: Set<string>;
+  appointmentIds: Set<string>;
 }
 
 export class AuditService {
@@ -233,10 +241,19 @@ export class AuditService {
    * Registro pertence ao consultório quando o ator é da equipe dele ou o recurso
    * (paciente, consulta, prontuário, documento) é do consultório.
    */
-  static belongsToPractice(log: AuditLog, therapistId: string, staffIds: Set<string>, patientIds: Set<string>): boolean {
-    if (staffIds.has(log.actorId) || patientIds.has(log.resourceId)) return true;
+  /** Ids de equipe, pacientes e consultas do consultório, para filtrar a trilha sem uma consulta por registro */
+  static async loadPracticeScope(therapistId: string): Promise<PracticeScope> {
+    const [staffIds, patientIds, appointmentIds] = await Promise.all([
+      UserRepository.idsByTherapist(therapistId),
+      PatientRepository.idsByTherapist(therapistId),
+      AppointmentRepository.idsByTherapist(therapistId)
+    ]);
+    return { staffIds, patientIds, appointmentIds };
+  }
+
+  static belongsToPractice(log: AuditLog, therapistId: string, scope: PracticeScope): boolean {
+    if (scope.staffIds.has(log.actorId) || scope.patientIds.has(log.resourceId) || scope.appointmentIds.has(log.resourceId)) return true;
     const owner =
-      db.appointments.get(log.resourceId)?.therapistId ??
       db.clinicalRecords.get(log.resourceId)?.therapistId ??
       db.documents.get(log.resourceId)?.therapistId;
     return owner === therapistId;
@@ -247,10 +264,9 @@ export class AuditService {
 
     if (filters.therapistId) {
       const therapistId = filters.therapistId;
-      // Equipe e pacientes do consultório carregados uma vez (não uma consulta por registro)
-      const staffIds = await UserRepository.idsByTherapist(therapistId);
-      const patientIds = await PatientRepository.idsByTherapist(therapistId);
-      result = result.filter(l => this.belongsToPractice(l, therapistId, staffIds, patientIds));
+      // Equipe, pacientes e consultas do consultório carregados uma vez (não uma consulta por registro)
+      const scope = await this.loadPracticeScope(therapistId);
+      result = result.filter(l => this.belongsToPractice(l, therapistId, scope));
     }
 
     if (filters.resourceType) {

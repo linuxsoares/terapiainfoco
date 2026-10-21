@@ -25,6 +25,7 @@ import { db } from '../db/memoryDb';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class SecurePurgeService {
   private static instance: SecurePurgeService;
 
@@ -149,7 +150,7 @@ export class SecurePurgeService {
       if (this.purgedPatientIds.has(patientId)) continue;
 
       const records = Array.from(db.clinicalRecords.values()).filter(r => r.patientId === patientId);
-      const appts = Array.from(db.appointments.values()).filter(a => a.patientId === patientId);
+      const appts = await AppointmentRepository.list({ patientIds: [patientId] });
 
       let resolvedDate: Date;
       if (records.length > 0 && records[records.length - 1].createdAt) {
@@ -243,13 +244,10 @@ export class SecurePurgeService {
     }
 
     // Coleta e expurga agendamentos
-    const appointments = Array.from(db.appointments.entries()).filter(([_, a]) => a.patientId === dto.patientId);
-    for (const [id] of appointments) {
-      db.appointments.delete(id);
-    }
+    const purgedAppointmentIds = new Set(await AppointmentRepository.deleteByPatient(dto.patientId));
 
-    // Sobrescrita e expurgo de transcrições
-    const transcriptions = Array.from(db.sessionTranscriptions.entries()).filter(([_, t]) => t.appointmentId?.includes(dto.patientId));
+    // Sobrescrita e expurgo de transcrições das consultas expurgadas
+    const transcriptions = Array.from(db.sessionTranscriptions.entries()).filter(([_, t]) => purgedAppointmentIds.has(t.appointmentId));
     for (const [id] of transcriptions) {
       db.sessionTranscriptions.delete(id);
     }
@@ -315,8 +313,8 @@ export class SecurePurgeService {
       dpoApproverId: actor.id,
       recordsPurgedCount: recordIdsPurged.length,
       recordIdsPurged,
-      sessionsPurgedCount: appointments.length || 1,
-      audioShardsPurgedCount: appointments.length * 2 || 2,
+      sessionsPurgedCount: purgedAppointmentIds.size || 1,
+      audioShardsPurgedCount: purgedAppointmentIds.size * 2 || 2,
       purgeReason: dto.purgeReason,
       purgeMethod,
       status: PurgeStatus.PURGED_CONFIRMED,

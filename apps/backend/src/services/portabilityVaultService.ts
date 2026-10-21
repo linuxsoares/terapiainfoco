@@ -29,6 +29,7 @@ import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class PortabilityVaultService {
   private static vaultHistory: Array<{
     vaultId: string;
@@ -114,8 +115,7 @@ export class PortabilityVaultService {
       });
 
     // 3. Consultas & Teleconsultas
-    const appointments = Array.from(db.appointments.values())
-      .filter((a) => a.patientId === dto.patientId)
+    const appointments = (await AppointmentRepository.list({ patientIds: [dto.patientId] }))
       .map((a) => ({
         id: a.id,
         scheduledStart: new Date(a.scheduledStart).toISOString(),

@@ -22,7 +22,7 @@ appointmentsRoute.get('/available-slots', async (c) => {
   const date = c.req.query('date');
 
   try {
-    const slotsResponse = AppointmentService.getAvailableSlots(therapistId, date);
+    const slotsResponse = await AppointmentService.getAvailableSlots(therapistId, date);
     return c.json({ success: true, ...slotsResponse });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
@@ -98,8 +98,8 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
   const userAgent = c.req.header('user-agent');
 
   try {
-    AppointmentService.assertStaffTransition(id, body.status, c.get('user').role);
-    const updated = AppointmentService.updateStatus(id, body.status, {
+    await AppointmentService.assertStaffTransition(id, body.status, c.get('user').role);
+    const updated = await AppointmentService.updateStatus(id, body.status, {
       actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
@@ -113,6 +113,7 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
 import { ReminderService } from '../services/reminderService';
 import { ReminderChannel } from '@terapiainfoco/shared';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 // Listar consultas do consultório do usuário autenticado
 appointmentsRoute.get('/mine', async (c) => {
   const appointments = await AppointmentService.getTherapistAppointments(c.get('user').therapistId!);
@@ -154,9 +155,7 @@ appointmentsRoute.post('/recurrent', async (c) => {
 appointmentsRoute.delete('/series/:seriesId', async (c) => {
   const seriesId = c.req.param('seriesId');
   const therapistId = c.get('user').therapistId;
-  const ownsSeries = Array.from(db.appointments.values()).some(
-    (appt) => appt.seriesId === seriesId && appt.therapistId === therapistId
-  );
+  const ownsSeries = !!therapistId && (await AppointmentRepository.list({ seriesId, therapistId })).length > 0;
   if (!ownsSeries) {
     return c.json({ success: false, error: 'Série não encontrada.' }, 404);
   }
@@ -164,7 +163,7 @@ appointmentsRoute.delete('/series/:seriesId', async (c) => {
   const userAgent = c.req.header('user-agent');
 
   try {
-    const result = AppointmentService.cancelSeries(seriesId, {
+    const result = await AppointmentService.cancelSeries(seriesId, {
       actorId: c.get('userId'),
       ipAddress: ip,
       userAgent

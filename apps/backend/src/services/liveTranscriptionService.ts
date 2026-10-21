@@ -20,6 +20,7 @@ import { getSttProvider } from './stt/sttProvider';
 import { ConsentService } from './consentService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 /** Trechos de ~10 s de Opus ficam bem abaixo disso; o limite barra abusos */
 const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
 
@@ -37,7 +38,7 @@ export class LiveTranscriptionError extends Error {
 export class LiveTranscriptionService {
   /** Transcrição disponível: consentimento vigente do paciente e provedor configurado */
   static async status(appointmentId: string): Promise<LiveTranscriptStatusResponse> {
-    const appointment = db.appointments.get(appointmentId);
+    const appointment = await AppointmentRepository.findById(appointmentId);
     const patient = appointment ? await PatientRepository.findById(appointment.patientId) : null;
     if (!patient?.consentTranscriptionSigned || patient.consentRevokedAt) {
       return { success: true, enabled: false, reason: 'NO_CONSENT' };
@@ -56,7 +57,7 @@ export class LiveTranscriptionService {
     granted: boolean,
     context: { ipAddress: string; userAgent?: string }
   ): Promise<LiveTranscriptStatusResponse> {
-    const appointment = db.appointments.get(appointmentId);
+    const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new LiveTranscriptionError('Consulta não encontrada.', 400);
     await ConsentService.getInstance().grantGranularConsent(
       {

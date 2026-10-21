@@ -14,6 +14,7 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class TranscriptionService {
   /**
    * Processa upload de áudio da teleconsulta e realiza diarização (RFC §3.3)
@@ -23,11 +24,7 @@ export class TranscriptionService {
     dto: UploadAudioDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
   ): Promise<DecryptedSessionTranscription> {
-    let appointment = db.appointments.get(dto.appointmentId);
-    if (!appointment && dto.appointmentId === '00000000-0000-0000-0000-000000000010') {
-      db.seedDemoSession();
-      appointment = db.appointments.get(dto.appointmentId);
-    }
+    const appointment = await AppointmentRepository.findById(dto.appointmentId);
     if (!appointment) {
       throw new Error('Consulta não encontrada para vincular transcrição.');
     }

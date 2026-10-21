@@ -3,20 +3,19 @@ import * as schema from './schema';
 import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { revive } from './persistence';
 import { UserRepository } from '../repositories/userRepository';
-import { seedDemoPatient, seedDemoUsers } from './demoUsers';
+import { seedDemoAppointment, seedDemoPatient, seedDemoUsers } from './demoUsers';
 import { config } from '../config';
 import { kmsProvider } from '../services/cryptoContext';
 import { seedDemoTherapistProfile } from '../repositories/therapistProfileRepository';
 
 /**
  * Carrega o cache de domínio a partir do PostgreSQL e ativa a persistência durável (ADR-004).
- *
- * Agendamentos gravados na tabela relacional legada (antes do entity_store) são importados
- * uma única vez: apenas enquanto o entity_store ainda não possui nenhum agendamento.
- * Usuários e pacientes já têm repositório SQL próprio (ADR-004 fase 2).
+ * Usuários, pacientes e consultas já têm repositório SQL próprio (ADR-004 fase 2): os registros
+ * que bancos antigos ainda guardam no entity_store são movidos uma vez para as tabelas.
  */
 export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
   const loaded = await persistence.load(sqlDb);
@@ -26,21 +25,19 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
   const summary = Object.entries(loaded).map(([name, count]) => `${name}=${count}`).join(', ');
   console.log(`⚡ entity_store carregado: ${summary || 'vazio'}`);
 
-  const imported = await importLegacyRecords(sqlDb);
-  if (imported.length > 0) {
-    console.log(`📥 Registros legados importados para o entity_store: ${imported.join(', ')}`);
-  }
-
   const movedUsers = await moveUsersOutOfEntityStore(sqlDb);
   if (movedUsers > 0) console.log(`📦 Contas movidas do entity_store para a tabela users: ${movedUsers}`);
   const movedPatients = await movePatientsOutOfEntityStore(sqlDb);
   if (movedPatients > 0) console.log(`📦 Pacientes movidos do entity_store para a tabela patients: ${movedPatients}`);
+  const movedAppointments = await moveAppointmentsOutOfEntityStore(sqlDb);
+  if (movedAppointments > 0) console.log(`📦 Consultas movidas do entity_store para a tabela appointments: ${movedAppointments}`);
 
   await persistence.attach(sqlDb);
 
   if (config.demoMode) {
     await seedDemoUsers(sqlDb);
     await seedDemoPatient(sqlDb);
+    await seedDemoAppointment(sqlDb);
     await seedDemoTherapistProfile(sqlDb);
   }
 }
@@ -81,25 +78,16 @@ export async function movePatientsOutOfEntityStore(sqlDb: AppDb): Promise<number
   return rows.length;
 }
 
-async function importLegacyRecords(sqlDb: AppDb): Promise<string[]> {
-  const imported: string[] = [];
-
-  if (!persistence.hasPersisted('appointments')) {
-    const rows = await (sqlDb as any).select().from(schema.appointments);
-    for (const a of rows) {
-      const appointment: StoredAppointment = {
-        id: a.id,
-        therapistId: a.therapistId,
-        patientId: a.patientId,
-        scheduledStart: a.scheduledStart,
-        scheduledEnd: a.scheduledEnd,
-        status: a.status,
-        createdAt: a.createdAt
-      };
-      db.appointments.set(appointment.id, appointment);
-    }
-    if (rows.length > 0) imported.push(`appointments=${rows.length}`);
-  }
-
-  return imported;
+/**
+ * As consultas passaram do entity_store para a tabela relacional `appointments` (ADR-004 fase 2).
+ * O entity_store era a fonte de verdade: seus registros substituem linhas legadas de mesmo id.
+ */
+export async function moveAppointmentsOutOfEntityStore(sqlDb: AppDb): Promise<number> {
+  const rows: { data: unknown }[] = await (sqlDb as any).select({ data: schema.entityStore.data })
+    .from(schema.entityStore).where(eq(schema.entityStore.collection, 'appointments'));
+  if (rows.length === 0) return 0;
+  const appointments = rows.map((row) => revive(typeof row.data === 'string' ? JSON.parse(row.data) : row.data) as StoredAppointment);
+  await AppointmentRepository.upsertMany(appointments, sqlDb);
+  await (sqlDb as any).delete(schema.entityStore).where(eq(schema.entityStore.collection, 'appointments'));
+  return rows.length;
 }

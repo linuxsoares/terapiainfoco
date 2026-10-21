@@ -11,6 +11,7 @@ import {
   type CreateAppointmentDTO 
 } from '@terapiainfoco/shared';
 
+import { AppointmentRepository } from '../src/repositories/appointmentRepository';
 describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Multicanal (§3.1)', () => {
   const therapistId = 'therapist-001';
   let patientId: string;
@@ -134,7 +135,7 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
         ipAddress: '127.0.0.1'
       });
 
-      const cancelResult = AppointmentService.cancelSeries(series.seriesId, {
+      const cancelResult = await AppointmentService.cancelSeries(series.seriesId, {
         actorId: therapistId,
         ipAddress: '127.0.0.1'
       });
@@ -143,7 +144,7 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
 
       // Verifica status de cada consulta
       for (const app of series.createdAppointments) {
-        const stored = db.appointments.get(app.id);
+        const stored = await AppointmentRepository.findById(app.id);
         expect(stored?.status).toBe(AppointmentStatus.CANCELADA_PELO_TERAPEUTA);
       }
     });
@@ -212,7 +213,7 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
       expect(res.auditWormId).toBeDefined();
 
       // Consulta deve ter status atualizado
-      const appt = db.appointments.get(appointmentId);
+      const appt = await AppointmentRepository.findById(appointmentId);
       expect(appt?.reminderStatus).toBe(ReminderDeliveryStatus.SENT);
       expect(appt?.lastReminderSentAt).toBeDefined();
 

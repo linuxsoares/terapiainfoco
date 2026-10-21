@@ -15,6 +15,7 @@ import { TranscriptionService } from './transcriptionService';
 import { ConsentService } from './consentService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class AiSoapService {
   /**
    * Gera proposta assistida por IA para os 4 quadrantes SOAP
@@ -26,11 +27,7 @@ export class AiSoapService {
     utterances?: TranscriptUtterance[];
     context: { actorId: string; ipAddress: string; userAgent?: string };
   }): Promise<GenerateSoapProposalResponse & { sanitizedUtterances: TranscriptUtterance[] }> {
-    let appointment = db.appointments.get(params.appointmentId);
-    if (!appointment && params.appointmentId === '00000000-0000-0000-0000-000000000010') {
-      db.seedDemoSession();
-      appointment = db.appointments.get(params.appointmentId);
-    }
+    const appointment = await AppointmentRepository.findById(params.appointmentId);
     if (!appointment) {
       throw new Error('Consulta não encontrada para gerar proposta SOAP.');
     }

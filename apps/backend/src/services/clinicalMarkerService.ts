@@ -14,6 +14,7 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class ClinicalMarkerService {
   /**
    * Sugere quadrante SOAP padrão conforme a categoria clínica do marcador (RFC-001 §3.3)
@@ -38,11 +39,11 @@ export class ClinicalMarkerService {
   /**
    * Cria um novo marcador clínico na sessão (RFC-001 §3.3)
    */
-  static createMarker(
+  static async createMarker(
     dto: CreateClinicalMarkerDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): ClinicalSessionMarker {
-    const appointment = db.appointments.get(dto.appointmentId);
+  ): Promise<ClinicalSessionMarker> {
+    const appointment = await AppointmentRepository.findById(dto.appointmentId);
     if (!appointment) {
       throw new Error(`Consulta ${dto.appointmentId} não encontrada para vincular marcador.`);
     }

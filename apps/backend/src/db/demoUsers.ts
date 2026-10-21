@@ -1,7 +1,8 @@
-import { UserRole, type StoredPatient, type User } from '@terapiainfoco/shared';
+import { AppointmentStatus, UserRole, type StoredAppointment, type StoredPatient, type User } from '@terapiainfoco/shared';
 import type { AppDb } from './index';
 import { UserRepository } from '../repositories/userRepository';
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { encryptField } from '../services/cryptoContext';
 
 /** Senha das contas de demonstração (DEMO_MODE): Senha@123456 */
@@ -120,4 +121,24 @@ export function buildDemoPatient(): StoredPatient {
 /** Cria a paciente de demonstração se ainda não existir */
 export async function seedDemoPatient(connection?: AppDb): Promise<void> {
   await PatientRepository.insertMissing([buildDemoPatient()], connection);
+}
+
+/** Consulta de demonstração (sessão de uma hora que acabou de terminar) */
+export const DEMO_APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
+
+export function buildDemoAppointment(): StoredAppointment {
+  return {
+    id: DEMO_APPOINTMENT_ID,
+    therapistId: 'therapist-001',
+    patientId: DEMO_PATIENT_ID,
+    scheduledStart: new Date(Date.now() - 3600000),
+    scheduledEnd: new Date(),
+    status: AppointmentStatus.CONFIRMADA,
+    createdAt: new Date()
+  };
+}
+
+/** Cria a consulta de demonstração se ainda não existir */
+export async function seedDemoAppointment(connection?: AppDb): Promise<void> {
+  await AppointmentRepository.insertMissing([buildDemoAppointment()], connection);
 }

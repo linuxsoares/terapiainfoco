@@ -1,6 +1,5 @@
 import type {
   Therapist,
-  StoredAppointment,
   StoredClinicalRecord,
   StoredPsychologicalDocument,
   StoredSessionTranscription,
@@ -41,7 +40,6 @@ import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, append
  */
 export class MemoryDatabase {
   public therapists: TrackedMap<string, Therapist> = new TrackedMap();
-  public appointments: TrackedMap<string, StoredAppointment> = new TrackedMap();
   public clinicalRecords: TrackedMap<string, StoredClinicalRecord> = new TrackedMap();
   public documents: TrackedMap<string, StoredPsychologicalDocument> = new TrackedMap();
   public sessionTranscriptions: TrackedMap<string, StoredSessionTranscription> = new TrackedMap();
@@ -79,7 +77,6 @@ export class MemoryDatabase {
   constructor() {
     if (config.demoMode) {
       this.seedDefaultTherapist();
-      this.seedDemoSession();
     }
   }
 
@@ -96,27 +93,7 @@ export class MemoryDatabase {
     this.therapists.set(defaultTherapist.id, defaultTherapist);
   }
 
-  /** Consulta de demonstração; o paciente dela fica na tabela `patients` (`seedDemoPatient`) */
-  public seedDemoSession() {
-    this.seedDefaultTherapist();
-    const defaultPatientId = '00000000-0000-0000-0000-000000000002';
-    const defaultAppointmentId = '00000000-0000-0000-0000-000000000010';
-    if (!this.appointments.has(defaultAppointmentId)) {
-      this.appointments.set(defaultAppointmentId, {
-        id: defaultAppointmentId,
-        therapistId: 'therapist-001',
-        patientId: defaultPatientId,
-        scheduledStart: new Date(Date.now() - 3600000),
-        scheduledEnd: new Date(),
-        status: 'CONFIRMED' as any,
-        createdAt: new Date()
-      });
-    }
-  }
-
-
   clear() {
-    this.appointments.clear();
     this.clinicalRecords.clear();
     this.documents.clear();
     this.sessionTranscriptions.clear();
@@ -155,7 +132,7 @@ export const db = new MemoryDatabase();
 
 /** Nomes das coleções chave-valor do cache de domínio persistidas no entity_store */
 const MAP_COLLECTIONS = [
-  'therapists', 'appointments', 'clinicalRecords', 'documents', 'sessionTranscriptions',
+  'therapists', 'clinicalRecords', 'documents', 'sessionTranscriptions',
   'anamnesisRecords', 'clinicalRecordRectifications', 'reminders', 'clinicalMarkers', 'therapeuticGoals',
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',

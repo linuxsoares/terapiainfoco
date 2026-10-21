@@ -400,10 +400,10 @@ export function AgendaModule({ role }: { role: UserRole }) {
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${getStatusBadge(app.status)}`}>
                           {app.status}
                         </span>
-                        {app.recurrenceSeriesId && (
+                        {app.seriesId && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
                             <Repeat className="w-3 h-3 text-purple-500" />
-                            Série #{app.recurrenceSequence || 1} ({app.recurrenceFrequency || 'WEEKLY'})
+                            Série #{app.sequenceNumber || 1} ({app.recurrenceFrequency || 'WEEKLY'})
                           </span>
                         )}
                       </div>
@@ -470,11 +470,11 @@ export function AgendaModule({ role }: { role: UserRole }) {
                       </>
                     )}
 
-                    {app.recurrenceSeriesId && 
+                    {app.seriesId && 
                      app.status !== AppointmentStatus.CONCLUIDA && 
                      app.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && (
                       <button
-                        onClick={() => handleCancelSeries(app.recurrenceSeriesId!)}
+                        onClick={() => handleCancelSeries(app.seriesId!)}
                         className="px-2.5 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
                         title="Cancela todas as sessões futuras pertencentes a esta série clínica"
                       >

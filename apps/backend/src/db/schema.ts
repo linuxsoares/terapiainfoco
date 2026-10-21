@@ -64,23 +64,32 @@ export const patients = pgTable('patients', {
 
 /**
  * 3. AGENDAMENTOS E SESSÕES (RFC §5.2, §3.1, §3.2)
+ * ADR-004 fase 2: repositório SQL, fora do cache em memória. A teleconsulta acontece na sala
+ * própria da plataforma (o link deriva do id), sem campos do Google Meet.
  */
 export const appointments = pgTable('appointments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
-  patientId: uuid('patient_id').notNull(),
+  id: text('id').primaryKey(),
+  therapistId: text('therapist_id').notNull(),
+  patientId: text('patient_id').notNull(),
   scheduledStart: timestamp('scheduled_start', { withTimezone: true }).notNull(),
   scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
-  status: varchar('status', { length: 30 }).notNull().default('CONFIRMED'),
+  status: varchar('status', { length: 40 }).notNull(),
 
-  /** Integração Google Meet */
-  googleEventId: varchar('google_event_id', { length: 255 }),
-  encryptedMeetUrl: jsonb('encrypted_meet_url').$type<EncryptedPayload>().notNull(),
-  meetAccessCode: varchar('meet_access_code', { length: 100 }),
+  /** Série recorrente (RFC-001 §3.1) */
+  seriesId: text('series_id'),
+  sequenceNumber: integer('sequence_number'),
+  totalInSeries: integer('total_in_series'),
+  recurrenceFrequency: varchar('recurrence_frequency', { length: 20 }),
+
+  /** Lembretes de teleconsulta (RFC-001 §3.1) */
+  reminderStatus: varchar('reminder_status', { length: 20 }),
+  lastReminderSentAt: timestamp('last_reminder_sent_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
-  index('idx_appointments_schedule').on(table.therapistId, table.scheduledStart)
+  index('idx_appointments_schedule').on(table.therapistId, table.scheduledStart),
+  index('idx_appointments_patient').on(table.patientId),
+  index('idx_appointments_series').on(table.seriesId)
 ]);
 
 /**
@@ -88,7 +97,7 @@ export const appointments = pgTable('appointments', {
  */
 export const sessionTranscriptions = pgTable('session_transcriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  appointmentId: uuid('appointment_id').notNull().unique().references(() => appointments.id),
+  appointmentId: uuid('appointment_id').notNull().unique(),
   storagePath: varchar('storage_path', { length: 500 }).notNull(),
   encryptedStorageKey: text('encrypted_storage_key').notNull(),
   encryptedTranscript: jsonb('encrypted_transcript').$type<EncryptedPayload>(),
@@ -104,7 +113,7 @@ export const sessionTranscriptions = pgTable('session_transcriptions', {
  */
 export const clinicalRecords = pgTable('clinical_records', {
   id: uuid('id').primaryKey().defaultRandom(),
-  appointmentId: uuid('appointment_id').notNull().references(() => appointments.id),
+  appointmentId: uuid('appointment_id').notNull(),
   patientId: uuid('patient_id').notNull(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
   sessionNumber: integer('session_number').notNull(),
