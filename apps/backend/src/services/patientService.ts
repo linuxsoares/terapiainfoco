@@ -21,6 +21,7 @@ import {
 } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 const QUARANTINED_NAME = '[PACIENTE EM QUARENTENA LGPD]';
 
 /** Minúsculas e sem acentos, para a busca por nome */
@@ -244,13 +245,7 @@ export class PatientService {
     const now = new Date();
 
     // 1. Consultas e Sessões de Teleconsulta (Módulos 1 & 2)
-    const patientAppointments: import('@terapiainfoco/shared').StoredAppointment[] = [];
-    for (const app of db.appointments.values()) {
-      if (app.patientId === patientId) {
-        patientAppointments.push(app);
-      }
-    }
-    patientAppointments.sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+    const patientAppointments = await AppointmentRepository.list({ patientIds: [patientId] });
 
     if (patientAppointments.length > 0) {
       firstConsultationDate = new Date(patientAppointments[0].scheduledStart).toISOString();

@@ -18,6 +18,7 @@ import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class PortabilityService {
   /**
    * Exporta o prontuário psicológico completo estruturado e interoperável (LGPD Art. 18, V)
@@ -57,9 +58,7 @@ export class PortabilityService {
     therapistName = (await UserRepository.findPracticeOwner(storedPatient.therapistId))?.name ?? therapistName;
 
     // 3. Consultas e sessões
-    const patientAppointments = Array.from(db.appointments.values())
-      .filter(a => a.patientId === params.patientId)
-      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime())
+    const patientAppointments = (await AppointmentRepository.list({ patientIds: [params.patientId] }))
       .map(a => ({
         id: a.id,
         scheduledStart: new Date(a.scheduledStart).toISOString(),

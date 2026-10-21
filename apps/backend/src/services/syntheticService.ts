@@ -36,6 +36,7 @@ import { db } from '../db/memoryDb';
 import { config } from '../config';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 /**
  * Consultório isolado do monitor sintético: os registros da jornada nunca caem num consultório
  * real nem no demo e são apagados ao fim de cada execução (a trilha WORM é preservada).
@@ -509,13 +510,18 @@ export class SyntheticService {
    */
   private static async purgeProbeRecords(): Promise<void> {
     const probePatientIds = await PatientRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
+    const probeAppointmentIds = await AppointmentRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
 
     for (const collection of Object.values(db)) {
       if (!(collection instanceof Map)) continue;
       for (const [id, entity] of collection) {
         if (!entity || typeof entity !== 'object') continue;
-        const { therapistId, patientId } = entity as { therapistId?: string; patientId?: string };
-        if (therapistId === SYNTHETIC_PROBE_THERAPIST_ID || (patientId && probePatientIds.has(patientId))) {
+        const { therapistId, patientId, appointmentId } = entity as { therapistId?: string; patientId?: string; appointmentId?: string };
+        if (
+          therapistId === SYNTHETIC_PROBE_THERAPIST_ID ||
+          (patientId && probePatientIds.has(patientId)) ||
+          (appointmentId && probeAppointmentIds.has(appointmentId))
+        ) {
           collection.delete(id);
         }
       }

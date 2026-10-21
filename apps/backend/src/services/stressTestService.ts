@@ -156,7 +156,7 @@ export class StressTestService {
           const reqStart = performance.now();
           try {
             if (scenario === StressScenario.READ_CONCURRENCY) {
-              const res = AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
+              const res = await AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
               if (!res || !Array.isArray(res.slots)) throw new Error('Falha na consulta');
             } else if (scenario === StressScenario.WORM_LEDGER_STRESS) {
               AuditService.log({
@@ -173,7 +173,7 @@ export class StressTestService {
             } else {
               // FULL_SYSTEM_MIXED: alterna leitura e criptografia/auditoria
               if (idx % 2 === 0) {
-                AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
+                await AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
               } else {
                 AuditService.log({
                   actorId: 'stress-worker',

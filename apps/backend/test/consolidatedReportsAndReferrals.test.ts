@@ -14,7 +14,7 @@ import { ConsolidatedReportService } from '../src/services/consolidatedReportSer
 import { ClinicalReferralService } from '../src/services/clinicalReferralService';
 import { app } from '../src/index';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { resetDb, upsertPatient } from './helpers/db';
+import { resetDb, upsertPatient, upsertAppointment } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006/2019) & Encaminhamento Multidisciplinar (§3.5)', () => {
   const mockContext = {
@@ -45,7 +45,7 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
     });
 
     // Cria consultas passadas do paciente
-    db.appointments.set('appt-01', {
+    await upsertAppointment({
       id: 'appt-01',
       therapistId,
       patientId,
@@ -55,7 +55,7 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       createdAt: new Date('2026-02-01')
     });
 
-    db.appointments.set('appt-02', {
+    await upsertAppointment({
       id: 'appt-02',
       therapistId,
       patientId,

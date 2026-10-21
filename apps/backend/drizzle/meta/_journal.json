@@ -43,6 +43,13 @@
       "when": 1792593345747,
       "tag": "0005_patient_repository",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792596076678,
+      "tag": "0006_appointment_repository",
+      "breakpoints": true
     }
   ]
 }

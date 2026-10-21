@@ -20,6 +20,7 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class ConsolidatedReportService {
   /**
    * Gera Laudo Pericial Multi-Sessões ou Relatório Psicológico Consolidado
@@ -59,9 +60,7 @@ export class ConsolidatedReportService {
     };
 
     // 2. Coleta de sessões do paciente
-    const patientAppointments = Array.from(db.appointments.values())
-      .filter(a => a.patientId === dto.patientId)
-      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+    const patientAppointments = await AppointmentRepository.list({ patientIds: [dto.patientId] });
 
     const startDate = dto.dataInicio || (patientAppointments[0]?.scheduledStart ? new Date(patientAppointments[0].scheduledStart).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     const endDate = dto.dataFim || new Date().toISOString().split('T')[0];

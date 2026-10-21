@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { db } from '../db/memoryDb';
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { UserRole, type SafeUser } from '@terapiainfoco/shared';
 import { PRACTICE_STAFF_ROLES } from './authMiddleware';
 
@@ -32,7 +33,7 @@ export async function canAccessPatient(user: SafeUser, patientId: string): Promi
 }
 
 export async function canAccessAppointment(user: SafeUser, appointmentId: string): Promise<boolean> {
-  const appointment = db.appointments.get(appointmentId);
+  const appointment = await AppointmentRepository.findById(appointmentId);
   if (!appointment) return false;
   if (user.role === UserRole.PACIENTE) return canAccessPatient(user, appointment.patientId);
   return isPracticeStaff(user) && appointment.therapistId === user.therapistId;

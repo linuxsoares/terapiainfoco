@@ -1,3 +1,4 @@
+import { AppointmentStatus } from '@terapiainfoco/shared';
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
@@ -9,7 +10,7 @@ import {
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
-import { upsertPatient } from './helpers/db';
+import { upsertPatient, upsertAppointment } from './helpers/db';
 describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18 & CFP 006/2019)', () => {
   let authToken: string;
   let samplePatientId: string;
@@ -50,15 +51,15 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
     } as any);
 
     sampleAppointmentId = 'appointment-consent-dedicated-' + Date.now();
-    db.appointments.set(sampleAppointmentId, {
+    await upsertAppointment({
       id: sampleAppointmentId,
       therapistId: 'therapist-001',
       patientId: samplePatientId,
-      scheduledAt: new Date(),
-      durationMinutes: 50,
-      status: 'CONFIRMADA' as any,
-      meetLink: 'https://meet.google.com/consent-test'
-    } as any);
+      scheduledStart: new Date(),
+      scheduledEnd: new Date(Date.now() + 50 * 60000),
+      status: AppointmentStatus.CONFIRMADA,
+      createdAt: new Date()
+    });
   });
 
   it('GET /api/consent/patient/:patientId deve retornar o ledger de consentimento do paciente com 5 escopos', async () => {

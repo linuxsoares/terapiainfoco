@@ -13,7 +13,7 @@ import { GoalService } from '../src/services/goalService';
 import { PsychometricService } from '../src/services/psychometricService';
 import { app } from '../src/index';
 
-import { upsertPatient } from './helpers/db';
+import { upsertPatient, upsertAppointment } from './helpers/db';
 describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Escalas Psicométricas (§3.3, §3.4)', () => {
   const mockContext = {
     actorId: 'therapist-001',
@@ -39,7 +39,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       createdAt: new Date()
     });
 
-    db.appointments.set(appointmentId, {
+    await upsertAppointment({
       id: appointmentId,
       therapistId: 'therapist-001',
       patientId,
@@ -52,7 +52,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
 
   describe('1. Marcadores Clínicos em Tempo Real (RFC-001 §3.3)', () => {
     it('deve criar marcador com timestamp, nota cifrada e quadrante SOAP inferido', async () => {
-      const marker = ClinicalMarkerService.createMarker({
+      const marker = await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 145000, // 2 min e 25s
         timeFormatted: '02:25',
@@ -75,7 +75,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
     });
 
     it('deve listar marcadores ordenados cronologicamente pelo timestamp da sessão', async () => {
-      ClinicalMarkerService.createMarker({
+      await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 600000,
         timeFormatted: '10:00',
@@ -84,7 +84,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
         note: 'Hesitação ao abordar relacionamento paterno.'
       }, mockContext);
 
-      ClinicalMarkerService.createMarker({
+      await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 120000,
         timeFormatted: '02:00',
@@ -105,7 +105,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
         if (m.appointmentId === appointmentId) db.clinicalMarkers.delete(id);
       }
 
-      ClinicalMarkerService.createMarker({
+      await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 180000,
         timeFormatted: '03:00',
@@ -114,7 +114,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
         note: 'Cefaleia tensional após reuniões de equipe.'
       }, mockContext);
 
-      ClinicalMarkerService.createMarker({
+      await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 900000,
         timeFormatted: '15:00',
@@ -123,7 +123,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
         note: 'Compreensão de que a autocobrança decorre de expectativas familiares.'
       }, mockContext);
 
-      ClinicalMarkerService.createMarker({
+      await ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 2400000,
         timeFormatted: '40:00',

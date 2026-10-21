@@ -16,6 +16,7 @@ import { decryptField, encryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class ReminderService {
   /**
    * Formata data e horário para exibição acolhedora em pt-BR
@@ -116,7 +117,7 @@ export class ReminderService {
     roomUrl: string;
     scheduledStart: string;
   }> {
-    const appt = db.appointments.get(appointmentId);
+    const appt = await AppointmentRepository.findById(appointmentId);
     if (!appt) {
       throw new Error('Consulta não encontrada para visualização de lembrete.');
     }
@@ -159,7 +160,7 @@ export class ReminderService {
     dto: SendReminderDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
   ): Promise<SendReminderResponse> {
-    const appt = db.appointments.get(dto.appointmentId);
+    const appt = await AppointmentRepository.findById(dto.appointmentId);
     if (!appt) {
       throw new Error('Consulta informada não encontrada.');
     }
@@ -213,6 +214,7 @@ export class ReminderService {
     // Atualiza status do último lembrete na consulta
     appt.reminderStatus = ReminderDeliveryStatus.SENT;
     appt.lastReminderSentAt = sentAt;
+    await AppointmentRepository.save(appt);
 
     // Registra auditoria WORM mandatória
     AuditService.log({

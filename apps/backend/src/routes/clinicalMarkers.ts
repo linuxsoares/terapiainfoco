@@ -25,7 +25,7 @@ clinicalMarkersRouter.post('/', async (c) => {
       return c.json({ success: false, error: 'appointmentId, timestampMs, category e note são obrigatórios' }, 400);
     }
 
-    const marker = ClinicalMarkerService.createMarker(body, {
+    const marker = await ClinicalMarkerService.createMarker(body, {
       actorId: user.id,
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')

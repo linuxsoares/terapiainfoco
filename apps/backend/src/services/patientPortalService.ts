@@ -23,6 +23,7 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 
+import { AppointmentRepository } from '../repositories/appointmentRepository';
 export class PatientPortalService {
   /**
    * Solicita código temporário descartável de acesso por e-mail para o paciente (RFC-001 §3.6, §3.7)
@@ -206,9 +207,8 @@ export class PatientPortalService {
     };
 
     // Identifica próxima consulta
-    const allAppointments = Array.from(db.appointments.values())
-      .filter(a => a.patientId === patientId && a.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && a.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA)
-      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+    const allAppointments = (await AppointmentRepository.list({ patientIds: [patientId] }))
+      .filter(a => a.status !== AppointmentStatus.CANCELADA_PELO_PACIENTE && a.status !== AppointmentStatus.CANCELADA_PELO_TERAPEUTA);
 
     let nextAppointment: PatientPortalAppointment | undefined = undefined;
     const now = new Date();

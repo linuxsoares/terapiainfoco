@@ -43,7 +43,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
       bufferMinutes: 10
     }, { actorId: therapistId, ipAddress: '127.0.0.1' });
 
-    AppointmentService.updateStatus(appt1.id, AppointmentStatus.CONCLUIDA, {
+    await AppointmentService.updateStatus(appt1.id, AppointmentStatus.CONCLUIDA, {
       actorId: therapistId,
       ipAddress: '127.0.0.1'
     });
@@ -59,7 +59,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
       bufferMinutes: 10
     }, { actorId: therapistId, ipAddress: '127.0.0.1' });
 
-    AppointmentService.updateStatus(appt2.id, AppointmentStatus.NAO_COMPARECEU, {
+    await AppointmentService.updateStatus(appt2.id, AppointmentStatus.NAO_COMPARECEU, {
       actorId: therapistId,
       ipAddress: '127.0.0.1'
     });

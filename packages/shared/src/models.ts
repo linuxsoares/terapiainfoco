@@ -160,8 +160,6 @@ export interface Appointment {
   sequenceNumber?: number;
   totalInSeries?: number;
   recurrenceFrequency?: RecurrenceFrequency;
-  recurrenceSeriesId?: string; // Alias
-  recurrenceSequence?: number; // Alias
 
   // Lembretes & Notificações de Teleconsulta (RFC-001 §3.1)
   reminderStatus?: ReminderDeliveryStatus;
