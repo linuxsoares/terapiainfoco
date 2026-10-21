@@ -10,7 +10,7 @@ describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção 
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // Obtém token de autenticação como Psicóloga Titular
     const loginRes = await app.request('/api/auth/login', {

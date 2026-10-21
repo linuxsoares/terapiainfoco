@@ -13,10 +13,10 @@ describe('Sem fallback de autenticação pelo Supabase', () => {
   const originalSupabase = { ...config.supabase };
   let supabaseCalls = 0;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     supabaseCalls = 0;
     config.supabase.url = 'https://projeto.supabase.co';
     config.supabase.publishableKey = 'chave-publica';

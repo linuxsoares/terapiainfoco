@@ -39,8 +39,8 @@ function putProfile(headers: Record<string, string>, body: unknown) {
 }
 
 describe('Busca de psicólogos (perfis públicos)', () => {
-  beforeEach(() => {
-    globalRateLimitStore.reset();
+  beforeEach(async () => {
+    await globalRateLimitStore.reset();
   });
 
   it('monta consulta por prefixo normalizada e descarta caracteres de controle do tsquery', () => {

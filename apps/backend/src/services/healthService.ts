@@ -169,9 +169,9 @@ export class HealthService {
     const cacheStart = Date.now();
     try {
       const probeKey = `__probe_${Date.now()}__`;
-      await globalEncryptedCache.set(probeKey, { ping: 'pong' }, 5);
+      globalEncryptedCache.set(probeKey, { ping: 'pong' }, 5);
       const retrieved = await globalEncryptedCache.get(probeKey);
-      await globalEncryptedCache.delete(probeKey);
+      globalEncryptedCache.delete(probeKey);
       const cacheLatency = Math.max(0.1, Date.now() - cacheStart);
 
       const stats = globalEncryptedCache.getStats();

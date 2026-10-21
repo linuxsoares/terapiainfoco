@@ -13,10 +13,10 @@ const b64url = (value: string | Buffer) => Buffer.from(value).toString('base64ur
  * e um atacante, sabendo só o e-mail, tenta entrar com uma asserção forjada.
  */
 describe('Passkeys: asserção forjada não autentica', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('registro sem chave pública verificável é recusado e login forjado não emite tokens', async () => {

@@ -13,7 +13,7 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
   beforeEach(async () => {
     db.clear();
     backupStore.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login com psicóloga titular
     const loginTherapist = await app.request('/api/auth/login', {

@@ -11,7 +11,7 @@ describe('Health Checks, Liveness & Readiness Probes (RFC-001 §5.2 e 12-Factor 
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login Admin
     const loginAdmin = await app.request('/api/auth/login', {

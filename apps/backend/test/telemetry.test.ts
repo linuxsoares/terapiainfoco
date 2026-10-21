@@ -13,7 +13,7 @@ describe('OpenTelemetry, Prometheus Metrics & W3C Distributed Tracing (RFC-001 Â
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login Admin
     const loginAdmin = await app.request('/api/auth/login', {

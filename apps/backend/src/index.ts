@@ -272,9 +272,8 @@ app.route('/api/portability-vault', portabilityVaultRouter);
 
 // Grava mudanças pendentes antes de encerrar (deploy/restart no Railway envia SIGTERM)
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-  process.once(signal, async () => {
-    await persistence.detach();
-    process.exit(0);
+  process.once(signal, () => {
+    void persistence.detach().finally(() => process.exit(0));
   });
 }
 

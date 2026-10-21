@@ -119,7 +119,7 @@ export class SecureMemoryService {
 
     this.recalculateMetrics();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.SECURE_MEMORY_ALLOCATED,
       resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,
@@ -157,7 +157,7 @@ export class SecureMemoryService {
     this.metrics.totalZeroizedBlocks++;
     this.recalculateMetrics();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.SECURE_MEMORY_ZEROIZED,
       resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,
@@ -183,7 +183,7 @@ export class SecureMemoryService {
     if (inspection.isSprayingDetected) {
       this.metrics.heapSprayingAttemptsBlocked++;
 
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.HEAP_SPRAYING_DETECTED,
         resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,
@@ -191,7 +191,7 @@ export class SecureMemoryService {
         ipAddress: ip
       });
 
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.HEAP_SPRAYING_BLOCKED,
         resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,
@@ -222,7 +222,7 @@ export class SecureMemoryService {
         this.metrics.autoPurgedExpiredDeks++;
         this.metrics.totalZeroizedBlocks++;
 
-        await AuditService.log({
+        AuditService.log({
           actorId: userId,
           action: AuditAction.DEK_EXPIRATION_PURGED,
           resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,
@@ -260,7 +260,7 @@ export class SecureMemoryService {
 
     const verification = verifyMemoryZeroizationProofSeal(seal);
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.MEMORY_ZEROIZATION_SEAL_VERIFIED,
       resourceType: AuditResourceType.SECURE_MEMORY_SHIELD,

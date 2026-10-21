@@ -191,7 +191,7 @@ export class EphemeralTokenService {
     this.totalTokensIssued++;
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.EPHEMERAL_TOKEN_ISSUED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
@@ -299,7 +299,7 @@ export class EphemeralTokenService {
     this.consumptionLogs.push(record);
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: granted ? AuditAction.EPHEMERAL_TOKEN_CONSUMED : AuditAction.EPHEMERAL_TOKEN_ACCESS_BLOCKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
@@ -355,7 +355,7 @@ export class EphemeralTokenService {
     token.proofSeal = proofSeal;
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.EPHEMERAL_TOKEN_REVOKED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,
@@ -494,7 +494,7 @@ export class EphemeralTokenService {
     const res = verifyEphemeralProofSeal(sealToken);
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.EPHEMERAL_TOKEN_PROOF_VERIFIED,
       resourceType: AuditResourceType.EPHEMERAL_TOKEN_SHIELD,

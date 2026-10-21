@@ -25,10 +25,10 @@ async function post(path: string, headers: Record<string, string>, body: unknown
 }
 
 describe('Dashboard do psicólogo usa o próprio consultório', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('contabiliza pacientes, sessões e prontuário SOAP por IA do consultório do usuário logado', async () => {

@@ -21,10 +21,10 @@ async function tokenFor(role: UserRole) {
 }
 
 describe('Pedidos de acesso da landing page', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('grava o pedido com contato cifrado e o Admin o lê decifrado', async () => {

@@ -212,7 +212,7 @@ export class Http2GrpcGuardService {
         ? AuditAction.GRPC_METADATA_TAMPERING_BLOCKED
         : AuditAction.HTTP2_FRAME_ANALYZED;
 
-      await AuditService.log({
+      AuditService.log({
         actorId: therapistId || 'system-h2-guard',
         actorRole: UserRole.PSICOLOGO_TITULAR,
         action: auditAction,
@@ -246,7 +246,7 @@ export class Http2GrpcGuardService {
     this.engine.updatePolicy(dto);
     const updatedPolicy = this.engine.getPolicy();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: therapistId || 'admin-security',
       actorRole: UserRole.ADMIN,
       action: AuditAction.HTTP2_GUARD_POLICY_UPDATED,
@@ -322,7 +322,7 @@ export class Http2GrpcGuardService {
 
     const verification = this.engine.verifySeal(sealToVerify);
 
-    await AuditService.log({
+    AuditService.log({
       actorId: therapistId || 'auditor-notary',
       actorRole: UserRole.PSICOLOGO_TITULAR,
       action: AuditAction.HTTP2_DESYNC_SEAL_VERIFIED,

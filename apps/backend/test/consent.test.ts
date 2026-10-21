@@ -19,7 +19,7 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
 
     // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
 
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     // Autentica como psicólogo titular padrão
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

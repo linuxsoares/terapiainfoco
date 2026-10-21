@@ -11,7 +11,7 @@ describe('HTTP Security Hardening, CSP/HSTS & Honeypot Anti-Probe (RFC-001 §4.4
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     honeypotService.clear();
 
     const loginAdmin = await app.request('/api/auth/login', {

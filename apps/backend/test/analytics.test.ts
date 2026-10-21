@@ -10,7 +10,7 @@ describe('Analytics, Métricas Clínicas & Observabilidade (Opção E - RFC-001)
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login como Psicóloga Titular
     const psychoRes = await app.request('/api/auth/login', {

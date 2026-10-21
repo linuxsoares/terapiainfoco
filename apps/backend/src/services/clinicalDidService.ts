@@ -135,7 +135,7 @@ export class ClinicalDidService {
       const doc = generateDidDocument(did);
       this.didDocuments.set(did, doc);
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
@@ -151,7 +151,7 @@ export class ClinicalDidService {
       const doc = generateDidDocument(did);
       this.didDocuments.set(did, doc);
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.DID_DOCUMENT_RESOLVED,
         resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
         resourceId: did,
@@ -225,7 +225,7 @@ export class ClinicalDidService {
     this.credentialsByPatient.set(dto.patientId, patientCreds);
 
     // Registro na trilha WORM imutável
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.VERIFIABLE_CREDENTIAL_ISSUED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: credentialId,
@@ -269,7 +269,7 @@ export class ClinicalDidService {
           (id) => this.revokedCredentialIds.has(id)
         );
 
-        await AuditService.log({
+        AuditService.log({
           action: AuditAction.VERIFIABLE_CREDENTIAL_VERIFIED,
           resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
           resourceId: decodedVc.id,
@@ -349,7 +349,7 @@ export class ClinicalDidService {
 
     const revokedAt = new Date().toISOString();
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.VERIFIABLE_CREDENTIAL_REVOKED,
       resourceType: AuditResourceType.CLINICAL_FEDERATION_DID,
       resourceId: dto.credentialId,

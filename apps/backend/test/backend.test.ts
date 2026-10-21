@@ -12,7 +12,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
     ({ accessToken } = await authService.issueTokens(psicologa, '127.0.0.1'));
   });

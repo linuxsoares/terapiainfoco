@@ -18,7 +18,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     NetworkResilienceService.getInstance().resetForTesting();
 
     const loginTherapist = await app.request('/api/auth/login', {

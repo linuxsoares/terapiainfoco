@@ -54,7 +54,7 @@ export class PatientPortalService {
     });
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: patient.id,
       action: AuditAction.PATIENT_PORTAL_AUTH_REQUESTED,
       resourceType: AuditResourceType.PATIENT_PORTAL,
@@ -156,7 +156,7 @@ export class PatientPortalService {
     );
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: patient.id,
       action: AuditAction.PATIENT_PORTAL_LOGGED_IN,
       resourceType: AuditResourceType.PATIENT_PORTAL,
@@ -337,7 +337,7 @@ export class PatientPortalService {
     db.therapeuticExercises.set(id, exercise);
 
     // Auditoria WORM
-    const auditLog = await AuditService.log({
+    const auditLog = AuditService.log({
       actorId: context.actorId,
       action: AuditAction.THERAPEUTIC_EXERCISE_ASSIGNED,
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
@@ -389,7 +389,7 @@ export class PatientPortalService {
     db.therapeuticExercises.set(exercise.id, updated);
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: patientId,
       action: AuditAction.THERAPEUTIC_EXERCISE_SUBMITTED,
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
@@ -426,7 +426,7 @@ export class PatientPortalService {
     db.therapeuticExercises.set(exercise.id, updated);
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: context.actorId,
       action: AuditAction.THERAPEUTIC_EXERCISE_REVIEWED,
       resourceType: AuditResourceType.THERAPEUTIC_EXERCISE,
@@ -450,7 +450,7 @@ export class PatientPortalService {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: patientId,
       action: AuditAction.PATIENT_RECEIPT_ACCESSED,
       resourceType: AuditResourceType.CLINICAL_RECEIPT,

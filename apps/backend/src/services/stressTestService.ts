@@ -173,7 +173,7 @@ export class StressTestService {
             } else {
               // FULL_SYSTEM_MIXED: alterna leitura e criptografia/auditoria
               if (idx % 2 === 0) {
-                await AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
+                AppointmentService.getAvailableSlots('therapist-001', '2026-10-20');
               } else {
                 AuditService.log({
                   actorId: 'stress-worker',

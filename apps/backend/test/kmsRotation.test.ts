@@ -9,7 +9,7 @@ describe('Gestão de Chaves KMS & Rotação Contínua (NIST SP 800-57 & RFC §4.
   let receptionistToken: string;
 
   beforeEach(async () => {
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // Gera token de Admin para acesso às operações de governança criptográfica
     const loginAdmin = await app.request('/api/auth/login', {

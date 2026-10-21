@@ -37,10 +37,10 @@ async function setStatus(userId: string, appointmentId: string, status: Appointm
 }
 
 describe('Ciclo de vida da sessão na agenda', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('sessão de amanhã não pode ser iniciada, concluída nem marcada como falta', async () => {
@@ -79,10 +79,10 @@ describe('Ciclo de vida da sessão na agenda', () => {
 });
 
 describe('Agenda do consultório', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('lista as consultas com o nome do paciente', async () => {

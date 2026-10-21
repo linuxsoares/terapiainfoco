@@ -2400,6 +2400,7 @@ terapiainfoco/
 | `fix/typecheck-crypto-exports` | Zera os erros de tipo do pacote crypto (barrel ambíguo, enums do shared, JWK, política de supply chain) | [PR #160](https://github.com/linuxsoares/terapiainfoco/pull/160) | Merged |
 | `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | [PR #161](https://github.com/linuxsoares/terapiainfoco/pull/161) | Merged |
 | `feat/backups-object-storage` | Snapshots de backup cifrados em object storage S3/R2, recarregados no boot, e documentação dos backups gerenciados do PostgreSQL | [PR #162](https://github.com/linuxsoares/terapiainfoco/pull/162) | Merged |
+| `chore/lint-floating-promises` | Lint de promessas no backend (await esquecido) no `make test` e no CI, preparando os repositórios SQL assíncronos | [PR #164](https://github.com/linuxsoares/terapiainfoco/pull/164) | Merged |
 
 ---
 
@@ -2414,6 +2415,12 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Bootstrap explícito do banco:** `DATABASE_URL` obrigatório em produção, migrações sem engolir erros (baseline controlado para schemas pré-existentes), inicialização única concorrente, seed de demonstração restrito a `DEMO_MODE` e `PGLITE_DATA_DIR` para dev local persistente.
 - [x] **Persistência durável de todas as coleções no PostgreSQL** (ADR-004 do RFC-001): tabela `entity_store` (JSONB), hidratação no boot, flush transacional antes de cada resposta (503 se falhar), flush periódico + varredura completa, gravação no `SIGTERM`, importação única das tabelas legadas e remoção das escritas fire-and-forget/PostgREST.
 - [ ] **[Fase 2 do ADR-004] Repositórios SQL assíncronos** para usuários, pacientes, agendamentos e prontuários (habilita múltiplas réplicas).
+  - [x] Lint de promessas no backend (`no-floating-promises`, `no-misused-promises`, `await-thenable`) no `make test`/CI: pega `await` esquecido (`if (!promessa)` sempre falso). Corrigidos 49 `globalRateLimitStore.reset()` sem `await` nos testes e 103 `await` em `AuditService.log` (síncrono).
+  - [ ] `users` → `UserRepository` SQL.
+  - [ ] `patients` → `PatientRepository` SQL.
+  - [ ] `appointments` → `AppointmentRepository` SQL.
+  - [ ] `clinicalRecords` → `ClinicalRecordRepository` SQL.
+  - [ ] Estado restante em memória por instância (KMS, rate limit sem Redis, ledger de consentimento, tokens efêmeros, sinalização WebRTC) para de fato rodar várias réplicas.
 - [x] **Rotação de KEK do KMS durável:** versões ≥ 2 derivadas da `KMS_MASTER_KEY` via HKDF-SHA256 (reconstruíveis após restart), estado do KMS (versão ativa e revogações) persistido no `entity_store` e restaurado no boot.
 - [x] **Backups fora do processo:** snapshots cifrados (envelope KMS) enviados a object storage S3-compatível (S3/R2/MinIO via `Bun.S3Client`, variáveis `BACKUP_S3_*`); falha no envio falha o backup; boot recarrega os 20 mais recentes e verificação/restauração/download buscam no bucket os demais; resultado da verificação regravado no bucket; governança marca offsite só com bucket configurado; aviso no painel quando os snapshots estão só em memória; `docs/RAILWAY_DEPLOYMENT.md` documenta as variáveis, retenção por ciclo de vida, guarda da `KMS_MASTER_KEY` e os backups gerenciados do PostgreSQL (Supabase/Railway).
 - [ ] **Cobertura do snapshot de backup:** o dump inclui só 8 coleções (usuários, pacientes, consultas, prontuários, documentos, transcrições, terapeutas, auditoria) e a restauração substitui só essas; consentimentos, leads, metas, recibos, perfis públicos e as demais coleções do `entity_store` ficam de fora.

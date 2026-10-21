@@ -217,7 +217,7 @@ export class SessionFixationGuardService {
       this.incidents.push(incident);
       this.sealsMap.set(incident.seal.sealId, incident.seal);
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.SESSION_FIXATION_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: incident.id,
@@ -313,7 +313,7 @@ export class SessionFixationGuardService {
         lastSeenAt: new Date().toISOString()
       });
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.SESSION_ROTATED_ON_PRIVILEGE_ELEVATION,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: newId,
@@ -357,7 +357,7 @@ export class SessionFixationGuardService {
           this.incidents.shift();
         }
 
-        await AuditService.log({
+        AuditService.log({
           action: AuditAction.SESSION_HIJACKING_DETECTED,
           resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
           resourceId: incident.id,
@@ -374,7 +374,7 @@ export class SessionFixationGuardService {
       }
     } else if (!evaluation.requiresRotation) {
       // Registro regular WORM de contexto íntegro
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.SESSION_CONTEXT_BOUND,
         resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
         resourceId: evaluation.seal.sealId,
@@ -448,7 +448,7 @@ export class SessionFixationGuardService {
 
     this.sealsMap.set(seal.sealId, seal);
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.SESSION_ROTATED_ON_PRIVILEGE_ELEVATION,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: newSessionId,
@@ -480,7 +480,7 @@ export class SessionFixationGuardService {
     };
     this.metrics.activePolicy = { ...this.policy };
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.SESSION_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: 'session-guard-policy',
@@ -599,7 +599,7 @@ export class SessionFixationGuardService {
     const verification = verifySessionProofSeal(sealToVerify);
     const sealId = verification.parsedSeal?.sealId || (typeof dto.sealToken === 'string' ? dto.sealToken.slice(0, 32) : 'unknown_seal');
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.SESSION_GUARD_SEAL_VERIFIED,
       resourceType: AuditResourceType.SESSION_HIJACKING_GUARD,
       resourceId: sealId,

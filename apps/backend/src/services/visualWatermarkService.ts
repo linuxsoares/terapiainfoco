@@ -187,7 +187,7 @@ export class VisualWatermarkService {
 
     this.activeSeeds.set(seed.seedId, seed);
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.VISUAL_WATERMARK_EMBEDDED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: seed.seedId,
@@ -234,7 +234,7 @@ export class VisualWatermarkService {
     this.totalPsnrSum += result.psnrDb;
     this.totalSsimSum += result.ssimScore;
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.VISUAL_WATERMARK_EMBEDDED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: result.embeddingId,
@@ -293,7 +293,7 @@ export class VisualWatermarkService {
       };
       this.recentIncidents.set(incident.id, incident);
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.LEAK_SOURCE_IDENTIFIED,
         resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
         resourceId: incident.id,
@@ -306,7 +306,7 @@ export class VisualWatermarkService {
         }
       });
     } else {
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.LEAK_EXTRACTION_ATTEMPTED,
         resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
         resourceId: result.extractionId,
@@ -357,7 +357,7 @@ export class VisualWatermarkService {
 
     const survivedAnalysis = extractionResult.confidence !== WatermarkExtractionConfidence.NO_CORRELATION;
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.LEAK_EXTRACTION_ATTEMPTED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: seed.seedId,
@@ -388,7 +388,7 @@ export class VisualWatermarkService {
   ): Promise<WatermarkEmbeddingStrength> {
     this.activeStrength = dto.strength;
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.WATERMARK_POLICY_UPDATED,
       resourceType: AuditResourceType.VISUAL_WATERMARK_SHIELD,
       resourceId: 'global_policy',

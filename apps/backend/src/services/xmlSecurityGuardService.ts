@@ -185,7 +185,7 @@ export class XmlSecurityGuardService {
         auditAction = AuditAction.XINCLUDE_INJECTION_BLOCKED;
       }
 
-      await AuditService.log({
+      AuditService.log({
         action: auditAction,
         resourceType: AuditResourceType.XML_SECURITY_GUARD,
         resourceId: incident.id,
@@ -206,7 +206,7 @@ export class XmlSecurityGuardService {
     } else {
       this.metrics.cleanDocumentsProcessed++;
 
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.SAFE_XML_NORMALIZED,
         resourceType: AuditResourceType.XML_SECURITY_GUARD,
         resourceId: result.seal.sealId,
@@ -237,7 +237,7 @@ export class XmlSecurityGuardService {
     };
     this.metrics.activePolicy = { ...this.policy };
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.XML_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.XML_SECURITY_GUARD,
       resourceId: 'xml-guard-policy',
@@ -376,7 +376,7 @@ export class XmlSecurityGuardService {
 
     const sealId = verification.parsedSeal?.sealId || (typeof dto.sealToken === 'string' ? dto.sealToken.slice(0, 32) : 'unknown_seal');
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.XML_GUARD_SEAL_VERIFIED,
       resourceType: AuditResourceType.XML_SECURITY_GUARD,
       resourceId: sealId,

@@ -21,7 +21,7 @@ describe('Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / Face
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login Psicólogo Titular
     const loginTherapist = await app.request('/api/auth/login', {

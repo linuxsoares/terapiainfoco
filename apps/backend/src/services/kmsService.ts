@@ -33,7 +33,8 @@ export class KmsService {
     };
 
     // Garante que a DEK inicial do terapeuta padrão tenha um formato inicial válido com o KMS
-    this.ensureDefaultTherapistDek();
+    // (construtor síncrono: a falha é tratada dentro do método)
+    void this.ensureDefaultTherapistDek();
   }
 
   private async ensureDefaultTherapistDek() {

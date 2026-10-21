@@ -21,7 +21,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     WebRtcSecurityService.getInstance().resetForTesting();
 
     const loginTherapist = await app.request('/api/auth/login', {

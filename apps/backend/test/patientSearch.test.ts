@@ -18,10 +18,10 @@ async function search(q: string, headers: Record<string, string>) {
 }
 
 describe('Busca de pacientes por nome ou e-mail', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('encontra por parte do nome, sem acento e sem diferenciar maiúsculas', async () => {

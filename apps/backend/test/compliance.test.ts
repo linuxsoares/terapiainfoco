@@ -12,7 +12,7 @@ describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opç�
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login com psicóloga titular
     const loginTherapist = await app.request('/api/auth/login', {

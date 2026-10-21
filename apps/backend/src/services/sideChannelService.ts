@@ -120,7 +120,7 @@ export class SideChannelService {
       this.timingLeaksBlockedCount++;
     }
 
-    await AuditService.log({
+    AuditService.log({
       actorId: operatorId,
       action: AuditAction.CONSTANT_TIME_EXECUTION_VERIFIED,
       resourceType: AuditResourceType.SIDE_CHANNEL_SHIELD,
@@ -175,7 +175,7 @@ export class SideChannelService {
 
     this.recentBenchmarks.set(id, report);
 
-    await AuditService.log({
+    AuditService.log({
       actorId: operatorId,
       action: AuditAction.SIDE_CHANNEL_DEFENSE_ASSESSED,
       resourceType: AuditResourceType.SIDE_CHANNEL_SHIELD,
@@ -199,7 +199,7 @@ export class SideChannelService {
     this.activeJitterTargetMs = Math.max(1, Math.min(dto.targetLatencyMs, 50));
     this.activeJitterVarianceMs = dto.varianceMs ? Math.max(0.5, Math.min(dto.varianceMs, 10)) : 2;
 
-    await AuditService.log({
+    AuditService.log({
       actorId: operatorId,
       action: AuditAction.TIMING_JITTER_INJECTED,
       resourceType: AuditResourceType.SIDE_CHANNEL_SHIELD,
@@ -223,7 +223,7 @@ export class SideChannelService {
   public async updatePolicy(dto: UpdateSideChannelPolicyDTO, operatorId: string = 'ADMIN'): Promise<{ protectionMode: SideChannelProtectionMode; message: string }> {
     this.activeProtectionMode = dto.protectionMode;
 
-    await AuditService.log({
+    AuditService.log({
       actorId: operatorId,
       action: AuditAction.SIDE_CHANNEL_POLICY_UPDATED,
       resourceType: AuditResourceType.SIDE_CHANNEL_SHIELD,
@@ -286,7 +286,7 @@ export class SideChannelService {
 
     if (detectedLeak) {
       this.timingLeaksBlockedCount++;
-      await AuditService.log({
+      AuditService.log({
         actorId: operatorId,
         action: AuditAction.TIMING_LEAK_DETECTED,
         resourceType: AuditResourceType.SIDE_CHANNEL_SHIELD,

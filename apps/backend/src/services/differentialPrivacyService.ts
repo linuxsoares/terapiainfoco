@@ -150,7 +150,7 @@ export class DifferentialPrivacyService {
     }
 
     // Registro na Trilha WORM de Auditoria
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DP_BUDGET_ALLOCATED,
       resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
       resourceId: project.projectId,
@@ -191,7 +191,7 @@ export class DifferentialPrivacyService {
 
     // Validação estrita do Orçamento de Privacidade (Anti-Reconstruction Mitigation)
     if (project.remainingEpsilonBudget < requestedEpsilon) {
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.DP_BUDGET_EXHAUSTED,
         resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
         resourceId: project.projectId,
@@ -240,7 +240,7 @@ export class DifferentialPrivacyService {
     }
 
     // Registro na Trilha WORM Inviolável
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DP_QUERY_EXECUTED,
       resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
       resourceId: queryResult.queryId,
@@ -260,7 +260,7 @@ export class DifferentialPrivacyService {
     });
 
     if (budgetStatus === DpBudgetStatus.EXHAUSTED) {
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.DP_BUDGET_EXHAUSTED,
         resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
         resourceId: project.projectId,
@@ -313,7 +313,7 @@ export class DifferentialPrivacyService {
     this.benchmarks.set(benchmark.benchmarkId, benchmark);
 
     // Registro na Trilha WORM
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DP_DATASET_EXPORTED,
       resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
       resourceId: benchmark.benchmarkId,
@@ -371,7 +371,7 @@ export class DifferentialPrivacyService {
 
     const verification = verifyDifferentialPrivacyProof(proofSeal, query);
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DP_PROOF_VERIFIED,
       resourceType: AuditResourceType.DIFFERENTIAL_PRIVACY_ENGINE,
       resourceId: query.queryId,

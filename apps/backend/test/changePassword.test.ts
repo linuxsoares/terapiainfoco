@@ -24,10 +24,10 @@ async function changePassword(accessToken: string, body: object) {
 }
 
 describe('Troca da própria senha', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('exige a senha atual e uma nova senha válida', async () => {

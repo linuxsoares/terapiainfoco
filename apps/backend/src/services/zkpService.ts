@@ -114,7 +114,7 @@ export class ZkpService {
     this.lastProofGeneratedAt = finalProof.createdAt;
 
     // Trilha WORM imutável
-    await AuditService.log({
+    AuditService.log({
       actorId: params.therapistId,
       resourceType: AuditResourceType.ZKP_PROOF,
       resourceId: proofId,
@@ -212,7 +212,7 @@ export class ZkpService {
     this.validVerificationsCount++;
 
     // Trilha WORM de validação bem-sucedida
-    await AuditService.log({
+    AuditService.log({
       actorId: params.actorId || 'PUBLIC_ANONYMOUS_VERIFIER',
       resourceType: AuditResourceType.ZKP_PROOF,
       resourceId: decodedProof.proofId,

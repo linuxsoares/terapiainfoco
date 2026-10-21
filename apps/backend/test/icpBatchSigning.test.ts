@@ -20,7 +20,7 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
 
     // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
 
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

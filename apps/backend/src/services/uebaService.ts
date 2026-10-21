@@ -310,7 +310,7 @@ export class UebaService {
       }
 
       // Registra na trilha de auditoria WORM
-      const auditLog = await AuditService.log({
+      const auditLog = AuditService.log({
         actorId: event.userId,
         action: AuditAction.UEBA_ANOMALY_DETECTED,
         resourceType: AuditResourceType.UEBA_SECURITY_ENGINE,
@@ -518,7 +518,7 @@ export class UebaService {
       this.incidents.set(dto.incidentId, inc);
     }
 
-    await AuditService.log({
+    AuditService.log({
       actorId: operatorId,
       action: dto.action === UebaContainmentAction.NONE
         ? AuditAction.UEBA_CONTAINMENT_RELEASED

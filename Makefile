@@ -60,8 +60,12 @@ docker-down: ## Para os containers do Docker Compose
 
 ##@ Testes & Verificação
 .PHONY: test
-test: typecheck ## Valida tipagem e executa todos os testes automatizados (Criptografia & Backend API)
+test: typecheck lint ## Valida tipagem, lint de promessas e executa todos os testes automatizados
 	bun test
+
+.PHONY: lint
+lint: ## Lint de promessas do backend (await esquecido, promessas soltas)
+	bun run --cwd apps/backend lint
 
 .PHONY: test-backend
 test-backend: ## Executa apenas os testes de integração do Backend

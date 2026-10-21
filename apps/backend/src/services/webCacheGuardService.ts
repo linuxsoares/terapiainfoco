@@ -184,7 +184,7 @@ export class WebCacheGuardService {
       }
 
       // Registro WORM compulsório
-      await AuditService.log({
+      AuditService.log({
         action: isDeception
           ? AuditAction.CACHE_DECEPTION_ATTEMPT_BLOCKED
           : AuditAction.CACHE_POISONING_ATTEMPT_BLOCKED,
@@ -212,7 +212,7 @@ export class WebCacheGuardService {
       }
 
       // Registro na trilha WORM para geração de chave canônica de recurso protegido
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.CANONICAL_CACHE_KEY_GENERATED,
         resourceType: AuditResourceType.CACHE_POISONING_GUARD,
         resourceId: inspection.seal.sealId,
@@ -240,7 +240,7 @@ export class WebCacheGuardService {
     };
     this.metrics.activePolicy = { ...this.policy };
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.CACHE_GUARD_POLICY_UPDATED,
       resourceType: AuditResourceType.CACHE_POISONING_GUARD,
       resourceId: 'cache-guard-policy',
@@ -340,7 +340,7 @@ export class WebCacheGuardService {
     const result = verifyCacheProofSeal(sealToken);
 
     if (result.isValid && result.parsedSeal) {
-      await AuditService.log({
+      AuditService.log({
         action: AuditAction.CACHE_GUARD_SEAL_VERIFIED,
         resourceType: AuditResourceType.CACHE_POISONING_GUARD,
         resourceId: result.parsedSeal.sealId,

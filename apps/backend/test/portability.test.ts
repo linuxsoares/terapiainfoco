@@ -17,7 +17,7 @@ describe('Portabilidade de Dados & Exportação Criptografada LGPD Art. 18 (Opç
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // Login com psicólogo titular
     const loginRes = await app.request('/api/auth/login', {

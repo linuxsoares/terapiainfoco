@@ -249,7 +249,7 @@ export class TlsPinningService {
       ? AuditAction.TLS_ROGUE_CA_DETECTED
       : AuditAction.TLS_PIN_VIOLATION_BLOCKED;
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: auditAction,
       resourceType: AuditResourceType.TLS_PINNING_GUARD,
@@ -391,7 +391,7 @@ export class TlsPinningService {
     this.pins.set(pin.pinId, pin);
     this.recalculateMetrics();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.TLS_PIN_VERIFIED,
       resourceType: AuditResourceType.TLS_PINNING_GUARD,
@@ -430,7 +430,7 @@ export class TlsPinningService {
 
     const rotatedAt = new Date().toISOString();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.TLS_CA_ROTATED,
       resourceType: AuditResourceType.TLS_PINNING_GUARD,
@@ -468,7 +468,7 @@ export class TlsPinningService {
     this.recalculateMetrics();
     const quarantinedAt = new Date().toISOString();
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.TLS_ROGUE_CA_DETECTED,
       resourceType: AuditResourceType.TLS_PINNING_GUARD,

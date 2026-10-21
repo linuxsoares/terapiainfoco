@@ -9,7 +9,7 @@ describe('Homologação sob Carga, Stress Concorrente & Avaliação de SLOs RED 
   let receptionistToken: string;
 
   beforeEach(async () => {
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {
       method: 'POST',
