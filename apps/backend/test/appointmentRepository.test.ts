@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { AppointmentStatus, RecurrenceFrequency, ReminderDeliveryStatus, type StoredAppointment } from '@terapiainfoco/shared';
 import { getDb } from '../src/db';
 import { encode } from '../src/db/persistence';
-import { moveAppointmentsOutOfEntityStore } from '../src/db/sync';
+import { moveOutOfEntityStore } from '../src/db/sync';
 import { AppointmentRepository } from '../src/repositories/appointmentRepository';
 import { AppointmentService } from '../src/services/appointmentService';
 import { resetDb } from './helpers/db';
@@ -88,7 +88,7 @@ describe('AppointmentRepository (ADR-004 fase 2)', () => {
     const current = appointment({ id: legacy.id, status: AppointmentStatus.CONCLUIDA, seriesId: 'series_y' });
     await db.execute(sql`INSERT INTO entity_store (collection, id, data) VALUES ('appointments', ${current.id}, ${encode(current)}::jsonb)`);
 
-    expect(await moveAppointmentsOutOfEntityStore(db)).toBe(1);
+    expect(await moveOutOfEntityStore(db, 'appointments')).toBe(1);
     const moved = (await AppointmentRepository.findById(legacy.id))!;
     expect(moved.status).toBe(AppointmentStatus.CONCLUIDA);
     expect(moved.seriesId).toBe('series_y');

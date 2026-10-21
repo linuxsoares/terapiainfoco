@@ -30,6 +30,7 @@ import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class PortabilityVaultService {
   private static vaultHistory: Array<{
     vaultId: string;
@@ -124,8 +125,7 @@ export class PortabilityVaultService {
       }));
 
     // 4. Prontuários SOAP (exceto notas estritamente privadas do terapeuta, conforme CFP nº 001/2009)
-    const clinicalRecordsSoap = Array.from(db.clinicalRecords.values())
-      .filter((r) => r.patientId === dto.patientId)
+    const clinicalRecordsSoap = (await ClinicalRecordRepository.list({ patientIds: [dto.patientId] }))
       .sort((a, b) => a.sessionNumber - b.sessionNumber)
       .map((r) => {
         let subjective = '';

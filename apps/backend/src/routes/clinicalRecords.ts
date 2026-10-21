@@ -12,6 +12,7 @@ import { UserRole } from '@terapiainfoco/shared';
 import type { UpdateSoapNoteDTO, SignClinicalRecordDTO, CreateRectificationDTO } from '@terapiainfoco/shared';
 
 
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export const clinicalRecordsRoute = new Hono();
 
 // Prontuários e evolução SOAP são estritamente restritos a psicólogos e supervisores do consultório
@@ -36,7 +37,7 @@ clinicalRecordsRoute.post('/draft', async (c) => {
   }
 
   try {
-    const record = ClinicalRecordService.saveDraft({
+    const record = await ClinicalRecordService.saveDraft({
       appointmentId: body.appointmentId,
       patientId: body.patientId,
       therapistId: user.therapistId!,
@@ -62,12 +63,12 @@ clinicalRecordsRoute.post('/sign', requireRoles([UserRole.PSICOLOGO_TITULAR]), a
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
-  if (!canAccessClinicalRecord(c.get('user'), body.recordId)) {
+  if (!(await canAccessClinicalRecord(c.get('user'), body.recordId))) {
     return c.json({ success: false, error: 'Prontuário não encontrado.' }, 404);
   }
 
   try {
-    const record = ClinicalRecordService.signRecord({
+    const record = await ClinicalRecordService.signRecord({
       recordId: body.recordId,
       confirmedHumanReview: body.confirmedHumanReview,
       context: {
@@ -90,7 +91,7 @@ clinicalRecordsRoute.get('/:id', requireClinicalRecordAccess(), async (c) => {
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
-  const record = ClinicalRecordService.getRecordById(id, {
+  const record = await ClinicalRecordService.getRecordById(id, {
     actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
@@ -118,7 +119,7 @@ clinicalRecordsRoute.post('/:id/rectify', requireRoles([UserRole.PSICOLOGO_TITUL
   }
 
   try {
-    const rectification = ClinicalRecordService.addRectification({
+    const rectification = await ClinicalRecordService.addRectification({
       clinicalRecordId: id,
       therapistId: user.therapistId!,
       dto: body,

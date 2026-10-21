@@ -1,6 +1,5 @@
 import type {
   Therapist,
-  StoredClinicalRecord,
   StoredPsychologicalDocument,
   StoredSessionTranscription,
   AuditLog,
@@ -40,7 +39,6 @@ import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, append
  */
 export class MemoryDatabase {
   public therapists: TrackedMap<string, Therapist> = new TrackedMap();
-  public clinicalRecords: TrackedMap<string, StoredClinicalRecord> = new TrackedMap();
   public documents: TrackedMap<string, StoredPsychologicalDocument> = new TrackedMap();
   public sessionTranscriptions: TrackedMap<string, StoredSessionTranscription> = new TrackedMap();
   public anamnesisRecords: TrackedMap<string, StoredAnamnesisRecord> = new TrackedMap();
@@ -94,7 +92,6 @@ export class MemoryDatabase {
   }
 
   clear() {
-    this.clinicalRecords.clear();
     this.documents.clear();
     this.sessionTranscriptions.clear();
     this.anamnesisRecords.clear();
@@ -132,7 +129,7 @@ export const db = new MemoryDatabase();
 
 /** Nomes das coleções chave-valor do cache de domínio persistidas no entity_store */
 const MAP_COLLECTIONS = [
-  'therapists', 'clinicalRecords', 'documents', 'sessionTranscriptions',
+  'therapists', 'documents', 'sessionTranscriptions',
   'anamnesisRecords', 'clinicalRecordRectifications', 'reminders', 'clinicalMarkers', 'therapeuticGoals',
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',

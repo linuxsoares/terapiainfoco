@@ -393,6 +393,8 @@ export interface ClinicalRecord {
   isSigned: boolean;
   signedAt?: Date | string | null;
   signatureHash?: string | null;
+  /** Manifesto do fechamento em lote ICP-Brasil que selou o registro */
+  batchClosingManifestId?: string;
   createdAt: Date | string;
 }
 

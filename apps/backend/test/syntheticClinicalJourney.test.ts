@@ -13,6 +13,7 @@ import { resetDb } from './helpers/db';
 
 import { PatientRepository } from '../src/repositories/patientRepository';
 import { AppointmentRepository } from '../src/repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../src/repositories/clinicalRecordRepository';
 describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica (RFC-001 Opção M)', () => {
   let adminToken: string;
   let therapistToken: string;
@@ -129,7 +130,7 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
       const sizes = async () => ({
         patients: await PatientRepository.count(),
         appointments: await AppointmentRepository.count(),
-        clinicalRecords: db.clinicalRecords.size,
+        clinicalRecords: await ClinicalRecordRepository.count(),
         documents: db.documents.size
       });
       const before = await sizes();

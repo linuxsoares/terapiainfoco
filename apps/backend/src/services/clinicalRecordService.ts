@@ -13,12 +13,13 @@ import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
 
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class ClinicalRecordService {
   /**
    * Cria ou atualiza rascunho de evolução SOAP (Human-in-the-Loop)
    * As notas privadas são segregadas das notas formais (§3.4)
    */
-  static saveDraft(params: {
+  static async saveDraft(params: {
     appointmentId: string;
     patientId: string;
     therapistId: string;
@@ -26,14 +27,12 @@ export class ClinicalRecordService {
     soap: SoapNote;
     privateNotes?: string;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): DecryptedClinicalRecord {
+  }): Promise<DecryptedClinicalRecord> {
     // Verifica se já existe e se está assinado (imutabilidade)
-    for (const record of db.clinicalRecords.values()) {
-      if (record.appointmentId === params.appointmentId && record.isSigned) {
-        throw new Error(
-          'Registro clínico já assinado e imutável (CFP nº 001/2009). Correções devem ser averbadas por termo de retificação.'
-        );
-      }
+    if (await ClinicalRecordRepository.count({ appointmentId: params.appointmentId, signed: true }) > 0) {
+      throw new Error(
+        'Registro clínico já assinado e imutável (CFP nº 001/2009). Correções devem ser averbadas por termo de retificação.'
+      );
     }
 
     const id = randomUUID();
@@ -54,7 +53,7 @@ export class ClinicalRecordService {
       createdAt: new Date()
     };
 
-    db.clinicalRecords.set(id, stored);
+    await ClinicalRecordRepository.create(stored);
 
     AuditService.log({
       actorId: params.context.actorId,
@@ -84,18 +83,18 @@ export class ClinicalRecordService {
    * Assina e sela o prontuário com o princípio Human-in-the-Loop
    * Torna o registro imutável (append-only) com carimbo de tempo e hash SHA-256
    */
-  static signRecord(params: {
+  static async signRecord(params: {
     recordId: string;
     confirmedHumanReview: boolean;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): DecryptedClinicalRecord {
+  }): Promise<DecryptedClinicalRecord> {
     if (!params.confirmedHumanReview) {
       throw new Error(
         'Princípio Human-in-the-Loop obrigatório (§3.3): O psicólogo deve revisar e confirmar pessoalmente o conteúdo antes da assinatura.'
       );
     }
 
-    const record = db.clinicalRecords.get(params.recordId);
+    const record = await ClinicalRecordRepository.findById(params.recordId);
     if (!record) {
       throw new Error('Prontuário não encontrado');
     }
@@ -122,6 +121,7 @@ export class ClinicalRecordService {
     record.isSigned = true;
     record.signedAt = signedAt;
     record.signatureHash = signatureHash;
+    await ClinicalRecordRepository.save(record);
 
     AuditService.log({
       actorId: params.context.actorId,
@@ -155,11 +155,11 @@ export class ClinicalRecordService {
   /**
    * Recupera prontuário por ID decriptando apenas para o terapeuta autenticado
    */
-  static getRecordById(
+  static async getRecordById(
     recordId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedClinicalRecord | null {
-    const record = db.clinicalRecords.get(recordId);
+  ): Promise<DecryptedClinicalRecord | null> {
+    const record = await ClinicalRecordRepository.findById(recordId);
     if (!record) return null;
 
     AuditService.log({
@@ -196,13 +196,13 @@ export class ClinicalRecordService {
    * (Resolução CFP nº 001/2009 e RFC §3.4)
    * Prontuários selados são imutáveis; correções são averbadas aditivamente com novo hash SHA-256.
    */
-  static addRectification(params: {
+  static async addRectification(params: {
     clinicalRecordId: string;
     therapistId: string;
     dto: CreateRectificationDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ClinicalRecordRectification {
-    const record = db.clinicalRecords.get(params.clinicalRecordId);
+  }): Promise<ClinicalRecordRectification> {
+    const record = await ClinicalRecordRepository.findById(params.clinicalRecordId);
     if (!record) {
       throw new Error('Prontuário clínico não encontrado.');
     }

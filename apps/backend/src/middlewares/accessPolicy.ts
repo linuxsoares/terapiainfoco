@@ -1,10 +1,10 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import { db } from '../db/memoryDb';
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { UserRole, type SafeUser } from '@terapiainfoco/shared';
 import { PRACTICE_STAFF_ROLES } from './authMiddleware';
 
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 /**
  * Política de posse dos recursos clínicos.
  *
@@ -39,8 +39,8 @@ export async function canAccessAppointment(user: SafeUser, appointmentId: string
   return isPracticeStaff(user) && appointment.therapistId === user.therapistId;
 }
 
-export function canAccessClinicalRecord(user: SafeUser, recordId: string): boolean {
-  const record = db.clinicalRecords.get(recordId);
+export async function canAccessClinicalRecord(user: SafeUser, recordId: string): Promise<boolean> {
+  const record = await ClinicalRecordRepository.findById(recordId);
   if (!record) return false;
   return CLINICAL_ROLES.includes(user.role) && !!user.therapistId && record.therapistId === user.therapistId;
 }
@@ -74,7 +74,7 @@ export function requireAppointmentAccess(param = 'id'): MiddlewareHandler {
 /** Exige posse do prontuário identificado pelo parâmetro de rota `param` */
 export function requireClinicalRecordAccess(param = 'id'): MiddlewareHandler {
   return async (c, next) => {
-    if (!canAccessClinicalRecord(c.get('user'), c.req.param(param) ?? '')) return notFound(c, 'Prontuário');
+    if (!(await canAccessClinicalRecord(c.get('user'), c.req.param(param) ?? ''))) return notFound(c, 'Prontuário');
     await next();
   };
 }

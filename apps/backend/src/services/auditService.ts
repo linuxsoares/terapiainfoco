@@ -12,6 +12,7 @@ import { UserRepository } from '../repositories/userRepository';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 const GENESIS_HASH = '0'.repeat(64);
 
 /** Detalhes serializáveis (estrutura circular não pode impedir o registro do evento) */
@@ -43,6 +44,7 @@ export interface PracticeScope {
   staffIds: Set<string>;
   patientIds: Set<string>;
   appointmentIds: Set<string>;
+  clinicalRecordIds: Set<string>;
 }
 
 export class AuditService {
@@ -243,18 +245,18 @@ export class AuditService {
    */
   /** Ids de equipe, pacientes e consultas do consultório, para filtrar a trilha sem uma consulta por registro */
   static async loadPracticeScope(therapistId: string): Promise<PracticeScope> {
-    const [staffIds, patientIds, appointmentIds] = await Promise.all([
+    const [staffIds, patientIds, appointmentIds, clinicalRecordIds] = await Promise.all([
       UserRepository.idsByTherapist(therapistId),
       PatientRepository.idsByTherapist(therapistId),
-      AppointmentRepository.idsByTherapist(therapistId)
+      AppointmentRepository.idsByTherapist(therapistId),
+      ClinicalRecordRepository.idsByTherapist(therapistId)
     ]);
-    return { staffIds, patientIds, appointmentIds };
+    return { staffIds, patientIds, appointmentIds, clinicalRecordIds };
   }
 
   static belongsToPractice(log: AuditLog, therapistId: string, scope: PracticeScope): boolean {
-    if (scope.staffIds.has(log.actorId) || scope.patientIds.has(log.resourceId) || scope.appointmentIds.has(log.resourceId)) return true;
+    if (scope.staffIds.has(log.actorId) || scope.patientIds.has(log.resourceId) || scope.appointmentIds.has(log.resourceId) || scope.clinicalRecordIds.has(log.resourceId)) return true;
     const owner =
-      db.clinicalRecords.get(log.resourceId)?.therapistId ??
       db.documents.get(log.resourceId)?.therapistId;
     return owner === therapistId;
   }

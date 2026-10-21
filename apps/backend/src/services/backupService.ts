@@ -19,6 +19,7 @@ import { AuditService } from './auditService';
 import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } from './backupObjectStorage';
 
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 interface StoredBackupSnapshot {
   metadata: BackupSnapshotMetadata;
   envelope: EnvelopeEncryptedData;
@@ -131,7 +132,7 @@ export class BackupService {
     const therapists = Array.from(db.therapists.values());
     const patients = await PatientRepository.list();
     const appointments = await AppointmentRepository.list();
-    const clinicalRecords = Array.from(db.clinicalRecords.values());
+    const clinicalRecords = await ClinicalRecordRepository.list();
     const documents = Array.from(db.documents.values());
     const sessionTranscriptions = Array.from(db.sessionTranscriptions.values());
     const users = await UserRepository.list();
@@ -335,10 +336,8 @@ export class BackupService {
     await AppointmentRepository.deleteAll();
     await AppointmentRepository.upsertMany(dump.data.appointments || []);
 
-    db.clinicalRecords.clear();
-    for (const r of dump.data.clinicalRecords || []) {
-      db.clinicalRecords.set(r.id, r);
-    }
+    await ClinicalRecordRepository.deleteAll();
+    await ClinicalRecordRepository.upsertMany(dump.data.clinicalRecords || []);
 
     db.documents.clear();
     for (const d of dump.data.documents || []) {

@@ -12,6 +12,7 @@ import {
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { resetDb, seedDemoSession } from './helpers/db';
 
+import { ClinicalRecordRepository } from '../src/repositories/clinicalRecordRepository';
 describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOAP (RFC-001 §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
   const patientId = '00000000-0000-0000-0000-000000000002';
@@ -289,7 +290,7 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
     const ingestBody = await ingestRes.json();
     const draftId = ingestBody.soapDraft.id;
 
-    const initialRecordsCount = db.clinicalRecords.size;
+    const initialRecordsCount = await ClinicalRecordRepository.count();
 
     const reviewRes = await app.request('/api/transcription/draft/review', {
       method: 'POST',
@@ -310,9 +311,9 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
     expect(reviewBody.createdEhrRecordId).toBeDefined();
 
     // Deve ter adicionado nova nota oficial no prontuário
-    expect(db.clinicalRecords.size).toBe(initialRecordsCount + 1);
+    expect(await ClinicalRecordRepository.count()).toBe(initialRecordsCount + 1);
 
-    const savedRecord = db.clinicalRecords.get(reviewBody.createdEhrRecordId);
+    const savedRecord = await ClinicalRecordRepository.findById(reviewBody.createdEhrRecordId);
     expect(savedRecord).toBeDefined();
     expect(savedRecord?.patientId).toBe(patientId);
     expect(savedRecord?.isSigned).toBe(true);

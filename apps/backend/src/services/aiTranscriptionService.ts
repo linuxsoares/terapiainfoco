@@ -25,6 +25,7 @@ import { ClinicalRecordService } from './clinicalRecordService';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 /**
  * -------------------------------------------------------------------------------------------------
  * SERVIÇO DE TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
@@ -280,9 +281,8 @@ export class AiTranscriptionService {
       const assessment = cid11 && !draft.assessmentText.includes(cid11)
         ? `${draft.assessmentText}\nCID-11: ${cid11}`
         : draft.assessmentText;
-      const sessionNumber = Array.from(db.clinicalRecords.values())
-        .filter(r => r.patientId === draft.patientId && r.therapistId === draft.therapistId).length + 1;
-      const record = ClinicalRecordService.saveDraft({
+      const sessionNumber = await ClinicalRecordRepository.count({ patientIds: [draft.patientId], therapistId: draft.therapistId }) + 1;
+      const record = await ClinicalRecordService.saveDraft({
         appointmentId: draft.appointmentId,
         patientId: draft.patientId,
         therapistId: draft.therapistId,
@@ -290,7 +290,7 @@ export class AiTranscriptionService {
         soap: { subjective: draft.subjectiveText, objective: draft.objectiveText, assessment, plan: draft.planText },
         context
       });
-      ClinicalRecordService.signRecord({ recordId: record.id, confirmedHumanReview: true, context });
+      await ClinicalRecordService.signRecord({ recordId: record.id, confirmedHumanReview: true, context });
       const ehrRecordId = record.id;
       createdEhrRecordId = ehrRecordId;
 

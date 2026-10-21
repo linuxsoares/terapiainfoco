@@ -1,16 +1,18 @@
-import type { StoredAppointment, StoredPatient, User } from '@terapiainfoco/shared';
+import type { StoredAppointment, StoredClinicalRecord, StoredPatient, User } from '@terapiainfoco/shared';
 import { db } from '../../src/db/memoryDb';
 import { seedDemoAppointment, seedDemoPatient, seedDemoUsers } from '../../src/db/demoUsers';
 import { UserRepository } from '../../src/repositories/userRepository';
 import { PatientRepository } from '../../src/repositories/patientRepository';
 import { AppointmentRepository } from '../../src/repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../../src/repositories/clinicalRecordRepository';
 
 /**
  * Estado inicial de cada teste: cache em memória limpo e tabelas SQL dos domínios
- * já promovidos (ADR-004 fase 2) de volta às contas de demonstração, sem pacientes nem consultas.
+ * já promovidos (ADR-004 fase 2) de volta às contas de demonstração, sem pacientes, consultas nem prontuários.
  */
 export async function resetDb(): Promise<void> {
   db.clear();
+  await ClinicalRecordRepository.deleteAll();
   await AppointmentRepository.deleteAll();
   await PatientRepository.deleteAll();
   await UserRepository.deleteAll();
@@ -69,4 +71,10 @@ export async function upsertAppointment(appointment: StoredAppointment): Promise
 /** Altera uma consulta no banco (carregar, alterar e salvar) */
 export async function updateAppointment(id: string, changes: Partial<StoredAppointment>): Promise<StoredAppointment> {
   return AppointmentRepository.save({ ...(await requireAppointment(id)), ...changes });
+}
+
+/** Grava um prontuário direto no banco, substituindo o de mesmo id (dados prontos de teste) */
+export async function upsertClinicalRecord(record: StoredClinicalRecord): Promise<StoredClinicalRecord> {
+  await ClinicalRecordRepository.upsertMany([record]);
+  return (await ClinicalRecordRepository.findById(record.id))!;
 }
