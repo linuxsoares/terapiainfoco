@@ -2,7 +2,7 @@ import type { AppDb } from './index';
 import * as schema from './schema';
 import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { revive } from './persistence';
 import { UserRepository } from '../repositories/userRepository';
 import { seedDemoUsers } from './demoUsers';
@@ -46,11 +46,19 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
  * Bancos criados antes disso têm as contas no entity_store: elas são gravadas na tabela
  * (prevalecendo sobre linhas legadas de mesmo id) e removidas do entity_store.
  */
-async function moveUsersOutOfEntityStore(sqlDb: AppDb): Promise<number> {
+export async function moveUsersOutOfEntityStore(sqlDb: AppDb): Promise<number> {
   const rows: { data: unknown }[] = await (sqlDb as any).select({ data: schema.entityStore.data })
     .from(schema.entityStore).where(eq(schema.entityStore.collection, 'users'));
   if (rows.length === 0) return 0;
-  await UserRepository.upsertMany(rows.map((row) => revive(typeof row.data === 'string' ? JSON.parse(row.data) : row.data) as User), sqlDb);
+  const users = rows.map((row) => revive(typeof row.data === 'string' ? JSON.parse(row.data) : row.data) as User);
+  // Linha legada com o mesmo e-mail e outro id violaria o índice único: o entity_store prevalece
+  const ids = users.map((u) => u.id);
+  const emails = users.map((u) => u.email.toLowerCase().trim());
+  await (sqlDb as any).delete(schema.users).where(and(
+    inArray(sql`lower(${schema.users.email})`, emails),
+    notInArray(schema.users.id, ids)
+  ));
+  await UserRepository.upsertMany(users, sqlDb);
   await (sqlDb as any).delete(schema.entityStore).where(eq(schema.entityStore.collection, 'users'));
   return rows.length;
 }
