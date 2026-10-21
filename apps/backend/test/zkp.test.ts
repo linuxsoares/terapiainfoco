@@ -17,7 +17,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     ZkpService.getInstance().clearForTesting();
 
     const loginTherapist = await app.request('/api/auth/login', {

@@ -10,7 +10,7 @@ describe('Auditoria Contínua, Pentest Automatizado & Relatório RIPD/DPIA (Fase
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {
       method: 'POST',

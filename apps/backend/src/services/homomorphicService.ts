@@ -231,7 +231,7 @@ export class HomomorphicService {
       details: `Nova coorte epidemiológica '${dto.cohortName}' criada com chave pública Paillier 512-bit.`
     });
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.HOMOMORPHIC_COHORT_ENCRYPTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: cohortId,
@@ -313,7 +313,7 @@ export class HomomorphicService {
       details: `Vetor do paciente ${vector.patientBlindIndex} adicionado e somado homomorficamente à coorte ${cohortId}.`
     });
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.HOMOMORPHIC_AGGREGATION_COMPUTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: cohortId,
@@ -396,7 +396,7 @@ export class HomomorphicService {
       details: `Coorte ${dto.cohortId} decifrada com autorização ética '${dto.ethicsApprovalCode}' por '${dto.authorizedBy}'.`
     });
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.HOMOMORPHIC_RESULT_DECRYPTED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: dto.cohortId,
@@ -458,7 +458,7 @@ export class HomomorphicService {
       details: `Selo probatório ${proofSealToken} verificado: ${isValid ? 'VÁLIDO' : 'ADULTERADO'}.`
     });
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.HOMOMORPHIC_PROOF_VERIFIED,
       resourceType: AuditResourceType.HOMOMORPHIC_ENCRYPTION_ENGINE,
       resourceId: seal.cohortId,

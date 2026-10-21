@@ -24,10 +24,10 @@ function register(body: Record<string, unknown>) {
 }
 
 describe('Fronteiras de autenticação e perfis', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('requisições sem token não são mais executadas como a psicóloga padrão', async () => {

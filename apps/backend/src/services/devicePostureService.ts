@@ -298,7 +298,7 @@ export class DevicePostureService {
       ? AuditAction.DEVICE_POSTURE_VIOLATION_BLOCKED
       : AuditAction.DEVICE_POSTURE_ASSESSED;
 
-    await AuditService.log({
+    AuditService.log({
       action: auditAction,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
@@ -337,7 +337,7 @@ export class DevicePostureService {
     this.registeredDevices.set(deviceId, device);
     this.violationsBlocked24hCount++;
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DEVICE_QUARANTINED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
@@ -370,7 +370,7 @@ export class DevicePostureService {
 
     this.registeredDevices.set(deviceId, device);
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DEVICE_QUARANTINE_RELEASED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: deviceId,
@@ -396,7 +396,7 @@ export class DevicePostureService {
     const oldPolicy = this.activePolicy;
     this.activePolicy = policy;
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DEVICE_POSTURE_POLICY_UPDATED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: 'policy_config',
@@ -441,7 +441,7 @@ export class DevicePostureService {
       assessedAt: assessment.assessedAt
     });
 
-    await AuditService.log({
+    AuditService.log({
       action: AuditAction.DEVICE_POSTURE_SEAL_VERIFIED,
       resourceType: AuditResourceType.DEVICE_POSTURE_ENGINE,
       resourceId: assessment.deviceId,

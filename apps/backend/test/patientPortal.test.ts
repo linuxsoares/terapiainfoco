@@ -387,7 +387,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
   });
 
   it('portal recusa refresh tokens e tokens de outros perfis', async () => {
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

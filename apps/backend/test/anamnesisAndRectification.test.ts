@@ -17,7 +17,7 @@ describe('Ficha de Anamnese Biopsicossocial & Termo de Retificação de Prontuá
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login Psicólogo Titular
     const loginRes = await app.request('/api/auth/login', {

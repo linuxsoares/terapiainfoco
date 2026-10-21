@@ -527,7 +527,7 @@ export class RedosGuardService {
 
   private async logAudit(action: AuditAction, userId: string, details: string, metadata?: any) {
     try {
-      await AuditService.log({
+      AuditService.log({
         action,
         resourceType: AuditResourceType.REDOS_GUARD,
         resourceId: metadata?.incidentId || metadata?.sealId || 'redos_guard',

@@ -321,7 +321,7 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
 
       // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
 
-      globalRateLimitStore.reset();
+      await globalRateLimitStore.reset();
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

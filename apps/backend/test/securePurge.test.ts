@@ -20,7 +20,7 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
 
     // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
 
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     // 1. Autenticação como psicólogo titular / admin
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

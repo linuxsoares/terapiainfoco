@@ -5,9 +5,9 @@ import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, SocialAuthProvider, AuditAction } from '@terapiainfoco/shared';
 
 describe('Vitrine Pública Sem Login, Criação de Perfil (Com/Sem Login Social) & Perfis (Paciente, Psicólogo, Admin)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('GET /api/auth/public-showcase - deve retornar a Vitrine Pública sem necessidade de login com os 3 perfis e 18 módulos clínicos', async () => {

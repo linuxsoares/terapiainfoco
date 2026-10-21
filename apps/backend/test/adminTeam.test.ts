@@ -20,10 +20,10 @@ async function createMember(token: string, body: object) {
 }
 
 describe('Gestão de equipe pelo Admin', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('cria Recepção vinculada ao consultório, com senha inicial que permite entrar', async () => {

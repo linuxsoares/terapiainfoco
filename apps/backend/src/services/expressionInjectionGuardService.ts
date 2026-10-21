@@ -236,7 +236,7 @@ export class ExpressionInjectionGuardService {
       if (this.incidents.length > 50) this.incidents.pop();
 
       // Auditoria WORM obrigatória de ataque bloqueado
-      await AuditService.log({
+      AuditService.log({
         actorId,
         action: AuditAction.CODE_INJECTION_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
@@ -278,7 +278,7 @@ export class ExpressionInjectionGuardService {
       if (this.sealsSample.length > 20) this.sealsSample.pop();
 
       // Auditoria WORM de avaliação de filtro autorizada
-      await AuditService.log({
+      AuditService.log({
         actorId,
         action: AuditAction.SAFE_AST_FILTER_EVALUATED,
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
@@ -331,7 +331,7 @@ export class ExpressionInjectionGuardService {
       if (this.incidents.length > 50) this.incidents.pop();
 
       // Auditoria WORM de tentativa de injeção bloqueada
-      await AuditService.log({
+      AuditService.log({
         actorId,
         action: AuditAction.CODE_INJECTION_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
@@ -366,7 +366,7 @@ export class ExpressionInjectionGuardService {
     };
 
     // Auditoria WORM da atualização de políticas
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.EXPRESSION_POLICY_UPDATED,
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
@@ -422,7 +422,7 @@ export class ExpressionInjectionGuardService {
     if (this.incidents.length > 50) this.incidents.pop();
 
     // Auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.CODE_INJECTION_ATTEMPT_BLOCKED,
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,
@@ -479,7 +479,7 @@ export class ExpressionInjectionGuardService {
     const verification = verifyExpressionProofSeal(sealToVerify);
 
     // Auditoria WORM da verificação
-    await AuditService.log({
+    AuditService.log({
       actorId,
       action: AuditAction.EXPRESSION_SEAL_VERIFIED,
       resourceType: AuditResourceType.CODE_EXPRESSION_GUARD,

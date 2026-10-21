@@ -14,7 +14,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
 
     // Rate limit de login (5/min por IP) é compartilhado entre arquivos de teste
 
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     // 1. Autenticação como psicólogo titular
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',

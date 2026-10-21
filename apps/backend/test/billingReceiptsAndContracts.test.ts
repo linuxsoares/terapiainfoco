@@ -243,7 +243,7 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
 
     beforeEach(async () => {
       // Login por HTTP: o limite de autenticação é compartilhado entre os arquivos da suíte
-      globalRateLimitStore.reset();
+      await globalRateLimitStore.reset();
       const loginRes = await app.request('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

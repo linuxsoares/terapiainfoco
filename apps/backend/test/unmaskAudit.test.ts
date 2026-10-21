@@ -12,7 +12,7 @@ describe('Dynamic Data Masking (DDM) & Revelação Auditada WORM (RFC-001 Opçã
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login com psicóloga titular
     const loginTherapist = await app.request('/api/auth/login', {

@@ -13,7 +13,7 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     complianceGovernanceService.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {

@@ -36,8 +36,8 @@ function book(headers: Record<string, string>, body: Record<string, unknown>) {
 }
 
 describe('Agendamento pelo paciente a partir do perfil público', () => {
-  beforeEach(() => {
-    globalRateLimitStore.reset();
+  beforeEach(async () => {
+    await globalRateLimitStore.reset();
   });
 
   it('cria o registro no consultório escolhido, vinculado à conta, sem consentimento presumido', async () => {

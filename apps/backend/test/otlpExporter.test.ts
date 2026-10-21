@@ -11,7 +11,7 @@ describe('OpenTelemetry OTLP Exporter & Remote Collectors (RFC-001 §5.2 - Opç�
   let receptionistToken: string;
 
   beforeEach(async () => {
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     otlpBatchExporter.clearQueue();
     otlpBatchExporter.resetStats();
 

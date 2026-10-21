@@ -113,7 +113,7 @@ export class SessionRecoveryService {
     this.lastEventAt = now;
 
     // Trilha de auditoria WORM
-    await AuditService.log({
+    AuditService.log({
       actorId: params.therapistId,
       resourceType: AuditResourceType.CLINICAL_SESSION_RECOVERY,
       resourceId: sessionId,
@@ -231,7 +231,7 @@ export class SessionRecoveryService {
     this.lastEventAt = nowIso;
 
     // Auditoria WORM compulsória de queda/contingência clínica (CFP 011/2018)
-    await AuditService.log({
+    AuditService.log({
       actorId: params.therapistId,
       resourceType: AuditResourceType.CLINICAL_SESSION_RECOVERY,
       resourceId: params.sessionId,
@@ -286,7 +286,7 @@ export class SessionRecoveryService {
       session.terminatedAt = nowIso;
       this.terminatedTimeoutCount++;
 
-      await AuditService.log({
+      AuditService.log({
         actorId: params.therapistId,
         resourceType: AuditResourceType.CLINICAL_SESSION_RECOVERY,
         resourceId: params.sessionId,
@@ -334,7 +334,7 @@ export class SessionRecoveryService {
     this.lastEventAt = nowIso;
 
     // Trilha WORM de reconexão bem-sucedida
-    await AuditService.log({
+    AuditService.log({
       actorId: params.therapistId,
       resourceType: AuditResourceType.CLINICAL_SESSION_RECOVERY,
       resourceId: params.sessionId,

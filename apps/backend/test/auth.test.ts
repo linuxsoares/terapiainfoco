@@ -7,10 +7,10 @@ import { generateTotpCode } from '@terapiainfoco/crypto';
 import { UserRole } from '@terapiainfoco/shared';
 
 describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('deve registrar novo profissional com hash seguro de senha', async () => {

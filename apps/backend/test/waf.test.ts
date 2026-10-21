@@ -17,7 +17,7 @@ describe('Web Application Firewall (WAF) Integration & Heuristic Attack Detectio
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     wafService.resetForTesting();
 
     const loginTherapist = await app.request('/api/auth/login', {

@@ -38,10 +38,10 @@ async function tokenForRole(role: UserRole): Promise<string> {
 }
 
 describe('Menus dinâmicos por perfil (MODULE_ACCESS)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   it('cada perfil tem uma tela inicial visível e não vê módulos fora da matriz', () => {

@@ -17,7 +17,7 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     // 1. Login Admin
     const loginAdmin = await app.request('/api/auth/login', {

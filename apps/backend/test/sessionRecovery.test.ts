@@ -18,7 +18,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
 
   beforeEach(async () => {
     db.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
     SessionRecoveryService.getInstance().clearForTesting();
 
     const loginTherapist = await app.request('/api/auth/login', {

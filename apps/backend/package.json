@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "bun src/db/migrate.ts",
     "db:push": "drizzle-kit push",
-    "admin:create": "bun src/scripts/createAdmin.ts"
+    "admin:create": "bun src/scripts/createAdmin.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -30,6 +31,8 @@
     "@types/ioredis": "^5.0.0",
     "@types/node": "^24.13.3",
     "drizzle-kit": "^0.31.11",
-    "typescript": "^5.8.0"
+    "eslint": "^9",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8"
   }
 }

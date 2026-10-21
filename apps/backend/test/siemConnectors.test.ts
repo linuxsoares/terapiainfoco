@@ -12,7 +12,7 @@ describe('Conectores SIEM Externos & Dispatcher Resiliente com Exponential Backo
   beforeEach(async () => {
     db.clear();
     siemService.clear();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {
       method: 'POST',

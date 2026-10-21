@@ -25,10 +25,10 @@ function socialLogin(email: string) {
 }
 
 describe('Login social e listagem de perfis', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     db.clear();
     db.seedDemoSession();
-    globalRateLimitStore.reset();
+    await globalRateLimitStore.reset();
   });
 
   afterEach(() => {

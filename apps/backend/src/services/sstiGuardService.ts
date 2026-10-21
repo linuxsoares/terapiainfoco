@@ -134,7 +134,7 @@ export class SstiGuardService {
       this.metrics.blockedSstiAttacks++;
       this.metrics.lastIncidentTimestamp = new Date().toISOString();
 
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.SSTI_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SSTI_GUARD,
@@ -221,7 +221,7 @@ export class SstiGuardService {
       this.incidents.unshift(incident);
       if (this.incidents.length > 100) this.incidents.pop();
 
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.SSTI_ATTEMPT_BLOCKED,
         resourceType: AuditResourceType.SSTI_GUARD,
@@ -244,7 +244,7 @@ export class SstiGuardService {
 
     if (renderResult.wasSanitized) {
       this.metrics.sanitizedExpressions++;
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.SSTI_TEMPLATE_SANITIZED,
         resourceType: AuditResourceType.SSTI_GUARD,
@@ -257,7 +257,7 @@ export class SstiGuardService {
       });
     } else {
       this.metrics.safeTemplatesRendered++;
-      await AuditService.log({
+      AuditService.log({
         actorId: userId,
         action: AuditAction.SSTI_SANDBOX_RENDER_SUCCESS,
         resourceType: AuditResourceType.SSTI_GUARD,
@@ -293,7 +293,7 @@ export class SstiGuardService {
       ...policy
     };
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.SSTI_POLICY_UPDATED,
       resourceType: AuditResourceType.SSTI_GUARD,
@@ -381,7 +381,7 @@ export class SstiGuardService {
       if (this.incidents.length > 100) this.incidents.pop();
     }
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.SSTI_ATTEMPT_BLOCKED,
       resourceType: AuditResourceType.SSTI_GUARD,
@@ -444,7 +444,7 @@ export class SstiGuardService {
 
     const isValid = verifySstiProofSeal(targetSeal);
 
-    await AuditService.log({
+    AuditService.log({
       actorId: userId,
       action: AuditAction.SSTI_SEAL_VERIFIED,
       resourceType: AuditResourceType.SSTI_GUARD,
