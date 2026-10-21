@@ -2404,7 +2404,7 @@ terapiainfoco/
 | `feat/user-repository-sql` | Contas de usuário em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #165](https://github.com/linuxsoares/terapiainfoco/pull/165) | Merged |
 | `feat/patient-repository-sql` | Pacientes em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #166](https://github.com/linuxsoares/terapiainfoco/pull/166) | Merged |
 | `feat/appointment-repository-sql` | Consultas em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #167](https://github.com/linuxsoares/terapiainfoco/pull/167) | Merged |
-| `feat/clinical-record-repository-sql` | Prontuários SOAP em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | PR_PLACEHOLDER |
+| `feat/clinical-record-repository-sql` | Prontuários SOAP em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #168](https://github.com/linuxsoares/terapiainfoco/pull/168) | Merged |
 
 ---
 
