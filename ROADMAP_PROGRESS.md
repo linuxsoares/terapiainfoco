@@ -2401,7 +2401,7 @@ terapiainfoco/
 | `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | [PR #161](https://github.com/linuxsoares/terapiainfoco/pull/161) | Merged |
 | `feat/backups-object-storage` | Snapshots de backup cifrados em object storage S3/R2, recarregados no boot, e documentação dos backups gerenciados do PostgreSQL | [PR #162](https://github.com/linuxsoares/terapiainfoco/pull/162) | Merged |
 | `chore/lint-floating-promises` | Lint de promessas no backend (await esquecido) no `make test` e no CI, preparando os repositórios SQL assíncronos | [PR #164](https://github.com/linuxsoares/terapiainfoco/pull/164) | Merged |
-| `feat/user-repository-sql` | Contas de usuário em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | PR_PLACEHOLDER | Merged |
+| `feat/user-repository-sql` | Contas de usuário em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #165](https://github.com/linuxsoares/terapiainfoco/pull/165) | Merged |
 
 ---
 
