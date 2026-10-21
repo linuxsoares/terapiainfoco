@@ -8,7 +8,6 @@ import {
   ConsentScope
 } from '@terapiainfoco/shared';
 import { sanitizePii, type PiiEntityDetection } from '@terapiainfoco/crypto';
-import { db } from '../db/memoryDb';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { TranscriptionService } from './transcriptionService';

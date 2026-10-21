@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { AppointmentService } from '../services/appointmentService';
-import { db } from '../db/memoryDb';
 import { AuditService } from '../services/auditService';
 import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
 import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
