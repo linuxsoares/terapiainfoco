@@ -41,7 +41,7 @@ analyticsRoute.get(
   async (c) => {
     try {
       const user = c.get('user');
-      const metrics = AnalyticsService.getSecurityMetrics(user.role === UserRole.ADMIN ? undefined : user.therapistId ?? user.id);
+      const metrics = await AnalyticsService.getSecurityMetrics(user.role === UserRole.ADMIN ? undefined : user.therapistId ?? user.id);
       return c.json({ success: true, ...metrics }, 200);
     } catch (err: any) {
       return c.json({ success: false, error: err.message || 'Erro ao carregar métricas de segurança.' }, 500);

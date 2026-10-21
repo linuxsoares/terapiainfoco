@@ -1,5 +1,6 @@
 import { sign, verify } from 'hono/jwt';
-import { db, persistence } from '../db/memoryDb';
+import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { config } from '../config';
 import { 
   generateTotpSecret, 
@@ -98,9 +99,7 @@ export class AuthService {
       throw new Error('Perfil não disponível para cadastro público. Contas administrativas e da equipe são criadas por um administrador.');
     }
 
-    const existing = Array.from(db.users.values()).find(
-      u => u.email.toLowerCase() === dto.email.toLowerCase().trim()
-    );
+    const existing = await UserRepository.findByEmail(dto.email);
     if (existing) {
       throw new Error('E-mail já cadastrado na plataforma.');
     }
@@ -161,7 +160,7 @@ export class AuthService {
       createdAt: new Date()
     };
 
-    db.users.set(userId, newUser);
+    await UserRepository.create(newUser);
 
 
     await auditService.logAccess({
@@ -181,11 +180,7 @@ export class AuthService {
    */
   public async login(dto: LoginDTO, ipAddress: string = '127.0.0.1'): Promise<LoginResponse> {
     const email = dto.email.toLowerCase().trim();
-    let user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
-    // Conta criada por outro processo (ex.: admin:create) depois do boot deste servidor
-    if (!user && (await persistence.refreshMissing('users')) > 0) {
-      user = Array.from(db.users.values()).find(u => u.email.toLowerCase() === email);
-    }
+    const user = await UserRepository.findByEmail(email);
 
     let passwordValid = false;
     if (user) {
@@ -254,7 +249,7 @@ export class AuthService {
       throw new Error('Token inválido para desafio de 2FA.');
     }
 
-    const user = db.users.get(payload.sub);
+    const user = await UserRepository.findById(payload.sub);
     if (!user || !user.twoFactorSecret) {
       throw new Error('Configuração de 2FA não encontrada para este usuário.');
     }
@@ -270,6 +265,7 @@ export class AuthService {
         verified = true;
         // Consome o código de backup usado
         user.twoFactorBackupCodes.splice(backupIndex, 1);
+        await UserRepository.save(user);
       }
     }
 
@@ -301,7 +297,7 @@ export class AuthService {
    * Configuração inicial de 2FA (gera segredo, URI do app e backup codes)
    */
   public async setup2FA(userId: string): Promise<TwoFactorSetupResponse> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não encontrado.');
     }
@@ -313,6 +309,7 @@ export class AuthService {
     // Armazena temporariamente o segredo e os códigos até a confirmação
     user.twoFactorSecret = secret;
     user.twoFactorBackupCodes = backupCodes;
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: userId,
@@ -338,7 +335,7 @@ export class AuthService {
     code: string,
     ipAddress: string = '127.0.0.1'
   ): Promise<{ success: boolean; message: string; backupCodes?: string[] }> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user || !user.twoFactorSecret) {
       throw new Error('Configuração de 2FA não iniciada. Solicite a chave de ativação.');
     }
@@ -349,6 +346,7 @@ export class AuthService {
     }
 
     user.twoFactorEnabled = true;
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: userId,
@@ -374,7 +372,7 @@ export class AuthService {
     password: string,
     ipAddress: string = '127.0.0.1'
   ): Promise<{ success: boolean; message: string }> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não encontrado.');
     }
@@ -387,6 +385,7 @@ export class AuthService {
     user.twoFactorEnabled = false;
     user.twoFactorSecret = undefined;
     user.twoFactorBackupCodes = undefined;
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: userId,
@@ -413,7 +412,7 @@ export class AuthService {
     newPassword: string,
     ipAddress: string = '127.0.0.1'
   ): Promise<LoginResponse> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não localizado.');
     }
@@ -431,7 +430,7 @@ export class AuthService {
     user.mustChangePassword = false;
     // Precisão de segundos, como o iat dos JWT: os tokens novos (mesmo segundo) continuam válidos
     user.passwordChangedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
-    db.users.set(user.id, user);
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: user.id,
@@ -465,7 +464,7 @@ export class AuthService {
       throw new Error('Token fornecido não é do tipo refresh.');
     }
 
-    const user = db.users.get(payload.sub);
+    const user = await UserRepository.findById(payload.sub);
     if (!user) {
       throw new Error('Usuário não localizado.');
     }
@@ -557,6 +556,7 @@ export class AuthService {
 
 
     user.lastLoginAt = new Date();
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: user.id,
@@ -588,9 +588,7 @@ export class AuthService {
     }
 
     const emailNormalized = dto.email.toLowerCase().trim();
-    let user = Array.from(db.users.values()).find(
-      u => u.email.toLowerCase() === emailNormalized
-    );
+    let user = await UserRepository.findByEmail(emailNormalized);
     let isNewProfile = false;
 
     if (!user) {
@@ -614,7 +612,9 @@ export class AuthService {
         },
         ipAddress
       );
-      user = db.users.get(createdSafe.id)!;
+      const created = await UserRepository.findById(createdSafe.id);
+      if (!created) throw new Error('Conta recém-criada não encontrada.');
+      user = created;
     } else {
       const existingProviders = user.socialProviders || [SocialAuthProvider.EMAIL_PASSWORD];
       if (!existingProviders.includes(dto.provider)) {
@@ -625,6 +625,7 @@ export class AuthService {
       if (dto.crp && !user.crp) user.crp = dto.crp;
       if (dto.crpRegion && !user.crpRegion) user.crpRegion = dto.crpRegion;
       if (dto.specialty && !user.specialty) user.specialty = dto.specialty;
+      await UserRepository.save(user);
     }
 
     await auditService.logAccess({
@@ -655,7 +656,7 @@ export class AuthService {
     dto: UpdateUserProfileDTO,
     ipAddress: string = '127.0.0.1'
   ): Promise<SafeUser> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não encontrado.');
     }
@@ -678,6 +679,7 @@ export class AuthService {
       if (dto.department !== undefined) user.department = dto.department.trim();
       if (dto.dpoCertification !== undefined) user.dpoCertification = dto.dpoCertification.trim();
     }
+    await UserRepository.save(user);
 
     await auditService.logAccess({
       actorId: userId,
@@ -694,8 +696,8 @@ export class AuthService {
   /**
    * Lista todos os perfis seguros cadastrados na plataforma
    */
-  public listProfiles(): SafeUser[] {
-    return Array.from(db.users.values()).map(u => this.toSafeUser(u));
+  public async listProfiles(): Promise<SafeUser[]> {
+    return (await UserRepository.list()).map(u => this.toSafeUser(u));
   }
 
   /**
@@ -842,22 +844,30 @@ export class AuthService {
    * o papel viria de user_metadata (editável pelo próprio usuário) e o vínculo seria só pelo e-mail.
    */
   public async verifyAccessToken(token: string): Promise<AuthTokenPayload> {
+    return (await this.authenticate(token)).payload;
+  }
+
+  /** Valida o access token e carrega a conta em uma única consulta (middleware de autenticação) */
+  public async authenticate(token: string): Promise<{ payload: AuthTokenPayload; user: User }> {
     const payload = (await verify(token, config.jwtSecret, 'HS256')) as any;
     if (payload.type !== 'access') {
       throw new Error('Token fornecido não é um token de acesso válido.');
     }
-    const user = db.users.get(payload.sub);
-    if (user?.disabledAt) {
+    const user = await UserRepository.findById(payload.sub);
+    if (!user) {
+      throw new Error('Usuário do token não localizado no sistema.');
+    }
+    if (user.disabledAt) {
       throw new Error('Conta desativada. Procure o administrador da plataforma.');
     }
-    if (user && issuedBeforePasswordChange(user, payload.iat)) {
+    if (issuedBeforePasswordChange(user, payload.iat)) {
       throw new Error('Senha alterada: faça login novamente.');
     }
-    return payload;
+    return { payload, user };
   }
 
-  public getUserById(id: string): SafeUser | null {
-    const user = db.users.get(id);
+  public async getUserById(id: string): Promise<SafeUser | null> {
+    const user = await UserRepository.findById(id);
     return user ? this.toSafeUser(user) : null;
   }
 }

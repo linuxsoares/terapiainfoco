@@ -8,6 +8,7 @@ import {
   TemplateSoapSynthesizer,
   setSoapSynthesizerForTests
 } from '../src/services/soap/soapSynthesizer';
+import { resetDb } from './helpers/db';
 
 const shortTest = [
   { speaker: TranscriptionSpeaker.PATIENT, text: 'Estou apenas testando.' },
@@ -65,7 +66,7 @@ describe('Síntese do rascunho SOAP (RFC-001 §3.3)', () => {
   });
 
   it('ingestão usa o sintetizador configurado e registra o modelo; sem sintetizador, explica o motivo', async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     const login = await app.request('/api/auth/login', {
       method: 'POST',

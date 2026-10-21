@@ -164,24 +164,45 @@ export const psychologicalDocuments = pgTable('psychological_documents', {
 ]);
 
 /**
- * 8. USUÁRIOS E AUTENTICAÇÃO SEGURA (RFC §5.2, Opção C)
+ * 8. CONTAS DE USUÁRIO (ADR-004 fase 2: repositório SQL, fora do cache em memória)
+ * Ids e therapistId em texto: o consultório demo usa ids legíveis (ex.: therapist-001).
  */
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
+  id: text('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).notNull().default('PSICOLOGO_TITULAR'),
+  role: varchar('role', { length: 50 }).notNull(),
   crp: varchar('crp', { length: 20 }),
   crpRegion: varchar('crp_region', { length: 10 }),
-  therapistId: uuid('therapist_id').references(() => therapists.id),
+  /** Consultório da conta (psicólogo titular, supervisor, recepção) */
+  therapistId: text('therapist_id'),
+  /** Prontuário vinculado à conta do paciente */
+  patientId: text('patient_id'),
+  phone: varchar('phone', { length: 40 }),
+  cpfMasked: varchar('cpf_masked', { length: 20 }),
+  specialty: varchar('specialty', { length: 160 }),
+  bio: text('bio'),
+  sessionFeeCents: integer('session_fee_cents'),
+  emergencyContactName: varchar('emergency_contact_name', { length: 160 }),
+  emergencyContactPhone: varchar('emergency_contact_phone', { length: 40 }),
+  department: varchar('department', { length: 255 }),
+  dpoCertification: varchar('dpo_certification', { length: 255 }),
+  socialProviders: text('social_providers').array().notNull().default(sql`'{}'::text[]`),
+  avatarUrl: text('avatar_url'),
   passwordHash: text('password_hash').notNull(),
+  passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
   twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   twoFactorSecret: text('two_factor_secret'),
   twoFactorBackupCodes: jsonb('two_factor_backup_codes').$type<string[]>(),
+  passkeysCount: integer('passkeys_count').notNull().default(0),
+  disabledAt: timestamp('disabled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true })
 }, (table) => [
-  index('idx_users_email').on(table.email)
+  uniqueIndex('uq_users_email_lower').on(sql`lower(${table.email})`),
+  index('idx_users_therapist').on(table.therapistId),
+  index('idx_users_role').on(table.role)
 ]);
 
 /**

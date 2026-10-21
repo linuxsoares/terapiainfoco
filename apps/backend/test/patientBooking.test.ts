@@ -5,11 +5,12 @@ import { authService } from '../src/services/authService';
 import { TherapistProfileRepository } from '../src/repositories/therapistProfileRepository';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
+import { requireUser } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 
 async function tokenFor(userId: string): Promise<string> {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return accessToken;
 }
 
@@ -52,7 +53,7 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     expect(record.therapistId).toBe('therapist-001');
     expect(record.linkedUserId).toBe(user.id);
     expect(record.consentTranscriptionSigned).toBe(false);
-    expect(db.users.get(user.id)!.patientId).toBe(record.id);
+    expect((await requireUser(user.id)).patientId).toBe(record.id);
 
     // Segunda consulta reaproveita o mesmo registro
     const again = await book(headers, { therapistId: 'therapist-001', ...slot(1, 13), consentTeleconsultationSigned: true });

@@ -56,7 +56,7 @@ billingReceiptsRouter.post('/receipts', async (c) => {
     }
 
     const therapistId = user.therapistId!;
-    const receipt = BillingReceiptService.generateReceipt({
+    const receipt = await BillingReceiptService.generateReceipt({
       therapistId,
       dto: body,
       context: {
@@ -146,7 +146,7 @@ billingReceiptsRouter.post('/fee-contracts', requireRole([UserRole.PSICOLOGO_TIT
     }
 
     const therapistId = user.therapistId!;
-    const contract = BillingReceiptService.createFeeContract({
+    const contract = await BillingReceiptService.createFeeContract({
       therapistId,
       dto: body,
       context: {

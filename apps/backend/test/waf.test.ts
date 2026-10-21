@@ -9,6 +9,7 @@ import {
   WafAttackType,
   WafMode
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Web Application Firewall (WAF) Integration & Heuristic Attack Detection (RFC-001 §4.4, §5.2)', () => {
   let therapistToken: string;
@@ -16,7 +17,7 @@ describe('Web Application Firewall (WAF) Integration & Heuristic Attack Detectio
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     wafService.resetForTesting();
 

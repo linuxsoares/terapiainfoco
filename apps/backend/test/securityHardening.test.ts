@@ -4,13 +4,14 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { honeypotService } from '../src/services/honeypotService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('HTTP Security Hardening, CSP/HSTS & Honeypot Anti-Probe (RFC-001 §4.4, §5.2)', () => {
   let adminToken: string;
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     honeypotService.clear();
 

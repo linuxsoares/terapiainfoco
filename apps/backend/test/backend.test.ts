@@ -6,14 +6,15 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
 import { AppointmentStatus } from '@terapiainfoco/shared';
+import { resetDb, requireUser } from './helpers/db';
 
 describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
   let accessToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
-    const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
+    const psicologa = (await requireUser('00000000-0000-0000-0000-000000000001'));
     ({ accessToken } = await authService.issueTokens(psicologa, '127.0.0.1'));
   });
 

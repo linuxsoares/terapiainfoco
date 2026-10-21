@@ -22,6 +22,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -81,10 +82,10 @@ export class TeleconsultationService {
   /**
    * Recupera ou inicializa a sala de teleconsulta vinculada ao agendamento
    */
-  static getOrCreateRoom(params: {
+  static async getOrCreateRoom(params: {
     appointmentId: string;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): TeleconsultationRoom {
+  }): Promise<TeleconsultationRoom> {
     const { appointmentId, context } = params;
     const existing = db.teleconsultationRooms.get(appointmentId);
     if (existing) {
@@ -98,9 +99,7 @@ export class TeleconsultationService {
     const { patientId, therapistId } = appointment;
     const patientName = PatientService.getPatientById(patientId, context)?.name ?? 'Paciente';
     // Nome do psicólogo titular do consultório (a sala pode ser aberta primeiro pelo paciente)
-    const therapistName = Array.from(db.users.values()).find(
-      (u) => u.therapistId === therapistId && u.role === UserRole.PSICOLOGO_TITULAR
-    )?.name ?? 'Psicólogo(a)';
+    const therapistName = (await UserRepository.findPracticeOwner(therapistId))?.name ?? 'Psicólogo(a)';
 
     const initialMetrics: TeleconsultationCallMetrics = {
       rttMs: 24,
@@ -160,16 +159,16 @@ export class TeleconsultationService {
    * Paciente autenticado bate à porta da sala de espera (Knocking - CFP nº 011/2018).
    * Um participante por conta: recarregar a página mantém a admissão já concedida.
    */
-  static knockWaitingRoom(params: {
+  static async knockWaitingRoom(params: {
     appointmentId: string;
     userId: string;
     clientFingerprint?: string;
     ipAddress: string;
     userAgent?: string;
-  }): KnockWaitingRoomResponse {
+  }): Promise<KnockWaitingRoomResponse> {
     const { appointmentId, userId, ipAddress, userAgent } = params;
     const context = { actorId: userId, ipAddress, userAgent };
-    this.getOrCreateRoom({ appointmentId, context });
+    await this.getOrCreateRoom({ appointmentId, context });
     const stored = db.teleconsultationRooms.get(appointmentId)!;
     if (stored.status === TeleconsultationRoomStatus.COMPLETED) {
       throw new Error('Esta teleconsulta já foi encerrada.');
@@ -361,14 +360,14 @@ export class TeleconsultationService {
   /**
    * Sincroniza o estado real dos dispositivos de hardware (Câmera, Microfone e Compartilhamento de Tela)
    */
-  static syncMediaHardware(params: {
+  static async syncMediaHardware(params: {
     dto: SyncMediaHardwareDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): TeleconsultationRoom {
+  }): Promise<TeleconsultationRoom> {
     const { dto, context } = params;
     let stored = db.teleconsultationRooms.get(dto.appointmentId);
     if (!stored) {
-      this.getOrCreateRoom({ appointmentId: dto.appointmentId, context });
+      await this.getOrCreateRoom({ appointmentId: dto.appointmentId, context });
       stored = db.teleconsultationRooms.get(dto.appointmentId)!;
     }
 

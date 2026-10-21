@@ -10,6 +10,7 @@ import {
   ClinicalIntelligibilityGrade,
   AudioCodecType
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Network Resilience Simulation & Clinical Intelligibility Assessment (RFC-001 §3.2, §5.1, §5.2 e CFP 011/2018)', () => {
   let therapistToken: string;
@@ -17,7 +18,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     NetworkResilienceService.getInstance().resetForTesting();
 

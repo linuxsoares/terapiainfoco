@@ -5,6 +5,7 @@ import { authService } from '../src/services/authService';
 import { setSttProviderForTests, OpenAiSttProvider } from '../src/services/stt/sttProvider';
 import { config } from '../src/config';
 import { encode } from '../src/db/persistence';
+import { resetDb, requireUser } from './helpers/db';
 
 const APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
 const PATIENT_RECORD_ID = '00000000-0000-0000-0000-000000000002';
@@ -23,7 +24,7 @@ const fakeProvider = {
 };
 
 async function headersFor(userId: string) {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` };
 }
 const post = (path: string, headers: Record<string, string>, body: unknown) =>
@@ -41,8 +42,8 @@ async function startSession() {
 }
 
 describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () => {
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
     db.seedDemoSession();
     receivedAudio.length = 0;
     setSttProviderForTests(fakeProvider);

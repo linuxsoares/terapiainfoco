@@ -14,6 +14,7 @@ import { ConsolidatedReportService } from '../src/services/consolidatedReportSer
 import { ClinicalReferralService } from '../src/services/clinicalReferralService';
 import { app } from '../src/index';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { resetDb } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006/2019) & Encaminhamento Multidisciplinar (§3.5)', () => {
   const mockContext = {
@@ -25,8 +26,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
   const patientId = 'pat-consolidated-001';
   const therapistId = 'therapist-001';
 
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
 
     // Cria paciente com dados criptografados
     db.patients.set(patientId, {
@@ -108,8 +109,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
   });
 
   describe('1. Laudo Pericial Multi-Sessões & Relatório Consolidado (CFP nº 006/2019)', () => {
-    it('deve gerar relatório consolidado estruturado rigorosamente nas 5 seções do CFP nº 006/2019', () => {
-      const report = ConsolidatedReportService.generateReport({
+    it('deve gerar relatório consolidado estruturado rigorosamente nas 5 seções do CFP nº 006/2019', async () => {
+      const report = await ConsolidatedReportService.generateReport({
         therapistId,
         dto: {
           patientId,
@@ -168,8 +169,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       expect(stored?.encryptedAnalise.ciphertext).toBeDefined();
     });
 
-    it('deve assinar digitalmente o relatório com credencial ICP-Brasil e carimbo de tempo', () => {
-      const report = ConsolidatedReportService.generateReport({
+    it('deve assinar digitalmente o relatório com credencial ICP-Brasil e carimbo de tempo', async () => {
+      const report = await ConsolidatedReportService.generateReport({
         therapistId,
         dto: {
           patientId,
@@ -194,8 +195,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       expect(signed.signatureIcpBrasilToken).toContain('icp_br_');
     });
 
-    it('deve listar relatórios por paciente e buscar por ID com decriptação', () => {
-      const r1 = ConsolidatedReportService.generateReport({
+    it('deve listar relatórios por paciente e buscar por ID com decriptação', async () => {
+      const r1 = await ConsolidatedReportService.generateReport({
         therapistId,
         dto: {
           patientId,
@@ -218,8 +219,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
   });
 
   describe('2. Encaminhamento Multidisciplinar Interoperável & Contra-Referência (RFC-001 §3.5)', () => {
-    it('deve emitir guia de encaminhamento psiquiátrico com nível de urgência, token de validação e resumo psicométrico', () => {
-      const referral = ClinicalReferralService.createReferral({
+    it('deve emitir guia de encaminhamento psiquiátrico com nível de urgência, token de validação e resumo psicométrico', async () => {
+      const referral = await ClinicalReferralService.createReferral({
         therapistId,
         dto: {
           patientId,
@@ -252,8 +253,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       expect(stored?.encryptedClinicalSummary.ciphertext).toBeDefined();
     });
 
-    it('deve validar guia de encaminhamento em endpoint público sem expor dados desnecessários (LGPD Art. 11 e CFP Art. 9º)', () => {
-      const referral = ClinicalReferralService.createReferral({
+    it('deve validar guia de encaminhamento em endpoint público sem expor dados desnecessários (LGPD Art. 11 e CFP Art. 9º)', async () => {
+      const referral = await ClinicalReferralService.createReferral({
         therapistId,
         dto: {
           patientId,
@@ -284,8 +285,8 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
       expect(invalid.success).toBe(false);
     });
 
-    it('deve registrar contra-referência médica com sucesso', () => {
-      const referral = ClinicalReferralService.createReferral({
+    it('deve registrar contra-referência médica com sucesso', async () => {
+      const referral = await ClinicalReferralService.createReferral({
         therapistId,
         dto: {
           patientId,

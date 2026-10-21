@@ -8,13 +8,14 @@ import {
   DrugInteractionSeverity,
   PsychopharmacologyCategory
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Prescrição & Encaminhamento Psiquiátrico com Validação Farmacológica (RFC-001 §3.5)', () => {
   let therapistToken: string;
   let mockPatientId: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
 
     const authService = new AuthService();
     const loginRes = await authService.login({

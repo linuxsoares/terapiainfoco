@@ -1,6 +1,5 @@
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import { authService } from '../services/authService';
-import { db } from '../db/memoryDb';
 import { UserRole, type SafeUser } from '@terapiainfoco/shared';
 
 declare module 'hono' {
@@ -36,11 +35,7 @@ export function authMiddleware(options: AuthMiddlewareOptions = {}): MiddlewareH
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7).trim();
       try {
-        const payload = await authService.verifyAccessToken(token);
-        const user = db.users.get(payload.sub);
-        if (!user) {
-          return c.json({ success: false, error: 'Usuário do token não localizado no sistema.' }, 401);
-        }
+        const { user } = await authService.authenticate(token);
         // Senha inicial/reemitida: só a troca de senha (e o próprio perfil/saída) até ela acontecer
         if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.some((path) => c.req.path.endsWith(path))) {
           return c.json({ success: false, code: 'PASSWORD_CHANGE_REQUIRED', error: 'Troque a senha inicial para continuar.' }, 403);

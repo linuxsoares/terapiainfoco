@@ -13,6 +13,7 @@ import {
   AuditAction
 } from '@terapiainfoco/shared';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { resetDb } from './helpers/db';
 
 describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §3.6, §3.7)', () => {
   let therapistToken: string;
@@ -21,7 +22,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
   let patientToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
 
     const authService = new AuthService();
     const loginRes = await authService.login({
@@ -45,7 +46,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
     patientId = patient.id;
 
     // Emite um recibo para testes de acesso financeiro do paciente
-    BillingReceiptService.generateReceipt({
+    await BillingReceiptService.generateReceipt({
       therapistId: 'therapist-001',
       dto: {
         patientId,

@@ -16,6 +16,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { teleconsultationRoomUrl } from './teleconsultationRoom';
 import { config } from '../config';
 import { encryptField, decryptField } from './cryptoContext';
@@ -121,7 +122,7 @@ export class PatientPortalService {
     }
 
     const therapist = db.therapists.get(patient.therapistId);
-    const user = Array.from(db.users.values()).find(u => u.therapistId === patient.therapistId);
+    const user = await UserRepository.findPracticeOwner(patient.therapistId);
     const therapistName = user?.name || 'Psicólogo(a) responsável';
     const rawCrp = therapist?.crp || user?.crp || '';
     const therapistCrp = !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
@@ -176,17 +177,17 @@ export class PatientPortalService {
   /**
    * Obtém visão geral consolidada do Portal do Paciente (RFC-001 §3.6, §3.7)
    */
-  static getPatientPortalOverview(
+  static async getPatientPortalOverview(
     patientId: string,
     context: { actorId: string; ipAddress: string }
-  ): PatientPortalOverview {
+  ): Promise<PatientPortalOverview> {
     const patient = PatientService.getPatientById(patientId, context);
     if (!patient) {
       throw new Error(`Paciente com ID ${patientId} não encontrado.`);
     }
 
     const therapist = db.therapists.get(patient.therapistId);
-    const user = Array.from(db.users.values()).find(u => u.therapistId === patient.therapistId);
+    const user = await UserRepository.findPracticeOwner(patient.therapistId);
     const therapistName = user?.name || 'Psicólogo(a) responsável';
     const rawCrp = therapist?.crp || user?.crp || '';
     const therapistCrp = !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;

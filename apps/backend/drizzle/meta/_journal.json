@@ -29,6 +29,13 @@
       "when": 1792416341314,
       "tag": "0003_therapist_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792583476434,
+      "tag": "0004_user_repository",
+      "breakpoints": true
     }
   ]
 }

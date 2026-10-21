@@ -13,6 +13,7 @@ import type {
   PasskeyListResponse,
   LoginResponse
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / FaceID - RFC-001 Opção O)', () => {
   let therapistToken: string;
@@ -20,7 +21,7 @@ describe('Autenticação Biométrica WebAuthn / Passkeys (FIDO2 / TouchID / Face
   let adminToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login Psicólogo Titular

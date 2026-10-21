@@ -16,6 +16,7 @@ import {
   type CreateRecurrentAppointmentsResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -254,9 +255,9 @@ export class AppointmentService {
         'É obrigatório aceitar o Termo de Consentimento Livre e Esclarecido (TCLE) para agendamento de teleconsulta (Res. CFP nº 011/2018 e LGPD Art. 11).'
       );
     }
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) throw new Error('Usuário não encontrado.');
-    let patientId = this.linkedPatientRecords(userId).find((p) => p.therapistId === dto.therapistId)?.id;
+    let patientId = (await this.linkedPatientRecords(userId)).find((p) => p.therapistId === dto.therapistId)?.id;
     const profile = await this.requireBookableTherapist(dto.therapistId, !!patientId);
     const actor = { actorId: userId, ipAddress: context.ipAddress, userAgent: context.userAgent };
 
@@ -269,7 +270,10 @@ export class AppointmentService {
       }, actor);
       db.patients.get(created.id)!.linkedUserId = userId;
       patientId = created.id;
-      if (!user.patientId) user.patientId = created.id;
+      if (!user.patientId) {
+        user.patientId = created.id;
+        await UserRepository.save(user);
+      }
     }
 
     const appointment = await this.createAppointment(dto.therapistId, {
@@ -290,15 +294,15 @@ export class AppointmentService {
   }
 
   /** Registros de paciente vinculados à conta (um por consultório) */
-  private static linkedPatientRecords(userId: string) {
-    const user = db.users.get(userId);
+  private static async linkedPatientRecords(userId: string) {
+    const user = await UserRepository.findById(userId);
     if (!user) return [];
     return Array.from(db.patients.values()).filter((p) => p.linkedUserId === userId || p.id === user.patientId);
   }
 
   /** Psicólogos que já atendem o paciente, para agendar a próxima sessão sem passar pela busca */
   static async getPatientUserTherapists(userId: string): Promise<TherapistPublicProfile[]> {
-    const therapistIds = new Set(this.linkedPatientRecords(userId).map((p) => p.therapistId));
+    const therapistIds = new Set((await this.linkedPatientRecords(userId)).map((p) => p.therapistId));
     const profiles: TherapistPublicProfile[] = [];
     for (const therapistId of therapistIds) {
       const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
@@ -311,7 +315,7 @@ export class AppointmentService {
 
   /** Consultas do paciente em todos os consultórios a que sua conta está vinculada */
   static async getPatientUserAppointments(userId: string): Promise<PatientAppointmentView[]> {
-    const patientIds = new Set(this.linkedPatientRecords(userId).map((p) => p.id));
+    const patientIds = new Set((await this.linkedPatientRecords(userId)).map((p) => p.id));
     const appointments = Array.from(db.appointments.values())
       .filter((a) => patientIds.has(a.patientId))
       .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());

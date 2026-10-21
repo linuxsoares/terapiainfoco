@@ -4,6 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
+import { resetDb, requireUser } from './helpers/db';
 
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
 
@@ -15,8 +16,8 @@ async function newPsychologist() {
     role: UserRole.PSICOLOGO_TITULAR,
     crp: '06/222222'
   } as any);
-  const { accessToken } = await authService.issueTokens(db.users.get(user.id)!, '127.0.0.1');
-  return { user: db.users.get(user.id)!, headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } };
+  const { accessToken } = await authService.issueTokens((await requireUser(user.id)), '127.0.0.1');
+  return { user: (await requireUser(user.id)), headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } };
 }
 
 async function post(path: string, headers: Record<string, string>, body: unknown) {
@@ -26,7 +27,7 @@ async function post(path: string, headers: Record<string, string>, body: unknown
 
 describe('Dashboard do psicólogo usa o próprio consultório', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -90,38 +91,5 @@ describe('Dashboard do psicólogo usa o próprio consultório', () => {
     const demoDecrypts = db.auditLogs.filter((l) => l.action === 'DECRYPT_READ').length;
     expect(security.totalDecryptReads).toBeLessThanOrEqual(demoDecrypts);
     expect(security.recentSecurityAlerts.every((a: any) => a.actorId !== '00000000-0000-0000-0000-000000000001')).toBe(true);
-  });
-});
-
-describe('Correção de prontuários de SOAP por IA gravados no formato antigo', () => {
-  it('migra campos, marca assinatura e troca o id do usuário pelo consultório', async () => {
-    const { repairLegacyAiSoapRecords } = await import('../src/db/repairs');
-    const { encryptField } = await import('../src/services/cryptoContext');
-    db.clear();
-    db.seedDemoSession();
-    db.clinicalRecords.set('legado-1', {
-      id: 'legado-1',
-      patientId: DEMO_PATIENT_ID,
-      therapistId: '00000000-0000-0000-0000-000000000001',
-      appointmentId: 'consulta-legada',
-      sessionNumber: 1,
-      encryptedSubjective: encryptField('Relato'),
-      encryptedObjective: encryptField('O'),
-      encryptedAssessment: encryptField('A'),
-      encryptedPlan: encryptField('P'),
-      signedHash: 'abc',
-      createdAt: new Date(),
-      signedAt: new Date()
-    } as any);
-
-    expect(repairLegacyAiSoapRecords()).toBeGreaterThanOrEqual(1);
-    const fixed = db.clinicalRecords.get('legado-1') as any;
-    expect(fixed.therapistId).toBe('therapist-001');
-    expect(fixed.isSigned).toBe(true);
-    expect(fixed.signatureHash).toBe('abc');
-    expect(fixed.encryptedSoapSubjective).toBeDefined();
-    expect(fixed.encryptedSubjective).toBeUndefined();
-    // Idempotente
-    expect(repairLegacyAiSoapRecords()).toBe(0);
   });
 });

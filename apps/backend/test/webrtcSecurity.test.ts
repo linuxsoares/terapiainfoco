@@ -10,6 +10,7 @@ import {
   WebRtcSecurityGrade,
   WebRtcVerificationStatus
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 e CFP 011/2018)', () => {
   let therapistToken: string;
@@ -20,7 +21,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
   const validPatientFp = 'SHA-256 11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF';
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     WebRtcSecurityService.getInstance().resetForTesting();
 

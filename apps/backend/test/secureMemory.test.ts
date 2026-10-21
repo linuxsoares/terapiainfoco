@@ -55,7 +55,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       expect(data.block.id).toStartWith('sec-buf-');
 
       // Verifica se log WORM foi emitido
-      const audits = AuditService.getFilteredLogs({});
+      const audits = await AuditService.getFilteredLogs({});
       const allocationLog = audits.find(a => a.action === AuditAction.SECURE_MEMORY_ALLOCATED && a.resourceId === data.block.id);
       expect(allocationLog).toBeDefined();
     });
@@ -99,7 +99,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       expect(zeroizeData.proofSeal.blockId).toBe(block.id);
 
       // 3. Valida se a trilha WORM capturou a destruição
-      const audits = AuditService.getFilteredLogs({});
+      const audits = await AuditService.getFilteredLogs({});
       const zeroizeLog = audits.find(a => a.action === AuditAction.SECURE_MEMORY_ZEROIZED && a.resourceId === block.id);
       expect(zeroizeLog).toBeDefined();
     });
@@ -145,7 +145,7 @@ describe('Secure Memory & Heap Spraying Routes Integration (/api/secure-memory)'
       expect(data.auditLogged).toBeTrue();
 
       // Confirma que foram gravados logs de detecção e bloqueio
-      const audits = AuditService.getFilteredLogs({});
+      const audits = await AuditService.getFilteredLogs({});
       const detectedLog = audits.find(a => a.action === AuditAction.HEAP_SPRAYING_DETECTED);
       const blockedLog = audits.find(a => a.action === AuditAction.HEAP_SPRAYING_BLOCKED);
       expect(detectedLog).toBeDefined();

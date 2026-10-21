@@ -3,6 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 const EMAIL = 'recepcao@terapiainfoco.com.br';
 const PASSWORD = 'Senha@123456';
@@ -25,7 +26,7 @@ async function changePassword(accessToken: string, body: object) {
 
 describe('Troca da própria senha', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });

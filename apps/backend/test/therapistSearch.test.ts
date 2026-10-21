@@ -5,11 +5,12 @@ import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { toPrefixTsQuery } from '../src/repositories/therapistProfileRepository';
 import { UserRole } from '@terapiainfoco/shared';
+import { requireUser } from './helpers/db';
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
 
 async function tokenFor(userId: string): Promise<string> {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return accessToken;
 }
 

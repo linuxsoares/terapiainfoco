@@ -37,7 +37,7 @@ portabilityVaultRouter.post(
       const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent');
 
-      const result = PortabilityVaultService.generateEncryptedVault({
+      const result = await PortabilityVaultService.generateEncryptedVault({
         dto: body,
         context: {
           actorId: user.id,

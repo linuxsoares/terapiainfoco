@@ -3,6 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { adminRequest } from './helpers/adminRequest';
+import { requireUser } from './helpers/db';
 
 /** Psicóloga titular do seed */
 const SEED_THERAPIST_ID = '00000000-0000-0000-0000-000000000001';
@@ -23,7 +24,7 @@ describe('Ferramentas da plataforma restritas ao Admin', () => {
     const anonymous = await app.request(`/api/${prefix}/overview`);
     expect(anonymous.status).toBe(401);
 
-    const { accessToken } = await authService.issueTokens(db.users.get(SEED_THERAPIST_ID)!, '127.0.0.1');
+    const { accessToken } = await authService.issueTokens((await requireUser(SEED_THERAPIST_ID)), '127.0.0.1');
     const therapist = await app.request(`/api/${prefix}/overview`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });

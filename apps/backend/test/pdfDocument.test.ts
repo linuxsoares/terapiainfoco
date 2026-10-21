@@ -4,12 +4,13 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { IcpBrasilService } from '../src/services/icpBrasilService';
 import { DocumentType, UserRole } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção D - RFC-001 & CFP nº 006/2019)', () => {
   let authToken = '';
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // Obtém token de autenticação como Psicóloga Titular

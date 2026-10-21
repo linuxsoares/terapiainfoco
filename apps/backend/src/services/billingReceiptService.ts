@@ -16,6 +16,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -88,11 +89,11 @@ export class BillingReceiptService {
   /**
    * Emite Recibo de Honorários Psicológicos para Reembolso de Convênio ou IRPF / DMED
    */
-  static generateReceipt(params: {
+  static async generateReceipt(params: {
     therapistId: string;
     dto: CreateClinicalReceiptDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ClinicalReceipt {
+  }): Promise<ClinicalReceipt> {
     const { therapistId, dto, context } = params;
 
     const patient = PatientService.getPatientById(dto.patientId, context);
@@ -101,7 +102,7 @@ export class BillingReceiptService {
     }
 
     const therapist = db.therapists.get(therapistId);
-    const user = db.users.get(context.actorId);
+    const user = await UserRepository.findById(context.actorId);
     const therapistName = user ? user.name : 'Dra. Vanessa Andrade';
     const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
     const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
@@ -351,11 +352,11 @@ export class BillingReceiptService {
   /**
    * Cria Contrato / Termo de Honorários Psicológicos (RFC-001 §3.6)
    */
-  static createFeeContract(params: {
+  static async createFeeContract(params: {
     therapistId: string;
     dto: CreateFeeContractDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): FeeContract {
+  }): Promise<FeeContract> {
     const { therapistId, dto, context } = params;
 
     const patient = PatientService.getPatientById(dto.patientId, context);
@@ -364,7 +365,7 @@ export class BillingReceiptService {
     }
 
     const therapist = db.therapists.get(therapistId);
-    const user = db.users.get(context.actorId);
+    const user = await UserRepository.findById(context.actorId);
     const therapistName = user ? user.name : 'Dra. Vanessa Andrade';
     const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
     const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;

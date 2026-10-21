@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import { db } from '../src/db/memoryDb';
 import { AuditService } from '../src/services/auditService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Detalhes na trilha de auditoria', () => {
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
   });
 
   const base = {

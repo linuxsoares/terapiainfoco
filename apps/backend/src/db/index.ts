@@ -120,7 +120,7 @@ export async function runMigrations(migrate: () => Promise<void>, exec: RawExecu
       try {
         await exec(clean);
       } catch (err) {
-        if (!isAlreadyExistsError(err)) throw err;
+        if (!isAlreadyExistsError(err) && !isSupersededForeignKey(clean, err)) throw err;
       }
     }
     await exec(
@@ -137,6 +137,22 @@ function isAlreadyExistsError(err: unknown): boolean {
   let current: any = err;
   for (let depth = 0; current && depth < 5; depth++) {
     if (ALREADY_EXISTS_CODES.has(current.code) || /already exists/i.test(current.message ?? '')) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+/**
+ * No baseline, migrações antigas são reaplicadas sobre o schema atual. Uma FK criada no passado
+ * pode não caber mais numa coluna cujo tipo uma migração posterior alterou (ex.: users.therapist_id
+ * uuid → text na 0004, que também remove essa FK): o erro de tipo (42804) é tolerado só nesse caso.
+ */
+function isSupersededForeignKey(statement: string, err: unknown): boolean {
+  let current: any = err;
+  for (let depth = 0; current && depth < 5; depth++) {
+    if (current.code === '42804' || /foreign key constraint .* cannot be implemented/i.test(current.message ?? '')) {
+      return /ADD CONSTRAINT [\s\S]*FOREIGN KEY/i.test(statement);
+    }
     current = current.cause;
   }
   return false;

@@ -10,6 +10,7 @@ import {
   DisconnectionCause,
   SessionRecoveryGrade
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 §3.2 & CFP nº 011/2018)', () => {
   let therapistToken: string;
@@ -17,7 +18,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 �
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     SessionRecoveryService.getInstance().clearForTesting();
 

@@ -4,6 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditService } from '../src/services/auditService';
 import { AuditAction, AuditResourceType } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opção H)', () => {
   let therapistToken: string;
@@ -11,7 +12,7 @@ describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opç�
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login com psicóloga titular

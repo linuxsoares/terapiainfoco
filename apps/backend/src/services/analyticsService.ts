@@ -1,4 +1,5 @@
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { decryptField } from './cryptoContext';
 import { 
   AppointmentStatus, 
@@ -120,9 +121,9 @@ export class AnalyticsService {
   /**
    * Métricas de Segurança, Observabilidade & Trilha WORM
    */
-  public static getSecurityMetrics(therapistId?: string): SecurityMetrics {
+  public static async getSecurityMetrics(therapistId?: string): Promise<SecurityMetrics> {
     // Com therapistId, só eventos e usuários do consultório; sem ele (admin), a plataforma inteira
-    const practiceUsers = Array.from(db.users.values()).filter(u => !therapistId || u.therapistId === therapistId);
+    const practiceUsers = await UserRepository.list(therapistId ? { therapistId } : {});
     const practiceUserIds = new Set(practiceUsers.map(u => u.id));
     const logs = therapistId ? db.auditLogs.filter(l => practiceUserIds.has(l.actorId)) : db.auditLogs;
     const totalAuditLogs = logs.length;

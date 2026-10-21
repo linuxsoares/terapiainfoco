@@ -3,6 +3,7 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { config } from '../src/config';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { resetDb } from './helpers/db';
 
 /**
  * Supabase Auth não é fonte de identidade: uma conta criada lá (com o e-mail de outra pessoa ou
@@ -14,7 +15,7 @@ describe('Sem fallback de autenticação pelo Supabase', () => {
   let supabaseCalls = 0;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
     supabaseCalls = 0;

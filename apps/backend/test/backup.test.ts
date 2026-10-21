@@ -4,6 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { backupStore } from '../src/services/backupService';
 import { AuditAction, DocumentType } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)', () => {
   let therapistToken: string;
@@ -11,7 +12,7 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     backupStore.clear();
     await globalRateLimitStore.reset();
 

@@ -4,9 +4,10 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, AuditResourceType, UserRole } from '@terapiainfoco/shared';
+import { resetDb, listUsers } from './helpers/db';
 
 async function tokenFor(role: UserRole): Promise<{ token: string; userId: string }> {
-  const user = Array.from(db.users.values()).find((u) => u.role === role)!;
+  const user = (await listUsers()).find((u) => u.role === role)!;
   const { accessToken } = await authService.issueTokens(user, '127.0.0.1');
   return { token: accessToken!, userId: user.id };
 }
@@ -21,7 +22,7 @@ async function createMember(token: string, body: object) {
 
 describe('Gestão de equipe pelo Admin', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -153,7 +154,7 @@ describe('Gestão de equipe pelo Admin', () => {
     expect(db.auditLogs.some((l) => l.action === AuditAction.USER_PASSWORD_RESET && l.actorId === admin.userId)).toBe(true);
 
     // Psicólogo titular e Admin não são geridos por aqui
-    const psychologist = Array.from(db.users.values()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
+    const psychologist = (await listUsers()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
     expect((await app.request(`/api/admin/users/${psychologist.id}/disable`, { method: 'POST', headers: adminAuth })).status).toBe(404);
     expect((await app.request(`/api/admin/users/${admin.userId}/reset-password`, { method: 'POST', headers: adminAuth })).status).toBe(404);
   });

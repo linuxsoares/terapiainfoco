@@ -6,17 +6,19 @@ import { AppointmentService } from '../src/services/appointmentService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, UserRole } from '@terapiainfoco/shared';
 import { decryptField } from '../src/services/cryptoContext';
+import { resetDb, requireUser } from './helpers/db';
+import { UserRepository } from '../src/repositories/userRepository';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
 
 async function tokenFor(userId: string): Promise<string> {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return accessToken;
 }
 
 async function appointmentStartingIn(minutes: number): Promise<string> {
-  const therapistId = db.users.get(PSICOLOGA_ID)!.therapistId!;
+  const therapistId = (await requireUser(PSICOLOGA_ID)).therapistId!;
   const start = new Date(Date.now() + minutes * 60 * 1000);
   const appt = await AppointmentService.createAppointment(therapistId, {
     patientId: DEMO_PATIENT_ID,
@@ -38,7 +40,7 @@ async function setStatus(userId: string, appointmentId: string, status: Appointm
 
 describe('Ciclo de vida da sessão na agenda', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -70,7 +72,9 @@ describe('Ciclo de vida da sessão na agenda', () => {
       '127.0.0.1',
       { allowPrivilegedRole: true }
     );
-    db.users.get(recepcao.id)!.therapistId = db.users.get(PSICOLOGA_ID)!.therapistId;
+    const recepcaoAccount = await requireUser(recepcao.id);
+    recepcaoAccount.therapistId = (await requireUser(PSICOLOGA_ID)).therapistId;
+    await UserRepository.save(recepcaoAccount);
 
     const id = await appointmentStartingIn(10);
     expect((await setStatus(recepcao.id, id, AppointmentStatus.EM_ANDAMENTO)).status).toBe(400);
@@ -80,7 +84,7 @@ describe('Ciclo de vida da sessão na agenda', () => {
 
 describe('Agenda do consultório', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });

@@ -4,13 +4,14 @@ import { db } from '../src/db/memoryDb';
 import { siemService } from '../src/services/siemService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, AuditResourceType, type SiemQueueItem } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Conectores SIEM Externos & Dispatcher Resiliente com Exponential Backoff (RFC §4.4 & §5.2)', () => {
   let adminToken: string;
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     siemService.clear();
     await globalRateLimitStore.reset();
 

@@ -11,6 +11,7 @@ import { db } from '../src/db/memoryDb';
 import { encryptField } from '../src/services/cryptoContext';
 import { BillingReceiptService } from '../src/services/billingReceiptService';
 import { app } from '../src/index';
+import { resetDb } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honorários & Termos de Serviços (§3.6)', () => {
   const mockContext = {
@@ -22,8 +23,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
   const patientId = 'pat-billing-001';
   const therapistId = 'therapist-001';
 
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
 
     db.patients.set(patientId, {
       id: patientId,
@@ -52,8 +53,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
   });
 
   describe('2. Emissão de Recibo de Honorários Psicológicos (Receita / DMED / Convênio)', () => {
-    it('deve emitir recibo oficial com número sequencial, valor por extenso, sessões e selo WORM', () => {
-      const receipt = BillingReceiptService.generateReceipt({
+    it('deve emitir recibo oficial com número sequencial, valor por extenso, sessões e selo WORM', async () => {
+      const receipt = await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -92,8 +93,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
       expect(stored?.encryptedPatientName.ciphertext).toBeDefined();
     });
 
-    it('deve suportar responsável financeiro para pacientes menores ou dependentes', () => {
-      const receipt = BillingReceiptService.generateReceipt({
+    it('deve suportar responsável financeiro para pacientes menores ou dependentes', async () => {
+      const receipt = await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -123,8 +124,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
       expect(receipt.amountInWords).toBe('Mil reais');
     });
 
-    it('deve cancelar recibo registrando motivo e data', () => {
-      const receipt = BillingReceiptService.generateReceipt({
+    it('deve cancelar recibo registrando motivo e data', async () => {
+      const receipt = await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -148,8 +149,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
       expect(cancelled.cancelledAt).toBeDefined();
     });
 
-    it('deve validar recibo em portal público sem login resguardando LGPD com iniciais', () => {
-      const receipt = BillingReceiptService.generateReceipt({
+    it('deve validar recibo em portal público sem login resguardando LGPD com iniciais', async () => {
+      const receipt = await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -179,8 +180,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
       expect(invalid.success).toBe(false);
     });
 
-    it('deve listar recibos consolidando total faturado', () => {
-      BillingReceiptService.generateReceipt({
+    it('deve listar recibos consolidando total faturado', async () => {
+      await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -193,7 +194,7 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
         context: mockContext
       });
 
-      BillingReceiptService.generateReceipt({
+      await BillingReceiptService.generateReceipt({
         therapistId,
         dto: {
           patientId,
@@ -214,8 +215,8 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
   });
 
   describe('3. Termo / Contrato de Honorários Clínicos (CFP)', () => {
-    it('deve gerar termo de honorários com política de cancelamento, regras de pagamento e sigilo Art. 9º', () => {
-      const contract = BillingReceiptService.createFeeContract({
+    it('deve gerar termo de honorários com política de cancelamento, regras de pagamento e sigilo Art. 9º', async () => {
+      const contract = await BillingReceiptService.createFeeContract({
         therapistId,
         dto: {
           patientId,

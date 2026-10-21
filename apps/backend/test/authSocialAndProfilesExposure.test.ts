@@ -5,13 +5,14 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, SocialAuthProvider } from '@terapiainfoco/shared';
+import { resetDb, requireUser, listUsers } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
 const PACIENTE_EMAIL = 'paciente@terapiainfoco.com.br';
 
 async function tokenFor(email: string): Promise<string> {
-  const user = Array.from(db.users.values()).find((u) => u.email === email)!;
+  const user = (await listUsers()).find((u) => u.email === email)!;
   const { accessToken } = await authService.issueTokens(user, '127.0.0.1');
   return accessToken;
 }
@@ -26,7 +27,7 @@ function socialLogin(email: string) {
 
 describe('Login social e listagem de perfis', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -37,7 +38,7 @@ describe('Login social e listagem de perfis', () => {
 
   it('fora de DEMO_MODE o login social não emite tokens só com o e-mail de uma conta existente', async () => {
     config.demoMode = false;
-    const admin = db.users.get(ADMIN_ID)!;
+    const admin = (await requireUser(ADMIN_ID));
     const res = await socialLogin(admin.email);
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -49,14 +50,14 @@ describe('Login social e listagem de perfis', () => {
   });
 
   it('GET /api/auth/profiles é restrito ao Admin/DPO', async () => {
-    const psicologa = db.users.get(PSICOLOGA_ID)!;
+    const psicologa = (await requireUser(PSICOLOGA_ID));
     const asPsicologa = await app.request('/api/auth/profiles', {
       headers: { Authorization: `Bearer ${await tokenFor(psicologa.email)}` }
     });
     expect(asPsicologa.status).toBe(403);
 
     const asAdmin = await app.request('/api/auth/profiles', {
-      headers: { Authorization: `Bearer ${await tokenFor(db.users.get(ADMIN_ID)!.email)}` }
+      headers: { Authorization: `Bearer ${await tokenFor((await requireUser(ADMIN_ID)).email)}` }
     });
     expect(asAdmin.status).toBe(200);
     expect((await asAdmin.json()).profiles.length).toBeGreaterThan(0);

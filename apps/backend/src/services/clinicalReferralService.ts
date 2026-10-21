@@ -12,6 +12,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -21,11 +22,11 @@ export class ClinicalReferralService {
    * Cria Guia de Encaminhamento Multidisciplinar Interoperável (RFC-001 §3.5)
    * em estrita consonância com o Artigo 9º do Código de Ética Profissional do Psicólogo (sigilo e proporcionalidade)
    */
-  static createReferral(params: {
+  static async createReferral(params: {
     therapistId: string;
     dto: CreateClinicalReferralDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ClinicalReferral {
+  }): Promise<ClinicalReferral> {
     const { therapistId, dto, context } = params;
 
     const patient = PatientService.getPatientById(dto.patientId, context);
@@ -34,7 +35,7 @@ export class ClinicalReferralService {
     }
 
     const therapist = db.therapists.get(therapistId);
-    const user = db.users.get(context.actorId);
+    const user = await UserRepository.findById(context.actorId);
     const therapistName = user ? user.name : 'Psicólogo Clínico';
     const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
     const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;

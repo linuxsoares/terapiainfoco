@@ -9,6 +9,7 @@ import type {
   SyntheticHistoryResponse, 
   ResilienceCheckResult 
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica (RFC-001 Opção M)', () => {
   let adminToken: string;
@@ -16,7 +17,7 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login Admin

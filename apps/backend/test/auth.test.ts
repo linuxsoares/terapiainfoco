@@ -5,10 +5,12 @@ import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
 import { generateTotpCode } from '@terapiainfoco/crypto';
 import { UserRole } from '@terapiainfoco/shared';
+import { resetDb, requireUser } from './helpers/db';
+import { UserRepository } from '../src/repositories/userRepository';
 
 describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -35,7 +37,7 @@ describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () =
     expect(body.user.twoFactorEnabled).toBe(false);
 
     // Verifica que senha em texto claro não existe no banco
-    const stored = db.users.get(body.user.id);
+    const stored = await UserRepository.findById(body.user.id);
     expect(stored?.passwordHash).toBeDefined();
     expect(stored?.passwordHash).not.toBe('SenhaForte@2026');
   });
@@ -336,7 +338,7 @@ describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () =
 
   it('Rate Limiting: proteção contra enumeração em busca por Blind Index e validação de documento', async () => {
     // 1. Proteção de Blind Index em /api/patients/search/cpf (limite de 30)
-    const psicologa = db.users.get('00000000-0000-0000-0000-000000000001')!;
+    const psicologa = (await requireUser('00000000-0000-0000-0000-000000000001'));
     const { accessToken } = await authService.issueTokens(psicologa, '127.0.0.1');
     const searchInit = { headers: { Authorization: `Bearer ${accessToken}` } };
     for (let i = 0; i < 30; i++) {

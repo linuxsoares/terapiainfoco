@@ -32,7 +32,7 @@ teleconsultationRoutes.post('/knock', authMiddleware(), requireRole([UserRole.PA
     if (!body.appointmentId) {
       return c.json({ success: false, message: 'Identificação da consulta (appointmentId) é obrigatória.' }, 400);
     }
-    const result = TeleconsultationService.knockWaitingRoom({
+    const result = await TeleconsultationService.knockWaitingRoom({
       appointmentId: body.appointmentId,
       userId: c.get('userId'),
       clientFingerprint: body.clientFingerprint,
@@ -68,7 +68,7 @@ teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), requireAppo
     const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
     const userAgent = c.req.header('user-agent');
 
-    const room = TeleconsultationService.getOrCreateRoom({
+    const room = await TeleconsultationService.getOrCreateRoom({
       appointmentId,
       context: {
         actorId: user.id,
@@ -149,7 +149,7 @@ teleconsultationRoutes.post('/hardware-sync', authMiddleware(), requireBodyOwner
 
     const role = body.role || (user.role === UserRole.PACIENTE ? TeleconsultationParticipantRole.PATIENT : TeleconsultationParticipantRole.THERAPIST);
 
-    const room = TeleconsultationService.syncMediaHardware({
+    const room = await TeleconsultationService.syncMediaHardware({
       dto: { ...body, role },
       context: {
         actorId: user.id,
