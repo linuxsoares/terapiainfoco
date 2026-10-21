@@ -74,7 +74,7 @@ appointmentsRoute.post('/', async (c) => {
   const body = await c.req.json<CreateAppointmentDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
-  if (!canAccessPatient(c.get('user'), body.patientId)) {
+  if (!(await canAccessPatient(c.get('user'), body.patientId))) {
     return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
   }
 
@@ -115,7 +115,7 @@ import { ReminderChannel } from '@terapiainfoco/shared';
 
 // Listar consultas do consultório do usuário autenticado
 appointmentsRoute.get('/mine', async (c) => {
-  const appointments = AppointmentService.getTherapistAppointments(c.get('user').therapistId!);
+  const appointments = await AppointmentService.getTherapistAppointments(c.get('user').therapistId!);
   return c.json({ success: true, appointments });
 });
 
@@ -125,7 +125,7 @@ appointmentsRoute.get('/therapist/:therapistId', async (c) => {
   if (therapistId !== c.get('user').therapistId) {
     return c.json({ success: false, error: 'Acesso negado: agenda de outro profissional.' }, 403);
   }
-  const appointments = AppointmentService.getTherapistAppointments(therapistId);
+  const appointments = await AppointmentService.getTherapistAppointments(therapistId);
   return c.json({ success: true, appointments });
 });
 
@@ -134,7 +134,7 @@ appointmentsRoute.post('/recurrent', async (c) => {
   const body = await c.req.json<CreateAppointmentDTO>();
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
-  if (!canAccessPatient(c.get('user'), body.patientId)) {
+  if (!(await canAccessPatient(c.get('user'), body.patientId))) {
     return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
   }
 
@@ -204,7 +204,7 @@ appointmentsRoute.get('/:id/reminders/preview', requireAppointmentAccess(), asyn
   const channel = (c.req.query('channel') as ReminderChannel) || ReminderChannel.WHATSAPP;
 
   try {
-    const preview = ReminderService.previewReminder(appointmentId, channel);
+    const preview = await ReminderService.previewReminder(appointmentId, channel);
     return c.json({ success: true, preview });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);

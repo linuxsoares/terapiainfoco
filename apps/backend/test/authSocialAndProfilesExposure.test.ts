@@ -5,7 +5,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, SocialAuthProvider } from '@terapiainfoco/shared';
-import { resetDb, requireUser, listUsers } from './helpers/db';
+import { resetDb, requireUser, listUsers, seedDemoSession } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
@@ -28,7 +28,7 @@ function socialLogin(email: string) {
 describe('Login social e listagem de perfis', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

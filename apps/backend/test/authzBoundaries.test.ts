@@ -5,7 +5,7 @@ import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, ReceiptPurpose, BillingModality, PaymentMethod } from '@terapiainfoco/shared';
 import { hashCpf } from '../src/services/cryptoContext';
-import { resetDb, requireUser, listUsers } from './helpers/db';
+import { resetDb, requireUser, listUsers, seedDemoSession, requirePatient, updatePatient } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
@@ -27,7 +27,7 @@ function register(body: Record<string, unknown>) {
 describe('Fronteiras de autenticação e perfis', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 
@@ -80,7 +80,7 @@ describe('Fronteiras de autenticação e perfis', () => {
     });
     expect(res.status).toBe(201);
     const { patient } = await res.json() as any;
-    expect(db.patients.get(patient.id)!.therapistId).toBe('therapist-001');
+    expect((await requirePatient(patient.id)).therapistId).toBe('therapist-001');
   });
 
   for (const role of [UserRole.ADMIN, UserRole.SUPERVISOR_CLINICO, UserRole.RECEPCAO_SECRETARIA]) {
@@ -166,7 +166,7 @@ describe('Fronteiras de autenticação e perfis', () => {
 
     it('busca por CPF fica restrita ao consultório', async () => {
       const headers = await otherPsychologistHeaders();
-      db.patients.get(DEMO_PATIENT_ID)!.cpfBindex = hashCpf('123.456.789-00');
+      await updatePatient(DEMO_PATIENT_ID, { cpfBindex: hashCpf('123.456.789-00') });
       const own = await app.request('/api/patients/search/cpf?cpf=123.456.789-00', {
         headers: { Authorization: `Bearer ${await tokenFor(PSICOLOGA_ID)}` }
       });

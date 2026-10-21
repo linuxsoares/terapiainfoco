@@ -12,6 +12,7 @@ import type {
   ExecutiveCompliancePackageResponse
 } from '@terapiainfoco/shared';
 import { UserRepository } from '../repositories/userRepository';
+import { PatientRepository } from '../repositories/patientRepository';
 
 export const auditRoute = new Hono();
 
@@ -181,8 +182,9 @@ auditRoute.get('/resource/:id', adminOrTherapist, async (c) => {
   const resourceId = c.req.param('id');
   const therapistId = practiceScope(c);
   const staffIds = therapistId ? await UserRepository.idsByTherapist(therapistId) : new Set<string>();
+  const patientIds = therapistId ? await PatientRepository.idsByTherapist(therapistId) : new Set<string>();
   const logs = AuditService.getLogsForResource(resourceId)
-    .filter((log) => !therapistId || AuditService.belongsToPractice(log, therapistId, staffIds));
+    .filter((log) => !therapistId || AuditService.belongsToPractice(log, therapistId, staffIds, patientIds));
   return c.json({ success: true, count: logs.length, logs });
 });
 

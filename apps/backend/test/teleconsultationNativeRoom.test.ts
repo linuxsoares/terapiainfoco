@@ -9,7 +9,7 @@ import { db } from '../src/db/memoryDb';
 import { TeleconsultationService } from '../src/services/teleconsultationService';
 import { app } from '../src/index';
 import { authService } from '../src/services/authService';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Espera (§3.2, §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
@@ -24,7 +24,7 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
   beforeEach(async () => {
     await resetDb();
     // A sala exige consulta existente no consultório de quem a acessa
-    db.seedDemoSession();
+    await seedDemoSession();
   });
 
   describe('1. Algoritmo de Avaliação de Qualidade MOS (ITU-T G.107)', () => {

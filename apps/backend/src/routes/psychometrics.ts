@@ -42,7 +42,7 @@ psychometricsRouter.post('/submit', async (c) => {
       return c.json({ success: false, error: 'patientId, scaleType e answers são obrigatórios' }, 400);
     }
 
-    const result = PsychometricService.submitAssessment(body, {
+    const result = await PsychometricService.submitAssessment(body, {
       actorId: user.id,
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')

@@ -13,6 +13,7 @@ import {
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
+import { PatientRepository } from '../repositories/patientRepository';
 import { envelopeService } from './cryptoContext';
 import { AuditService } from './auditService';
 import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } from './backupObjectStorage';
@@ -127,7 +128,7 @@ export class BackupService {
   }): Promise<CreateBackupResponse> {
     // 1. Extração de todas as tabelas e coleções relacionais
     const therapists = Array.from(db.therapists.values());
-    const patients = Array.from(db.patients.values());
+    const patients = await PatientRepository.list();
     const appointments = Array.from(db.appointments.values());
     const clinicalRecords = Array.from(db.clinicalRecords.values());
     const documents = Array.from(db.documents.values());
@@ -327,10 +328,8 @@ export class BackupService {
       db.therapists.set(t.id, t);
     }
 
-    db.patients.clear();
-    for (const p of dump.data.patients || []) {
-      db.patients.set(p.id, p);
-    }
+    await PatientRepository.deleteAll();
+    await PatientRepository.upsertMany(dump.data.patients || []);
 
     db.appointments.clear();
     for (const a of dump.data.appointments || []) {

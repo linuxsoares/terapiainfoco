@@ -43,7 +43,7 @@ consentRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const response = service.grantGranularConsent(dto, {
+      const response = await service.grantGranularConsent(dto, {
         actorId: user?.id || 'ANONYMOUS',
         ipAddress,
         userAgent
@@ -89,7 +89,7 @@ consentRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const response = service.revokeConsent(dto, {
+      const response = await service.revokeConsent(dto, {
         actorId: user?.id || 'ANONYMOUS',
         ipAddress,
         userAgent
@@ -124,7 +124,7 @@ consentRoutes.get(
       return c.json({ success: false, message: 'ID do paciente obrigatório.' }, 400);
     }
 
-    const ledger = service.getPatientLedger(patientId);
+    const ledger = await service.getPatientLedger(patientId);
 
     return c.json({
       success: true,
@@ -158,7 +158,7 @@ consentRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const result = service.enforceScope(dto.patientId, dto.requestedScope, {
+      const result = await service.enforceScope(dto.patientId, dto.requestedScope, {
         actorId: user?.id,
         ipAddress,
         userAgent
@@ -189,7 +189,7 @@ consentRoutes.get(
     const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
     const userAgent = c.req.header('user-agent') || 'Unknown';
 
-    const result = service.verifyReceiptByToken(token, {
+    const result = await service.verifyReceiptByToken(token, {
       ipAddress,
       userAgent
     });
@@ -208,7 +208,7 @@ consentRoutes.get(
   requireClinicalStaff,
   async (c) => {
     const patientId = c.req.query('patientId');
-    const data = service.getOverview(patientId);
+    const data = await service.getOverview(patientId);
 
     return c.json({
       success: true,

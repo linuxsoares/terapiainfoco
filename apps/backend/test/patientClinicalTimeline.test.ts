@@ -15,9 +15,9 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
   const therapistId = 'therapist-001';
   let patientId: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Cria paciente com consentimento assinado
-    const patient = PatientService.createPatient(therapistId, {
+    const patient = await PatientService.createPatient(therapistId, {
       name: 'Leonardo Ferreira Dias',
       email: 'leonardo.dias@email.com',
       phone: '11988776655',
@@ -77,7 +77,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
     }, { actorId: therapistId, ipAddress: '127.0.0.1' });
 
     // 3. Cadastra Anamnese
-    AnamnesisService.saveAnamnesis({
+    await AnamnesisService.saveAnamnesis({
       patientId,
       therapistId,
       dto: {
@@ -140,7 +140,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
     db.documents.set(docRecord.id, docRecord);
 
     // Consulta a Linha do Tempo
-    const timeline = PatientService.getPatientTimeline(patientId, {
+    const timeline = await PatientService.getPatientTimeline(patientId, {
       actorId: therapistId,
       ipAddress: '127.0.0.1',
       userAgent: 'Jest/Bun-Test'
@@ -179,8 +179,8 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
   });
 
   it('deve lançar erro se o paciente não for encontrado', () => {
-    expect(() => {
-      PatientService.getPatientTimeline('patient-id-inexistente', {
+    expect(async () => {
+      await PatientService.getPatientTimeline('patient-id-inexistente', {
         actorId: therapistId,
         ipAddress: '127.0.0.1'
       });

@@ -15,9 +15,9 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
   const therapistId = 'therapist-001';
   let patientId: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset e seed de paciente de teste
-    const patient = PatientService.createPatient(therapistId, {
+    const patient = await PatientService.createPatient(therapistId, {
       name: 'Camila Rodrigues Alves',
       email: 'camila.rodrigues@email.com',
       phone: '11999887766',
@@ -172,8 +172,8 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
       appointmentId = appt.id;
     });
 
-    it('deve gerar prévia da mensagem de WhatsApp contendo link da sala e orientações éticas do CFP', () => {
-      const preview = ReminderService.previewReminder(appointmentId, ReminderChannel.WHATSAPP);
+    it('deve gerar prévia da mensagem de WhatsApp contendo link da sala e orientações éticas do CFP', async () => {
+      const preview = await ReminderService.previewReminder(appointmentId, ReminderChannel.WHATSAPP);
 
       expect(preview.patientName).toBe('Camila Rodrigues Alves');
       expect(preview.recipientPhone).toBe('11999887766');
@@ -186,8 +186,8 @@ describe('Evolução de Produto RFC-001: Agendamento Recorrente & Lembretes Mult
       expect(preview.whatsappDirectUrl).toContain('wa.me/5511999887766');
     });
 
-    it('deve gerar prévia do e-mail com estrutura formal e recomendações de sigilo', () => {
-      const preview = ReminderService.previewReminder(appointmentId, ReminderChannel.EMAIL);
+    it('deve gerar prévia do e-mail com estrutura formal e recomendações de sigilo', async () => {
+      const preview = await ReminderService.previewReminder(appointmentId, ReminderChannel.EMAIL);
 
       expect(preview.renderedMessage).toContain('Prezado(a) Camila Rodrigues Alves');
       expect(preview.renderedMessage).toContain('DETALHES DO ATENDIMENTO');

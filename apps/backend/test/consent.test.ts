@@ -9,6 +9,7 @@ import {
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
+import { upsertPatient } from './helpers/db';
 describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18 & CFP 006/2019)', () => {
   let authToken: string;
   let samplePatientId: string;
@@ -35,7 +36,7 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
 
     // Cria um paciente e agendamento dedicados para isolamento total do teste
     samplePatientId = 'patient-consent-dedicated-' + Date.now();
-    db.patients.set(samplePatientId, {
+    await upsertPatient({
       id: samplePatientId,
       therapistId: 'therapist-001',
       emailBindex: 'bindex-consent-' + Date.now(),

@@ -11,6 +11,7 @@ import type {
 } from '@terapiainfoco/shared';
 import { resetDb } from './helpers/db';
 
+import { PatientRepository } from '../src/repositories/patientRepository';
 describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica (RFC-001 Opção M)', () => {
   let adminToken: string;
   let therapistToken: string;
@@ -124,13 +125,13 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
     });
 
     it('roda num consultório isolado e não deixa pacientes, consultas nem documentos para trás', async () => {
-      const sizes = () => ({
-        patients: db.patients.size,
+      const sizes = async () => ({
+        patients: await PatientRepository.count(),
         appointments: db.appointments.size,
         clinicalRecords: db.clinicalRecords.size,
         documents: db.documents.size
       });
-      const before = sizes();
+      const before = await sizes();
       const auditBefore = AuditService.getAllLogs().length;
 
       const result = await SyntheticService.runProbe({ scenario: 'full_clinical_journey' });
@@ -141,8 +142,8 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
       expect(probeActions.length).toBeGreaterThan(0);
       expect(probeActions.some((log) => log.actorId === 'therapist-001')).toBe(false);
 
-      expect(sizes()).toEqual(before);
-      for (const patient of db.patients.values()) {
+      expect(await sizes()).toEqual(before);
+      for (const patient of await PatientRepository.list()) {
         expect(patient.therapistId).not.toBe(SYNTHETIC_PROBE_THERAPIST_ID);
       }
       // A trilha WORM segue íntegra após a limpeza

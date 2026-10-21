@@ -24,7 +24,7 @@ describe('Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais (RF
     });
     therapistToken = loginRes.accessToken!;
 
-    const patient = PatientService.createPatient(
+    const patient = await PatientService.createPatient(
       'therapist-001',
       {
         name: 'Mariana Silva de Oliveira',

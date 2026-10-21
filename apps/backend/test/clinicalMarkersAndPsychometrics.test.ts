@@ -13,6 +13,7 @@ import { GoalService } from '../src/services/goalService';
 import { PsychometricService } from '../src/services/psychometricService';
 import { app } from '../src/index';
 
+import { upsertPatient } from './helpers/db';
 describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Escalas Psicométricas (§3.3, §3.4)', () => {
   const mockContext = {
     actorId: 'therapist-001',
@@ -23,9 +24,9 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
   const patientId = 'pat-test-clinical-001';
   const appointmentId = 'appt-test-clinical-001';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Configura paciente e consulta de teste
-    db.patients.set(patientId, {
+    await upsertPatient({
       id: patientId,
       therapistId: 'therapist-001',
       encryptedName: {} as any,
@@ -50,7 +51,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
   });
 
   describe('1. Marcadores Clínicos em Tempo Real (RFC-001 §3.3)', () => {
-    it('deve criar marcador com timestamp, nota cifrada e quadrante SOAP inferido', () => {
+    it('deve criar marcador com timestamp, nota cifrada e quadrante SOAP inferido', async () => {
       const marker = ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 145000, // 2 min e 25s
@@ -73,7 +74,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       expect(stored?.encryptedNote.ciphertext).toBeDefined();
     });
 
-    it('deve listar marcadores ordenados cronologicamente pelo timestamp da sessão', () => {
+    it('deve listar marcadores ordenados cronologicamente pelo timestamp da sessão', async () => {
       ClinicalMarkerService.createMarker({
         appointmentId,
         timestampMs: 600000,
@@ -98,7 +99,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       expect(markers[0].timeFormatted).toBe('02:00');
     });
 
-    it('deve exportar marcadores da sessão estruturando proposta preliminar de SOAP', () => {
+    it('deve exportar marcadores da sessão estruturando proposta preliminar de SOAP', async () => {
       // Limpa marcadores anteriores da consulta
       for (const [id, m] of db.clinicalMarkers.entries()) {
         if (m.appointmentId === appointmentId) db.clinicalMarkers.delete(id);
@@ -143,8 +144,8 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
   });
 
   describe('2. Metas Terapêuticas SMART (RFC-001 §3.4)', () => {
-    it('deve criar e atualizar meta terapêutica com progresso percentual', () => {
-      const goal = GoalService.createGoal({
+    it('deve criar e atualizar meta terapêutica com progresso percentual', async () => {
+      const goal = await GoalService.createGoal({
         patientId,
         title: 'Manejo de Crises Ansiosas',
         description: 'Reduzir episódios agudos de ansiedade de 4x para no máximo 1x por semana.',
@@ -173,8 +174,8 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
   });
 
   describe('3. Escalas Psicométricas Padronizadas (PHQ-9 & GAD-7)', () => {
-    it('deve submeter PHQ-9, calcular escore de depressão moderada e gerar recomendações', () => {
-      const result = PsychometricService.submitAssessment({
+    it('deve submeter PHQ-9, calcular escore de depressão moderada e gerar recomendações', async () => {
+      const result = await PsychometricService.submitAssessment({
         patientId,
         appointmentId,
         scaleType: PsychometricScaleType.PHQ9,
@@ -199,8 +200,8 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       expect(result.assessment.conductRecommendations.length).toBeGreaterThan(0);
     });
 
-    it('deve disparar alerta crítico se o item 9 do PHQ-9 for positivo', () => {
-      const result = PsychometricService.submitAssessment({
+    it('deve disparar alerta crítico se o item 9 do PHQ-9 for positivo', async () => {
+      const result = await PsychometricService.submitAssessment({
         patientId,
         scaleType: PsychometricScaleType.PHQ9,
         answers: [
@@ -222,9 +223,9 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       expect(result.assessment.conductRecommendations[0]).toContain('ATENÇÃO CLÍNICA');
     });
 
-    it('deve calcular tendência longitudinal (melhora/piora) comparando escores anteriores', () => {
+    it('deve calcular tendência longitudinal (melhora/piora) comparando escores anteriores', async () => {
       // Primeira aplicação (Baseline): GAD-7 escore 15 (Grave)
-      const first = PsychometricService.submitAssessment({
+      const first = await PsychometricService.submitAssessment({
         patientId,
         scaleType: PsychometricScaleType.GAD7,
         answers: [
@@ -240,7 +241,7 @@ describe('Evolução de Produto RFC-001: Marcadores Clínicos, Metas SMART & Esc
       expect(first.patientHistory.trend).toBe('BASELINE');
 
       // Segunda aplicação (após intervenção): GAD-7 escore 6 (Leve)
-      const second = PsychometricService.submitAssessment({
+      const second = await PsychometricService.submitAssessment({
         patientId,
         scaleType: PsychometricScaleType.GAD7,
         answers: [

@@ -84,7 +84,7 @@ billingReceiptsRouter.post('/receipts/cancel', requireRole([UserRole.PSICOLOGO_T
     if (!body.receiptId || !body.cancelReason) {
       return c.json({ success: false, error: 'receiptId e cancelReason são obrigatórios' }, 400);
     }
-    if (!canAccessEntity(c.get('user'), db.receipts.get(body.receiptId))) {
+    if (!(await canAccessEntity(c.get('user'), db.receipts.get(body.receiptId)))) {
       return c.json({ success: false, error: 'Recibo não encontrado.' }, 404);
     }
 
@@ -112,7 +112,7 @@ billingReceiptsRouter.get('/receipts', async (c) => {
   try {
     const user = c.get('user');
     const patientId = c.req.query('patientId');
-    if (patientId && !canAccessPatient(user, patientId)) {
+    if (patientId && !(await canAccessPatient(user, patientId))) {
       return c.json({ success: false, error: 'Paciente não encontrado.' }, 404);
     }
 

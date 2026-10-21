@@ -5,13 +5,13 @@ import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
 import { generateTotpCode } from '@terapiainfoco/crypto';
 import { UserRole } from '@terapiainfoco/shared';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession } from './helpers/db';
 import { UserRepository } from '../src/repositories/userRepository';
 
 describe('Auth Layer, 2FA/MFA, RBAC e Rate Limiting (Opção C - RFC-001)', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

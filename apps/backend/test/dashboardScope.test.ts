@@ -4,7 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession } from './helpers/db';
 
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
 
@@ -28,7 +28,7 @@ async function post(path: string, headers: Record<string, string>, body: unknown
 describe('Dashboard do psicólogo usa o próprio consultório', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

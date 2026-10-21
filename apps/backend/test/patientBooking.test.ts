@@ -5,7 +5,7 @@ import { authService } from '../src/services/authService';
 import { TherapistProfileRepository } from '../src/repositories/therapistProfileRepository';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
-import { requireUser } from './helpers/db';
+import { requireUser, requirePatient } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -49,7 +49,7 @@ describe('Agendamento pelo paciente a partir do perfil público', () => {
     expect(appointment.therapistName).toBe('Dra. Beatriz Santos');
     expect(appointment.roomUrl).toContain(`sala=${appointment.id}`);
 
-    const record = db.patients.get(db.appointments.get(appointment.id)!.patientId)!;
+    const record = await requirePatient(db.appointments.get(appointment.id)!.patientId);
     expect(record.therapistId).toBe('therapist-001');
     expect(record.linkedUserId).toBe(user.id);
     expect(record.consentTranscriptionSigned).toBe(false);

@@ -12,6 +12,7 @@ import type {
   OtlpBatchExportResult
 } from '@terapiainfoco/shared';
 
+import { PatientRepository } from '../repositories/patientRepository';
 // Conecta o coletor de traces ao despachador em lote OTLP
 tracer.setSpanCompletedListener((span) => {
   otlpBatchExporter.enqueueSpan(span);
@@ -67,9 +68,10 @@ export class TelemetryService {
   /**
    * Retorna os dados consolidados de observabilidade e RED metrics para a interface
    */
-  public static getOverview(): TelemetryOverview {
+  public static async getOverview(): Promise<TelemetryOverview> {
     // Sincroniza gauges com estado atual do banco
-    prometheus.setGauge('clinical_patients_active', db.patients.size);
+    const activePatients = await PatientRepository.count();
+    prometheus.setGauge('clinical_patients_active', activePatients);
     prometheus.setGauge('worm_audit_records_total', db.auditLogs.length);
 
     const snapshot = prometheus.getSnapshotData();
@@ -83,7 +85,7 @@ export class TelemetryService {
       crypto: snapshot.crypto,
       business: {
         ...snapshot.business,
-        activePatients: db.patients.size,
+        activePatients,
         wormAuditRecordsTotal: db.auditLogs.length
       },
       system: snapshot.system,
@@ -101,8 +103,8 @@ export class TelemetryService {
   /**
    * Retorna o payload textual no padrão oficial do Prometheus
    */
-  public static getPrometheusMetricsText(): string {
-    prometheus.setGauge('clinical_patients_active', db.patients.size);
+  public static async getPrometheusMetricsText(): Promise<string> {
+    prometheus.setGauge('clinical_patients_active', await PatientRepository.count());
     prometheus.setGauge('worm_audit_records_total', db.auditLogs.length);
     return prometheus.toPrometheusText();
   }

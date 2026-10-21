@@ -161,7 +161,7 @@ clinicalNotaryRoutes.post(
       const user = c.get('user');
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
 
-      const certificate = service.issueCertificate(dto, {
+      const certificate = await service.issueCertificate(dto, {
         id: user?.id || 'NOTARY_CLERK',
         role: user?.role || 'PSICOLOGO_TITULAR',
         ipAddress

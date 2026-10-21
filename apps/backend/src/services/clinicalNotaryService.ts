@@ -25,6 +25,7 @@ import { db } from '../db/memoryDb';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class ClinicalNotaryService {
   private static instance: ClinicalNotaryService;
 
@@ -56,7 +57,6 @@ export class ClinicalNotaryService {
   private seedInitialNotaryBlocks(): void {
     const records = Array.from(db.clinicalRecords.values());
     for (const record of records) {
-      const patient = db.patients.get(record.patientId);
       const therapist = db.therapists.get(record.therapistId);
       const crp = therapist ? `${therapist.crp}/${therapist.crpRegion}` : '06/142980-SP';
 
@@ -324,7 +324,7 @@ export class ClinicalNotaryService {
   /**
    * Emite certidão forense de autenticidade notarial de prontuário
    */
-  public issueCertificate(dto: IssueNotaryCertificateDTO, actor: { id: string; role: string; ipAddress?: string }): NotaryCertificate {
+  public async issueCertificate(dto: IssueNotaryCertificateDTO, actor: { id: string; role: string; ipAddress?: string }): Promise<NotaryCertificate> {
     let block = this.blocksByRecordId.get(dto.recordId);
     if (!block) {
       // Auto-notariza se ainda não notarizado
@@ -336,7 +336,7 @@ export class ClinicalNotaryService {
       }, actor);
     }
 
-    const patient = db.patients.get(dto.patientId);
+    const patient = await PatientRepository.findById(dto.patientId);
     let patientMasked = `PAC-***-${dto.patientId.slice(-4)}`;
     if (patient && patient.encryptedName) {
       const clearName = decryptField(patient.encryptedName);

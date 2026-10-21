@@ -59,7 +59,7 @@ documentsRoute.post('/sign', authMiddleware(), requireRoles([UserRole.PSICOLOGO_
     if (!body.documentId) {
       return c.json({ success: false, error: 'documentId é obrigatório' }, 400);
     }
-    if (!canAccessEntity(c.get('user'), db.documents.get(body.documentId))) {
+    if (!(await canAccessEntity(c.get('user'), db.documents.get(body.documentId)))) {
       return c.json({ success: false, error: 'Documento não encontrado.' }, 404);
     }
 
@@ -104,7 +104,7 @@ documentsRoute.get('/', authMiddleware(), requireRoles(CLINICAL_ROLES), async (c
  */
 documentsRoute.get('/validate/:token', validationRateLimiter, async (c) => {
   const token = c.req.param('token');
-  const result = DocumentService.validatePublicToken(token);
+  const result = await DocumentService.validatePublicToken(token);
 
   if (!result.valid) {
     return c.json({ success: false, ...result }, 404);
@@ -138,7 +138,7 @@ documentsRoute.get('/:id/pdf', authMiddleware(), requireRoles(CLINICAL_ROLES), r
       return c.json({ success: false, error: 'Documento não encontrado.' }, 404);
     }
 
-    const patient = PatientService.getPatientById(doc.patientId, {
+    const patient = await PatientService.getPatientById(doc.patientId, {
       actorId: c.get('userId'),
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1'
     });

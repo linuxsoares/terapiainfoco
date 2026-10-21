@@ -14,7 +14,7 @@ import { ConsolidatedReportService } from '../src/services/consolidatedReportSer
 import { ClinicalReferralService } from '../src/services/clinicalReferralService';
 import { app } from '../src/index';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { resetDb } from './helpers/db';
+import { resetDb, upsertPatient } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006/2019) & Encaminhamento Multidisciplinar (§3.5)', () => {
   const mockContext = {
@@ -30,7 +30,7 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
     await resetDb();
 
     // Cria paciente com dados criptografados
-    db.patients.set(patientId, {
+    await upsertPatient({
       id: patientId,
       therapistId,
       encryptedName: encryptField('Maria Clara das Dores'),

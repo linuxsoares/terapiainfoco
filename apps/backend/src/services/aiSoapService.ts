@@ -14,17 +14,18 @@ import { AuditService } from './auditService';
 import { TranscriptionService } from './transcriptionService';
 import { ConsentService } from './consentService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class AiSoapService {
   /**
    * Gera proposta assistida por IA para os 4 quadrantes SOAP
    * com Sanitização Pré-LLM (LGPD Art. 11) e Human-in-the-Loop compulsório (RFC §3.3)
    */
-  static generateSoapProposal(params: {
+  static async generateSoapProposal(params: {
     appointmentId: string;
     transcriptionId?: string;
     utterances?: TranscriptUtterance[];
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): GenerateSoapProposalResponse & { sanitizedUtterances: TranscriptUtterance[] } {
+  }): Promise<GenerateSoapProposalResponse & { sanitizedUtterances: TranscriptUtterance[] }> {
     let appointment = db.appointments.get(params.appointmentId);
     if (!appointment && params.appointmentId === '00000000-0000-0000-0000-000000000010') {
       db.seedDemoSession();
@@ -35,13 +36,13 @@ export class AiSoapService {
     }
 
 
-    const patient = db.patients.get(appointment.patientId);
+    const patient = await PatientRepository.findById(appointment.patientId);
     if (!patient) {
       throw new Error('Paciente não encontrado para a consulta informada.');
     }
 
     // Validação de Consentimento Ativo do Titular (LGPD Art. 11, I e Art. 8º §5º - Smart Revocation)
-    const consentEnforcement = ConsentService.getInstance().enforceScope(
+    const consentEnforcement = await ConsentService.getInstance().enforceScope(
       patient.id,
       ConsentScope.AI_CLINICAL_SYNTHESIS,
       params.context

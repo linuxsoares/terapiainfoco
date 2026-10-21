@@ -24,7 +24,7 @@ describe('Prescrição & Encaminhamento Psiquiátrico com Validação Farmacoló
     });
     therapistToken = loginRes.accessToken!;
 
-    const patient = PatientService.createPatient(
+    const patient = await PatientService.createPatient(
       'therapist-001',
       {
         name: 'Carlos Alberto Ferreira',

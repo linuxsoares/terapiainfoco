@@ -97,7 +97,7 @@ export class TeleconsultationService {
       throw new Error('Consulta não encontrada.');
     }
     const { patientId, therapistId } = appointment;
-    const patientName = PatientService.getPatientById(patientId, context)?.name ?? 'Paciente';
+    const patientName = (await PatientService.getPatientById(patientId, context))?.name ?? 'Paciente';
     // Nome do psicólogo titular do consultório (a sala pode ser aberta primeiro pelo paciente)
     const therapistName = (await UserRepository.findPracticeOwner(therapistId))?.name ?? 'Psicólogo(a)';
 

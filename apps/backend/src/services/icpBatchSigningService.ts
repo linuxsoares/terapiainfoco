@@ -16,6 +16,7 @@ import { db } from '../db/memoryDb';
 import { AuditService } from './auditService';
 import { decryptField } from './cryptoContext';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /**
  * -------------------------------------------------------------------------------------------------
  * SERVIÇO DE ASSINATURA AVANÇADA ICP-BRASIL EM LOTE & FECHAMENTO DE CICLOS (RFC-001 §3.4, §3.5)
@@ -35,7 +36,7 @@ export class IcpBatchSigningService {
     // 1. Prontuários / Evoluções Clínicas Pendentes
     for (const [id, record] of db.clinicalRecords.entries()) {
       if (record.therapistId === therapistId) {
-        const patient = db.patients.get(record.patientId);
+        const patient = await PatientRepository.findById(record.patientId);
         const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
         const maskedName = this.maskPatientName(rawName);
 
@@ -65,7 +66,7 @@ export class IcpBatchSigningService {
     // 2. Documentos Psicológicos CFP nº 006/2019
     for (const [id, doc] of db.documents.entries()) {
       if (doc.therapistId === therapistId) {
-        const patient = db.patients.get(doc.patientId);
+        const patient = await PatientRepository.findById(doc.patientId);
         const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
         const maskedName = this.maskPatientName(rawName);
 
@@ -88,7 +89,7 @@ export class IcpBatchSigningService {
     // 3. Relatórios Psicológicos Consolidados
     for (const [id, report] of db.consolidatedReports.entries()) {
       if (report.therapistId === therapistId) {
-        const patient = db.patients.get(report.patientId);
+        const patient = await PatientRepository.findById(report.patientId);
         const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
         const maskedName = this.maskPatientName(rawName);
 
@@ -107,7 +108,7 @@ export class IcpBatchSigningService {
     // 4. Recibos de Honorários Clínicos
     for (const [id, receipt] of db.receipts.entries()) {
       if (receipt.therapistId === therapistId) {
-        const patient = db.patients.get(receipt.patientId);
+        const patient = await PatientRepository.findById(receipt.patientId);
         const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
         const maskedName = this.maskPatientName(rawName);
 

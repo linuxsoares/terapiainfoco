@@ -6,8 +6,9 @@ import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { authService } from '../src/services/authService';
 import { AppointmentStatus } from '@terapiainfoco/shared';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession } from './helpers/db';
 
+import { PatientRepository } from '../src/repositories/patientRepository';
 describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
   let accessToken: string;
 
@@ -58,7 +59,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(patientId).toBeDefined();
 
     // 2. Verifica se no banco relacional os dados brutos estão cifrados (não há texto claro)
-    const stored = db.patients.get(patientId);
+    const stored = await PatientRepository.findById(patientId);
     expect(stored).toBeDefined();
     expect(stored?.encryptedName.ciphertext).not.toBe('Mariana Silva');
     expect(stored?.encryptedEmail.ciphertext).not.toBe('mariana.silva@email.com');
@@ -131,7 +132,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
 
   it('Fluxo SOAP, Human-in-the-Loop compulsório e Imutabilidade (Módulo 3 & 4)', async () => {
     // Prontuário só pode ser criado para paciente e consulta do próprio consultório
-    db.seedDemoSession();
+    await seedDemoSession();
     // 1. Salva rascunho de nota clínica SOAP
     const draftRes = await staffRequest('/api/clinical-records/draft', {
       method: 'POST',
@@ -478,8 +479,8 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     // 3. O horário ocupado não aceita uma segunda consulta (buffer entre sessões)
     const context = { actorId: 'therapist-001', ipAddress: '127.0.0.1' };
     const slot = { scheduledStart: firstOpenSlot.start, scheduledEnd: firstOpenSlot.end };
-    const first = PatientService.createPatient('therapist-001', { name: 'Lucas Ferreira', email: 'lucas@email.com', phone: '11977778888', consentTranscriptionSigned: false }, context);
-    const other = PatientService.createPatient('therapist-001', { name: 'Outro Paciente', email: 'outro@email.com', phone: '11966667777', consentTranscriptionSigned: false }, context);
+    const first = await PatientService.createPatient('therapist-001', { name: 'Lucas Ferreira', email: 'lucas@email.com', phone: '11977778888', consentTranscriptionSigned: false }, context);
+    const other = await PatientService.createPatient('therapist-001', { name: 'Outro Paciente', email: 'outro@email.com', phone: '11966667777', consentTranscriptionSigned: false }, context);
     const appointment = await AppointmentService.createAppointment('therapist-001', { patientId: first.id, ...slot }, context);
     expect(appointment.roomUrl).toContain(`sala=${appointment.id}`);
 

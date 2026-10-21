@@ -31,10 +31,14 @@ export const therapists = pgTable('therapists', {
 
 /**
  * 2. PACIENTES COM FIELD-LEVEL ENCRYPTION E BLIND INDEXING (RFC §5.2, §4.1, §4.3)
+ * ADR-004 fase 2: repositório SQL, fora do cache em memória. Ids e therapistId em texto,
+ * como em `users` (o consultório demo usa ids legíveis, ex.: therapist-001).
  */
 export const patients = pgTable('patients', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  therapistId: uuid('therapist_id').notNull().references(() => therapists.id, { onDelete: 'restrict' }),
+  id: text('id').primaryKey(),
+  therapistId: text('therapist_id').notNull(),
+  /** Conta de paciente vinculada ao registro (criada ao agendar pelo portal) */
+  linkedUserId: text('linked_user_id'),
 
   /** Dados PII criptografados na camada de aplicação (AES-256-GCM) */
   encryptedName: jsonb('encrypted_name').$type<EncryptedPayload>().notNull(),
@@ -54,7 +58,8 @@ export const patients = pgTable('patients', {
 }, (table) => [
   index('idx_patients_therapist').on(table.therapistId),
   index('idx_patients_email_bindex').on(table.emailBindex),
-  index('idx_patients_cpf_bindex').on(table.cpfBindex)
+  index('idx_patients_cpf_bindex').on(table.cpfBindex),
+  index('idx_patients_linked_user').on(table.linkedUserId)
 ]);
 
 /**
@@ -63,7 +68,7 @@ export const patients = pgTable('patients', {
 export const appointments = pgTable('appointments', {
   id: uuid('id').primaryKey().defaultRandom(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
-  patientId: uuid('patient_id').notNull().references(() => patients.id),
+  patientId: uuid('patient_id').notNull(),
   scheduledStart: timestamp('scheduled_start', { withTimezone: true }).notNull(),
   scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
   status: varchar('status', { length: 30 }).notNull().default('CONFIRMED'),
@@ -100,7 +105,7 @@ export const sessionTranscriptions = pgTable('session_transcriptions', {
 export const clinicalRecords = pgTable('clinical_records', {
   id: uuid('id').primaryKey().defaultRandom(),
   appointmentId: uuid('appointment_id').notNull().references(() => appointments.id),
-  patientId: uuid('patient_id').notNull().references(() => patients.id),
+  patientId: uuid('patient_id').notNull(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
   sessionNumber: integer('session_number').notNull(),
 
@@ -141,7 +146,7 @@ export const auditLogs = pgTable('audit_logs', {
 export const psychologicalDocuments = pgTable('psychological_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
-  patientId: uuid('patient_id').notNull().references(() => patients.id),
+  patientId: uuid('patient_id').notNull(),
   type: varchar('type', { length: 30 }).notNull(), // DECLARACAO, ATESTADO, RELATORIO, LAUDO
   title: varchar('title', { length: 255 }).notNull(),
   regulationReference: varchar('regulation_reference', { length: 100 }).notNull().default('Resolução CFP nº 006/2019'),
@@ -210,7 +215,7 @@ export const users = pgTable('users', {
  */
 export const anamnesisRecords = pgTable('anamnesis_records', {
   id: uuid('id').primaryKey().defaultRandom(),
-  patientId: uuid('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  patientId: uuid('patient_id').notNull(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
   version: integer('version').notNull().default(1),
 

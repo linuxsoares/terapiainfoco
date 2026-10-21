@@ -11,7 +11,7 @@ import { db } from '../src/db/memoryDb';
 import { encryptField } from '../src/services/cryptoContext';
 import { BillingReceiptService } from '../src/services/billingReceiptService';
 import { app } from '../src/index';
-import { resetDb } from './helpers/db';
+import { resetDb, upsertPatient } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honorários & Termos de Serviços (§3.6)', () => {
   const mockContext = {
@@ -26,7 +26,7 @@ describe('Evolução de Produto RFC-001: Faturamento Clínico, Recibos de Honor�
   beforeEach(async () => {
     await resetDb();
 
-    db.patients.set(patientId, {
+    await upsertPatient({
       id: patientId,
       therapistId,
       encryptedName: encryptField('Mariana Fernandes Souza'),

@@ -18,10 +18,10 @@ import {
   evaluateClipboardPolicyEngine,
   extractSteganographicWatermark
 } from '@terapiainfoco/crypto';
-import { db } from '../db/memoryDb';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class DlpService {
   private static instance: DlpService;
 
@@ -88,16 +88,16 @@ export class DlpService {
   /**
    * Avalia a cópia para a área de transferência aplicando políticas de DLP e esteganografia
    */
-  public evaluateCopyAttempt(
+  public async evaluateCopyAttempt(
     dto: EvaluateClipboardDlpDTO,
     actor: { id: string; name?: string; role: string; ipAddress?: string; userAgent?: string }
-  ): DlpEvaluationResult {
+  ): Promise<DlpEvaluationResult> {
     this.totalCopiesMonitored++;
 
     // Localizar nome do paciente se disponível
     let patientName = dto.patientName;
     if (!patientName && dto.patientId) {
-      const patient = db.patients.get(dto.patientId);
+      const patient = await PatientRepository.findById(dto.patientId);
       if (patient && patient.encryptedName) {
         patientName = decryptField(patient.encryptedName);
       }

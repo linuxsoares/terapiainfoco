@@ -35,7 +35,7 @@ export class PatientPortalService {
     const normalizedEmail = email.trim().toLowerCase();
 
     // Localiza o paciente pelo e-mail usando Blind Indexing HMAC-SHA256 (RFC §4.3)
-    const patient = PatientService.findByEmail(normalizedEmail, { actorId: 'system', ipAddress });
+    const patient = await PatientService.findByEmail(normalizedEmail, { actorId: 'system', ipAddress });
 
     if (!patient) {
       return {
@@ -113,7 +113,7 @@ export class PatientPortalService {
     // Código validado: remove para evitar reuso
     db.patientAccessCodes.delete(normalizedEmail);
 
-    const patient = PatientService.getPatientById(record.patientId, { actorId: record.patientId, ipAddress });
+    const patient = await PatientService.getPatientById(record.patientId, { actorId: record.patientId, ipAddress });
     if (!patient) {
       return {
         success: false,
@@ -181,7 +181,7 @@ export class PatientPortalService {
     patientId: string,
     context: { actorId: string; ipAddress: string }
   ): Promise<PatientPortalOverview> {
-    const patient = PatientService.getPatientById(patientId, context);
+    const patient = await PatientService.getPatientById(patientId, context);
     if (!patient) {
       throw new Error(`Paciente com ID ${patientId} não encontrado.`);
     }
@@ -308,7 +308,7 @@ export class PatientPortalService {
   }): Promise<TherapeuticExercise> {
     const { therapistId, dto, context } = params;
 
-    const patient = PatientService.getPatientById(dto.patientId, context);
+    const patient = await PatientService.getPatientById(dto.patientId, context);
     if (!patient) {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }

@@ -17,6 +17,7 @@ import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class PortabilityService {
   /**
    * Exporta o prontuário psicológico completo estruturado e interoperável (LGPD Art. 18, V)
@@ -27,7 +28,7 @@ export class PortabilityService {
     dto?: ExportPatientDataDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
   }): Promise<ExportPatientDataResponse> {
-    const storedPatient = db.patients.get(params.patientId);
+    const storedPatient = await PatientRepository.findById(params.patientId);
     if (!storedPatient) {
       throw new Error('Paciente não encontrado para exportação de dados.');
     }
@@ -252,12 +253,12 @@ export class PortabilityService {
    * Registra revogação formal de consentimento (LGPD Art. 18, IX)
    * Preserva a salvaguarda de guarda por 5 anos (Resolução CFP nº 001/2009 Art. 4º)
    */
-  static revokeConsent(params: {
+  static async revokeConsent(params: {
     patientId: string;
     dto: RevokeConsentDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): RevokeConsentResponse {
-    const stored = db.patients.get(params.patientId);
+  }): Promise<RevokeConsentResponse> {
+    const stored = await PatientRepository.findById(params.patientId);
     if (!stored) {
       throw new Error('Paciente não encontrado para revogação de consentimento.');
     }
@@ -270,10 +271,11 @@ export class PortabilityService {
     stored.consentTranscriptionSigned = false;
     stored.consentRevokedAt = now;
     stored.consentRevokeReason = params.dto.reason.trim();
+    await PatientRepository.save(stored);
 
     let isQuarantined = false;
     if (params.dto.requestDataQuarantine) {
-      isQuarantined = PatientService.quarantinePatient(params.patientId, params.context);
+      isQuarantined = await PatientService.quarantinePatient(params.patientId, params.context);
     }
 
     // Registro formal na trilha de auditoria WORM

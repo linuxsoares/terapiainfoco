@@ -86,7 +86,7 @@ clinicalReferralsRouter.post('/counter-reference', async (c) => {
         error: 'Campos obrigatórios: referralId, counterReferenceNotes e counterReferredBy'
       }, 400);
     }
-    if (!canAccessEntity(c.get('user'), db.clinicalReferrals.get(body.referralId))) {
+    if (!(await canAccessEntity(c.get('user'), db.clinicalReferrals.get(body.referralId)))) {
       return c.json({ success: false, error: 'Encaminhamento não encontrado.' }, 404);
     }
 

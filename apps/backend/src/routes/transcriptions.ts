@@ -25,7 +25,7 @@ transcriptionsRoute.post('/upload', async (c) => {
   const userAgent = c.req.header('user-agent');
 
   try {
-    const result = TranscriptionService.uploadAndProcessAudio(body, {
+    const result = await TranscriptionService.uploadAndProcessAudio(body, {
       actorId: c.get('userId'),
       ipAddress: ip,
       userAgent
@@ -104,7 +104,7 @@ transcriptionsRoute.post('/generate-soap', async (c) => {
   const userAgent = c.req.header('user-agent');
 
   try {
-    const proposal = AiSoapService.generateSoapProposal({
+    const proposal = await AiSoapService.generateSoapProposal({
       appointmentId: body.appointmentId,
       transcriptionId: body.transcriptionId,
       utterances: body.utterances,

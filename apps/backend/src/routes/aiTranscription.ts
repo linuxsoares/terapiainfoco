@@ -130,7 +130,7 @@ aiTranscriptionRouter.post('/draft/review', async (c) => {
         message: 'draftId e status são obrigatórios.'
       }, 400);
     }
-    if (!canAccessEntity(user, db.aiSoapDrafts.get(dto.draftId))) {
+    if (!(await canAccessEntity(user, db.aiSoapDrafts.get(dto.draftId)))) {
       return c.json({ success: false, message: 'Rascunho SOAP não encontrado.' }, 404);
     }
 

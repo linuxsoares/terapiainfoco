@@ -37,7 +37,7 @@ export class IcpBrasilService {
       throw new Error('Documento não encontrado.');
     }
 
-    const patient = PatientService.getPatientById(doc.patientId, {
+    const patient = await PatientService.getPatientById(doc.patientId, {
       actorId: 'icp-signer',
       ipAddress: '127.0.0.1'
     });

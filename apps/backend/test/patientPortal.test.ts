@@ -32,7 +32,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
     therapistToken = loginRes.accessToken!;
 
     patientEmail = 'ana.paula.paciente@gmail.com';
-    const patient = PatientService.createPatient(
+    const patient = await PatientService.createPatient(
       'therapist-001',
       {
         name: 'Ana Paula Ferreira',
@@ -294,7 +294,7 @@ describe('Portal do Paciente Autenticado & Exercícios Terapêuticos (RFC-001 §
 
   it('7. deve prevenir IDOR: paciente não pode responder a exercício de outro paciente', async () => {
     // Cria paciente 2
-    const patient2 = PatientService.createPatient(
+    const patient2 = await PatientService.createPatient(
       'therapist-001',
       {
         name: 'Carlos Alberto Mendes',

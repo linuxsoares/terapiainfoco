@@ -19,6 +19,7 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /**
  * Catálogo Farmacológico de Referência Clínica para Psicólogos (RFC-001 §3.5)
  * Focado nas classes mais prevalentes na prática da saúde mental brasileira
@@ -453,16 +454,16 @@ export class PsychiatricReferralService {
    * Emite e persiste uma Guia de Encaminhamento Psiquiátrico Interoperável
    * Protegida por Criptografia de Ponta a Ponta (AES-256-GCM) e Token de Validação Notarial
    */
-  public static createReferral(params: {
+  public static async createReferral(params: {
     therapistId: string;
     therapistName: string;
     therapistCrp: string;
     dto: CreatePsychiatricReferralDTO;
     ipAddress?: string;
-  }): PsychiatricReferralResponse {
+  }): Promise<PsychiatricReferralResponse> {
     const { therapistId, therapistName, therapistCrp, dto } = params;
 
-    const patient = db.patients.get(dto.patientId);
+    const patient = await PatientRepository.findById(dto.patientId);
     if (!patient) {
       throw new Error(`Paciente com ID '${dto.patientId}' não encontrado no sistema.`);
     }

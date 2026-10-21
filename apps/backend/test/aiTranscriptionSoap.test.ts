@@ -10,7 +10,7 @@ import {
   ClinicalMarkerCategory
 } from '@terapiainfoco/shared';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { resetDb } from './helpers/db';
+import { resetDb, seedDemoSession } from './helpers/db';
 
 describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOAP (RFC-001 §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
@@ -36,7 +36,7 @@ describe('Módulo de Transcrição Assistida por IA, Diarização & Síntese SOA
 
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
   });
 
   it('deve rejeitar ingestão de transcrição se consentConfirmed for false (CFP nº 011/2018 & LGPD Art. 7º)', async () => {

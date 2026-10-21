@@ -58,7 +58,7 @@ consolidatedReportsRouter.post('/sign', async (c) => {
     if (!body.reportId) {
       return c.json({ success: false, error: 'reportId é obrigatório' }, 400);
     }
-    if (!canAccessEntity(c.get('user'), db.consolidatedReports.get(body.reportId))) {
+    if (!(await canAccessEntity(c.get('user'), db.consolidatedReports.get(body.reportId)))) {
       return c.json({ success: false, error: 'Laudo não encontrado.' }, 404);
     }
 

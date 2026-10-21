@@ -19,6 +19,7 @@ import { TeleconsultationService } from './teleconsultationService';
 import { getSttProvider } from './stt/sttProvider';
 import { ConsentService } from './consentService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /** Trechos de ~10 s de Opus ficam bem abaixo disso; o limite barra abusos */
 const MAX_CHUNK_BYTES = 2 * 1024 * 1024;
 
@@ -35,9 +36,9 @@ export class LiveTranscriptionError extends Error {
  */
 export class LiveTranscriptionService {
   /** Transcrição disponível: consentimento vigente do paciente e provedor configurado */
-  static status(appointmentId: string): LiveTranscriptStatusResponse {
+  static async status(appointmentId: string): Promise<LiveTranscriptStatusResponse> {
     const appointment = db.appointments.get(appointmentId);
-    const patient = appointment ? db.patients.get(appointment.patientId) : undefined;
+    const patient = appointment ? await PatientRepository.findById(appointment.patientId) : null;
     if (!patient?.consentTranscriptionSigned || patient.consentRevokedAt) {
       return { success: true, enabled: false, reason: 'NO_CONSENT' };
     }
@@ -49,15 +50,15 @@ export class LiveTranscriptionService {
    * O paciente titular autoriza (ou recusa) a transcrição pela própria sala (LGPD Art. 11, I).
    * Registra recibo no livro de consentimentos e sincroniza o cadastro.
    */
-  static setPatientConsent(
+  static async setPatientConsent(
     appointmentId: string,
     user: SafeUser,
     granted: boolean,
     context: { ipAddress: string; userAgent?: string }
-  ): LiveTranscriptStatusResponse {
+  ): Promise<LiveTranscriptStatusResponse> {
     const appointment = db.appointments.get(appointmentId);
     if (!appointment) throw new LiveTranscriptionError('Consulta não encontrada.', 400);
-    ConsentService.getInstance().grantGranularConsent(
+    await ConsentService.getInstance().grantGranularConsent(
       {
         patientId: appointment.patientId,
         scopes: [{
@@ -69,12 +70,12 @@ export class LiveTranscriptionService {
       },
       { actorId: user.id, ...context }
     );
-    return this.status(appointmentId);
+    return await this.status(appointmentId);
   }
 
   /** Motivo, em linguagem clara, de não haver transcrição para a consulta */
-  static unavailableReason(appointmentId: string): string {
-    const status = this.status(appointmentId);
+  static async unavailableReason(appointmentId: string): Promise<string> {
+    const status = await this.status(appointmentId);
     if (status.reason === 'NO_CONSENT') {
       return 'O paciente não autorizou a transcrição desta sessão (pedido exibido na sala) ou revogou o consentimento.';
     }
@@ -95,7 +96,7 @@ export class LiveTranscriptionService {
     if (room?.status !== TeleconsultationRoomStatus.IN_PROGRESS || !room.startedAt) {
       throw new LiveTranscriptionError('A transcrição só ocorre durante a sessão em andamento.', 403);
     }
-    const status = this.status(dto.appointmentId);
+    const status = await this.status(dto.appointmentId);
     if (!status.enabled) {
       throw status.reason === 'NO_CONSENT'
         ? new LiveTranscriptionError('Paciente sem consentimento vigente para transcrição.', 403)

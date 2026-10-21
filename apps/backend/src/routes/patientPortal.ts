@@ -278,7 +278,7 @@ patientPortalRouter.post(
       if (!body.exerciseId || !body.feedback) {
         return c.json({ success: false, message: 'exerciseId e feedback são obrigatórios.' }, 400);
       }
-      if (!canAccessEntity(user, db.therapeuticExercises.get(body.exerciseId))) {
+      if (!(await canAccessEntity(user, db.therapeuticExercises.get(body.exerciseId)))) {
         return c.json({ success: false, message: 'Exercício não encontrado.' }, 404);
       }
 
