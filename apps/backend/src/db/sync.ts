@@ -2,10 +2,13 @@ import type { AppDb } from './index';
 import * as schema from './schema';
 import { db, persistence } from './memoryDb';
 import type { User, StoredPatient, StoredAppointment } from '@terapiainfoco/shared';
+import { eq } from 'drizzle-orm';
+import { revive } from './persistence';
+import { UserRepository } from '../repositories/userRepository';
+import { seedDemoUsers } from './demoUsers';
 import { config } from '../config';
 import { kmsProvider } from '../services/cryptoContext';
 import { seedDemoTherapistProfile } from '../repositories/therapistProfileRepository';
-import { repairLegacyAiSoapRecords } from './repairs';
 
 /**
  * Carrega o cache de domínio a partir do PostgreSQL e ativa a persistência durável (ADR-004).
@@ -27,42 +30,33 @@ export async function seedAndSyncDatabase(sqlDb: AppDb): Promise<void> {
     console.log(`📥 Registros legados importados para o entity_store: ${imported.join(', ')}`);
   }
 
+  const movedUsers = await moveUsersOutOfEntityStore(sqlDb);
+  if (movedUsers > 0) console.log(`📦 Contas movidas do entity_store para a tabela users: ${movedUsers}`);
+
   await persistence.attach(sqlDb);
 
-  // Depois do attach: os ajustes são persistidos no próximo flush
-  const repaired = repairLegacyAiSoapRecords();
-  if (repaired > 0) console.log(`🔧 Registros de SOAP por IA corrigidos: ${repaired}`);
-
   if (config.demoMode) {
+    await seedDemoUsers(sqlDb);
     await seedDemoTherapistProfile(sqlDb);
   }
 }
 
+/**
+ * As contas passaram do entity_store para a tabela relacional `users` (ADR-004 fase 2).
+ * Bancos criados antes disso têm as contas no entity_store: elas são gravadas na tabela
+ * (prevalecendo sobre linhas legadas de mesmo id) e removidas do entity_store.
+ */
+async function moveUsersOutOfEntityStore(sqlDb: AppDb): Promise<number> {
+  const rows: { data: unknown }[] = await (sqlDb as any).select({ data: schema.entityStore.data })
+    .from(schema.entityStore).where(eq(schema.entityStore.collection, 'users'));
+  if (rows.length === 0) return 0;
+  await UserRepository.upsertMany(rows.map((row) => revive(typeof row.data === 'string' ? JSON.parse(row.data) : row.data) as User), sqlDb);
+  await (sqlDb as any).delete(schema.entityStore).where(eq(schema.entityStore.collection, 'users'));
+  return rows.length;
+}
+
 async function importLegacyRecords(sqlDb: AppDb): Promise<string[]> {
   const imported: string[] = [];
-
-  if (!persistence.hasPersisted('users')) {
-    const rows = await (sqlDb as any).select().from(schema.users);
-    for (const u of rows) {
-      const user: User = {
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        crp: u.crp || undefined,
-        crpRegion: u.crpRegion || undefined,
-        therapistId: u.therapistId || undefined,
-        passwordHash: u.passwordHash,
-        twoFactorEnabled: u.twoFactorEnabled,
-        twoFactorSecret: u.twoFactorSecret || undefined,
-        twoFactorBackupCodes: u.twoFactorBackupCodes || undefined,
-        createdAt: u.createdAt,
-        lastLoginAt: u.lastLoginAt || undefined
-      };
-      db.users.set(user.id, user);
-    }
-    if (rows.length > 0) imported.push(`users=${rows.length}`);
-  }
 
   if (!persistence.hasPersisted('patients')) {
     const rows = await (sqlDb as any).select().from(schema.patients);

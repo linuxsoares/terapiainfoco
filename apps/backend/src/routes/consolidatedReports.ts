@@ -30,7 +30,7 @@ consolidatedReportsRouter.post('/generate', async (c) => {
     }
 
     const therapistId = user.therapistId!;
-    const report = ConsolidatedReportService.generateReport({
+    const report = await ConsolidatedReportService.generateReport({
       therapistId,
       dto: body,
       context: {

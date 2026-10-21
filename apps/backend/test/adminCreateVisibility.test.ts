@@ -3,7 +3,6 @@ import path from 'node:path';
 import { sql } from 'drizzle-orm';
 import { app } from '../src/index';
 import { getDb } from '../src/db';
-import { encode } from '../src/db/persistence';
 import { UserRole } from '@terapiainfoco/shared';
 
 describe('Conta criada fora do servidor (bun run admin:create)', () => {
@@ -15,11 +14,10 @@ describe('Conta criada fora do servidor (bun run admin:create)', () => {
       name: 'DPO Externo',
       role: UserRole.ADMIN,
       passwordHash: await Bun.password.hash('SenhaAdminForte@2026'),
-      twoFactorEnabled: false,
-      createdAt: new Date()
     };
+    // Outro processo grava direto na tabela users: sem cache de contas, o login já a enxerga
     const db: any = await getDb();
-    await db.execute(sql`INSERT INTO entity_store (collection, id, data) VALUES ('users', ${user.id}, ${encode(user)}::jsonb)`);
+    await db.execute(sql`INSERT INTO users (id, email, name, role, password_hash) VALUES (${user.id}, ${user.email}, ${user.name}, ${user.role}, ${user.passwordHash})`);
 
     const res = await app.request('/api/auth/login', {
       method: 'POST',

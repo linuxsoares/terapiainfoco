@@ -4,6 +4,7 @@ import { UserRole } from '@terapiainfoco/shared';
 import { authService } from '../src/services/authService';
 import { db } from '../src/db/memoryDb';
 import { SEED_ADMIN_ID } from './helpers/adminRequest';
+import { requireUser } from './helpers/db';
 
 const SEED_THERAPIST_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -13,8 +14,8 @@ describe('Threat Intelligence & Dark Web Credential Breach Monitor API (RFC-001 
 
   // Tokens emitidos direto: o login por HTTP dependia do rate limit de autenticação compartilhado entre arquivos
   beforeAll(async () => {
-    psychologistToken = (await authService.issueTokens(db.users.get(SEED_THERAPIST_ID)!, '127.0.0.1')).accessToken;
-    adminToken = (await authService.issueTokens(db.users.get(SEED_ADMIN_ID)!, '127.0.0.1')).accessToken;
+    psychologistToken = (await authService.issueTokens((await requireUser(SEED_THERAPIST_ID)), '127.0.0.1')).accessToken;
+    adminToken = (await authService.issueTokens((await requireUser(SEED_ADMIN_ID)), '127.0.0.1')).accessToken;
   });
 
   it('POST /api/security/threat-intelligence/check deve consultar k-Anonymity e detectar vazamento sem vazar a senha', async () => {

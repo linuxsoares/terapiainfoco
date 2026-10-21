@@ -8,6 +8,7 @@ import {
   SaveAnamnesisDTO,
   CreateRectificationDTO
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Ficha de Anamnese Biopsicossocial & Termo de Retificação de Prontuário (RFC §3.4 & CFP nº 001/2009)', () => {
   let therapistToken: string;
@@ -16,7 +17,7 @@ describe('Ficha de Anamnese Biopsicossocial & Termo de Retificação de Prontuá
   let appointmentId: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login Psicólogo Titular

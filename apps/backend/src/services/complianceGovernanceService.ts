@@ -21,6 +21,7 @@ import { backupStore, BackupService } from './backupService';
 import { globalRateLimitStore } from '../middlewares/rateLimiter';
 import { otlpBatchExporter } from '../telemetry/otlpBatchExporter';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { config } from '../config';
 
 /** Erro de entrada do Admin (vira 400 na rota) */
@@ -63,7 +64,7 @@ export class ComplianceGovernanceService {
     const storeStatus = await globalRateLimitStore.getStatus();
 
     // 5. Autenticação Forte: 2FA medido em quem acessa dados clínicos ou administra (pacientes têm 2FA opcional)
-    const usersList = Array.from(db.users.values());
+    const usersList = await UserRepository.list();
     const staff = usersList.filter((u) => u.role !== UserRole.PACIENTE);
     const staffWith2fa = staff.filter((u) => u.twoFactorEnabled).length;
     const totalPasskeys = usersList.reduce((acc, u) => acc + (u.passkeysCount || 0), 0);

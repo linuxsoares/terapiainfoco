@@ -4,6 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, UserRole } from '@terapiainfoco/shared';
+import { resetDb, listUsers } from './helpers/db';
 
 const LEAD = { name: 'Dra. Ana Lima', email: 'Ana@Consultorio.com.br', crp: '06/123456', whatsapp: '11999990000', practiceType: 'clinica', consent: true };
 
@@ -16,13 +17,13 @@ async function postLead(body: object, ip = '10.0.0.1') {
 }
 
 async function tokenFor(role: UserRole) {
-  const user = Array.from(db.users.values()).find((u) => u.role === role)!;
+  const user = (await listUsers()).find((u) => u.role === role)!;
   return (await authService.issueTokens(user, '127.0.0.1')).accessToken!;
 }
 
 describe('Pedidos de acesso da landing page', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -73,7 +74,7 @@ describe('Pedidos de acesso da landing page', () => {
     expect(body.lead.status).toBe('APPROVED');
     expect(body.temporaryPassword.length).toBeGreaterThanOrEqual(12);
 
-    const user = Array.from(db.users.values()).find((u) => u.email === 'ana@consultorio.com.br')!;
+    const user = (await listUsers()).find((u) => u.email === 'ana@consultorio.com.br')!;
     expect(user).toMatchObject({ role: UserRole.PSICOLOGO_TITULAR, crp: '06/123456', crpRegion: 'SP', mustChangePassword: true });
     expect(user.therapistId).toBeTruthy();
     expect(await Bun.password.verify(body.temporaryPassword, user.passwordHash)).toBe(true);
@@ -92,12 +93,12 @@ describe('Pedidos de acesso da landing page', () => {
 
     const res = await adminPost(`/api/leads/${lead.id}/reject`);
     expect(((await res.json()) as any).lead.status).toBe('REJECTED');
-    expect(Array.from(db.users.values()).some((u) => u.email === 'recusado@consultorio.com.br')).toBe(false);
+    expect((await listUsers()).some((u) => u.email === 'recusado@consultorio.com.br')).toBe(false);
     expect((await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'SP' })).status).toBe(400);
   });
 
   it('e-mail já cadastrado não aprova e mantém o pedido pendente', async () => {
-    const existing = Array.from(db.users.values()).find((u) => u.role === UserRole.PACIENTE)!;
+    const existing = (await listUsers()).find((u) => u.role === UserRole.PACIENTE)!;
     await postLead({ ...LEAD, email: existing.email });
     const lead = Array.from(db.leads.values())[0];
     const res = await adminPost(`/api/leads/${lead.id}/approve`, { crpRegion: 'SP' });

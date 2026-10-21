@@ -9,10 +9,11 @@ import {
   WebSocketValidationAction
 } from '@terapiainfoco/shared';
 import { adminRequest } from './helpers/adminRequest';
+import { resetDb } from './helpers/db';
 
 describe('Proteção contra Injeção de Objetos e Desserialização Não Segura em WebSocket (RFC 6455 & CWE-502)', () => {
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
   });
 
   it('1. GET /api/websocket-guard/overview deve retornar métricas, política ativa, incidentes e canais homologados', async () => {

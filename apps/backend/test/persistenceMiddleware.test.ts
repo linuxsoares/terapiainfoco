@@ -26,8 +26,10 @@ describe('Gravação durável ao final da requisição (ADR-004)', () => {
     const therapistId = body.user.therapistId;
 
     const db: any = await getDb();
-    const rows = await db.execute(sql`SELECT collection, id FROM entity_store WHERE id IN (${userId}, ${therapistId})`);
-    const found = (rows.rows ?? rows).map((r: any) => r.collection).sort();
-    expect(found).toEqual(['therapists', 'users']);
+    // A conta vai para a tabela users (repositório SQL); o consultório segue no entity_store
+    const stored = await db.execute(sql`SELECT collection, id FROM entity_store WHERE id IN (${userId}, ${therapistId})`);
+    expect((stored.rows ?? stored).map((r: any) => r.collection)).toEqual(['therapists']);
+    const account = await db.execute(sql`SELECT id FROM users WHERE id = ${userId}`);
+    expect((account.rows ?? account).length).toBe(1);
   });
 });

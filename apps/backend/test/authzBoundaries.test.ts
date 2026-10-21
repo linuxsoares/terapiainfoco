@@ -5,13 +5,14 @@ import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, ReceiptPurpose, BillingModality, PaymentMethod } from '@terapiainfoco/shared';
 import { hashCpf } from '../src/services/cryptoContext';
+import { resetDb, requireUser, listUsers } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000004';
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
 
 async function tokenFor(userId: string): Promise<string> {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return accessToken;
 }
 
@@ -25,7 +26,7 @@ function register(body: Record<string, unknown>) {
 
 describe('Fronteiras de autenticação e perfis', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
@@ -86,7 +87,7 @@ describe('Fronteiras de autenticação e perfis', () => {
     it(`cadastro público recusa o perfil ${role}`, async () => {
       const res = await register({ name: 'Tentativa', email: `tentativa.${role.toLowerCase()}@x.com`, password: 'SenhaForte@2026', role });
       expect(res.status).toBe(400);
-      expect(Array.from(db.users.values()).some((u) => u.email.startsWith('tentativa.'))).toBe(false);
+      expect((await listUsers()).some((u) => u.email.startsWith('tentativa.'))).toBe(false);
     });
   }
 
@@ -262,7 +263,7 @@ describe('Fronteiras de autenticação e perfis', () => {
     });
 
     it('paciente acessa o próprio cofre e consentimento, mas não os de outro paciente', async () => {
-      const demoPatientUser = Array.from(db.users.values()).find((u) => u.role === UserRole.PACIENTE)!;
+      const demoPatientUser = (await listUsers()).find((u) => u.role === UserRole.PACIENTE)!;
       const headers = { Authorization: `Bearer ${await tokenFor(demoPatientUser.id)}` };
       expect((await app.request(`/api/portability-vault/patients/${demoPatientUser.patientId}/history`, { headers })).status).toBe(200);
 

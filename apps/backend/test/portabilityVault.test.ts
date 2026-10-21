@@ -8,6 +8,7 @@ import {
   DiagnosticUrgencyLevel,
   PortabilityKdfAlgorithm
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Módulo de Exportação Segura e Portabilidade Consolidada em Pacote .enc (RFC-001 §3.3, §4.4 & LGPD Art. 18)', () => {
   let therapistToken: string;
@@ -15,7 +16,7 @@ describe('Módulo de Exportação Segura e Portabilidade Consolidada em Pacote .
   let patientId: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
 
     const authService = new AuthService();
     const loginRes = await authService.login({

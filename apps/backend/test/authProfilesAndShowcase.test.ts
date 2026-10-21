@@ -3,10 +3,11 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, SocialAuthProvider, AuditAction } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Vitrine Pública Sem Login, Criação de Perfil (Com/Sem Login Social) & Perfis (Paciente, Psicólogo, Admin)', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
   });
 

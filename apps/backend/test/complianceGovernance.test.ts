@@ -6,13 +6,15 @@ import { complianceGovernanceService, ComplianceGovernanceService } from '../src
 import { kmsService } from '../src/services/kmsService';
 import { UserRole } from '@terapiainfoco/shared';
 import { AuditAction, ComplianceFramework, ComplianceControlStatus } from '@terapiainfoco/shared';
+import { resetDb, listUsers } from './helpers/db';
+import { UserRepository } from '../src/repositories/userRepository';
 
 describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5.2)', () => {
   let adminToken: string;
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     complianceGovernanceService.reset();
 
@@ -233,8 +235,8 @@ describe('Governança Executiva & Compliance Package Forense (RFC-001 §4.4, §5
     })).json()) as any;
 
     const before = await overview();
-    for (const user of db.users.values()) {
-      if (user.role !== UserRole.PACIENTE) user.twoFactorEnabled = true;
+    for (const user of await listUsers()) {
+      if (user.role !== UserRole.PACIENTE) await UserRepository.save({ ...user, twoFactorEnabled: true });
     }
     const after = await overview();
     expect(after.forensicMetrics.twoFactorAdoptionRate).toBe(100);

@@ -11,6 +11,7 @@ import type {
   ApplyDpoSignOffDTO,
   ExecutiveCompliancePackageResponse
 } from '@terapiainfoco/shared';
+import { UserRepository } from '../repositories/userRepository';
 
 export const auditRoute = new Hono();
 
@@ -83,7 +84,7 @@ function practiceScope(c: any): string | undefined {
 }
 
 // 1. Obter logs com filtros opcionais
-auditRoute.get('/', adminOrTherapist, (c) => {
+auditRoute.get('/', adminOrTherapist, async (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
@@ -91,7 +92,7 @@ auditRoute.get('/', adminOrTherapist, (c) => {
   const endDate = c.req.query('endDate');
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : undefined;
 
-  const logs = AuditService.getFilteredLogs({
+  const logs = await AuditService.getFilteredLogs({
     therapistId: practiceScope(c),
     action,
     resourceType,
@@ -111,14 +112,14 @@ auditRoute.get('/verify-chain', adminOrTherapist, (c) => {
 });
 
 // 3. Relatório Formal de Conformidade para DPO e Fiscalização do CFP
-auditRoute.get('/report', adminOrTherapist, (c) => {
+auditRoute.get('/report', adminOrTherapist, async (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
   const startDate = c.req.query('startDate');
   const endDate = c.req.query('endDate');
 
-  const report = AuditService.generateComplianceReport({
+  const report = await AuditService.generateComplianceReport({
     therapistId: practiceScope(c),
     action,
     resourceType,
@@ -131,14 +132,14 @@ auditRoute.get('/report', adminOrTherapist, (c) => {
 });
 
 // 4. Exportação Forense em CSV
-auditRoute.get('/export/csv', adminOrTherapist, (c) => {
+auditRoute.get('/export/csv', adminOrTherapist, async (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
   const startDate = c.req.query('startDate');
   const endDate = c.req.query('endDate');
 
-  const csv = AuditService.exportLogsToCsv({
+  const csv = await AuditService.exportLogsToCsv({
     therapistId: practiceScope(c),
     action,
     resourceType,
@@ -154,14 +155,14 @@ auditRoute.get('/export/csv', adminOrTherapist, (c) => {
 });
 
 // 5. Exportação em JSON Assinado
-auditRoute.get('/export/json', adminOrTherapist, (c) => {
+auditRoute.get('/export/json', adminOrTherapist, async (c) => {
   const action = c.req.query('action');
   const resourceType = c.req.query('resourceType');
   const actorId = c.req.query('actorId');
   const startDate = c.req.query('startDate');
   const endDate = c.req.query('endDate');
 
-  const report = AuditService.generateComplianceReport({
+  const report = await AuditService.generateComplianceReport({
     therapistId: practiceScope(c),
     action,
     resourceType,
@@ -176,11 +177,12 @@ auditRoute.get('/export/json', adminOrTherapist, (c) => {
 });
 
 // 6. Obter logs específicos de um recurso
-auditRoute.get('/resource/:id', adminOrTherapist, (c) => {
+auditRoute.get('/resource/:id', adminOrTherapist, async (c) => {
   const resourceId = c.req.param('id');
   const therapistId = practiceScope(c);
+  const staffIds = therapistId ? await UserRepository.idsByTherapist(therapistId) : new Set<string>();
   const logs = AuditService.getLogsForResource(resourceId)
-    .filter((log) => !therapistId || AuditService.belongsToPractice(log, therapistId));
+    .filter((log) => !therapistId || AuditService.belongsToPractice(log, therapistId, staffIds));
   return c.json({ success: true, count: logs.length, logs });
 });
 

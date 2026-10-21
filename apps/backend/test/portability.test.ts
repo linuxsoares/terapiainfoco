@@ -10,13 +10,14 @@ import {
   UserRole
 } from '@terapiainfoco/shared';
 import { decryptPackageWithPassphrase } from '@terapiainfoco/crypto';
+import { resetDb } from './helpers/db';
 
 describe('Portabilidade de Dados & Exportação Criptografada LGPD Art. 18 (Opção F)', () => {
   let therapistToken: string;
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // Login com psicólogo titular

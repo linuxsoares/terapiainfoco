@@ -163,7 +163,7 @@ authRoute.post('/logout', authMiddleware({ optional: true }), async (c) => {
  */
 authRoute.get('/me', authMiddleware({ strict: true }), async (c) => {
   const user = c.get('user');
-  const fullProfile = authService.getUserById(user.id) || user;
+  const fullProfile = (await authService.getUserById(user.id)) || user;
   return c.json({ success: true, user: fullProfile });
 });
 
@@ -187,8 +187,8 @@ authRoute.put('/profile', authMiddleware({ strict: true }), async (c) => {
  * GET /api/auth/profiles
  * Lista perfis cadastrados na plataforma (contém e-mails e telefones: apenas Admin/DPO)
  */
-authRoute.get('/profiles', authMiddleware(), requireRole(UserRole.ADMIN), (c) => {
-  const profiles = authService.listProfiles();
+authRoute.get('/profiles', authMiddleware(), requireRole(UserRole.ADMIN), async (c) => {
+  const profiles = await authService.listProfiles();
   return c.json({ success: true, profiles }, 200);
 });
 

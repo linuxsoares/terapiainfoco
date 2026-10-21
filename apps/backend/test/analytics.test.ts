@@ -3,13 +3,14 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, DocumentType, UserRole } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Analytics, Métricas Clínicas & Observabilidade (Opção E - RFC-001)', () => {
   let psychologistToken = '';
   let secretaryToken = '';
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login como Psicóloga Titular

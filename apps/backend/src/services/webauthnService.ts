@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { config } from '../config';
 import { authService } from './authService';
 import { auditService } from './auditService';
@@ -68,7 +69,7 @@ export class WebAuthnService {
    * 1. Gera opções de desafio para registro de uma nova Passkey biométrica
    */
   public static async getRegistrationOptions(userId: string): Promise<PasskeyRegistrationOptionsResponse> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não encontrado para registro de Passkey.');
     }
@@ -134,7 +135,7 @@ export class WebAuthnService {
     ipAddress = '127.0.0.1',
     userAgent = 'unknown'
   ): Promise<PasskeyInfoDTO> {
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       throw new Error('Usuário não localizado.');
     }
@@ -207,6 +208,7 @@ export class WebAuthnService {
 
     db.passkeys.set(newPasskey.id, newPasskey);
     user.passkeysCount = (user.passkeysCount || 0) + 1;
+    await UserRepository.save(user);
 
     // Registra auditoria WORM imutável
     await auditService.logAccess({
@@ -241,9 +243,7 @@ export class WebAuthnService {
     let userId: string | undefined;
 
     if (email) {
-      const user = Array.from(db.users.values()).find(
-        u => u.email.toLowerCase() === email.toLowerCase().trim()
-      );
+      const user = await UserRepository.findByEmail(email);
       if (user) {
         userId = user.id;
         const userPasskeys = Array.from(db.passkeys.values()).filter(p => p.userId === user.id);
@@ -354,7 +354,7 @@ export class WebAuthnService {
     passkey.lastUsedAt = new Date();
 
     // 7. Localiza o usuário associado e emite tokens JWT
-    const user = db.users.get(passkey.userId);
+    const user = await UserRepository.findById(passkey.userId);
     if (!user) {
       throw new Error('Usuário associado à Passkey não encontrado.');
     }
@@ -406,9 +406,10 @@ export class WebAuthnService {
 
     db.passkeys.delete(passkeyId);
 
-    const user = db.users.get(userId);
+    const user = await UserRepository.findById(userId);
     if (user && user.passkeysCount && user.passkeysCount > 0) {
       user.passkeysCount -= 1;
+      await UserRepository.save(user);
     }
 
     await auditService.logAccess({

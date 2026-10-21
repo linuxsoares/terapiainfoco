@@ -8,6 +8,7 @@ import type {
   ComplianceReportResponse
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 
 const GENESIS_HASH = '0'.repeat(64);
 
@@ -231,8 +232,8 @@ export class AuditService {
    * Registro pertence ao consultório quando o ator é da equipe dele ou o recurso
    * (paciente, consulta, prontuário, documento) é do consultório.
    */
-  static belongsToPractice(log: AuditLog, therapistId: string): boolean {
-    if (db.users.get(log.actorId)?.therapistId === therapistId) return true;
+  static belongsToPractice(log: AuditLog, therapistId: string, staffIds: Set<string>): boolean {
+    if (staffIds.has(log.actorId)) return true;
     const owner =
       db.patients.get(log.resourceId)?.therapistId ??
       db.appointments.get(log.resourceId)?.therapistId ??
@@ -241,12 +242,14 @@ export class AuditService {
     return owner === therapistId;
   }
 
-  static getFilteredLogs(filters: AuditFilterParams = {}): AuditLog[] {
+  static async getFilteredLogs(filters: AuditFilterParams = {}): Promise<AuditLog[]> {
     let result = [...db.auditLogs];
 
     if (filters.therapistId) {
       const therapistId = filters.therapistId;
-      result = result.filter(l => this.belongsToPractice(l, therapistId));
+      // Equipe do consultório carregada uma vez (não uma consulta por registro)
+      const staffIds = await UserRepository.idsByTherapist(therapistId);
+      result = result.filter(l => this.belongsToPractice(l, therapistId, staffIds));
     }
 
     if (filters.resourceType) {
@@ -281,9 +284,9 @@ export class AuditService {
   /**
    * Gera relatório de conformidade formal para fiscalização do CFP e DPO (LGPD Art. 37/38)
    */
-  static generateComplianceReport(filters: AuditFilterParams = {}): ComplianceReportResponse {
+  static async generateComplianceReport(filters: AuditFilterParams = {}): Promise<ComplianceReportResponse> {
     const chainIntegrity = this.verifyChainIntegrity();
-    const filteredLogs = this.getFilteredLogs(filters);
+    const filteredLogs = await this.getFilteredLogs(filters);
 
     const reportId = randomUUID();
     const generatedAt = new Date().toISOString();
@@ -359,8 +362,8 @@ export class AuditService {
   /**
    * Converte a trilha de auditoria para formato CSV padronizado (para SIEM e perícia forense)
    */
-  static exportLogsToCsv(filters: AuditFilterParams = {}): string {
-    const logs = this.getFilteredLogs(filters);
+  static async exportLogsToCsv(filters: AuditFilterParams = {}): Promise<string> {
+    const logs = await this.getFilteredLogs(filters);
 
     const headers = [
       'sequenceNumber',

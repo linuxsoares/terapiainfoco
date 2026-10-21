@@ -24,6 +24,7 @@ import {
   verifyEncryptedPortabilityVault
 } from '@terapiainfoco/crypto';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
@@ -43,10 +44,10 @@ export class PortabilityVaultService {
    * Consolida todas as 11 seções clínicas do paciente e gera o pacote .enc
    * protegido por Argon2id + AES-256-GCM com Merkle Root e Selo Notarial WORM
    */
-  public static generateEncryptedVault(params: {
+  public static async generateEncryptedVault(params: {
     dto: GeneratePortabilityEncVaultDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): GeneratePortabilityEncVaultResponse {
+  }): Promise<GeneratePortabilityEncVaultResponse> {
     const { dto, context } = params;
     const storedPatient = db.patients.get(dto.patientId);
     if (!storedPatient) {
@@ -77,12 +78,7 @@ export class PortabilityVaultService {
 
     const therapist = db.therapists.get(storedPatient.therapistId);
     let therapistName = 'Dra. Beatriz Santos';
-    for (const u of db.users.values()) {
-      if (u.therapistId === storedPatient.therapistId) {
-        therapistName = u.name;
-        break;
-      }
-    }
+    therapistName = (await UserRepository.findPracticeOwner(storedPatient.therapistId))?.name ?? therapistName;
 
     // 1. Dados Cadastrais & TCLE
     const patientDemographics = {

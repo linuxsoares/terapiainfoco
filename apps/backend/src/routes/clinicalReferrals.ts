@@ -55,7 +55,7 @@ clinicalReferralsRouter.post('/', async (c) => {
     }
 
     const therapistId = user.therapistId!;
-    const referral = ClinicalReferralService.createReferral({
+    const referral = await ClinicalReferralService.createReferral({
       therapistId,
       dto: body,
       context: {

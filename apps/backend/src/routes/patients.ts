@@ -138,7 +138,7 @@ patientsRoute.post('/:id/export', requireRoles([UserRole.PSICOLOGO_TITULAR]), re
   }
 
   try {
-    const response = PortabilityService.exportPatientData({
+    const response = await PortabilityService.exportPatientData({
       patientId: id,
       dto: body,
       context: {

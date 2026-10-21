@@ -5,6 +5,7 @@ import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
 import { createSimulatedWebAuthnKeyPair, createSimulatedWebAuthnAssertion } from '@terapiainfoco/crypto';
+import { resetDb, listUsers } from './helpers/db';
 
 const b64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 
@@ -14,13 +15,13 @@ const b64url = (value: string | Buffer) => Buffer.from(value).toString('base64ur
  */
 describe('Passkeys: asserção forjada não autentica', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
 
   it('registro sem chave pública verificável é recusado e login forjado não emite tokens', async () => {
-    const victim = Array.from(db.users.values()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
+    const victim = (await listUsers()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
     const { accessToken } = await authService.issueTokens(victim, '127.0.0.1');
     const auth = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
 
@@ -59,7 +60,7 @@ describe('Passkeys: asserção forjada não autentica', () => {
   });
 
   async function registerRealPasskey() {
-    const user = Array.from(db.users.values()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
+    const user = (await listUsers()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
     const { accessToken } = await authService.issueTokens(user, '127.0.0.1');
     const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
     const options = await (await app.request('/api/auth/passkeys/register/options', { method: 'POST', headers })).json() as any;

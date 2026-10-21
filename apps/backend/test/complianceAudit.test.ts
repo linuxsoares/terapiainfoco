@@ -3,13 +3,14 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Auditoria Contínua, Pentest Automatizado & Relatório RIPD/DPIA (Fase 4 do RFC-001 & LGPD Art. 38/50)', () => {
   let adminToken: string;
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     const loginAdmin = await app.request('/api/auth/login', {

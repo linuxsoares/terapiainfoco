@@ -9,6 +9,7 @@ import { db } from '../src/db/memoryDb';
 import { TeleconsultationService } from '../src/services/teleconsultationService';
 import { app } from '../src/index';
 import { authService } from '../src/services/authService';
+import { resetDb, requireUser } from './helpers/db';
 
 describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Espera (§3.2, §3.3)', () => {
   const appointmentId = '00000000-0000-0000-0000-000000000010';
@@ -20,8 +21,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
     userAgent: 'BunTest/1.0'
   };
 
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
     // A sala exige consulta existente no consultório de quem a acessa
     db.seedDemoSession();
   });
@@ -66,8 +67,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
   });
 
   describe('2. Sala de Teleconsulta & Ciclo da Sala de Espera (Knocking)', () => {
-    it('deve inicializar a sala de teleconsulta com status IDLE e hash SHA-256', () => {
-      const room = TeleconsultationService.getOrCreateRoom({
+    it('deve inicializar a sala de teleconsulta com status IDLE e hash SHA-256', async () => {
+      const room = await TeleconsultationService.getOrCreateRoom({
         appointmentId,
         context: therapistActor
       });
@@ -82,8 +83,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(room.metrics.qualityState).toBe(CallQualityState.EXCELLENT);
     });
 
-    it('deve permitir knocking do paciente na sala de espera alterando status para WAITING_ROOM', () => {
-      const knockRes = TeleconsultationService.knockWaitingRoom({
+    it('deve permitir knocking do paciente na sala de espera alterando status para WAITING_ROOM', async () => {
+      const knockRes = await TeleconsultationService.knockWaitingRoom({
         appointmentId,
         userId: PATIENT_USER_ID,
         clientFingerprint: 'browser_mac_chrome_123',
@@ -94,7 +95,7 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(knockRes.status).toBe('WAITING');
       expect(knockRes.roomStatus).toBe(TeleconsultationRoomStatus.WAITING_ROOM);
 
-      const room = TeleconsultationService.getOrCreateRoom({
+      const room = await TeleconsultationService.getOrCreateRoom({
         appointmentId,
         context: therapistActor
       });
@@ -104,8 +105,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(room.waitingParticipants[0].status).toBe('WAITING');
     });
 
-    it('deve permitir ao psicólogo admitir o paciente iniciando a sessão clínica (IN_PROGRESS)', () => {
-      const knockRes = TeleconsultationService.knockWaitingRoom({
+    it('deve permitir ao psicólogo admitir o paciente iniciando a sessão clínica (IN_PROGRESS)', async () => {
+      const knockRes = await TeleconsultationService.knockWaitingRoom({
         appointmentId,
         userId: PATIENT_USER_ID,
         ipAddress: '200.180.10.5'
@@ -126,8 +127,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(participant?.status).toBe('ADMITTED');
     });
 
-    it('deve permitir ao psicólogo rejeitar um participante indevido', () => {
-      const knockRes = TeleconsultationService.knockWaitingRoom({
+    it('deve permitir ao psicólogo rejeitar um participante indevido', async () => {
+      const knockRes = await TeleconsultationService.knockWaitingRoom({
         appointmentId,
         userId: PATIENT_USER_ID,
         ipAddress: '200.180.10.99'
@@ -146,8 +147,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(participant?.status).toBe('REJECTED');
     });
 
-    it('deve atualizar telemetria da chamada em tempo real', () => {
-      TeleconsultationService.getOrCreateRoom({
+    it('deve atualizar telemetria da chamada em tempo real', async () => {
+      await TeleconsultationService.getOrCreateRoom({
         appointmentId,
         context: therapistActor
       });
@@ -167,8 +168,8 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect(updatedRoom.metrics.mosScore).toBeGreaterThanOrEqual(4.0);
     });
 
-    it('deve finalizar a teleconsulta formalmente e computar a duração em segundos', () => {
-      TeleconsultationService.getOrCreateRoom({
+    it('deve finalizar a teleconsulta formalmente e computar a duração em segundos', async () => {
+      await TeleconsultationService.getOrCreateRoom({
         appointmentId,
         context: therapistActor
       });
@@ -190,7 +191,7 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
   describe('3. Rotas HTTP REST (/api/teleconsultation/session)', () => {
     async function headersFor(userId: string) {
-      const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+      const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
       return { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` };
     }
     const post = (path: string, headers: Record<string, string>, body: unknown) =>
@@ -278,14 +279,14 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
 
   describe('4. Sem gravação (ADR-005)', () => {
     it('não existe rota nem estado de gravação na sala', async () => {
-      const { accessToken } = await authService.issueTokens(db.users.get(PSICOLOGA_ID)!, '127.0.0.1');
+      const { accessToken } = await authService.issueTokens((await requireUser(PSICOLOGA_ID)), '127.0.0.1');
       const res = await app.request('/api/teleconsultation/session/recording', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ appointmentId, isRecordingActive: true })
       });
       expect(res.status).toBe(404);
-      const room = TeleconsultationService.getOrCreateRoom({ appointmentId, context: therapistActor });
+      const room = await TeleconsultationService.getOrCreateRoom({ appointmentId, context: therapistActor });
       expect('isRecordingActive' in room).toBe(false);
       expect((await app.request('/api/teleconsultation/media/recordings', { headers: { Authorization: `Bearer ${accessToken}` } })).status).toBe(404);
     });

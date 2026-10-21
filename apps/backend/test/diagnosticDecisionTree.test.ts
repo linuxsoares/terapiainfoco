@@ -8,13 +8,14 @@ import {
   DiagnosticUrgencyLevel,
   InitialScreenerType
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Árvore de Decisão Diagnóstica & Escalas Psicométricas Iniciais (RFC-001 §3.4 / CFP)', () => {
   let therapistToken: string;
   let mockPatientId: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
 
     const authService = new AuthService();
     const loginRes = await authService.login({

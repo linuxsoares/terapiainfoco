@@ -14,10 +14,10 @@ export const adminRoute = new Hono();
 adminRoute.use('*', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]));
 
 // Consultórios disponíveis para vincular contas da equipe
-adminRoute.get('/practices', (c) => c.json({ success: true, practices: TeamService.listPractices() }));
+adminRoute.get('/practices', async (c) => c.json({ success: true, practices: await TeamService.listPractices() }));
 
 // Equipe e administradores (contas que não são de paciente)
-adminRoute.get('/users', (c) => c.json({ success: true, members: TeamService.listStaff() }));
+adminRoute.get('/users', async (c) => c.json({ success: true, members: await TeamService.listStaff() }));
 
 // Cria conta de Recepção ou Supervisor vinculada a um consultório
 adminRoute.post('/users', async (c) => {
@@ -43,9 +43,9 @@ const adminContext = (c: Context) => ({
 
 // Desativa / reativa conta da equipe
 for (const [path, disabled] of [['disable', true], ['enable', false]] as const) {
-  adminRoute.post(`/users/:id/${path}`, (c) => {
+  adminRoute.post(`/users/:id/${path}`, async (c) => {
     try {
-      const member = TeamService.setDisabled(c.req.param('id'), disabled, adminContext(c));
+      const member = await TeamService.setDisabled(c.req.param('id'), disabled, adminContext(c));
       return c.json({ success: true, member });
     } catch (err: any) {
       if (err instanceof TeamInputError) return c.json({ success: false, error: err.message }, 404);

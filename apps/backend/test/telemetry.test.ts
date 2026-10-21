@@ -5,6 +5,7 @@ import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { TelemetryService } from '../src/telemetry/telemetryService';
 import { tracer } from '../src/telemetry/openTelemetryTracer';
 import { prometheus } from '../src/telemetry/prometheusRegistry';
+import { resetDb } from './helpers/db';
 
 describe('OpenTelemetry, Prometheus Metrics & W3C Distributed Tracing (RFC-001 §5.2 - Opção N)', () => {
   let adminToken: string;
@@ -12,7 +13,7 @@ describe('OpenTelemetry, Prometheus Metrics & W3C Distributed Tracing (RFC-001 �
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login Admin

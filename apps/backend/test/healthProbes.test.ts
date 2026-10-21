@@ -3,6 +3,7 @@ import { app } from '../src';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import type { ReadinessProbeResponse, LivenessProbeResponse, StartupProbeResponse } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Health Checks, Liveness & Readiness Probes (RFC-001 §5.2 e 12-Factor App)', () => {
   let adminToken: string;
@@ -10,7 +11,7 @@ describe('Health Checks, Liveness & Readiness Probes (RFC-001 §5.2 e 12-Factor 
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
 
     // 1. Login Admin

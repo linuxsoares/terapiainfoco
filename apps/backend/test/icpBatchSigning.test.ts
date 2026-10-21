@@ -10,6 +10,7 @@ import {
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
+import { resetDb } from './helpers/db';
 
 describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5)', () => {
   let token: string;
@@ -33,8 +34,8 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
     token = loginData.accessToken;
   });
 
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
 
     // Cria duas evoluções de prontuário pendentes para teste
     const recordId1 = '00000000-0000-0000-0000-000000000091';

@@ -9,6 +9,7 @@ import {
   ZkpProofType,
   ZkpVerificationStatus
 } from '@terapiainfoco/shared';
+import { resetDb } from './helpers/db';
 
 describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC-001 §3.4, §3.5 & CFP 006/2019)', () => {
   let therapistToken: string;
@@ -16,7 +17,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
   let secretaryToken: string;
 
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     await globalRateLimitStore.reset();
     ZkpService.getInstance().clearForTesting();
 

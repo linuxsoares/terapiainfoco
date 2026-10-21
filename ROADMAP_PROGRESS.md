@@ -2401,6 +2401,7 @@ terapiainfoco/
 | `fix/typecheck-backend` | Zera os erros de tipo do backend e coloca o typecheck no `make test` e no CI | [PR #161](https://github.com/linuxsoares/terapiainfoco/pull/161) | Merged |
 | `feat/backups-object-storage` | Snapshots de backup cifrados em object storage S3/R2, recarregados no boot, e documentação dos backups gerenciados do PostgreSQL | [PR #162](https://github.com/linuxsoares/terapiainfoco/pull/162) | Merged |
 | `chore/lint-floating-promises` | Lint de promessas no backend (await esquecido) no `make test` e no CI, preparando os repositórios SQL assíncronos | [PR #164](https://github.com/linuxsoares/terapiainfoco/pull/164) | Merged |
+| `feat/user-repository-sql` | Contas de usuário em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | PR_PLACEHOLDER | Merged |
 
 ---
 
@@ -2416,7 +2417,7 @@ Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsult
 - [x] **Persistência durável de todas as coleções no PostgreSQL** (ADR-004 do RFC-001): tabela `entity_store` (JSONB), hidratação no boot, flush transacional antes de cada resposta (503 se falhar), flush periódico + varredura completa, gravação no `SIGTERM`, importação única das tabelas legadas e remoção das escritas fire-and-forget/PostgREST.
 - [ ] **[Fase 2 do ADR-004] Repositórios SQL assíncronos** para usuários, pacientes, agendamentos e prontuários (habilita múltiplas réplicas).
   - [x] Lint de promessas no backend (`no-floating-promises`, `no-misused-promises`, `await-thenable`) no `make test`/CI: pega `await` esquecido (`if (!promessa)` sempre falso). Corrigidos 49 `globalRateLimitStore.reset()` sem `await` nos testes e 103 `await` em `AuditService.log` (síncrono).
-  - [ ] `users` → `UserRepository` SQL.
+  - [x] `users` → `UserRepository` SQL: tabela `users` redefinida (todos os campos do modelo, ids em texto, e-mail único sem diferenciar maiúsculas); contas fora do `memoryDb`/`entity_store` (movidas uma vez no boot); seed demo no banco; padrão carregar → alterar → `save`; middleware autentica com uma consulta; trilha de auditoria do consultório carrega a equipe uma vez; titular do consultório via `findPracticeOwner` (antes portal, portabilidade e cofre pegavam qualquer conta do consultório, inclusive a recepção); reparo legado de SOAP (pré-#131) removido; `resetDb()` nos testes.
   - [ ] `patients` → `PatientRepository` SQL.
   - [ ] `appointments` → `AppointmentRepository` SQL.
   - [ ] `clinicalRecords` → `ClinicalRecordRepository` SQL.

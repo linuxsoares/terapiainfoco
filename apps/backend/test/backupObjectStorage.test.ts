@@ -3,6 +3,7 @@ import { db } from '../src/db/memoryDb';
 import { BackupService, backupStore } from '../src/services/backupService';
 import { backupObjectKey, type BackupObjectStorage } from '../src/services/backupObjectStorage';
 import { adminRequest } from './helpers/adminRequest';
+import { resetDb } from './helpers/db';
 
 /** Bucket falso: guarda os objetos num Map, na ordem de gravação */
 class FakeBucket implements BackupObjectStorage {
@@ -31,8 +32,8 @@ async function createBackup() {
 describe('Backups cifrados fora do processo (object storage)', () => {
   let bucket: FakeBucket;
 
-  beforeEach(() => {
-    db.clear();
+  beforeEach(async () => {
+    await resetDb();
     backupStore.clear();
     bucket = new FakeBucket();
     BackupService.useObjectStorage(bucket);

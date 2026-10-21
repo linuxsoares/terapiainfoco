@@ -112,7 +112,7 @@ patientPortalRouter.get('/overview', patientAuthMiddleware, async (c) => {
     const session = c.get('patientSession');
     const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
 
-    const overview = PatientPortalService.getPatientPortalOverview(session.patientId, {
+    const overview = await PatientPortalService.getPatientPortalOverview(session.patientId, {
       actorId: session.patientId,
       ipAddress
     });

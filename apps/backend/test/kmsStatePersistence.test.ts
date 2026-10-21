@@ -3,10 +3,11 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { kmsProvider } from '../src/services/cryptoContext';
+import { requireUser } from './helpers/db';
 
 describe('Persistência do estado do KMS local', () => {
   it('rotação via console administrativo registra versão ativa no entity_store', async () => {
-    const admin = db.users.get('00000000-0000-0000-0000-000000000004')!;
+    const admin = (await requireUser('00000000-0000-0000-0000-000000000004'));
     const { accessToken } = await authService.issueTokens(admin, '127.0.0.1');
     const before = kmsProvider.getActiveKeyVersion();
 

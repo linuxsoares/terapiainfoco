@@ -12,6 +12,7 @@ import {
 } from '@terapiainfoco/shared';
 import { encryptPackageWithPassphrase } from '@terapiainfoco/crypto';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -21,11 +22,11 @@ export class PortabilityService {
    * Exporta o prontuário psicológico completo estruturado e interoperável (LGPD Art. 18, V)
    * Suporta exportação aberta em JSON autenticado por SHA-256 ou cifrado de ponta a ponta por senha (AES-256-GCM + PBKDF2)
    */
-  static exportPatientData(params: {
+  static async exportPatientData(params: {
     patientId: string;
     dto?: ExportPatientDataDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ExportPatientDataResponse {
+  }): Promise<ExportPatientDataResponse> {
     const storedPatient = db.patients.get(params.patientId);
     if (!storedPatient) {
       throw new Error('Paciente não encontrado para exportação de dados.');
@@ -52,12 +53,7 @@ export class PortabilityService {
     // 2. Terapeuta titular
     const therapist = db.therapists.get(storedPatient.therapistId);
     let therapistName = 'Dr. Psicólogo Titular Responsável';
-    for (const u of db.users.values()) {
-      if (u.therapistId === storedPatient.therapistId) {
-        therapistName = u.name;
-        break;
-      }
-    }
+    therapistName = (await UserRepository.findPracticeOwner(storedPatient.therapistId))?.name ?? therapistName;
 
     // 3. Consultas e sessões
     const patientAppointments = Array.from(db.appointments.values())

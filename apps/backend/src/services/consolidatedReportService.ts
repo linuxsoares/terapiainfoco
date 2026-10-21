@@ -15,6 +15,7 @@ import {
   AuditResourceType
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -29,11 +30,11 @@ export class ConsolidatedReportService {
    * IV - Análise
    * V - Conclusão
    */
-  static generateReport(params: {
+  static async generateReport(params: {
     therapistId: string;
     dto: GenerateConsolidatedReportDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ConsolidatedClinicalReport {
+  }): Promise<ConsolidatedClinicalReport> {
     const { therapistId, dto, context } = params;
 
     const patient = PatientService.getPatientById(dto.patientId, context);
@@ -42,7 +43,7 @@ export class ConsolidatedReportService {
     }
 
     const therapist = db.therapists.get(therapistId);
-    const user = db.users.get(context.actorId);
+    const user = await UserRepository.findById(context.actorId);
     const autorNome = user ? user.name : 'Psicólogo Clínico Responsável';
     const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
     const autorCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;

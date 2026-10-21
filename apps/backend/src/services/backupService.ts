@@ -12,6 +12,7 @@ import {
   type EnvelopeEncryptedData
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { UserRepository } from '../repositories/userRepository';
 import { envelopeService } from './cryptoContext';
 import { AuditService } from './auditService';
 import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } from './backupObjectStorage';
@@ -131,7 +132,7 @@ export class BackupService {
     const clinicalRecords = Array.from(db.clinicalRecords.values());
     const documents = Array.from(db.documents.values());
     const sessionTranscriptions = Array.from(db.sessionTranscriptions.values());
-    const users = Array.from(db.users.values());
+    const users = await UserRepository.list();
     const auditLogs = [...db.auditLogs];
 
     const entitiesCount: BackupEntitiesSummary = {
@@ -351,10 +352,8 @@ export class BackupService {
       db.sessionTranscriptions.set(s.id, s);
     }
 
-    db.users.clear();
-    for (const u of dump.data.users || []) {
-      db.users.set(u.id, u);
-    }
+    await UserRepository.deleteAll();
+    await UserRepository.upsertMany(dump.data.users || []);
 
     db.auditLogs = [...(dump.data.auditLogs || [])];
 

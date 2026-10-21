@@ -4,12 +4,13 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, UserRole } from '@terapiainfoco/shared';
+import { resetDb, requireUser } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
 
 async function headersFor(userId: string) {
-  const { accessToken } = await authService.issueTokens(db.users.get(userId)!, '127.0.0.1');
+  const { accessToken } = await authService.issueTokens((await requireUser(userId)), '127.0.0.1');
   return { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
 }
 
@@ -19,7 +20,7 @@ async function search(q: string, headers: Record<string, string>) {
 
 describe('Busca de pacientes por nome ou e-mail', () => {
   beforeEach(async () => {
-    db.clear();
+    await resetDb();
     db.seedDemoSession();
     await globalRateLimitStore.reset();
   });
