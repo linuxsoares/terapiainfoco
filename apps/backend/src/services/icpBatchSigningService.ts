@@ -17,6 +17,7 @@ import { AuditService } from './auditService';
 import { decryptField } from './cryptoContext';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 /**
  * -------------------------------------------------------------------------------------------------
  * SERVIÇO DE ASSINATURA AVANÇADA ICP-BRASIL EM LOTE & FECHAMENTO DE CICLOS (RFC-001 §3.4, §3.5)
@@ -34,33 +35,32 @@ export class IcpBatchSigningService {
     const items: BatchSignableItem[] = [];
 
     // 1. Prontuários / Evoluções Clínicas Pendentes
-    for (const [id, record] of db.clinicalRecords.entries()) {
-      if (record.therapistId === therapistId) {
-        const patient = await PatientRepository.findById(record.patientId);
-        const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
-        const maskedName = this.maskPatientName(rawName);
+    for (const record of await ClinicalRecordRepository.list({ therapistId })) {
+      const id = record.id;
+      const patient = await PatientRepository.findById(record.patientId);
+      const rawName = patient ? decryptField(patient.encryptedName) : 'Paciente';
+      const maskedName = this.maskPatientName(rawName);
 
-        // Campos SOAP são opcionais (prontuário em rascunho): ausentes entram vazios no digest
-        const sub = record.encryptedSoapSubjective ? decryptField(record.encryptedSoapSubjective) : '';
-        const obj = record.encryptedSoapObjective ? decryptField(record.encryptedSoapObjective) : '';
-        const ass = record.encryptedSoapAssessment ? decryptField(record.encryptedSoapAssessment) : '';
-        const pla = record.encryptedSoapPlan ? decryptField(record.encryptedSoapPlan) : '';
+      // Campos SOAP são opcionais (prontuário em rascunho): ausentes entram vazios no digest
+      const sub = record.encryptedSoapSubjective ? decryptField(record.encryptedSoapSubjective) : '';
+      const obj = record.encryptedSoapObjective ? decryptField(record.encryptedSoapObjective) : '';
+      const ass = record.encryptedSoapAssessment ? decryptField(record.encryptedSoapAssessment) : '';
+      const pla = record.encryptedSoapPlan ? decryptField(record.encryptedSoapPlan) : '';
 
-        const canonicalSha256 = crypto.createHash('sha256')
-          .update(`SOAP|${record.id}|${sub}|${obj}|${ass}|${pla}|${record.sessionNumber}`)
-          .digest('hex');
+      const canonicalSha256 = crypto.createHash('sha256')
+        .update(`SOAP|${record.id}|${sub}|${obj}|${ass}|${pla}|${record.sessionNumber}`)
+        .digest('hex');
 
-        items.push({
-          id,
-          type: 'SOAP_RECORD',
-          patientId: record.patientId,
-          patientNameMasked: maskedName,
-          title: `Evolução SOAP — Sessão #${record.sessionNumber || 1}`,
-          itemCanonicalSha256: canonicalSha256,
-          itemDate: new Date(record.createdAt).toISOString(),
-          sessionNumber: record.sessionNumber
-        });
-      }
+      items.push({
+        id,
+        type: 'SOAP_RECORD',
+        patientId: record.patientId,
+        patientNameMasked: maskedName,
+        title: `Evolução SOAP — Sessão #${record.sessionNumber || 1}`,
+        itemCanonicalSha256: canonicalSha256,
+        itemDate: new Date(record.createdAt).toISOString(),
+        sessionNumber: record.sessionNumber
+      });
     }
 
     // 2. Documentos Psicológicos CFP nº 006/2019
@@ -269,11 +269,10 @@ export class IcpBatchSigningService {
     // 4. Trava WORM nos Registros de Prontuário Selecionados
     for (const item of itemsToSign) {
       if (item.type === 'SOAP_RECORD') {
-        const record = db.clinicalRecords.get(item.id);
+        const record = await ClinicalRecordRepository.findById(item.id);
         if (record) {
-          (record as any).batchClosingManifestId = manifestId;
-          (record as any).lockedByBatchSignature = true;
-          db.clinicalRecords.set(record.id, record);
+          record.batchClosingManifestId = manifestId;
+          await ClinicalRecordRepository.save(record);
         }
       }
     }

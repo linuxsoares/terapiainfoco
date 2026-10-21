@@ -9,7 +9,8 @@ import {
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
-import { upsertPatient } from './helpers/db';
+import { upsertPatient, upsertClinicalRecord } from './helpers/db';
+import { ClinicalRecordRepository } from '../src/repositories/clinicalRecordRepository';
 describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 16 & CFP nº 001/2009)', () => {
   let authToken: string;
   let eligiblePatientId: string;
@@ -51,16 +52,15 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
     });
 
     const recId = 'rec-purge-test-' + Date.now();
-    db.clinicalRecords.set(recId, {
+    await upsertClinicalRecord({
       id: recId,
       patientId: eligiblePatientId,
       therapistId: 'therapist-001',
-      sessionDate: fiveYearsAgo,
-      soapEncrypted: 'mock-encrypted-soap-to-be-destroyed',
-      createdAt: fiveYearsAgo,
-      updatedAt: fiveYearsAgo,
-      version: 1
-    } as any);
+      appointmentId: 'appt-' + Date.now(),
+      sessionNumber: 1,
+      isSigned: true,
+      createdAt: fiveYearsAgo
+    });
 
     // 3. Paciente recente: inativo há 2 anos (bloqueado para expurgo pela regra dos 5 anos)
     activePatientId = 'patient-purge-blocked-' + Date.now();
@@ -79,16 +79,15 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
     });
 
     const recActiveId = 'rec-active-test-' + Date.now();
-    db.clinicalRecords.set(recActiveId, {
+    await upsertClinicalRecord({
       id: recActiveId,
       patientId: activePatientId,
       therapistId: 'therapist-001',
-      sessionDate: twoYearsAgo,
-      soapEncrypted: 'mock-soap-active',
-      createdAt: twoYearsAgo,
-      updatedAt: twoYearsAgo,
-      version: 1
-    } as any);
+      appointmentId: 'appt-' + Date.now(),
+      sessionNumber: 1,
+      isSigned: true,
+      createdAt: twoYearsAgo
+    });
   });
 
   it('GET /api/purge/candidates deve listar candidatos e apontar elegibilidade correta', async () => {
@@ -182,7 +181,7 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
     expect(data.result.destroyedKeysCount).toBeGreaterThanOrEqual(1);
 
     // Verifica que o registro foi removido da base de dados em memória
-    const remainingRecords = Array.from(db.clinicalRecords.values()).filter(r => r.patientId === eligiblePatientId);
+    const remainingRecords = await ClinicalRecordRepository.list({ patientIds: [eligiblePatientId] });
     expect(remainingRecords).toHaveLength(0);
   });
 

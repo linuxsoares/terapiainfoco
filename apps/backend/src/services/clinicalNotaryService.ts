@@ -26,6 +26,7 @@ import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class ClinicalNotaryService {
   private static instance: ClinicalNotaryService;
 
@@ -52,32 +53,10 @@ export class ClinicalNotaryService {
   }
 
   /**
-   * Semeia blocos notariais iniciais para os registros clínicos existentes
+   * Semeia blocos notariais de demonstração. A cadeia notarial vive em memória por instância
+   * (ver roadmap: estado restante em memória); prontuários são notarizados ao serem selados.
    */
   private seedInitialNotaryBlocks(): void {
-    const records = Array.from(db.clinicalRecords.values());
-    for (const record of records) {
-      const therapist = db.therapists.get(record.therapistId);
-      const crp = therapist ? `${therapist.crp}/${therapist.crpRegion}` : '06/142980-SP';
-
-      const canonicalHash = calculateClinicalCanonicalHash({
-        id: record.id,
-        patientId: record.patientId,
-        therapistId: record.therapistId,
-        therapistCrp: crp,
-        soapContent: 'Consulta clínica inicial e avaliação biopsicossocial com protocolo SOAP assistido.',
-        date: record.createdAt instanceof Date ? record.createdAt.toISOString() : String(record.createdAt)
-      });
-
-      this.notarizeRecordInternal({
-        recordId: record.id,
-        patientId: record.patientId,
-        therapistId: record.therapistId,
-        therapistCrp: crp,
-        clinicalCanonicalHash: canonicalHash
-      });
-    }
-
     // Se não havia registros prévios, adiciona blocos de demonstração para pacientes padrão
     if (this.allBlocks.length === 0) {
       this.notarizeRecordInternal({
@@ -147,10 +126,10 @@ export class ClinicalNotaryService {
   /**
    * Notariza formalmente um prontuário clínico e gera selo digital com registro WORM
    */
-  public notarizeRecord(
+  public async notarizeRecord(
     dto: SealClinicalRecordDTO,
     actor: { id: string; role: string; ipAddress?: string; userAgent?: string }
-  ): ClinicalNotaryBlock {
+  ): Promise<ClinicalNotaryBlock> {
     // Se o registro já foi notarizado, retorna o bloco existente
     const existing = this.blocksByRecordId.get(dto.recordId);
     if (existing) {
@@ -159,7 +138,7 @@ export class ClinicalNotaryService {
 
     let canonicalHash = dto.clinicalCanonicalHash;
     if (!canonicalHash) {
-      const record = db.clinicalRecords.get(dto.recordId);
+      const record = await ClinicalRecordRepository.findById(dto.recordId);
       if (record) {
         canonicalHash = calculateClinicalCanonicalHash({
           id: record.id,
@@ -328,7 +307,7 @@ export class ClinicalNotaryService {
     let block = this.blocksByRecordId.get(dto.recordId);
     if (!block) {
       // Auto-notariza se ainda não notarizado
-      block = this.notarizeRecord({
+      block = await this.notarizeRecord({
         recordId: dto.recordId,
         patientId: dto.patientId,
         therapistId: actor.id,

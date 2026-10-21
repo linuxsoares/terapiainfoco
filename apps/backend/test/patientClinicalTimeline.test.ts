@@ -11,6 +11,7 @@ import {
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 
+import { upsertClinicalRecord } from './helpers/db';
 describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do Paciente (§3.4)', () => {
   const therapistId = 'therapist-001';
   let patientId: string;
@@ -121,7 +122,7 @@ describe('Evolução de Produto RFC-001: Linha do Tempo Clínica Longitudinal do
       signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       createdAt: new Date()
     };
-    db.clinicalRecords.set(soapRecord.id, soapRecord);
+    await upsertClinicalRecord(soapRecord);
 
     // 5. Cadastra Documento Emitido (Atestado Psicológico CFP 006/2019)
     const docRecord: StoredPsychologicalDocument = {

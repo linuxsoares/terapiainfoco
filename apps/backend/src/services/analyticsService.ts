@@ -12,6 +12,7 @@ import {
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 /** Quarentena LGPD pseudonimiza o nome com um marcador fixo (PatientService.quarantinePatient) */
 function isQuarantined(encryptedName: Parameters<typeof decryptField>[0]): boolean {
   try {
@@ -79,7 +80,7 @@ export class AnalyticsService {
       }));
 
     // 3. Prontuários SOAP
-    const clinicalRecords = Array.from(db.clinicalRecords.values()).filter(r => !therapistId || r.therapistId === therapistId);
+    const clinicalRecords = await ClinicalRecordRepository.list({ therapistId });
     const totalSoapRecords = clinicalRecords.length;
     const signedSoapRecords = clinicalRecords.filter(r => r.isSigned).length;
     const humanReviewComplianceRate = totalSoapRecords > 0
@@ -242,7 +243,7 @@ export class AnalyticsService {
     const lastSessionDate = appts.length > 0 ? new Date(appts[appts.length - 1].scheduledStart).toISOString() : null;
 
     // Prontuários SOAP do paciente
-    const records = Array.from(db.clinicalRecords.values()).filter(r => r.patientId === patientId);
+    const records = await ClinicalRecordRepository.list({ patientIds: [patientId] });
     const recordsByAppt = new Map<string, typeof records[0]>();
     for (const r of records) {
       recordsByAppt.set(r.appointmentId, r);

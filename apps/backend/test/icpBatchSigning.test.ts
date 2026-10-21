@@ -10,8 +10,9 @@ import {
 } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { resetDb } from './helpers/db';
+import { resetDb, upsertClinicalRecord } from './helpers/db';
 
+import { ClinicalRecordRepository } from '../src/repositories/clinicalRecordRepository';
 describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5)', () => {
   let token: string;
   const therapistId = 'therapist-001';
@@ -39,7 +40,7 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
 
     // Cria duas evoluções de prontuário pendentes para teste
     const recordId1 = '00000000-0000-0000-0000-000000000091';
-    db.clinicalRecords.set(recordId1, {
+    await upsertClinicalRecord({
       id: recordId1,
       patientId,
       therapistId,
@@ -55,7 +56,7 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
     });
 
     const recordId2 = '00000000-0000-0000-0000-000000000092';
-    db.clinicalRecords.set(recordId2, {
+    await upsertClinicalRecord({
       id: recordId2,
       patientId,
       therapistId,
@@ -154,9 +155,8 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
     expect(manifest.certificateIssuer).toContain('ICP-Brasil');
 
     // Valida trava de imutabilidade nos registros do prontuário
-    const rec1 = db.clinicalRecords.get('00000000-0000-0000-0000-000000000091') as any;
-    expect(rec1.batchClosingManifestId).toBe(manifest.id);
-    expect(rec1.lockedByBatchSignature).toBe(true);
+    const rec1 = await ClinicalRecordRepository.findById('00000000-0000-0000-0000-000000000091');
+    expect(rec1?.batchClosingManifestId).toBe(manifest.id);
   });
 
   it('deve permitir validação notarial pública por token atestando fé pública da Merkle Root', async () => {

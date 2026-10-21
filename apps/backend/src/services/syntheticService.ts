@@ -37,6 +37,7 @@ import { config } from '../config';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 /**
  * Consultório isolado do monitor sintético: os registros da jornada nunca caem num consultório
  * real nem no demo e são apagados ao fim de cada execução (a trilha WORM é preservada).
@@ -265,7 +266,7 @@ export class SyntheticService {
         }
 
         // Salva rascunho SOAP
-        const draft = ClinicalRecordService.saveDraft({
+        const draft = await ClinicalRecordService.saveDraft({
           appointmentId: createdAppointmentId,
           patientId: testPatientId,
           therapistId: SYNTHETIC_PROBE_THERAPIST_ID,
@@ -511,6 +512,7 @@ export class SyntheticService {
   private static async purgeProbeRecords(): Promise<void> {
     const probePatientIds = await PatientRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
     const probeAppointmentIds = await AppointmentRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
+    await ClinicalRecordRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
 
     for (const collection of Object.values(db)) {
       if (!(collection instanceof Map)) continue;

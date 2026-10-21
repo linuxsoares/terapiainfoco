@@ -26,6 +26,7 @@ import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class SecurePurgeService {
   private static instance: SecurePurgeService;
 
@@ -149,7 +150,7 @@ export class SecurePurgeService {
       const patientId = patient.id;
       if (this.purgedPatientIds.has(patientId)) continue;
 
-      const records = Array.from(db.clinicalRecords.values()).filter(r => r.patientId === patientId);
+      const records = await ClinicalRecordRepository.list({ patientIds: [patientId] });
       const appts = await AppointmentRepository.list({ patientIds: [patientId] });
 
       let resolvedDate: Date;
@@ -233,14 +234,9 @@ export class SecurePurgeService {
     const purgedAt = new Date().toISOString();
 
     // Coleta e expurga registros clínicos e notas SOAP
-    const clinicalRecords = Array.from(db.clinicalRecords.entries()).filter(([_, r]) => r.patientId === dto.patientId);
-    const recordIdsPurged: string[] = clinicalRecords.map(([id]) => id);
+    const recordIdsPurged = await ClinicalRecordRepository.deleteByPatient(dto.patientId);
     if (recordIdsPurged.length === 0) {
       recordIdsPurged.push(`rec-purged-${dto.patientId}-01`);
-    }
-
-    for (const [id] of clinicalRecords) {
-      db.clinicalRecords.delete(id);
     }
 
     // Coleta e expurga agendamentos

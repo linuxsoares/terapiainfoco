@@ -22,6 +22,7 @@ import {
 import { AuditService } from './auditService';
 
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 const QUARANTINED_NAME = '[PACIENTE EM QUARENTENA LGPD]';
 
 /** Minúsculas e sem acentos, para a busca por nome */
@@ -308,34 +309,32 @@ export class PatientService {
     }
 
     // 2. Registros de Prontuário & Evoluções SOAP (Módulos 3 & 4)
-    for (const rec of db.clinicalRecords.values()) {
-      if (rec.patientId === patientId) {
-        if (rec.isSigned) signedRecordsCount++;
+    for (const rec of await ClinicalRecordRepository.list({ patientIds: [patientId] })) {
+      if (rec.isSigned) signedRecordsCount++;
 
-        events.push({
-          id: `ev-soap-${rec.id}`,
-          timestamp: new Date(rec.createdAt).toISOString(),
-          type: 'SOAP_RECORD',
-          title: `Evolução Prontuário SOAP #${rec.sessionNumber}`,
-          description: rec.isSigned 
-            ? `Assinado e selado com imutabilidade (Hash SHA-256: ${rec.signatureHash?.substring(0, 12)}...)`
-            : 'Rascunho de evolução SOAP em edição clínica pelo psicólogo',
-          subtitle: rec.isSigned 
-            ? `Assinado e selado com imutabilidade WORM (SHA-256: ${rec.signatureHash?.substring(0, 12)}...)`
-            : 'Rascunho de evolução SOAP em edição clínica pelo psicólogo',
-          badge: rec.isSigned ? 'ASSINADO' : 'RASCUNHO',
-          status: rec.isSigned ? 'ASSINADO' : 'RASCUNHO',
-          badgeColor: rec.isSigned ? 'emerald' : 'amber',
-          actionLabel: rec.isSigned ? 'Visualizar Selo Imutável' : 'Revisar & Assinar SOAP',
-          metadata: {
-            soapId: rec.id,
-            sessionNumber: rec.sessionNumber,
-            isSigned: rec.isSigned,
-            signatureHash: rec.signatureHash ?? undefined,
-            wormHash: rec.signatureHash ?? undefined
-          }
-        });
-      }
+      events.push({
+        id: `ev-soap-${rec.id}`,
+        timestamp: new Date(rec.createdAt).toISOString(),
+        type: 'SOAP_RECORD',
+        title: `Evolução Prontuário SOAP #${rec.sessionNumber}`,
+        description: rec.isSigned 
+          ? `Assinado e selado com imutabilidade (Hash SHA-256: ${rec.signatureHash?.substring(0, 12)}...)`
+          : 'Rascunho de evolução SOAP em edição clínica pelo psicólogo',
+        subtitle: rec.isSigned 
+          ? `Assinado e selado com imutabilidade WORM (SHA-256: ${rec.signatureHash?.substring(0, 12)}...)`
+          : 'Rascunho de evolução SOAP em edição clínica pelo psicólogo',
+        badge: rec.isSigned ? 'ASSINADO' : 'RASCUNHO',
+        status: rec.isSigned ? 'ASSINADO' : 'RASCUNHO',
+        badgeColor: rec.isSigned ? 'emerald' : 'amber',
+        actionLabel: rec.isSigned ? 'Visualizar Selo Imutável' : 'Revisar & Assinar SOAP',
+        metadata: {
+          soapId: rec.id,
+          sessionNumber: rec.sessionNumber,
+          isSigned: rec.isSigned,
+          signatureHash: rec.signatureHash ?? undefined,
+          wormHash: rec.signatureHash ?? undefined
+        }
+      });
     }
 
     // 3. Ficha de Admissão & Anamnese Biopsicossocial (RFC §3.4)

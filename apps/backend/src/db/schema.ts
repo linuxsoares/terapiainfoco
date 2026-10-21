@@ -110,12 +110,13 @@ export const sessionTranscriptions = pgTable('session_transcriptions', {
 
 /**
  * 5. PRONTUÁRIOS E EVOLUÇÃO CLÍNICA - SOAP (RFC §5.2, §3.4, CFP nº 001/2009)
+ * ADR-004 fase 2: repositório SQL, fora do cache em memória. Ids em texto, como em `appointments`.
  */
 export const clinicalRecords = pgTable('clinical_records', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  appointmentId: uuid('appointment_id').notNull(),
-  patientId: uuid('patient_id').notNull(),
-  therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
+  id: text('id').primaryKey(),
+  appointmentId: text('appointment_id').notNull(),
+  patientId: text('patient_id').notNull(),
+  therapistId: text('therapist_id').notNull(),
   sessionNumber: integer('session_number').notNull(),
 
   /** Conteúdo SOAP Criptografado (AES-256-GCM) */
@@ -130,9 +131,13 @@ export const clinicalRecords = pgTable('clinical_records', {
   isSigned: boolean('is_signed').notNull().default(false),
   signedAt: timestamp('signed_at', { withTimezone: true }),
   signatureHash: varchar('signature_hash', { length: 128 }),
+  /** Manifesto do fechamento em lote ICP-Brasil que selou o registro */
+  batchClosingManifestId: text('batch_closing_manifest_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
-  index('idx_clinical_records_patient').on(table.patientId, table.sessionNumber)
+  index('idx_clinical_records_patient').on(table.patientId, table.sessionNumber),
+  index('idx_clinical_records_therapist').on(table.therapistId),
+  index('idx_clinical_records_appointment').on(table.appointmentId)
 ]);
 
 /**
@@ -255,7 +260,7 @@ export const anamnesisRecords = pgTable('anamnesis_records', {
  */
 export const clinicalRecordRectifications = pgTable('clinical_record_rectifications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  clinicalRecordId: uuid('clinical_record_id').notNull().references(() => clinicalRecords.id, { onDelete: 'cascade' }),
+  clinicalRecordId: uuid('clinical_record_id').notNull(),
   therapistId: uuid('therapist_id').notNull().references(() => therapists.id),
   rectifiedQuadrant: varchar('rectified_quadrant', { length: 30 }).notNull(),
 

@@ -19,6 +19,7 @@ import { PatientService } from './patientService';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class PortabilityService {
   /**
    * Exporta o prontuário psicológico completo estruturado e interoperável (LGPD Art. 18, V)
@@ -68,8 +69,7 @@ export class PortabilityService {
       }));
 
     // 4. Prontuários e evoluções SOAP assinados (CFP nº 001/2009)
-    const patientRecords = Array.from(db.clinicalRecords.values())
-      .filter(r => r.patientId === params.patientId)
+    const patientRecords = (await ClinicalRecordRepository.list({ patientIds: [params.patientId] }))
       .sort((a, b) => a.sessionNumber - b.sessionNumber)
       .map(r => {
         let subjective = '';

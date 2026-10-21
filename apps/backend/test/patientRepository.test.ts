@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { ConsentScope, ConsentStatus, type StoredPatient } from '@terapiainfoco/shared';
 import { getDb } from '../src/db';
 import { encode } from '../src/db/persistence';
-import { movePatientsOutOfEntityStore } from '../src/db/sync';
+import { moveOutOfEntityStore } from '../src/db/sync';
 import { PatientRepository } from '../src/repositories/patientRepository';
 import { PatientService } from '../src/services/patientService';
 import { ConsentService } from '../src/services/consentService';
@@ -94,7 +94,7 @@ describe('PatientRepository (ADR-004 fase 2)', () => {
     const current = patient({ id: legacy.id, therapistId: 'therapist-001', linkedUserId: 'conta-atual' });
     await db.execute(sql`INSERT INTO entity_store (collection, id, data) VALUES ('patients', ${current.id}, ${encode(current)}::jsonb)`);
 
-    expect(await movePatientsOutOfEntityStore(db)).toBe(1);
+    expect(await moveOutOfEntityStore(db, 'patients')).toBe(1);
     const moved = (await PatientRepository.findById(legacy.id))!;
     expect(moved.therapistId).toBe('therapist-001');
     expect(moved.linkedUserId).toBe('conta-atual');

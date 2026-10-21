@@ -39,7 +39,7 @@ clinicalNotaryRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const block = service.notarizeRecord(dto, {
+      const block = await service.notarizeRecord(dto, {
         id: user?.id || 'ANONYMOUS',
         role: user?.role || 'UNKNOWN',
         ipAddress,

@@ -5,7 +5,7 @@ import { NotaryStatus, NotaryVerificationStatus } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
-import { upsertPatient } from './helpers/db';
+import { upsertPatient, upsertClinicalRecord } from './helpers/db';
 describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP nº 001/2009 & LGPD Art. 18)', () => {
   let authToken: string;
   let samplePatientId: string;
@@ -44,16 +44,15 @@ describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP
     });
 
     sampleRecordId = 'record-notary-test-' + Date.now();
-    db.clinicalRecords.set(sampleRecordId, {
+    await upsertClinicalRecord({
       id: sampleRecordId,
       patientId: samplePatientId,
       therapistId: 'therapist-001',
-      sessionDate: new Date(),
-      soapEncrypted: 'mock-encrypted-soap',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      version: 1
-    } as any);
+      appointmentId: 'appt-' + Date.now(),
+      sessionNumber: 1,
+      isSigned: true,
+      createdAt: new Date()
+    });
   });
 
   it('POST /api/notary/seal deve notarizar formalmente um prontuário clínico gerando selo digital', async () => {
