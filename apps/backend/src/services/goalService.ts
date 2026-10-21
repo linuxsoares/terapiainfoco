@@ -12,15 +12,16 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class GoalService {
   /**
    * Cria uma nova meta terapêutica SMART para o paciente (RFC-001 §3.4)
    */
-  static createGoal(
+  static async createGoal(
     dto: CreateTherapeuticGoalDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): TherapeuticGoal {
-    const patient = db.patients.get(dto.patientId);
+  ): Promise<TherapeuticGoal> {
+    const patient = await PatientRepository.findById(dto.patientId);
     if (!patient) {
       throw new Error(`Paciente ${dto.patientId} não encontrado.`);
     }

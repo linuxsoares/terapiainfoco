@@ -5,7 +5,7 @@ import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole } from '@terapiainfoco/shared';
 import { createSimulatedWebAuthnKeyPair, createSimulatedWebAuthnAssertion } from '@terapiainfoco/crypto';
-import { resetDb, listUsers } from './helpers/db';
+import { resetDb, listUsers, seedDemoSession } from './helpers/db';
 
 const b64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 
@@ -16,7 +16,7 @@ const b64url = (value: string | Buffer) => Buffer.from(value).toString('base64ur
 describe('Passkeys: asserção forjada não autentica', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

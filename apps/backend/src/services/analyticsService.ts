@@ -10,6 +10,7 @@ import {
   type PatientClinicalMetrics 
 } from '@terapiainfoco/shared';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /** Quarentena LGPD pseudonimiza o nome com um marcador fixo (PatientService.quarantinePatient) */
 function isQuarantined(encryptedName: Parameters<typeof decryptField>[0]): boolean {
   try {
@@ -23,9 +24,9 @@ export class AnalyticsService {
   /**
    * Agrega visão clínica longitudinal do terapeuta
    */
-  public static getClinicalOverview(therapistId?: string): ClinicalOverviewMetrics {
+  public static async getClinicalOverview(therapistId?: string): Promise<ClinicalOverviewMetrics> {
     // 1. Pacientes
-    const patients = Array.from(db.patients.values()).filter(p => !therapistId || p.therapistId === therapistId);
+    const patients = await PatientRepository.list({ therapistId });
     const totalPatients = patients.length;
     const quarantinedPatients = patients.filter(p => isQuarantined(p.encryptedName)).length;
     const activePatients = Math.max(0, totalPatients - quarantinedPatients);
@@ -212,8 +213,8 @@ export class AnalyticsService {
   /**
    * Métricas e Linha do Tempo Longitudinal de um Paciente Específico
    */
-  public static getPatientClinicalMetrics(patientId: string): PatientClinicalMetrics {
-    const patient = db.patients.get(patientId);
+  public static async getPatientClinicalMetrics(patientId: string): Promise<PatientClinicalMetrics> {
+    const patient = await PatientRepository.findById(patientId);
     if (!patient) {
       throw new Error('Paciente não localizado no sistema.');
     }

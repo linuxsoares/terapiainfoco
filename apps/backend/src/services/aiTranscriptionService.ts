@@ -24,6 +24,7 @@ import { getSoapSynthesizer } from './soap/soapSynthesizer';
 import { ClinicalRecordService } from './clinicalRecordService';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /**
  * -------------------------------------------------------------------------------------------------
  * SERVIÇO DE TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
@@ -53,7 +54,7 @@ export class AiTranscriptionService {
       throw new Error('Consentimento do paciente (TCLE) é obrigatório por lei para processamento de áudio/transcrição.');
     }
 
-    const patient = db.patients.get(dto.patientId);
+    const patient = await PatientRepository.findById(dto.patientId);
     const patientName = patient ? decryptField(patient.encryptedName) : 'Paciente';
 
     // 2. Extração ou Construção de Enunciados Diarizados
@@ -88,7 +89,7 @@ export class AiTranscriptionService {
         // Diálogo clínico de exemplo apenas em demonstração
         utterances = this.createDefaultClinicalDialogue();
       } else {
-        throw new Error(`Nenhuma transcrição disponível para esta consulta. ${LiveTranscriptionService.unavailableReason(dto.appointmentId)} Você também pode colar o texto da sessão.`);
+        throw new Error(`Nenhuma transcrição disponível para esta consulta. ${await LiveTranscriptionService.unavailableReason(dto.appointmentId)} Você também pode colar o texto da sessão.`);
       }
     }
 

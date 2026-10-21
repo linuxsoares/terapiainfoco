@@ -49,6 +49,7 @@ describe('PostgreSQL Drizzle ORM Schema (RFC-001 §5.2)', () => {
     const [patient] = await (db as any)
       .insert(schema.patients)
       .values({
+        id: crypto.randomUUID(),
         therapistId: therapist.id,
         encryptedName: encryptAesGcm('Paciente Silva', key),
         encryptedEmail: encryptAesGcm('paciente@teste.com', key),

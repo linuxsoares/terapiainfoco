@@ -12,6 +12,7 @@ import {
 import { db } from '../db/memoryDb';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class PsychometricService {
   /**
    * Banco de questões do Patient Health Questionnaire-9 (PHQ-9 - Kroenke et al., 2001 / Versão Brasileira)
@@ -159,11 +160,11 @@ export class PsychometricService {
   /**
    * Submete e pontua uma avaliação psicométrica (RFC-001 §3.4)
    */
-  static submitAssessment(
+  static async submitAssessment(
     dto: SubmitPsychometricAssessmentDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): PsychometricAssessmentResultResponse {
-    const patient = db.patients.get(dto.patientId);
+  ): Promise<PsychometricAssessmentResultResponse> {
+    const patient = await PatientRepository.findById(dto.patientId);
     if (!patient) {
       throw new Error(`Paciente ${dto.patientId} não encontrado.`);
     }

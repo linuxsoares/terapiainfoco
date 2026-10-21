@@ -10,6 +10,7 @@ import type {
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
 
+import { PatientRepository } from '../repositories/patientRepository';
 const GENESIS_HASH = '0'.repeat(64);
 
 /** Detalhes serializáveis (estrutura circular não pode impedir o registro do evento) */
@@ -232,10 +233,9 @@ export class AuditService {
    * Registro pertence ao consultório quando o ator é da equipe dele ou o recurso
    * (paciente, consulta, prontuário, documento) é do consultório.
    */
-  static belongsToPractice(log: AuditLog, therapistId: string, staffIds: Set<string>): boolean {
-    if (staffIds.has(log.actorId)) return true;
+  static belongsToPractice(log: AuditLog, therapistId: string, staffIds: Set<string>, patientIds: Set<string>): boolean {
+    if (staffIds.has(log.actorId) || patientIds.has(log.resourceId)) return true;
     const owner =
-      db.patients.get(log.resourceId)?.therapistId ??
       db.appointments.get(log.resourceId)?.therapistId ??
       db.clinicalRecords.get(log.resourceId)?.therapistId ??
       db.documents.get(log.resourceId)?.therapistId;
@@ -247,9 +247,10 @@ export class AuditService {
 
     if (filters.therapistId) {
       const therapistId = filters.therapistId;
-      // Equipe do consultório carregada uma vez (não uma consulta por registro)
+      // Equipe e pacientes do consultório carregados uma vez (não uma consulta por registro)
       const staffIds = await UserRepository.idsByTherapist(therapistId);
-      result = result.filter(l => this.belongsToPractice(l, therapistId, staffIds));
+      const patientIds = await PatientRepository.idsByTherapist(therapistId);
+      result = result.filter(l => this.belongsToPractice(l, therapistId, staffIds, patientIds));
     }
 
     if (filters.resourceType) {

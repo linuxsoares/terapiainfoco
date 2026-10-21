@@ -24,6 +24,7 @@ import {
 import { db } from '../db/memoryDb';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class SecurePurgeService {
   private static instance: SecurePurgeService;
 
@@ -109,7 +110,7 @@ export class SecurePurgeService {
   /**
    * Retorna os candidatos a expurgamento avaliando a regra dos 5 anos (CFP 001/2009 Art. 2º §2º)
    */
-  public getCandidates(): PurgeCandidateRecord[] {
+  public async getCandidates(): Promise<PurgeCandidateRecord[]> {
     const candidates: PurgeCandidateRecord[] = [];
     const now = Date.now();
 
@@ -143,7 +144,8 @@ export class SecurePurgeService {
     }
 
     // Pacientes cadastrados no banco
-    for (const [patientId, patient] of db.patients.entries()) {
+    for (const patient of await PatientRepository.list()) {
+      const patientId = patient.id;
       if (this.purgedPatientIds.has(patientId)) continue;
 
       const records = Array.from(db.clinicalRecords.values()).filter(r => r.patientId === patientId);
@@ -188,10 +190,10 @@ export class SecurePurgeService {
   /**
    * Executa o expurgo irreversível de dados clínicos e emite a certidão probatória
    */
-  public executePurge(
+  public async executePurge(
     dto: ExecuteDataPurgeDTO,
     actor: { id: string; role: string; ipAddress?: string; userAgent?: string }
-  ): PurgeExecutionResult {
+  ): Promise<PurgeExecutionResult> {
     if (!dto.patientId) {
       throw new Error('Identificador do paciente é obrigatório para execução do expurgo.');
     }
@@ -201,7 +203,7 @@ export class SecurePurgeService {
     }
 
     // Validar prazo de retenção legal de 5 anos
-    const candidates = this.getCandidates();
+    const candidates = await this.getCandidates();
     const candidate = candidates.find(c => c.patientId === dto.patientId);
 
     const isLegalOverride = dto.override5YearRuleWithLegalOrder && dto.legalOrderNumber;
@@ -253,11 +255,12 @@ export class SecurePurgeService {
     }
 
     // Sobrescrita dos dados cadastrais do paciente em memória (anonimização completa)
-    const existingPatient = db.patients.get(dto.patientId);
+    const existingPatient = await PatientRepository.findById(dto.patientId);
     if (existingPatient) {
       existingPatient.emailBindex = `purged_${patientBlindIndex.slice(0, 16)}`;
       existingPatient.cpfBindex = undefined;
       existingPatient.consentTranscriptionSigned = false;
+      await PatientRepository.save(existingPatient);
     }
 
     const purgeMethod = dto.purgeMethod || PurgeMethod.CRYPTO_SHREDDING_NIST_800_88;
@@ -414,8 +417,8 @@ export class SecurePurgeService {
   /**
    * Retorna os indicadores consolidados e os certificados mais recentes
    */
-  public getOverview(): PurgeLedgerOverview {
-    const candidates = this.getCandidates();
+  public async getOverview(): Promise<PurgeLedgerOverview> {
+    const candidates = await this.getCandidates();
     const eligibleCount = candidates.filter(c => c.isEligibleForPurge).length;
     const blockedCount = candidates.filter(c => !c.isEligibleForPurge).length;
 

@@ -41,7 +41,7 @@ dlpRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const result = service.evaluateCopyAttempt(dto, {
+      const result = await service.evaluateCopyAttempt(dto, {
         id: user?.id || 'ANONYMOUS',
         name: user?.name,
         role: user?.role || 'UNKNOWN',

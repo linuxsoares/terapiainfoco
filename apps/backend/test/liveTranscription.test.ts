@@ -5,7 +5,7 @@ import { authService } from '../src/services/authService';
 import { setSttProviderForTests, OpenAiSttProvider } from '../src/services/stt/sttProvider';
 import { config } from '../src/config';
 import { encode } from '../src/db/persistence';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession, requirePatient, updatePatient } from './helpers/db';
 
 const APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
 const PATIENT_RECORD_ID = '00000000-0000-0000-0000-000000000002';
@@ -44,7 +44,7 @@ async function startSession() {
 describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     receivedAudio.length = 0;
     setSttProviderForTests(fakeProvider);
   });
@@ -88,13 +88,13 @@ describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () =
     expect((await post('/transcription/chunk', patient, chunk('na espera'))).status).toBe(403);
     await post('/admit', therapist, { appointmentId: APPOINTMENT_ID, participantId, action: 'ADMIT' });
 
-    db.patients.get(PATIENT_RECORD_ID)!.consentRevokedAt = new Date();
+    await updatePatient(PATIENT_RECORD_ID, { consentRevokedAt: new Date() });
     const status = await (await app.request(`/api/teleconsultation/session/transcription/status/${APPOINTMENT_ID}`, { headers: therapist })).json() as any;
     expect(status).toMatchObject({ enabled: false, reason: 'NO_CONSENT' });
     expect((await post('/transcription/chunk', patient, chunk('sem consentimento'))).status).toBe(403);
     expect(receivedAudio).toHaveLength(0);
 
-    db.patients.get(PATIENT_RECORD_ID)!.consentRevokedAt = undefined;
+    await updatePatient(PATIENT_RECORD_ID, { consentRevokedAt: undefined });
     setSttProviderForTests(null);
     expect((await post('/transcription/chunk', patient, chunk('sem stt'))).status).toBe(503);
   });
@@ -148,9 +148,7 @@ describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () =
 
   it('paciente autoriza a transcrição pela sala, inclusive depois de uma revogação', async () => {
     const { therapist, patient } = await startSession();
-    const record = db.patients.get(PATIENT_RECORD_ID)!;
-    record.consentTranscriptionSigned = false;
-    record.consentRevokedAt = new Date();
+    await updatePatient(PATIENT_RECORD_ID, { consentTranscriptionSigned: false, consentRevokedAt: new Date() });
     const statusUrl = `/api/teleconsultation/session/transcription/status/${APPOINTMENT_ID}`;
     expect((await (await app.request(statusUrl, { headers: therapist })).json() as any).reason).toBe('NO_CONSENT');
 
@@ -160,7 +158,7 @@ describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () =
     const granted = await post('/transcription/consent', patient, { appointmentId: APPOINTMENT_ID, granted: true });
     expect(granted.status).toBe(200);
     expect(await granted.json()).toMatchObject({ enabled: true });
-    expect(db.patients.get(PATIENT_RECORD_ID)!.consentRevokedAt).toBeUndefined();
+    expect((await requirePatient(PATIENT_RECORD_ID)).consentRevokedAt).toBeUndefined();
     expect((await post('/transcription/chunk', patient, chunk('agora pode'))).status).toBe(200);
 
     const refused = await (await post('/transcription/consent', patient, { appointmentId: APPOINTMENT_ID, granted: false })).json() as any;
@@ -170,7 +168,7 @@ describe('Transcrição da teleconsulta por STT, sem gravação (ADR-005)', () =
 
   it('erro do SOAP sem transcrição explica o motivo', async () => {
     const { therapist } = await startSession();
-    db.patients.get(PATIENT_RECORD_ID)!.consentTranscriptionSigned = false;
+    await updatePatient(PATIENT_RECORD_ID, { consentTranscriptionSigned: false });
     // Fora do modo demonstração não há diálogo de exemplo
     config.demoMode = false;
     try {

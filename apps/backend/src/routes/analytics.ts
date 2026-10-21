@@ -22,7 +22,7 @@ analyticsRoute.get(
       if (!therapistId && user.role !== UserRole.ADMIN) {
         return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
       }
-      const overview = AnalyticsService.getClinicalOverview(therapistId);
+      const overview = await AnalyticsService.getClinicalOverview(therapistId);
       return c.json({ success: true, ...overview }, 200);
     } catch (err: any) {
       return c.json({ success: false, error: err.message || 'Erro ao carregar métricas clínicas.' }, 500);
@@ -61,7 +61,7 @@ analyticsRoute.get(
   async (c) => {
     try {
       const patientId = c.req.param('patientId');
-      const metrics = AnalyticsService.getPatientClinicalMetrics(patientId);
+      const metrics = await AnalyticsService.getPatientClinicalMetrics(patientId);
       return c.json({ success: true, ...metrics }, 200);
     } catch (err: any) {
       return c.json({ success: false, error: err.message || 'Erro ao carregar evolução do paciente.' }, 404);

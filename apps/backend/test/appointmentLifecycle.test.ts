@@ -6,7 +6,7 @@ import { AppointmentService } from '../src/services/appointmentService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, UserRole } from '@terapiainfoco/shared';
 import { decryptField } from '../src/services/cryptoContext';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession, requirePatient } from './helpers/db';
 import { UserRepository } from '../src/repositories/userRepository';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
@@ -41,7 +41,7 @@ async function setStatus(userId: string, appointmentId: string, status: Appointm
 describe('Ciclo de vida da sessão na agenda', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 
@@ -85,7 +85,7 @@ describe('Ciclo de vida da sessão na agenda', () => {
 describe('Agenda do consultório', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 
@@ -97,6 +97,6 @@ describe('Agenda do consultório', () => {
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     const listed = body.appointments.find((a: any) => a.id === id);
-    expect(listed.patientName).toBe(decryptField(db.patients.get(DEMO_PATIENT_ID)!.encryptedName));
+    expect(listed.patientName).toBe(decryptField((await requirePatient(DEMO_PATIENT_ID)).encryptedName));
   });
 });

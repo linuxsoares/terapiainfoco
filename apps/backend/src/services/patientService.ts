@@ -11,6 +11,7 @@ import type {
 } from '@terapiainfoco/shared';
 import { AuditAction, AuditResourceType, AppointmentStatus } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
+import { PatientRepository } from '../repositories/patientRepository';
 import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 import { 
   encryptField, 
@@ -31,11 +32,11 @@ export class PatientService {
   /**
    * Cadastra paciente aplicando Field-Level Encryption e Blind Indexing (§4.1, §4.3)
    */
-  static createPatient(
+  static async createPatient(
     therapistId: string, 
     dto: CreatePatientDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedPatient {
+  ): Promise<DecryptedPatient> {
     const id = randomUUID();
     const emailBindex = hashEmail(dto.email);
     const cpfBindex = dto.cpf ? hashCpf(dto.cpf) : undefined;
@@ -54,7 +55,7 @@ export class PatientService {
       encryptedCpf: dto.cpf ? encryptField(dto.cpf) : undefined
     };
 
-    db.patients.set(id, storedPatient);
+    await PatientRepository.create(storedPatient);
 
 
     AuditService.log({
@@ -84,11 +85,11 @@ export class PatientService {
   /**
    * Busca paciente por ID e decripta dados em memória para o terapeuta autenticado
    */
-  static getPatientById(
+  static async getPatientById(
     id: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedPatient | null {
-    const stored = db.patients.get(id);
+  ): Promise<DecryptedPatient | null> {
+    const stored = await PatientRepository.findById(id);
     if (!stored) return null;
 
     AuditService.log({
@@ -120,19 +121,14 @@ export class PatientService {
   /**
    * Busca por CPF usando Blind Index (HMAC-SHA256) sem expor CPF no banco (§4.3)
    */
-  static findByCpf(
+  static async findByCpf(
     rawCpf: string,
     context: { actorId: string; ipAddress: string; userAgent?: string },
     therapistId?: string
-  ): DecryptedPatient | null {
-    const targetBindex = hashCpf(rawCpf);
-    for (const patient of db.patients.values()) {
-      // Com therapistId, a busca fica restrita ao consultório (a mesma pessoa pode ser paciente em vários)
-      if (patient.cpfBindex === targetBindex && (!therapistId || patient.therapistId === therapistId)) {
-        return this.getPatientById(patient.id, context);
-      }
-    }
-    return null;
+  ): Promise<DecryptedPatient | null> {
+    // Com therapistId, a busca fica restrita ao consultório (a mesma pessoa pode ser paciente em vários)
+    const patient = await PatientRepository.findByCpfBindex(hashCpf(rawCpf), therapistId);
+    return patient ? this.getPatientById(patient.id, context) : null;
   }
 
   /**
@@ -140,18 +136,17 @@ export class PatientService {
    * comparação é feita em memória após decifrar apenas os pacientes do próprio consultório.
    * Ignora acentos e caixa; todos os termos precisam aparecer no nome ou no e-mail.
    */
-  static searchByNameOrEmail(
+  static async searchByNameOrEmail(
     query: string,
     therapistId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string },
     limit = 20
-  ): PatientSearchItem[] {
+  ): Promise<PatientSearchItem[]> {
     const terms = normalizeForSearch(query).split(/\s+/).filter(Boolean);
     if (terms.length === 0) return [];
 
     const matches: PatientSearchItem[] = [];
-    for (const patient of db.patients.values()) {
-      if (patient.therapistId !== therapistId) continue;
+    for (const patient of await PatientRepository.list({ therapistId })) {
       const name = decryptField(patient.encryptedName);
       if (name === QUARANTINED_NAME) continue;
       const email = decryptField(patient.encryptedEmail);
@@ -178,28 +173,23 @@ export class PatientService {
   /**
    * Busca paciente por E-mail usando Blind Index (HMAC-SHA256) sem expor e-mail no banco (§4.3)
    */
-  static findByEmail(
+  static async findByEmail(
     rawEmail: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedPatient | null {
-    const targetBindex = hashEmail(rawEmail);
-    for (const patient of db.patients.values()) {
-      if (patient.emailBindex === targetBindex) {
-        return this.getPatientById(patient.id, context);
-      }
-    }
-    return null;
+  ): Promise<DecryptedPatient | null> {
+    const patient = await PatientRepository.findByEmailBindex(hashEmail(rawEmail));
+    return patient ? this.getPatientById(patient.id, context) : null;
   }
 
   /**
    * Harmonização LGPD Art. 18 vs. CFP (Resolução nº 001/2009 - Guarda de 5 Anos)
    * Anonimiza dados de contato e coloca o cadastro em quarentena legal.
    */
-  static quarantinePatient(
+  static async quarantinePatient(
     id: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): boolean {
-    const stored = db.patients.get(id);
+  ): Promise<boolean> {
+    const stored = await PatientRepository.findById(id);
     if (!stored) return false;
 
     // Pseudonimização dos dados de contato ativos
@@ -211,7 +201,7 @@ export class PatientService {
       stored.encryptedCpf = undefined;
       stored.cpfBindex = undefined;
     }
-
+    await PatientRepository.save(stored);
 
     AuditService.log({
       actorId: context.actorId,
@@ -229,11 +219,11 @@ export class PatientService {
    * Constrói a Linha do Tempo Clínica Longitudinal do Paciente (RFC-001 §3.4)
    * Agrega consultas, prontuários SOAP selados, anamnese, documentos CFP e calcula assiduidade
    */
-  static getPatientTimeline(
+  static async getPatientTimeline(
     patientId: string,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): import('@terapiainfoco/shared').PatientClinicalTimelineResponse {
-    const patient = db.patients.get(patientId);
+  ): Promise<PatientClinicalTimelineResponse> {
+    const patient = await PatientRepository.findById(patientId);
     if (!patient) {
       throw new Error('Paciente não encontrado para consulta de linha do tempo clínica.');
     }

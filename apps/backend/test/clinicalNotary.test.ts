@@ -5,6 +5,7 @@ import { NotaryStatus, NotaryVerificationStatus } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
+import { upsertPatient } from './helpers/db';
 describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP nº 001/2009 & LGPD Art. 18)', () => {
   let authToken: string;
   let samplePatientId: string;
@@ -30,7 +31,7 @@ describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP
 
     // 2. Cria paciente e prontuário dedicados para isolamento total do teste
     samplePatientId = 'patient-notary-test-' + Date.now();
-    db.patients.set(samplePatientId, {
+    await upsertPatient({
       id: samplePatientId,
       therapistId: 'therapist-001',
       emailBindex: 'bindex-notary-' + Date.now(),
@@ -38,8 +39,9 @@ describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP
       consentTranscriptionSigned: true,
       createdAt: new Date(),
       encryptedName: encryptField('Paciente Dedicado Teste Notarial'),
-      encryptedEmail: encryptField('notary.test@terapiainfoco.com.br')
-    } as any);
+      encryptedEmail: encryptField('notary.test@terapiainfoco.com.br'),
+      encryptedPhone: encryptField('11900000000')
+    });
 
     sampleRecordId = 'record-notary-test-' + Date.now();
     db.clinicalRecords.set(sampleRecordId, {

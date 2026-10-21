@@ -26,7 +26,7 @@ import {
   formatConsentScopeLabel,
   getDefaultLegalBasisForScope
 } from '@terapiainfoco/crypto';
-import { db } from '../db/memoryDb';
+import { PatientRepository } from '../repositories/patientRepository';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
@@ -42,9 +42,7 @@ export class ConsentService {
   private totalEnforcementBlocksCount = 0;
   private currentTermVersion = 'v2.1 (LGPD/CFP-2026)';
 
-  private constructor() {
-    this.seedDefaultPatients();
-  }
+  private constructor() {}
 
   public static getInstance(): ConsentService {
     if (!ConsentService.instance) {
@@ -66,188 +64,112 @@ export class ConsentService {
   }
 
   /**
-   * Inicializa consentimentos para os pacientes existentes no banco em memória
+   * Obtém ou inicializa sob demanda o prontuário de consentimentos do paciente.
+   * Na inicialização, todos os escopos seguem o TCLE de transcrição do cadastro
+   * (`consentTranscriptionSigned`): concedidos se assinado, recusados se não, ou se o paciente não existir.
    */
-  private seedDefaultPatients(): void {
-    const defaultScopes = Object.values(ConsentScope);
+  public async getPatientLedger(patientId: string): Promise<PatientConsentLedger> {
+    const cached = this.ledgers.get(patientId);
+    if (cached) return cached;
 
-    for (const [id, patient] of db.patients.entries()) {
-      let patientName = 'Paciente';
+    const patient = await PatientRepository.findById(patientId);
+    let patientName = 'Paciente';
+    if (patient) {
       try {
         patientName = decryptField(patient.encryptedName);
       } catch {
-        patientName = 'Paciente Cadastrado';
+        patientName = 'Paciente ' + patientId.slice(0, 8);
       }
-
-      const initialStatus = patient.consentTranscriptionSigned ? ConsentStatus.GRANTED : ConsentStatus.REFUSED;
-      const initialTimestamp = patient.consentSignedAt 
-        ? new Date(patient.consentSignedAt).toISOString() 
-        : new Date().toISOString();
-
-      const preferences: Record<ConsentScope, PatientConsentScopePreference> = {} as any;
-
-      for (const scope of defaultScopes) {
-        const legalBasis = getDefaultLegalBasisForScope(scope);
-        const receiptId = randomUUID();
-        const receiptHash = calculateConsentReceiptHash({
-          receiptId,
-          patientId: id,
-          scope,
-          action: initialStatus === ConsentStatus.GRANTED ? 'GRANT' : 'REVOKE',
-          status: initialStatus,
-          termVersion: this.currentTermVersion,
-          legalBasis,
-          timestamp: initialTimestamp,
-          ipAddress: '127.0.0.1',
-          userAgent: 'Seed / Termo de Admissão Presencial'
-        });
-
-        const verificationToken = encodeConsentToken({
-          receiptId,
-          patientId: id,
-          scope,
-          action: initialStatus === ConsentStatus.GRANTED ? 'GRANT' : 'REVOKE',
-          receiptHash,
-          timestamp: initialTimestamp
-        });
-
-        const receipt: ConsentReceipt = {
-          receiptId,
-          patientId: id,
-          scope,
-          action: initialStatus === ConsentStatus.GRANTED ? 'GRANT' : 'REVOKE',
-          status: initialStatus,
-          termVersion: this.currentTermVersion,
-          legalBasis,
-          receiptHash,
-          verificationToken,
-          timestamp: initialTimestamp,
-          ipAddress: '127.0.0.1',
-          userAgent: 'Seed / Termo de Admissão Presencial'
-        };
-
-        this.receiptsById.set(receiptId, receipt);
-        this.receiptsByToken.set(verificationToken, receipt);
-        this.allReceipts.unshift(receipt);
-
-        preferences[scope] = {
-          scope,
-          status: initialStatus,
-          grantedAt: initialStatus === ConsentStatus.GRANTED ? initialTimestamp : undefined,
-          termVersion: this.currentTermVersion,
-          receiptHash,
-          legalBasis,
-          ipAddress: '127.0.0.1',
-          userAgent: 'Seed / Termo de Admissão'
-        };
-      }
-
-      this.ledgers.set(id, {
-        patientId: id,
-        patientName,
-        preferences,
-        receiptsHistory: [...this.allReceipts.filter(r => r.patientId === id)],
-        lastUpdatedAt: initialTimestamp
-      });
     }
-  }
 
-  /**
-   * Obtém ou inicializa sob demanda o prontuário de consentimentos do paciente
-   */
-  public getPatientLedger(patientId: string): PatientConsentLedger {
-    let ledger = this.ledgers.get(patientId);
-    if (!ledger) {
-      const patient = db.patients.get(patientId);
-      let patientName = 'Paciente';
-      if (patient) {
-        try {
-          patientName = decryptField(patient.encryptedName);
-        } catch {
-          patientName = 'Paciente ' + patientId.slice(0, 8);
-        }
-      }
+    const initialStatus = patient?.consentTranscriptionSigned ? ConsentStatus.GRANTED : ConsentStatus.REFUSED;
+    const action = initialStatus === ConsentStatus.GRANTED ? ('GRANT' as const) : ('REVOKE' as const);
+    const initialTimestamp = patient?.consentSignedAt
+      ? new Date(patient.consentSignedAt).toISOString()
+      : new Date().toISOString();
+    const userAgent = 'Termo de Admissão';
+    const preferences: Record<ConsentScope, PatientConsentScopePreference> = {} as any;
+    const receipts: ConsentReceipt[] = [];
 
-      const preferences: Record<ConsentScope, PatientConsentScopePreference> = {} as any;
-      const initialTimestamp = new Date().toISOString();
-
-      for (const scope of Object.values(ConsentScope)) {
-        const legalBasis = getDefaultLegalBasisForScope(scope);
-        const receiptId = randomUUID();
-        const receiptHash = calculateConsentReceiptHash({
-          receiptId,
-          patientId,
-          scope,
-          action: 'GRANT',
-          status: ConsentStatus.GRANTED,
-          termVersion: this.currentTermVersion,
-          legalBasis,
-          timestamp: initialTimestamp,
-          ipAddress: '127.0.0.1',
-          userAgent: 'Admissão Automática'
-        });
-
-        const verificationToken = encodeConsentToken({
-          receiptId,
-          patientId,
-          scope,
-          action: 'GRANT',
-          receiptHash,
-          timestamp: initialTimestamp
-        });
-
-        const receipt: ConsentReceipt = {
-          receiptId,
-          patientId,
-          scope,
-          action: 'GRANT',
-          status: ConsentStatus.GRANTED,
-          termVersion: this.currentTermVersion,
-          legalBasis,
-          receiptHash,
-          verificationToken,
-          timestamp: initialTimestamp,
-          ipAddress: '127.0.0.1',
-          userAgent: 'Admissão Automática'
-        };
-
-        this.receiptsById.set(receiptId, receipt);
-        this.receiptsByToken.set(verificationToken, receipt);
-        this.allReceipts.unshift(receipt);
-
-        preferences[scope] = {
-          scope,
-          status: ConsentStatus.GRANTED,
-          grantedAt: initialTimestamp,
-          termVersion: this.currentTermVersion,
-          receiptHash,
-          legalBasis,
-          ipAddress: '127.0.0.1'
-        };
-      }
-
-      ledger = {
+    for (const scope of Object.values(ConsentScope)) {
+      const legalBasis = getDefaultLegalBasisForScope(scope);
+      const receiptId = randomUUID();
+      const receiptHash = calculateConsentReceiptHash({
+        receiptId,
         patientId,
-        patientName,
-        preferences,
-        receiptsHistory: [...this.allReceipts.filter(r => r.patientId === patientId)],
-        lastUpdatedAt: initialTimestamp
+        scope,
+        action,
+        status: initialStatus,
+        termVersion: this.currentTermVersion,
+        legalBasis,
+        timestamp: initialTimestamp,
+        ipAddress: '127.0.0.1',
+        userAgent
+      });
+
+      const verificationToken = encodeConsentToken({
+        receiptId,
+        patientId,
+        scope,
+        action,
+        receiptHash,
+        timestamp: initialTimestamp
+      });
+
+      const receipt: ConsentReceipt = {
+        receiptId,
+        patientId,
+        scope,
+        action,
+        status: initialStatus,
+        termVersion: this.currentTermVersion,
+        legalBasis,
+        receiptHash,
+        verificationToken,
+        timestamp: initialTimestamp,
+        ipAddress: '127.0.0.1',
+        userAgent
       };
 
-      this.ledgers.set(patientId, ledger);
+      this.receiptsById.set(receiptId, receipt);
+      this.receiptsByToken.set(verificationToken, receipt);
+      this.allReceipts.unshift(receipt);
+      receipts.unshift(receipt);
+
+      preferences[scope] = {
+        scope,
+        status: initialStatus,
+        grantedAt: initialStatus === ConsentStatus.GRANTED ? initialTimestamp : undefined,
+        termVersion: this.currentTermVersion,
+        receiptHash,
+        legalBasis,
+        ipAddress: '127.0.0.1',
+        userAgent
+      };
     }
 
+    // Requisições concorrentes podem ter inicializado o mesmo ledger durante a consulta ao banco
+    const concurrent = this.ledgers.get(patientId);
+    if (concurrent) return concurrent;
+    const ledger: PatientConsentLedger = {
+      patientId,
+      patientName,
+      preferences,
+      receiptsHistory: receipts,
+      lastUpdatedAt: initialTimestamp
+    };
+    this.ledgers.set(patientId, ledger);
     return ledger;
   }
 
   /**
    * Concede ou atualiza de forma granular os consentimentos do paciente
    */
-  public grantGranularConsent(
+  public async grantGranularConsent(
     dto: GrantGranularConsentDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): GranularConsentResponse {
-    const ledger = this.getPatientLedger(dto.patientId);
+  ): Promise<GranularConsentResponse> {
+    const ledger = await this.getPatientLedger(dto.patientId);
     const now = new Date().toISOString();
     const termVersion = dto.termVersion || this.currentTermVersion;
     const newReceipts: ConsentReceipt[] = [];
@@ -338,7 +260,7 @@ export class ConsentService {
     // Se o consentimento para gravação de teleconsulta tiver sido alterado, sincroniza com paciente
     const audioScope = dto.scopes.find(s => s.scope === ConsentScope.TELECONSULTATION_AUDIO_RECORDING);
     if (audioScope !== undefined) {
-      const patient = db.patients.get(dto.patientId);
+      const patient = await PatientRepository.findById(dto.patientId);
       if (patient) {
         patient.consentTranscriptionSigned = audioScope.granted;
         if (audioScope.granted) {
@@ -347,7 +269,7 @@ export class ConsentService {
           patient.consentRevokedAt = undefined;
           patient.consentRevokeReason = undefined;
         }
-        db.patients.set(dto.patientId, patient);
+        await PatientRepository.save(patient);
       }
     }
 
@@ -365,7 +287,7 @@ export class ConsentService {
   public revokeConsent(
     dto: RevokeGranularConsentDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): GranularConsentResponse {
+  ): Promise<GranularConsentResponse> {
     return this.grantGranularConsent(
       {
         patientId: dto.patientId,
@@ -385,12 +307,12 @@ export class ConsentService {
    * Consent-Led Enforcement: Avalia se o tratamento para o escopo é permitido
    * Bloqueia tempestivamente em caso de revogação (LGPD Art. 8º §5º)
    */
-  public enforceScope(
+  public async enforceScope(
     patientId: string,
     requestedScope: ConsentScope,
     context?: { actorId?: string; ipAddress?: string; userAgent?: string }
-  ): ConsentValidationResult {
-    const ledger = this.getPatientLedger(patientId);
+  ): Promise<ConsentValidationResult> {
+    const ledger = await this.getPatientLedger(patientId);
     const preference = ledger.preferences[requestedScope];
 
     const evaluation = evaluateProcessingPermission(preference, requestedScope);
@@ -416,10 +338,10 @@ export class ConsentService {
   /**
    * Valida publicamente a autenticidade e integridade do recibo via token `tcle_v1_`
    */
-  public verifyReceiptByToken(
+  public async verifyReceiptByToken(
     token: string,
     context?: { ipAddress?: string; userAgent?: string }
-  ): ConsentReceiptResponse {
+  ): Promise<ConsentReceiptResponse> {
     try {
       const decoded = decodeConsentToken(token);
       let receipt = this.receiptsByToken.get(token);
@@ -438,7 +360,7 @@ export class ConsentService {
 
       const isValid = verifyConsentReceiptIntegrity(receipt);
 
-      const patient = db.patients.get(receipt.patientId);
+      const patient = await PatientRepository.findById(receipt.patientId);
       let patientNameMasked = 'Paciente';
       if (patient) {
         try {
@@ -482,11 +404,11 @@ export class ConsentService {
   /**
    * Retorna métricas globais de conformidade com LGPD e extrato consolidado
    */
-  public getOverview(patientId?: string): {
+  public async getOverview(patientId?: string): Promise<{
     overview: ConsentLedgerOverview;
     recentReceipts: ConsentReceipt[];
     patientLedger?: PatientConsentLedger;
-  } {
+  }> {
     const totalPatients = this.ledgers.size;
     const activeConsentsByScope: Record<ConsentScope, number> = {
       [ConsentScope.TELECONSULTATION_AUDIO_RECORDING]: 0,
@@ -520,7 +442,7 @@ export class ConsentService {
 
     let patientLedger: PatientConsentLedger | undefined;
     if (patientId) {
-      patientLedger = this.getPatientLedger(patientId);
+      patientLedger = await this.getPatientLedger(patientId);
     }
 
     return {

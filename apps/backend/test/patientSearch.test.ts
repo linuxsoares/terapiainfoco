@@ -4,7 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, UserRole } from '@terapiainfoco/shared';
-import { resetDb, requireUser } from './helpers/db';
+import { resetDb, requireUser, seedDemoSession } from './helpers/db';
 
 const PSICOLOGA_ID = '00000000-0000-0000-0000-000000000001';
 const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
@@ -21,7 +21,7 @@ async function search(q: string, headers: Record<string, string>) {
 describe('Busca de pacientes por nome ou e-mail', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

@@ -28,7 +28,7 @@ patientsRoute.post('/', requireRoles(PRACTICE_STAFF_ROLES), async (c) => {
 
   try {
     // O paciente pertence sempre ao consultório de quem o cadastra
-    const patient = PatientService.createPatient(
+    const patient = await PatientService.createPatient(
       therapistId,
       body,
       { actorId: c.get('userId'), ipAddress: ip, userAgent }
@@ -50,7 +50,7 @@ patientsRoute.get('/search', searchRateLimiter, requireRoles(PRACTICE_STAFF_ROLE
     return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
   }
 
-  const patients = PatientService.searchByNameOrEmail(query, therapistId, {
+  const patients = await PatientService.searchByNameOrEmail(query, therapistId, {
     actorId: c.get('userId'),
     ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
     userAgent: c.req.header('user-agent')
@@ -64,7 +64,7 @@ patientsRoute.get('/:id', requireRoles(PRACTICE_STAFF_ROLES), requirePatientAcce
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
-  const patient = PatientService.getPatientById(id, {
+  const patient = await PatientService.getPatientById(id, {
     actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
@@ -87,7 +87,7 @@ patientsRoute.get('/search/cpf', searchRateLimiter, requireRoles(PRACTICE_STAFF_
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
-  const patient = PatientService.findByCpf(cpf, {
+  const patient = await PatientService.findByCpf(cpf, {
     actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
@@ -107,7 +107,7 @@ patientsRoute.post('/:id/quarantine', requireRoles([UserRole.PSICOLOGO_TITULAR, 
   const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent');
 
-  const success = PatientService.quarantinePatient(id, {
+  const success = await PatientService.quarantinePatient(id, {
     actorId: c.get('userId'),
     ipAddress: ip,
     userAgent
@@ -177,7 +177,7 @@ patientsRoute.post('/:id/revoke-consent', requireRoles([UserRole.PSICOLOGO_TITUL
   }
 
   try {
-    const response = PortabilityService.revokeConsent({
+    const response = await PortabilityService.revokeConsent({
       patientId: id,
       dto: body,
       context: {
@@ -235,7 +235,7 @@ patientsRoute.post('/:id/anamnesis', requireRoles([UserRole.PSICOLOGO_TITULAR]),
   }
 
   try {
-    const anamnesis = AnamnesisService.saveAnamnesis({
+    const anamnesis = await AnamnesisService.saveAnamnesis({
       patientId: id,
       therapistId: user?.therapistId || user.id,
       dto: body,
@@ -261,7 +261,7 @@ patientsRoute.get('/:id/timeline', requireRoles(CLINICAL_ROLES), requirePatientA
   const user = c.get('user');
 
   try {
-    const timeline = PatientService.getPatientTimeline(id, {
+    const timeline = await PatientService.getPatientTimeline(id, {
       actorId: user.id,
       ipAddress: ip,
       userAgent

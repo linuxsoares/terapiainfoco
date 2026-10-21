@@ -5,6 +5,7 @@ import { DlpPolicyMode, DlpRiskLevel, SteganographyInspectionStatus } from '@ter
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
+import { upsertPatient } from './helpers/db';
 describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 46 & CFP nº 001/2009)', () => {
   let authToken: string;
   let adminToken: string;
@@ -41,7 +42,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
 
     // 3. Cria paciente isolado
     samplePatientId = 'patient-dlp-dedicated-' + Date.now();
-    db.patients.set(samplePatientId, {
+    await upsertPatient({
       id: samplePatientId,
       therapistId: 'therapist-001',
       emailBindex: 'bindex-dlp-' + Date.now(),
@@ -49,8 +50,9 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       consentTranscriptionSigned: true,
       createdAt: new Date(),
       encryptedName: encryptField('Paciente Dedicado Teste DLP'),
-      encryptedEmail: encryptField('dlp.test@terapiainfoco.com.br')
-    } as any);
+      encryptedEmail: encryptField('dlp.test@terapiainfoco.com.br'),
+      encryptedPhone: encryptField('11900000000')
+    });
   });
 
   it('POST /api/dlp/evaluate deve embutir marca d\'água esteganográfica zero-width invisível no modo WATERMARK_ONLY', async () => {

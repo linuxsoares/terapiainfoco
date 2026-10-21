@@ -28,6 +28,7 @@ import { UserRepository } from '../repositories/userRepository';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class PortabilityVaultService {
   private static vaultHistory: Array<{
     vaultId: string;
@@ -49,7 +50,7 @@ export class PortabilityVaultService {
     context: { actorId: string; ipAddress: string; userAgent?: string };
   }): Promise<GeneratePortabilityEncVaultResponse> {
     const { dto, context } = params;
-    const storedPatient = db.patients.get(dto.patientId);
+    const storedPatient = await PatientRepository.findById(dto.patientId);
     if (!storedPatient) {
       throw new Error('Paciente não encontrado para geração do cofre de portabilidade .enc.');
     }

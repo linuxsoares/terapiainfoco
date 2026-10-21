@@ -6,6 +6,7 @@ import { backupStore } from '../src/services/backupService';
 import { AuditAction, DocumentType } from '@terapiainfoco/shared';
 import { resetDb } from './helpers/db';
 
+import { PatientRepository } from '../src/repositories/patientRepository';
 describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)', () => {
   let therapistToken: string;
   let adminToken: string;
@@ -186,8 +187,8 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     const { backup } = await backupRes.json();
 
     // 3. Simula corrupção/desastre apagando a coleção de pacientes
-    db.patients.clear();
-    expect(db.patients.size).toBe(0);
+    await PatientRepository.deleteAll();
+    expect(await PatientRepository.count()).toBe(0);
 
     // 4. Executa restauração emergencial pelo Admin
     const restoreRes = await app.request(`/api/backups/${backup.id}/restore`, {
@@ -201,9 +202,9 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     expect(restoreData.entitiesRestored.patients).toBeGreaterThanOrEqual(1);
 
     // 5. Confere se os dados de Joana D'Arc foram 100% restabelecidos
-    expect(db.patients.size).toBeGreaterThanOrEqual(1);
-    const restoredPatient = db.patients.get(patient.id);
-    expect(restoredPatient).toBeDefined();
+    expect(await PatientRepository.count()).toBeGreaterThanOrEqual(1);
+    const restoredPatient = await PatientRepository.findById(patient.id);
+    expect(restoredPatient?.therapistId).toBe(patient.therapistId);
 
     // Trilha WORM
     const restoreLog = db.auditLogs.find(

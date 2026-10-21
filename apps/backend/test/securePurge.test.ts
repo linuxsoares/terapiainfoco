@@ -9,6 +9,7 @@ import {
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
+import { upsertPatient } from './helpers/db';
 describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 16 & CFP nº 001/2009)', () => {
   let authToken: string;
   let eligiblePatientId: string;
@@ -37,7 +38,7 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
     eligiblePatientId = 'patient-purge-eligible-' + Date.now();
     const fiveYearsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 365 * 5.3);
 
-    db.patients.set(eligiblePatientId, {
+    await upsertPatient({
       id: eligiblePatientId,
       therapistId: 'therapist-001',
       emailBindex: 'bindex-purge-eligible-' + Date.now(),
@@ -45,8 +46,9 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
       consentTranscriptionSigned: true,
       createdAt: fiveYearsAgo,
       encryptedName: encryptField('Paciente Elegivel 5 Anos'),
-      encryptedEmail: encryptField('purge.eligible@terapiainfoco.com.br')
-    } as any);
+      encryptedEmail: encryptField('purge.eligible@terapiainfoco.com.br'),
+      encryptedPhone: encryptField('11900000000')
+    });
 
     const recId = 'rec-purge-test-' + Date.now();
     db.clinicalRecords.set(recId, {
@@ -64,7 +66,7 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
     activePatientId = 'patient-purge-blocked-' + Date.now();
     const twoYearsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 365 * 2);
 
-    db.patients.set(activePatientId, {
+    await upsertPatient({
       id: activePatientId,
       therapistId: 'therapist-001',
       emailBindex: 'bindex-purge-blocked-' + Date.now(),
@@ -72,8 +74,9 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
       consentTranscriptionSigned: true,
       createdAt: twoYearsAgo,
       encryptedName: encryptField('Paciente Em Guarda Legal CFP'),
-      encryptedEmail: encryptField('purge.blocked@terapiainfoco.com.br')
-    } as any);
+      encryptedEmail: encryptField('purge.blocked@terapiainfoco.com.br'),
+      encryptedPhone: encryptField('11900000000')
+    });
 
     const recActiveId = 'rec-active-test-' + Date.now();
     db.clinicalRecords.set(recActiveId, {

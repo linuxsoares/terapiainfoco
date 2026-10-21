@@ -200,7 +200,7 @@ export class DocumentService {
    * Validação Pública de Autenticidade via QR Code (Zero-Knowledge)
    * Atesta a veracidade do documento SEM expor o conteúdo clínico sigiloso (CFP Art. 9º & LGPD)
    */
-  static validatePublicToken(token: string): ValidateDocumentResponse {
+  static async validatePublicToken(token: string): Promise<ValidateDocumentResponse> {
     let matchedDoc: StoredPsychologicalDocument | null = null;
     for (const doc of db.documents.values()) {
       if (doc.validationToken === token) {
@@ -219,7 +219,7 @@ export class DocumentService {
     // Busca paciente para extrair iniciais e proteger identidade (ex: Mariana Silva -> M. S.)
     let patientInitials = 'P. I.';
     try {
-      const patient = PatientService.getPatientById(matchedDoc.patientId, {
+      const patient = await PatientService.getPatientById(matchedDoc.patientId, {
         actorId: 'system-validator',
         ipAddress: '127.0.0.1'
       });

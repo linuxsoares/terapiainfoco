@@ -31,7 +31,7 @@ clinicalRecordsRoute.post('/draft', async (c) => {
   const userAgent = c.req.header('user-agent');
   const user = c.get('user');
 
-  if (!canAccessPatient(user, body.patientId) || !canAccessAppointment(user, body.appointmentId)) {
+  if (!(await canAccessPatient(user, body.patientId)) || !(await canAccessAppointment(user, body.appointmentId))) {
     return c.json({ success: false, error: 'Paciente ou consulta não encontrados.' }, 404);
   }
 

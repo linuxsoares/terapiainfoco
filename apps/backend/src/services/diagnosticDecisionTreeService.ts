@@ -20,6 +20,7 @@ import { encryptField, decryptField } from './cryptoContext';
 import type { EncryptedPayload } from '@terapiainfoco/shared';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /**
  * Definições estáticas da Árvore de Decisão Diagnóstica e Escalas Psicométricas Iniciais (RFC-001 §3.4 / CID-11)
  */
@@ -442,7 +443,7 @@ export class DiagnosticDecisionTreeService {
       throw new Error('Identificador do paciente é obrigatório');
     }
 
-    const patient = db.patients.get(dto.patientId);
+    const patient = await PatientRepository.findById(dto.patientId);
     if (!patient) {
       throw new Error('Paciente não encontrado no cadastro clínico');
     }

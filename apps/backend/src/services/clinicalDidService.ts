@@ -25,8 +25,8 @@ import {
   computeBlindIndex
 } from '@terapiainfoco/crypto';
 import { AuditService } from './auditService';
-import { db } from '../db/memoryDb';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class ClinicalDidService {
   private static instance: ClinicalDidService;
 
@@ -176,7 +176,7 @@ export class ClinicalDidService {
     const patientBlindIndex = computeBlindIndex(dto.patientId, 'PATIENT_BLIND_INDEX_SALT');
     
     // Obtém o nome mascarado do paciente se cadastrado
-    const patientRecord = db.patients.get(dto.patientId);
+    const patientRecord = await PatientRepository.findById(dto.patientId);
     const patientNameMasked = patientRecord 
       ? `Paciente [${dto.patientId.slice(0, 4)}••••${dto.patientId.slice(-4)}]` 
       : 'Paciente Pseudonimizado';

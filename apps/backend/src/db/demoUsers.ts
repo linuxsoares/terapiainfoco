@@ -1,6 +1,8 @@
-import { UserRole, type User } from '@terapiainfoco/shared';
+import { UserRole, type StoredPatient, type User } from '@terapiainfoco/shared';
 import type { AppDb } from './index';
 import { UserRepository } from '../repositories/userRepository';
+import { PatientRepository } from '../repositories/patientRepository';
+import { encryptField } from '../services/cryptoContext';
 
 /** Senha das contas de demonstração (DEMO_MODE): Senha@123456 */
 let demoPasswordHash: string | undefined;
@@ -94,4 +96,28 @@ export function buildDemoUsers(): User[] {
 /** Cria as contas de demonstração que ainda não existem (alterações feitas nelas são preservadas) */
 export async function seedDemoUsers(connection?: AppDb): Promise<void> {
   await UserRepository.insertMissing(buildDemoUsers(), connection);
+}
+
+/** Prontuário da paciente de demonstração (vinculado à conta paciente@terapiainfoco.com.br) */
+export const DEMO_PATIENT_ID = '00000000-0000-0000-0000-000000000002';
+
+export function buildDemoPatient(): StoredPatient {
+  return {
+    id: DEMO_PATIENT_ID,
+    therapistId: 'therapist-001',
+    emailBindex: 'bindex-mariana-silva',
+    cpfBindex: 'bindex-cpf-12345678900',
+    consentTranscriptionSigned: true,
+    consentSignedAt: new Date(),
+    createdAt: new Date(),
+    encryptedName: encryptField('Mariana Silva de Oliveira'),
+    encryptedEmail: encryptField('mariana.silva@email.com'),
+    encryptedPhone: encryptField('(11) 98765-4321'),
+    encryptedCpf: encryptField('123.456.789-00')
+  };
+}
+
+/** Cria a paciente de demonstração se ainda não existir */
+export async function seedDemoPatient(connection?: AppDb): Promise<void> {
+  await PatientRepository.insertMissing([buildDemoPatient()], connection);
 }

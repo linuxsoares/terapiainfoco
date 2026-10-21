@@ -23,7 +23,7 @@ securePurgeRoutes.get(
   requireClinicalOrAdmin,
   async (c) => {
     try {
-      const candidates = service.getCandidates();
+      const candidates = await service.getCandidates();
       return c.json({
         success: true,
         count: candidates.length,
@@ -67,7 +67,7 @@ securePurgeRoutes.post(
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
       const userAgent = c.req.header('user-agent') || 'Unknown';
 
-      const result = service.executePurge(dto, {
+      const result = await service.executePurge(dto, {
         id: user?.id || 'DPO_OPERATOR',
         role: user?.role || 'PSICOLOGO_TITULAR',
         ipAddress,
@@ -141,7 +141,7 @@ securePurgeRoutes.get(
   requireClinicalOrAdmin,
   async (c) => {
     try {
-      const overview = service.getOverview();
+      const overview = await service.getOverview();
       return c.json({
         success: true,
         overview

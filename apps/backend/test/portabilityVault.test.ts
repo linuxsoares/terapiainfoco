@@ -31,7 +31,7 @@ describe('Módulo de Exportação Segura e Portabilidade Consolidada em Pacote .
     });
     secretaryToken = secRes.accessToken!;
 
-    const patient = PatientService.createPatient(
+    const patient = await PatientService.createPatient(
       'therapist-001',
       {
         name: 'Helena Meirelles',

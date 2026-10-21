@@ -15,6 +15,7 @@ import { teleconsultationRoomUrl } from './teleconsultationRoom';
 import { decryptField, encryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class ReminderService {
   /**
    * Formata data e horário para exibição acolhedora em pt-BR
@@ -106,7 +107,7 @@ export class ReminderService {
   /**
    * Gera pré-visualização da mensagem de lembrete antes do envio
    */
-  public static previewReminder(appointmentId: string, channel: ReminderChannel = ReminderChannel.WHATSAPP): {
+  public static async previewReminder(appointmentId: string, channel: ReminderChannel = ReminderChannel.WHATSAPP): Promise<{
     renderedMessage: string;
     recipientPhone?: string;
     recipientEmail?: string;
@@ -114,13 +115,13 @@ export class ReminderService {
     patientName: string;
     roomUrl: string;
     scheduledStart: string;
-  } {
+  }> {
     const appt = db.appointments.get(appointmentId);
     if (!appt) {
       throw new Error('Consulta não encontrada para visualização de lembrete.');
     }
 
-    const patient = db.patients.get(appt.patientId);
+    const patient = await PatientRepository.findById(appt.patientId);
     if (!patient) {
       throw new Error('Paciente vinculado não encontrado.');
     }
@@ -163,7 +164,7 @@ export class ReminderService {
       throw new Error('Consulta informada não encontrada.');
     }
 
-    const patient = db.patients.get(appt.patientId);
+    const patient = await PatientRepository.findById(appt.patientId);
     if (!patient) {
       throw new Error('Paciente informado não encontrado.');
     }

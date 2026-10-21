@@ -1,5 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { db } from '../db/memoryDb';
+import { PatientRepository } from '../repositories/patientRepository';
 import { UserRole, type SafeUser } from '@terapiainfoco/shared';
 import { PRACTICE_STAFF_ROLES } from './authMiddleware';
 
@@ -22,15 +23,15 @@ function isPracticeStaff(user: SafeUser): boolean {
   return PRACTICE_STAFF_ROLES.includes(user.role) && !!user.therapistId;
 }
 
-export function canAccessPatient(user: SafeUser, patientId: string): boolean {
-  const patient = db.patients.get(patientId);
+export async function canAccessPatient(user: SafeUser, patientId: string): Promise<boolean> {
+  const patient = await PatientRepository.findById(patientId);
   if (!patient) return false;
   // Paciente: registro principal da conta ou registros criados ao agendar pelo portal
   if (user.role === UserRole.PACIENTE) return user.patientId === patientId || patient.linkedUserId === user.id;
   return isPracticeStaff(user) && patient.therapistId === user.therapistId;
 }
 
-export function canAccessAppointment(user: SafeUser, appointmentId: string): boolean {
+export async function canAccessAppointment(user: SafeUser, appointmentId: string): Promise<boolean> {
   const appointment = db.appointments.get(appointmentId);
   if (!appointment) return false;
   if (user.role === UserRole.PACIENTE) return canAccessPatient(user, appointment.patientId);
@@ -55,8 +56,8 @@ export function requirePatientAccess(param = 'id', options: { allowDpo?: boolean
   return async (c, next) => {
     const user = c.get('user');
     const patientId = c.req.param(param) ?? '';
-    const dpoAccess = options.allowDpo && user.role === UserRole.ADMIN && db.patients.has(patientId);
-    if (!dpoAccess && !canAccessPatient(user, patientId)) return notFound(c, 'Paciente');
+    const dpoAccess = options.allowDpo && user.role === UserRole.ADMIN && !!(await PatientRepository.findById(patientId));
+    if (!dpoAccess && !(await canAccessPatient(user, patientId))) return notFound(c, 'Paciente');
     await next();
   };
 }
@@ -64,7 +65,7 @@ export function requirePatientAccess(param = 'id', options: { allowDpo?: boolean
 /** Exige posse da consulta identificada pelo parâmetro de rota `param` */
 export function requireAppointmentAccess(param = 'id'): MiddlewareHandler {
   return async (c, next) => {
-    if (!canAccessAppointment(c.get('user'), c.req.param(param) ?? '')) return notFound(c, 'Consulta');
+    if (!(await canAccessAppointment(c.get('user'), c.req.param(param) ?? ''))) return notFound(c, 'Consulta');
     await next();
   };
 }
@@ -83,7 +84,7 @@ interface OwnedEntity {
   appointmentId?: string;
 }
 
-export function canAccessEntity(user: SafeUser, entity: OwnedEntity | undefined): boolean {
+export async function canAccessEntity(user: SafeUser, entity: OwnedEntity | undefined): Promise<boolean> {
   if (!entity) return false;
   if (entity.patientId) return canAccessPatient(user, entity.patientId);
   if (entity.appointmentId) return canAccessAppointment(user, entity.appointmentId);
@@ -100,7 +101,7 @@ export function requireOwnedResource(
   param = 'id'
 ): MiddlewareHandler {
   return async (c, next) => {
-    if (!canAccessEntity(c.get('user'), lookup(c.req.param(param) ?? ''))) return notFound(c, label);
+    if (!(await canAccessEntity(c.get('user'), lookup(c.req.param(param) ?? '')))) return notFound(c, label);
     await next();
   };
 }
@@ -120,10 +121,13 @@ export function requireBodyOwnership(options: { allowDpo?: boolean } = {}): Midd
     const user = c.get('user');
     const dpoAccess = options.allowDpo && user.role === UserRole.ADMIN;
     // IDs vazios ficam para a validação de campos obrigatórios do handler (400)
-    if (typeof body?.patientId === 'string' && body.patientId && !(dpoAccess && db.patients.has(body.patientId)) && !canAccessPatient(user, body.patientId)) {
-      return notFound(c, 'Paciente');
+    if (typeof body?.patientId === 'string' && body.patientId) {
+      const allowed = dpoAccess
+        ? !!(await PatientRepository.findById(body.patientId))
+        : await canAccessPatient(user, body.patientId);
+      if (!allowed) return notFound(c, 'Paciente');
     }
-    if (typeof body?.appointmentId === 'string' && body.appointmentId && !canAccessAppointment(user, body.appointmentId)) return notFound(c, 'Consulta');
+    if (typeof body?.appointmentId === 'string' && body.appointmentId && !(await canAccessAppointment(user, body.appointmentId))) return notFound(c, 'Consulta');
     await next();
   };
 }

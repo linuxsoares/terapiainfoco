@@ -186,8 +186,8 @@ systemRoute.get('/synthetic/resilience', async (c) => {
 /**
  * 8. Telemetria OpenTelemetry & Métricas RED / Prometheus (Opção N - RFC-001 §5.2)
  */
-systemRoute.get('/telemetry/overview', (c) => {
-  const overview = TelemetryService.getOverview();
+systemRoute.get('/telemetry/overview', async (c) => {
+  const overview = await TelemetryService.getOverview();
   return c.json({
     success: true,
     telemetry: overview
@@ -204,8 +204,8 @@ systemRoute.get('/telemetry/traces', (c) => {
   }, 200);
 });
 
-systemRoute.get('/telemetry/metrics-raw', (c) => {
-  const metrics = TelemetryService.getPrometheusMetricsText();
+systemRoute.get('/telemetry/metrics-raw', async (c) => {
+  const metrics = await TelemetryService.getPrometheusMetricsText();
   return c.json({
     success: true,
     format: 'prometheus_text',

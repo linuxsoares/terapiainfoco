@@ -4,7 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, UserRole } from '@terapiainfoco/shared';
-import { resetDb, listUsers } from './helpers/db';
+import { resetDb, listUsers, seedDemoSession } from './helpers/db';
 
 const LEAD = { name: 'Dra. Ana Lima', email: 'Ana@Consultorio.com.br', crp: '06/123456', whatsapp: '11999990000', practiceType: 'clinica', consent: true };
 
@@ -24,7 +24,7 @@ async function tokenFor(role: UserRole) {
 describe('Pedidos de acesso da landing page', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

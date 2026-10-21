@@ -13,15 +13,16 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class TranscriptionService {
   /**
    * Processa upload de áudio da teleconsulta e realiza diarização (RFC §3.3)
    * Valida obrigatoriedade de consentimento (TCLE) prévio do paciente.
    */
-  static uploadAndProcessAudio(
+  static async uploadAndProcessAudio(
     dto: UploadAudioDTO,
     context: { actorId: string; ipAddress: string; userAgent?: string }
-  ): DecryptedSessionTranscription {
+  ): Promise<DecryptedSessionTranscription> {
     let appointment = db.appointments.get(dto.appointmentId);
     if (!appointment && dto.appointmentId === '00000000-0000-0000-0000-000000000010') {
       db.seedDemoSession();
@@ -32,7 +33,7 @@ export class TranscriptionService {
     }
 
 
-    const patient = db.patients.get(appointment.patientId);
+    const patient = await PatientRepository.findById(appointment.patientId);
     if (!patient || !patient.consentTranscriptionSigned) {
       throw new Error(
         'Gravação e transcrição bloqueadas: O paciente não assinou o consentimento para gravação e transcrição assistida por IA (TCLE / LGPD Art. 11).'

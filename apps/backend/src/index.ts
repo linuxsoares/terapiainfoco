@@ -127,8 +127,8 @@ app.use('*', wafMiddleware());
 
 
 // Prometheus Metrics Exporter (RFC-001 §5.2 / OpenMetrics Standard)
-app.get('/metrics', (c) => {
-  const metrics = TelemetryService.getPrometheusMetricsText();
+app.get('/metrics', async (c) => {
+  const metrics = await TelemetryService.getPrometheusMetricsText();
   return c.text(metrics, 200, {
     'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'
   });

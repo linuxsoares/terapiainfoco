@@ -4,7 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AuditAction, AuditResourceType, UserRole } from '@terapiainfoco/shared';
-import { resetDb, listUsers } from './helpers/db';
+import { resetDb, listUsers, seedDemoSession } from './helpers/db';
 
 async function tokenFor(role: UserRole): Promise<{ token: string; userId: string }> {
   const user = (await listUsers()).find((u) => u.role === role)!;
@@ -23,7 +23,7 @@ async function createMember(token: string, body: object) {
 describe('Gestão de equipe pelo Admin', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

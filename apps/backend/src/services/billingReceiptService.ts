@@ -96,7 +96,7 @@ export class BillingReceiptService {
   }): Promise<ClinicalReceipt> {
     const { therapistId, dto, context } = params;
 
-    const patient = PatientService.getPatientById(dto.patientId, context);
+    const patient = await PatientService.getPatientById(dto.patientId, context);
     if (!patient) {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
@@ -359,7 +359,7 @@ export class BillingReceiptService {
   }): Promise<FeeContract> {
     const { therapistId, dto, context } = params;
 
-    const patient = PatientService.getPatientById(dto.patientId, context);
+    const patient = await PatientService.getPatientById(dto.patientId, context);
     if (!patient) {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }

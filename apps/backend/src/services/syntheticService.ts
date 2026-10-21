@@ -35,6 +35,7 @@ import { ConsentService } from './consentService';
 import { db } from '../db/memoryDb';
 import { config } from '../config';
 
+import { PatientRepository } from '../repositories/patientRepository';
 /**
  * Consultório isolado do monitor sintético: os registros da jornada nunca caem num consultório
  * real nem no demo e são apagados ao fim de cada execução (a trilha WORM é preservada).
@@ -97,7 +98,7 @@ export class SyntheticService {
         appointmentTime.setMinutes(0, 0, 0);
         const endTime = new Date(appointmentTime.getTime() + 50 * 60 * 1000);
 
-        const patient = PatientService.createPatient(
+        const patient = await PatientService.createPatient(
           SYNTHETIC_PROBE_THERAPIST_ID,
           {
             name: `[PROBE] Paciente Sintético ${Date.now() % 10000}`,
@@ -109,7 +110,7 @@ export class SyntheticService {
         );
         testPatientId = patient.id;
         // Consentimento explícito do paciente sintético para a síntese SOAP (nunca presumido)
-        ConsentService.getInstance().grantGranularConsent(
+        await ConsentService.getInstance().grantGranularConsent(
           { patientId: patient.id, scopes: [{ scope: ConsentScope.AI_CLINICAL_SYNTHESIS, granted: true }] },
           PROBE_CONTEXT
         );
@@ -252,7 +253,7 @@ export class SyntheticService {
         ];
 
         requireProbeBooking(createdAppointmentId);
-        const proposal = AiSoapService.generateSoapProposal({
+        const proposal = await AiSoapService.generateSoapProposal({
           appointmentId: createdAppointmentId,
           utterances: dummyUtterances,
           context: PROBE_CONTEXT
@@ -372,7 +373,7 @@ export class SyntheticService {
           PROBE_CONTEXT
         );
 
-        const validation = DocumentService.validatePublicToken(docDraft.validationToken);
+        const validation = await DocumentService.validatePublicToken(docDraft.validationToken);
         if (!validation.valid) {
           throw new Error('Falha na validação pública Zero-Knowledge do documento emitido.');
         }
@@ -460,7 +461,7 @@ export class SyntheticService {
         });
       }
 
-      this.purgeProbeRecords();
+      await this.purgeProbeRecords();
     }
 
     const completedAt = new Date().toISOString();
@@ -506,11 +507,8 @@ export class SyntheticService {
    * Apaga os registros do consultório de sondagem (pacientes, consultas, prontuários, documentos…)
    * e o ledger de consentimento dos pacientes sintéticos. A trilha de auditoria fica intacta.
    */
-  private static purgeProbeRecords(): void {
-    const probePatientIds = new Set<string>();
-    for (const [id, patient] of db.patients) {
-      if (patient.therapistId === SYNTHETIC_PROBE_THERAPIST_ID) probePatientIds.add(id);
-    }
+  private static async purgeProbeRecords(): Promise<void> {
+    const probePatientIds = await PatientRepository.deleteByTherapist(SYNTHETIC_PROBE_THERAPIST_ID);
 
     for (const collection of Object.values(db)) {
       if (!(collection instanceof Map)) continue;

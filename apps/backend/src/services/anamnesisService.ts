@@ -9,18 +9,19 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export class AnamnesisService {
   /**
    * Salva ou atualiza a Ficha de Anamnese Biopsicossocial de um paciente
    * Aplica Field-Level Encryption (AES-256-GCM) em todos os dados clínicos sensíveis
    */
-  public static saveAnamnesis(params: {
+  public static async saveAnamnesis(params: {
     patientId: string;
     therapistId: string;
     dto: SaveAnamnesisDTO;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): DecryptedAnamnesisRecord {
-    const patient = db.patients.get(params.patientId);
+  }): Promise<DecryptedAnamnesisRecord> {
+    const patient = await PatientRepository.findById(params.patientId);
     if (!patient) {
       throw new Error('Paciente não encontrado para registro de anamnese.');
     }

@@ -4,7 +4,7 @@ import { db } from '../src/db/memoryDb';
 import { authService } from '../src/services/authService';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { UserRole, APP_MODULES, canViewModule, defaultModule, visibleModules, PATIENT_ACTION_ACCESS, canPerformPatientAction, type AppModule, type PatientAction } from '@terapiainfoco/shared';
-import { resetDb, listUsers } from './helpers/db';
+import { resetDb, listUsers, seedDemoSession } from './helpers/db';
 
 const DEMO_APPOINTMENT_ID = '00000000-0000-0000-0000-000000000010';
 
@@ -41,7 +41,7 @@ async function tokenForRole(role: UserRole): Promise<string> {
 describe('Menus dinâmicos por perfil (MODULE_ACCESS)', () => {
   beforeEach(async () => {
     await resetDb();
-    db.seedDemoSession();
+    await seedDemoSession();
     await globalRateLimitStore.reset();
   });
 

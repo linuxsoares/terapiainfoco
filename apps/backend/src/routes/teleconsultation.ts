@@ -213,8 +213,8 @@ teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAp
  * GET /api/teleconsultation/transcription/status/:appointmentId
  * Indica se a sessão pode ser transcrita (consentimento vigente e STT configurado)
  */
-teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), (c) => {
-  return c.json(LiveTranscriptionService.status(c.req.param('appointmentId') ?? '') satisfies LiveTranscriptStatusResponse);
+teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
+  return c.json(await LiveTranscriptionService.status(c.req.param('appointmentId') ?? '') satisfies LiveTranscriptStatusResponse);
 });
 
 /**
@@ -245,7 +245,7 @@ teleconsultationRoutes.post('/transcription/consent', authMiddleware(), requireR
     if (!body.appointmentId || typeof body.granted !== 'boolean') {
       return c.json({ success: false, message: 'Informe appointmentId e granted.' }, 400);
     }
-    const status = LiveTranscriptionService.setPatientConsent(body.appointmentId, c.get('user'), body.granted, {
+    const status = await LiveTranscriptionService.setPatientConsent(body.appointmentId, c.get('user'), body.granted, {
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')
     });

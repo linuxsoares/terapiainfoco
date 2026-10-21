@@ -1,6 +1,5 @@
 import type {
   Therapist,
-  StoredPatient,
   StoredAppointment,
   StoredClinicalRecord,
   StoredPsychologicalDocument,
@@ -32,7 +31,6 @@ import type {
   PsychiatricReferralGuide
 } from '@terapiainfoco/shared';
 import { UserRole } from '@terapiainfoco/shared';
-import { encryptField } from '../services/cryptoContext';
 import type { LocalKmsState } from '@terapiainfoco/crypto';
 import { config } from '../config';
 import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, appendOnlySource } from './persistence';
@@ -43,7 +41,6 @@ import { EntityPersistence, TrackedMap, TrackedSet, mapSource, setSource, append
  */
 export class MemoryDatabase {
   public therapists: TrackedMap<string, Therapist> = new TrackedMap();
-  public patients: TrackedMap<string, StoredPatient> = new TrackedMap();
   public appointments: TrackedMap<string, StoredAppointment> = new TrackedMap();
   public clinicalRecords: TrackedMap<string, StoredClinicalRecord> = new TrackedMap();
   public documents: TrackedMap<string, StoredPsychologicalDocument> = new TrackedMap();
@@ -99,25 +96,10 @@ export class MemoryDatabase {
     this.therapists.set(defaultTherapist.id, defaultTherapist);
   }
 
+  /** Consulta de demonstração; o paciente dela fica na tabela `patients` (`seedDemoPatient`) */
   public seedDemoSession() {
     this.seedDefaultTherapist();
     const defaultPatientId = '00000000-0000-0000-0000-000000000002';
-    if (!this.patients.has(defaultPatientId)) {
-      this.patients.set(defaultPatientId, {
-        id: defaultPatientId,
-        therapistId: 'therapist-001',
-        emailBindex: 'bindex-mariana-silva',
-        cpfBindex: 'bindex-cpf-12345678900',
-        consentTranscriptionSigned: true,
-        consentSignedAt: new Date(),
-        createdAt: new Date(),
-        encryptedName: encryptField('Mariana Silva de Oliveira'),
-        encryptedEmail: encryptField('mariana.silva@email.com'),
-        encryptedPhone: encryptField('(11) 98765-4321'),
-        encryptedCpf: encryptField('123.456.789-00')
-      });
-    }
-
     const defaultAppointmentId = '00000000-0000-0000-0000-000000000010';
     if (!this.appointments.has(defaultAppointmentId)) {
       this.appointments.set(defaultAppointmentId, {
@@ -134,7 +116,6 @@ export class MemoryDatabase {
 
 
   clear() {
-    this.patients.clear();
     this.appointments.clear();
     this.clinicalRecords.clear();
     this.documents.clear();
@@ -174,7 +155,7 @@ export const db = new MemoryDatabase();
 
 /** Nomes das coleções chave-valor do cache de domínio persistidas no entity_store */
 const MAP_COLLECTIONS = [
-  'therapists', 'patients', 'appointments', 'clinicalRecords', 'documents', 'sessionTranscriptions',
+  'therapists', 'appointments', 'clinicalRecords', 'documents', 'sessionTranscriptions',
   'anamnesisRecords', 'clinicalRecordRectifications', 'reminders', 'clinicalMarkers', 'therapeuticGoals',
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',

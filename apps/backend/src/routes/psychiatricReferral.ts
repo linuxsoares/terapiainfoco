@@ -85,7 +85,7 @@ psychiatricReferralRouter.post('/', authMiddleware(), requireRoles(CLINICAL_ROLE
       );
     }
 
-    const result = PsychiatricReferralService.createReferral({
+    const result = await PsychiatricReferralService.createReferral({
       therapistId,
       therapistName,
       therapistCrp,

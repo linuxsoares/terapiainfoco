@@ -25,7 +25,7 @@ therapeuticGoalsRouter.post('/', async (c) => {
       return c.json({ success: false, error: 'patientId, title e description são obrigatórios' }, 400);
     }
 
-    const goal = GoalService.createGoal(body, {
+    const goal = await GoalService.createGoal(body, {
       actorId: user.id,
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')

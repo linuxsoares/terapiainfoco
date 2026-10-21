@@ -24,6 +24,7 @@ import { config } from '../config';
 import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 import { TherapistProfileRepository } from '../repositories/therapistProfileRepository';
 
+import { PatientRepository } from '../repositories/patientRepository';
 export { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 
 /** "-03:00" -> -180 */
@@ -155,11 +156,10 @@ export class AppointmentService {
   /**
    * Busca consultas do terapeuta
    */
-  static getTherapistAppointments(therapistId: string): DecryptedAppointment[] {
+  static async getTherapistAppointments(therapistId: string): Promise<DecryptedAppointment[]> {
     // Nome decifrado só para pacientes do próprio consultório, como no dashboard clínico
     const patientNames = new Map<string, string>();
-    for (const patient of db.patients.values()) {
-      if (patient.therapistId !== therapistId) continue;
+    for (const patient of await PatientRepository.list({ therapistId })) {
       try {
         patientNames.set(patient.id, decryptField(patient.encryptedName));
       } catch {
@@ -262,13 +262,15 @@ export class AppointmentService {
     const actor = { actorId: userId, ipAddress: context.ipAddress, userAgent: context.userAgent };
 
     if (!patientId) {
-      const created = PatientService.createPatient(dto.therapistId, {
+      const created = await PatientService.createPatient(dto.therapistId, {
         name: user.name,
         email: user.email,
         phone: user.phone || '',
         consentTranscriptionSigned: false
       }, actor);
-      db.patients.get(created.id)!.linkedUserId = userId;
+      const record = (await PatientRepository.findById(created.id))!;
+      record.linkedUserId = userId;
+      await PatientRepository.save(record);
       patientId = created.id;
       if (!user.patientId) {
         user.patientId = created.id;
@@ -297,7 +299,7 @@ export class AppointmentService {
   private static async linkedPatientRecords(userId: string) {
     const user = await UserRepository.findById(userId);
     if (!user) return [];
-    return Array.from(db.patients.values()).filter((p) => p.linkedUserId === userId || p.id === user.patientId);
+    return PatientRepository.listForPatientAccount(userId, user.patientId);
   }
 
   /** Psicólogos que já atendem o paciente, para agendar a próxima sessão sem passar pela busca */
