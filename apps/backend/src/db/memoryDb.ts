@@ -128,7 +128,7 @@ export class MemoryDatabase {
 export const db = new MemoryDatabase();
 
 /** Nomes das coleções chave-valor do cache de domínio persistidas no entity_store */
-const MAP_COLLECTIONS = [
+export const MAP_COLLECTIONS = [
   'therapists', 'documents', 'sessionTranscriptions',
   'anamnesisRecords', 'clinicalRecordRectifications', 'reminders', 'clinicalMarkers', 'therapeuticGoals',
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',

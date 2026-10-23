@@ -758,6 +758,8 @@ export interface BackupEntitiesSummary {
   sessionTranscriptions: number;
   users: number;
   auditLogs: number;
+  /** Registros por tabela/coleção (snapshots v2 em diante) */
+  byCollection?: Record<string, number>;
   totalEntities: number;
 }
 
