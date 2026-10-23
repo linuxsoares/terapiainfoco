@@ -696,7 +696,7 @@ export default function App() {
                     />
                   )}
                   {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}
-                  {currentTab === 'soap' && <SoapModule appointmentId={soapAppointmentId} onAppointmentChange={setSoapAppointmentId} signer={{ name: currentUser.name, crp: currentUser.crp }} />}
+                  {currentTab === 'soap' && <SoapModule appointmentId={soapAppointmentId} onAppointmentChange={setSoapAppointmentId} />}
                   {currentTab === 'documents' && <DocumentsModule />}
                   {currentTab === 'finance' && <FinanceModule />}
                   {currentTab === 'audit' && <AuditModule isDpo={currentUser.role === UserRole.ADMIN} />}

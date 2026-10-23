@@ -178,16 +178,12 @@ documentsRoute.post('/:id/prepare-icp-signature', authMiddleware(), requireRoles
 
 /**
  * POST /api/documents/:id/sign-icp
- * Registra a assinatura qualificada com certificado digital ICP-Brasil e carimbo do tempo
+ * Registra a assinatura eletrônica da plataforma (não qualificada: sem provedor ICP-Brasil integrado)
  */
 documentsRoute.post('/:id/sign-icp', authMiddleware(), requireRoles([UserRole.PSICOLOGO_TITULAR]), requireOwnedResource((id) => db.documents.get(id), 'Documento'), async (c) => {
   try {
     const id = c.req.param('id');
-    const body = await c.req.json<SignIcpDTO>();
-
-    if (!body.certificate || !body.signatureBase64) {
-      return c.json({ success: false, error: 'certificate e signatureBase64 são obrigatórios.' }, 400);
-    }
+    const body = await c.req.json<SignIcpDTO>().catch(() => ({} as SignIcpDTO));
 
     const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
     const signedDoc = await IcpBrasilService.signWithIcp(id, body, {
@@ -198,7 +194,7 @@ documentsRoute.post('/:id/sign-icp', authMiddleware(), requireRoles([UserRole.PS
 
     return c.json({ success: true, document: signedDoc }, 200);
   } catch (err: any) {
-    return c.json({ success: false, error: err.message || 'Falha ao assinar com ICP-Brasil.' }, 400);
+    return c.json({ success: false, error: err.message || 'Falha ao assinar o documento.' }, 400);
   }
 });
 

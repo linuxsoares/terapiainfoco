@@ -278,7 +278,7 @@ export const FeatureModules: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900">Emissão Conforme Res. CFP 006/2019</span>
                     </div>
                     <span className="text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded font-bold">
-                      PDF/A + ICP-Brasil
+                      PDF + QR Code
                     </span>
                   </div>
 

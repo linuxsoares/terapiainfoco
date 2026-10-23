@@ -537,9 +537,13 @@ export interface PrepareIcpSignatureResponse {
   validationUrl: string;
 }
 
+/**
+ * Assinatura de documento. Sem provedor ICP-Brasil integrado, certificado e assinatura enviados
+ * pelo navegador são ignorados: o servidor registra uma assinatura eletrônica da plataforma.
+ */
 export interface SignIcpDTO {
-  certificate: IcpCertificateInfo;
-  signatureBase64: string;
+  certificate?: IcpCertificateInfo;
+  signatureBase64?: string;
   timestampToken?: string;
 }
 

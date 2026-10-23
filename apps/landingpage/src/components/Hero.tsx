@@ -65,7 +65,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenDemo, onExploreSimulator }) =>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-teal-600" />
-                <span>Assinatura Digital ICP-Brasil</span>
+                <span>Documentos com validação por QR Code</span>
               </div>
             </div>
 
@@ -212,7 +212,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenDemo, onExploreSimulator }) =>
                 {signedState ? (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">
                     <FileCheck2 className="w-4 h-4 text-emerald-700" />
-                    <span>Prontuário Assinado & Selado (ICP-Brasil)</span>
+                    <span>Prontuário Assinado & Selado</span>
                   </div>
                 ) : (
                   <button

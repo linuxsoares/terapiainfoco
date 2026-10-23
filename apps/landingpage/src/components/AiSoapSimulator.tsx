@@ -405,7 +405,7 @@ export const AiSoapSimulator: React.FC = () => {
                   <div className="space-y-0.5">
                     <p className="text-emerald-400 font-bold flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-emerald-400" />
-                      Prontuário Imutável Selado com Certificado ICP-Brasil
+                      Prontuário Imutável Selado (hash SHA-256)
                     </p>
                     <p className="text-[11px] text-slate-400 font-mono">
                       SHA256: 7f8a9b22...c41e • Timestamp: {new Date().toLocaleTimeString()} • CRP 06/142980

@@ -17,8 +17,7 @@ import {
   BookmarkPlus,
   Tag,
   Trash2,
-  ArrowRightCircle,
-  FileCheck2
+  ArrowRightCircle
 } from 'lucide-react';
 
 import type { 
@@ -31,7 +30,6 @@ import { AppointmentStatus, AuditResourceType, ClinicalMarkerCategory, ClinicalM
 import type { DecryptedAppointment, LiveTranscriptUtterance } from '@terapiainfoco/shared';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { api } from '../services/api';
-import { IcpBatchSigningModal } from './IcpBatchSigningModal';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 
 const EMPTY_SOAP: SoapNote = { subjective: '', objective: '', assessment: '', plan: '' };
@@ -57,13 +55,10 @@ interface SoapModuleProps {
   /** Consulta aberta a partir da Agenda; sem ela, o psicólogo escolhe na lista */
   appointmentId?: string | null;
   onAppointmentChange?: (appointmentId: string | null) => void;
-  /** Psicólogo(a) logado(a), que assina os prontuários */
-  signer: { name: string; crp?: string };
 }
 
-export function SoapModule({ appointmentId: initialAppointmentId = null, onAppointmentChange, signer }: SoapModuleProps) {
+export function SoapModule({ appointmentId: initialAppointmentId = null, onAppointmentChange }: SoapModuleProps) {
   const [recordId, setRecordId] = useState<string | null>(null);
-  const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
 
   // Consulta da evolução: o prontuário é sempre de uma consulta do consultório
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
@@ -382,15 +377,6 @@ export function SoapModule({ appointmentId: initialAppointmentId = null, onAppoi
               {sessionNumber ? `Sessão ${String(sessionNumber).padStart(2, '0')}` : 'Nova evolução'} • {patientName}
             </div>
           )}
-
-          <button
-            onClick={() => setShowBatchModal(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            title="Fechar ciclos clínicos e assinar múltiplos prontuários com Certificado Digital ICP-Brasil (PAdES)"
-          >
-            <FileCheck2 className="w-4 h-4" />
-            <span>Assinatura ICP-Brasil em Lote</span>
-          </button>
 
           {isSigned && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
@@ -1304,16 +1290,6 @@ export function SoapModule({ appointmentId: initialAppointmentId = null, onAppoi
         </div>
       )}
 
-      {/* Modal de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Ciclos (RFC-001 §3.4, §3.5) */}
-      <IcpBatchSigningModal
-        isOpen={showBatchModal}
-        onClose={() => setShowBatchModal(false)}
-        therapistName={signer.name}
-        therapistCrp={signer.crp}
-        onBatchSigned={(manifest) => {
-          setSuccessMsg(`Lote #${manifest.id.substring(0, 8)} assinado com Certificado ICP-Brasil com sucesso! ${manifest.totalItemsCount} registros selados na trilha WORM.`);
-        }}
-      />
     </div>
   );
 }
