@@ -41,6 +41,7 @@ appointmentsRoute.post('/patient/book', publicBookingRateLimiter, authMiddleware
       ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
       userAgent: c.req.header('user-agent')
     });
+    await notifyAppointmentsScheduled([appointment.id]);
     return c.json({ success: true, appointment }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
@@ -83,6 +84,7 @@ appointmentsRoute.post('/', async (c) => {
       body,
       { actorId: c.get('userId'), ipAddress: ip, userAgent }
     );
+    await notifyAppointmentsScheduled([appointment.id]);
     return c.json({ success: true, appointment }, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
@@ -112,6 +114,7 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
 import { ReminderService } from '../services/reminderService';
 import { ReminderChannel } from '@terapiainfoco/shared';
 
+import { notifyAppointmentsScheduled } from '../services/appointmentNotificationService';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
 // Listar consultas do consultório do usuário autenticado
 appointmentsRoute.get('/mine', async (c) => {
@@ -144,6 +147,7 @@ appointmentsRoute.post('/recurrent', async (c) => {
       body,
       { actorId: c.get('userId'), ipAddress: ip, userAgent }
     );
+    await notifyAppointmentsScheduled(result.createdAppointments.map((a) => a.id));
     return c.json(result, 201);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 400);
