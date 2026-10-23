@@ -214,8 +214,8 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
     expect(data.patientLedger).toBeDefined();
   });
 
-  it('POST /api/transcriptions/generate-soap deve falhar e bloquear processamento por IA quando AI_CLINICAL_SYNTHESIS foi revogado', async () => {
-    const res = await app.request('/api/transcriptions/generate-soap', {
+  it('POST /api/transcription/ingest bloqueia a síntese por IA quando AI_CLINICAL_SYNTHESIS foi revogado', async () => {
+    const res = await app.request('/api/transcription/ingest', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -223,17 +223,16 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
       },
       body: JSON.stringify({
         appointmentId: sampleAppointmentId,
-        utterances: [
-          { speaker: 'PACIENTE', time: '00:01', text: 'Estou sentindo muita ansiedade ultimamente.' },
-          { speaker: 'TERAPEUTA', time: '00:05', text: 'Vamos explorar quais gatilhos você tem percebido.' }
-        ]
+        patientId: samplePatientId,
+        consentConfirmed: true,
+        rawTranscriptText: 'PACIENTE: Estou sentindo muita ansiedade ultimamente.\nTERAPEUTA: Vamos explorar quais gatilhos você tem percebido.'
       })
     });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const data = await res.json();
     expect(data.success).toBeFalse();
-    expect(data.error).toContain('Tratamento bloqueado');
-    expect(data.error).toContain('LGPD Art. 8º, §5º');
+    expect(data.message).toContain('Tratamento bloqueado');
+    expect(data.message).toContain('LGPD Art. 8º, §5º');
   });
 });

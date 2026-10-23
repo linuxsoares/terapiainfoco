@@ -329,18 +329,19 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     });
     const apptNoConsentData = await apptNoConsentRes.json();
 
-    // Tentativa de upload de áudio DEVE FALHAR por falta de TCLE (LGPD Art. 11)
-    const blockedUploadRes = await staffRequest('/api/transcriptions/upload', {
+    // Síntese por IA DEVE FALHAR sem consentimento de transcrição/IA (LGPD Art. 11), mesmo com o flag do cliente
+    const blockedIngestRes = await staffRequest('/api/transcription/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         appointmentId: apptNoConsentData.appointment.id,
-        audioFileName: 'teleconsulta.m4a'
+        patientId: patientNoConsentId,
+        consentConfirmed: true,
+        rawTranscriptText: 'PACIENTE: Tenho dormido mal.'
       })
     });
-    expect(blockedUploadRes.status).toBe(400);
-    const blockedData = await blockedUploadRes.json();
-    expect(blockedData.error).toContain('consentimento para gravação e transcrição');
+    expect(blockedIngestRes.status).toBe(403);
+    expect((await blockedIngestRes.json()).message).toContain('Consentimento');
 
     // 2. Cadastra paciente COM consentimento de transcrição (TCLE)
     const patientWithConsentRes = await staffRequest('/api/patients', {
@@ -372,74 +373,42 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     const apptData = await apptRes.json();
     const appointmentId = apptData.appointment.id;
 
-    // 3. Upload e Diarização de Áudio (RFC §3.3)
-    const uploadRes = await staffRequest('/api/transcriptions/upload', {
+    // 3. Paciente de outra consulta não é aceito na ingestão
+    const mismatchRes = await staffRequest('/api/transcription/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        appointmentId,
-        audioFileName: 'teleconsulta-meet.m4a',
-        durationSeconds: 3120
-      })
+      body: JSON.stringify({ appointmentId, patientId: patientNoConsentId, consentConfirmed: true, rawTranscriptText: 'PACIENTE: Oi.' })
     });
-    expect(uploadRes.status).toBe(201);
-    const uploadData = await uploadRes.json();
-    expect(uploadData.transcription.id).toBeDefined();
-    expect(uploadData.transcription.utterances.length).toBeGreaterThan(0);
-    // Verifica canais separados (Terapeuta e Paciente)
-    expect(uploadData.transcription.utterances[0].speaker).toBe('TERAPEUTA');
-    expect(uploadData.transcription.utterances[1].speaker).toBe('PACIENTE');
+    expect(mismatchRes.status).toBe(404);
 
-    // 4. Consulta da transcrição decifrada
-    const getTranscriptionRes = await staffRequest(`/api/transcriptions/appointment/${appointmentId}`);
-    expect(getTranscriptionRes.status).toBe(200);
-    const getTranscriptionData = await getTranscriptionRes.json();
-    expect(getTranscriptionData.transcription.utterances.length).toBe(uploadData.transcription.utterances.length);
-
-    // 5. Endpoint isolado de sanitização de PII
-    const sanitizeRes = await staffRequest('/api/transcriptions/sanitize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: 'Olá Mariana Silva, seu CPF é 123.456.789-00 e celular (11) 98765-4321.',
-        patientName: 'Mariana Silva'
-      })
-    });
-    expect(sanitizeRes.status).toBe(200);
-    const sanitizeData = await sanitizeRes.json();
-    expect(sanitizeData.result.sanitizedText).toContain('[PACIENTE]');
-    expect(sanitizeData.result.sanitizedText).toContain('[CPF]');
-    expect(sanitizeData.result.sanitizedText).toContain('[TELEFONE]');
-    expect(sanitizeData.result.replacedCount).toBeGreaterThanOrEqual(3);
-
-    // 6. Geração assistida de SOAP com IA (RFC §3.3)
-    const aiSoapRes = await staffRequest('/api/transcriptions/generate-soap', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        appointmentId
-      })
-    });
-    expect(aiSoapRes.status).toBe(200);
-    const aiSoapData = await aiSoapRes.json();
-    expect(aiSoapData.proposal.soap.subjective).toBeDefined();
-    expect(aiSoapData.proposal.soap.objective).toBeDefined();
-    expect(aiSoapData.proposal.soap.assessment).toBeDefined();
-    expect(aiSoapData.proposal.soap.plan).toBeDefined();
-    expect(aiSoapData.proposal.privateNotesSuggestion).toBeDefined();
-    expect(aiSoapData.proposal.humanReviewRequired).toBe(true);
-    expect(aiSoapData.proposal.disclaimer).toContain('Human-in-the-Loop');
-
-    // 7. Salva a minuta gerada pela IA e assina com Human-in-the-Loop
-    const draftSoapRes = await staffRequest('/api/clinical-records/draft', {
+    // 4. Transcrição diarizada → minuta SOAP pelo sintetizador (RFC §3.3)
+    const ingestRes = await staffRequest('/api/transcription/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         appointmentId,
         patientId,
-        sessionNumber: 1,
-        soap: aiSoapData.proposal.soap,
-        privateNotes: aiSoapData.proposal.privateNotesSuggestion
+        consentConfirmed: true,
+        rawTranscriptText: 'TERAPEUTA: Como foi a sua semana?\nPACIENTE: Tive uma reunião tensa e senti aperto no peito, mas usei a respiração diafragmática.'
+      })
+    });
+    expect(ingestRes.status).toBe(201);
+    const ingestData = await ingestRes.json();
+    expect(ingestData.session.utterances.length).toBe(2);
+    expect(ingestData.soapDraft.subjectiveText).toBeDefined();
+
+    // 5. Minuta revisada salva como rascunho da consulta e assinada com Human-in-the-Loop
+    const draftSoapRes = await staffRequest('/api/clinical-records/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId,
+        soap: {
+          subjective: ingestData.soapDraft.subjectiveText,
+          objective: ingestData.soapDraft.objectiveText,
+          assessment: ingestData.soapDraft.assessmentText,
+          plan: ingestData.soapDraft.planText
+        }
       })
     });
     expect(draftSoapRes.status).toBe(201);
