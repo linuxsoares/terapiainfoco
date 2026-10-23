@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { AnalyticsService } from '../services/analyticsService';
 import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { UserRole } from '@terapiainfoco/shared';
-import { requirePatientAccess } from '../middlewares/accessPolicy';
+import { CLINICAL_ROLES, requirePatientAccess } from '../middlewares/accessPolicy';
 
 export const analyticsRoute = new Hono();
 
@@ -13,13 +13,12 @@ export const analyticsRoute = new Hono();
 analyticsRoute.get(
   '/clinical-overview',
   authMiddleware({ strict: true }),
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
+  // KPIs clínicos são do consultório: Admin/DPO não lê conteúdo clínico (RFC-001 §4.5)
+  requireRoles(CLINICAL_ROLES),
   async (c) => {
     try {
-      // Psicólogo e supervisor veem só o próprio consultório; o admin pode filtrar (ou ver o agregado)
-      const user = c.get('user');
-      const therapistId = user.role === UserRole.ADMIN ? c.req.query('therapistId') || undefined : user.therapistId;
-      if (!therapistId && user.role !== UserRole.ADMIN) {
+      const therapistId = c.get('user').therapistId;
+      if (!therapistId) {
         return c.json({ success: false, error: 'Usuário sem consultório vinculado.' }, 403);
       }
       const overview = await AnalyticsService.getClinicalOverview(therapistId);
@@ -56,8 +55,9 @@ analyticsRoute.get(
 analyticsRoute.get(
   '/patient/:patientId',
   authMiddleware({ strict: true }),
-  requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.ADMIN]),
-  requirePatientAccess('patientId', { allowDpo: true }),
+  // A evolução traz trechos do SOAP: só perfis clínicos do próprio consultório
+  requireRoles(CLINICAL_ROLES),
+  requirePatientAccess('patientId'),
   async (c) => {
     try {
       const patientId = c.req.param('patientId');
