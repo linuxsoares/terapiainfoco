@@ -2428,6 +2428,7 @@ terapiainfoco/
 | `fix/admin-security-lab-demo-only` | Laboratório de segurança do Admin só em DEMO_MODE (V0 item 4, parte 3) | [PR #190](https://github.com/linuxsoares/terapiainfoco/pull/190) | Merged |
 | `feat/passkey-login` | Login com passkey real e login social rotulado como demonstração (V0 item 5) | [PR #191](https://github.com/linuxsoares/terapiainfoco/pull/191) | Merged |
 | `fix/backup-full-coverage` | Snapshot de backup com todas as tabelas e coleções (V0 item 5) | [PR #192](https://github.com/linuxsoares/terapiainfoco/pull/192) | Merged |
+| `feat/consent-per-scope` | Aceite por finalidade e ledger LGPD persistido (V0 item 5) | [PR #193](https://github.com/linuxsoares/terapiainfoco/pull/193) | Merged |
 
 ---
 
