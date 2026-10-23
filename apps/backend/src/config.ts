@@ -139,6 +139,15 @@ export const config = {
     /** Marque 'true' só com acordo de Zero Data Retention firmado com o provedor */
     zeroRetention: process.env.OPENAI_ZERO_DATA_RETENTION === 'true'
   },
+  /**
+   * E-mail transacional. 'resend' exige RESEND_API_KEY e EMAIL_FROM com domínio verificado;
+   * 'log' (apenas fora de produção, padrão em dev/testes) escreve a mensagem no console.
+   */
+  email: {
+    provider: (process.env.EMAIL_PROVIDER || (process.env.RESEND_API_KEY ? 'resend' : 'log')) as 'resend' | 'log' | 'disabled',
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'TerapiaInFoco <nao-responda@terapiainfoco.com.br>'
+  },
   /** URL pública do painel (frontend): base do link da sala de teleconsulta própria */
   publicAppUrl: publicAppUrl(),
 };

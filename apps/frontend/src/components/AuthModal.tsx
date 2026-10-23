@@ -49,6 +49,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaTempToken, setMfaTempToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  // Recuperação de senha: pede o link por e-mail sem sair do modal
+  const [forgotStep, setForgotStep] = useState<'none' | 'request' | 'sent'>('none');
+  const [forgotMessage, setForgotMessage] = useState('');
 
   // Campos de Criação de Perfil (Com ou Sem Login Social)
   const [regName, setRegName] = useState('');
@@ -80,6 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setError(null);
     setFeedback(null);
+    setForgotStep('none');
   }, [initialMode, preselectedRole, isOpen]);
 
   // Contas Admin/DPO são criadas apenas por um administrador (não há cadastro público)
@@ -90,6 +94,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   }, [mode, selectedRole]);
 
   if (!isOpen) return null;
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      setForgotMessage(await api.requestPasswordReset(loginEmail.trim()));
+      setForgotStep('sent');
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível enviar o link agora.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTraditionalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,7 +443,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* FORMULÁRIO DE LOGIN */}
-          {mode === 'login' && !mfaStep && (
+          {mode === 'login' && !mfaStep && forgotStep !== 'none' && (
+            <div className="space-y-4">
+              {forgotStep === 'request' ? (
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Informe o e-mail da conta. Enviaremos um link para criar uma nova senha, válido por 30 minutos.
+                  </p>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      required
+                      autoFocus
+                      value={loginEmail}
+                      onChange={e => setLoginEmail(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                      placeholder="seu@email.com.br"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-500 hover:to-emerald-500 shadow-md transition-all disabled:opacity-60"
+                  >
+                    {loading ? 'Enviando...' : 'Enviar link de redefinição'}
+                  </button>
+                </form>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-300" role="status">
+                  {forgotMessage} Confira também a caixa de spam.
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => { setForgotStep('none'); setError(null); }}
+                className="text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
+              >
+                Voltar para o login
+              </button>
+            </div>
+          )}
+
+          {mode === 'login' && !mfaStep && forgotStep === 'none' && (
             <form onSubmit={handleTraditionalLogin} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -459,6 +519,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       placeholder="••••••••"
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotStep('request'); setError(null); }}
+                    className="mt-1 text-[11px] font-semibold text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
+                  >
+                    Esqueci minha senha
+                  </button>
                 </div>
               </div>
 

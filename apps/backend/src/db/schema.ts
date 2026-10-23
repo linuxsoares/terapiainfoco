@@ -327,3 +327,20 @@ export const therapistProfiles = pgTable('therapist_profiles', {
   index('idx_therapist_profiles_search').using('gin', table.searchVector),
   index('idx_therapist_profiles_listing').on(table.published, table.crpVerified)
 ]);
+
+/**
+ * 13. TOKENS DE USO ÚNICO (recuperação de senha, verificação de e-mail)
+ * Guarda só o hash SHA-256 do token enviado por e-mail; o token em claro nunca é persistido.
+ */
+export const authTokens = pgTable('auth_tokens', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  purpose: varchar('purpose', { length: 30 }).notNull(),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex('uq_auth_tokens_hash').on(table.tokenHash),
+  index('idx_auth_tokens_user').on(table.userId, table.purpose)
+]);
