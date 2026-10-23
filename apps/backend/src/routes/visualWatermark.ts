@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { UserRole } from '@terapiainfoco/shared';
+import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 import { VisualWatermarkService } from '../services/visualWatermarkService';
 import type {
   CreateWatermarkSeedDTO,
@@ -11,6 +12,8 @@ import type {
 } from '@terapiainfoco/shared';
 
 export const visualWatermarkRouter = new Hono();
+// Painel de marca d'água forense da plataforma: só o Admin/DPO (RFC-001 §4.5)
+visualWatermarkRouter.use('*', authMiddleware({ strict: true }), requireRoles([UserRole.ADMIN]));
 const service = VisualWatermarkService.getInstance();
 
 /**

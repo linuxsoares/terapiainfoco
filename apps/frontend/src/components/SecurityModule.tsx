@@ -10146,7 +10146,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       </div>
 
       {/* Card 14: Resiliência de Redes Instáveis & Inteligibilidade Clínica (ITU-T G.107 & CFP 011/2018) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
@@ -10620,7 +10620,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 16: Detector de Desconexão Abrupta & Protocolo de Reconexão Segura (RFC-001 §3.2 & CFP nº 011/2018) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
             <div className="flex items-center gap-3">
@@ -10986,7 +10986,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 17: Validação Forense de Assinaturas com Provas de Conhecimento Zero (ZKP - RFC-001 §3.4, §3.5 & CFP 006/2019) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -11358,7 +11358,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 18: Monitor Proativo de Vazamento na Dark Web & Contenção de Incidentes (LGPD Art. 46/48) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -11719,7 +11719,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 19: Central de Governança de Consentimento do Paciente & Smart Revocation (LGPD Art. 7/8/9/11/18 & CFP 006/2019) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -12009,7 +12009,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 20: Data Loss Prevention (DLP) no Clipboard & Marca d'Água Esteganográfica (LGPD Art. 46 & CFP nº 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -12319,7 +12319,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* CARD 21: Cartório Notarial Digital & Fé Pública de Prontuários (LGPD Art. 18 & CFP nº 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="space-y-1">
@@ -12613,7 +12613,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* CARD 22: Mecanismo de Expurgamento Criptográfico & Prova de Destruição (LGPD Art. 16 & CFP nº 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="space-y-1">
@@ -12991,7 +12991,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 23: Federação de Identidades Descentralizadas (DID) & Credenciais Verificáveis (W3C DID v1.0 & RFC-001 §3.5) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -13365,7 +13365,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 24: Inteligência Comportamental Preditiva e Detecção de Acesso Anômalo (UEBA - RFC-001 §4.4 & LGPD Art. 46) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -13737,7 +13737,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 25: Protocolo Criptográfico de Privacidade Diferencial (ε-DP) & Benchmarks Epidemiológicos (LGPD Art. 13 & CFP nº 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -14216,7 +14216,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 26: Gestão Segura de Sessões Clínicas & Token Binding Criptográfico (RFC-001 §4.4, OWASP ASVS & NIST SP 800-63B) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -14596,7 +14596,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* Card 27: Defesa Ativa contra Força Bruta & PoW Criptográfico (RFC-001 §4.4, OWASP OAT-007 / OAT-008 & NIST SP 800-63B) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -15005,7 +15005,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 28. PROTEÇÃO ANTI-AUTOMAÇÃO, HONEYPOT DINÂMICO & TARPIT CRIPTOGRÁFICO (OWASP OAT-011 / OAT-020 & RFC-001 §4.4, §5.2) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -15386,7 +15386,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 29. CERTIFICAÇÃO NOTARIAL DE SESSÃO CLÍNICA EM TEMPO REAL — RFC 3161 & ICP-BRASIL TSA (DOC-ICP-11 / CFP 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           {/* Cabeçalho */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -15720,7 +15720,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 30. BLINDAGEM CONTRA POLUIÇÃO DE PARÂMETROS HTTP (HPP) & INJEÇÃO DE CABEÇALHOS (CRLF) (OWASP Top 10 API Security & RFC-001 §4.4, §5.2) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -16069,7 +16069,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 31. Cifragem Homomórfica Parcial (PHE - Paillier Cryptosystem) & Agregação CID-11 (LGPD Art. 13 & CFP nº 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -16340,7 +16340,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
 
 
       {/* 39. PROTEÇÃO AVANÇADA CONTRA SSRF E DNS REBINDING EM WEBHOOKS (OWASP API8:2023 & ASVS v4.0) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3.5">
@@ -16699,7 +16699,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 40. RATE LIMITING AVANÇADO (TOKEN BUCKET + SLIDING WINDOW LOG - OWASP API4:2023) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3.5">
@@ -17064,7 +17064,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 41. Blindagem de Memória & Prevenção de Heap Spraying (NIST SP 800-88 & OWASP ASVS) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -17507,7 +17507,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 42. TLS Certificate Pinning & Rotação de CAs (RFC-001 §4.4, §5.2 e OWASP MASVS) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3.5">
@@ -17994,7 +17994,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 44. Avaliação Contínua de Postura de Dispositivo Zero Trust (NIST SP 800-207 & OWASP MASVS) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-100/50 dark:shadow-none space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3.5">
@@ -18571,7 +18571,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* 45. Criptografia Pós-Quântica Híbrida (NIST FIPS 203 ML-KEM & FIPS 204 ML-DSA) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -19099,7 +19099,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* CARD 38: PROTOCOLO CHAUMIANO DE ASSINATURAS CEGAS & VOTAÇÃO ÉTICA ANÔNIMA (RFC 9474 & CFP 001/2009) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -19666,7 +19666,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* CARD 39: PROTEÇÃO CRIPTOGRÁFICA CONTRA ATAQUES SIDE-CHANNEL & TIMING SHIELD (NIST SP 800-38D & RFC §4.2) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -20280,7 +20280,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       )}
 
       {/* CARD 40: PROTEÇÃO CONTRA ATAQUES DE REPLAY & REUTILIZAÇÃO DE NONCE/IV (RFC 8446, RFC 9147 DTLS 1.3 & OWASP API SECURITY) */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -21056,7 +21056,7 @@ export const SecurityModule: React.FC<SecurityModuleProps> = ({
       {/* ========================================================================= */}
       {/* MÓDULO 41: MARCAÇÃO D'ÁGUA ESTEGANOGRÁFICA VISUAL & RASTREAMENTO FORENSE ANTI-EXFILTRAÇÃO (LGPD Art. 46 / CFP 011/2018) */}
       {/* ========================================================================= */}
-      {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.PSICOLOGO_TITULAR) && (
+      {isAdmin && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
           {/* Header do Módulo */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">

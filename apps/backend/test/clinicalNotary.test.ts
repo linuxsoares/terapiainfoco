@@ -22,7 +22,7 @@ describe('Cartório Notarial Digital & Auditoria Forense Zero-Knowledge API (CFP
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'psicologo@terapiainfoco.com.br',
+        email: 'admin@terapiainfoco.com.br',
         password: 'Senha@123456'
       })
     });

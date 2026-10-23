@@ -148,7 +148,7 @@ describe('Web Application Firewall (WAF) Integration & Heuristic Attack Detectio
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         payload: {
@@ -209,7 +209,7 @@ describe('Web Application Firewall (WAF) Integration & Heuristic Attack Detectio
 
     // E o incidente foi registrado com status FLAGGED
     const overviewRes = await app.request('/api/security/waf/overview', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     const overview = await overviewRes.json();
     expect(overview.recentIncidents[0].status).toBe('FLAGGED');

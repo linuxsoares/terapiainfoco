@@ -17,7 +17,8 @@ import { ThreatIntelligenceService } from '../services/threatIntelligenceService
 export const threatIntelligenceRoute = new Hono();
 
 const service = ThreatIntelligenceService.getInstance();
-const requireSecurityStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
  * 1. Consulta com K-Anonymity (Zero-Knowledge) para Credenciais ou Senhas
@@ -44,7 +45,7 @@ threatIntelligenceRoute.post('/check', authMiddleware({ strict: true }), async (
 /**
  * 2. Disparar Varredura Proativa de Credenciais Institucionais na Dark Web
  */
-threatIntelligenceRoute.post('/scan', authMiddleware({ strict: true }), requireSecurityStaff, async (c) => {
+threatIntelligenceRoute.post('/scan', authMiddleware({ strict: true }), requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body: Partial<TriggerDarkWebScanDTO> = await c.req.json<TriggerDarkWebScanDTO>().catch(() => ({}));
@@ -76,7 +77,7 @@ threatIntelligenceRoute.post('/scan', authMiddleware({ strict: true }), requireS
 /**
  * 3. Contenção Imediata de Incidente (Revogação de Sessões e Alerta DPO)
  */
-threatIntelligenceRoute.post('/contain', authMiddleware({ strict: true }), requireSecurityStaff, async (c) => {
+threatIntelligenceRoute.post('/contain', authMiddleware({ strict: true }), requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<ContainIncidentDTO>();
@@ -112,7 +113,7 @@ threatIntelligenceRoute.post('/contain', authMiddleware({ strict: true }), requi
 /**
  * 4. Resolução Formal de Incidente pelo DPO / Encarregado
  */
-threatIntelligenceRoute.post('/resolve', authMiddleware({ strict: true }), requireSecurityStaff, async (c) => {
+threatIntelligenceRoute.post('/resolve', authMiddleware({ strict: true }), requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<ResolveIncidentDTO>();
@@ -149,7 +150,7 @@ threatIntelligenceRoute.post('/resolve', authMiddleware({ strict: true }), requi
 /**
  * 5. Painel Consolidado de Incidentes, Alertas DPO e Métricas
  */
-threatIntelligenceRoute.get('/overview', authMiddleware({ strict: true }), requireSecurityStaff, async (c) => {
+threatIntelligenceRoute.get('/overview', authMiddleware({ strict: true }), requireAdmin, async (c) => {
   const incidents = service.getIncidents();
   const alerts = service.getAlerts();
   const metrics = service.getMetrics();

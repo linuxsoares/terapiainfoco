@@ -62,7 +62,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         text: textToCopy,
@@ -89,7 +89,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         text: textToCopy,
@@ -114,7 +114,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         text: textWithCpf,
@@ -138,7 +138,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         text: hugeText,
@@ -161,7 +161,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         text: 'Nota SOAP pericial vazada externamente em canal de chat.',
@@ -178,7 +178,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         suspiciousText: watermarkedText
@@ -199,7 +199,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         suspiciousText: 'Texto puramente limpo sem caracteres invisíveis'
@@ -217,7 +217,7 @@ describe('Data Loss Prevention (DLP) & Steganographic Watermark API (LGPD Art. 4
     const res = await app.request('/api/dlp/overview', {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       }
     });
 

@@ -60,7 +60,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
     const res = await app.request('/api/teleconsultation/network-resilience/presets', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${therapistToken}`
+        'Authorization': `Bearer ${adminToken}`
       }
     });
 
@@ -93,7 +93,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
     const res = await app.request('/api/teleconsultation/network-resilience/simulate', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${therapistToken}`,
+        'Authorization': `Bearer ${adminToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -113,7 +113,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
 
     // Verifica se gravou na trilha de auditoria WORM
     const auditRes = await app.request('/api/audit', {
-      headers: { 'Authorization': `Bearer ${therapistToken}` }
+      headers: { 'Authorization': `Bearer ${adminToken}` }
     });
     const auditData = await auditRes.json();
     const networkLog = auditData.logs.find(
@@ -127,7 +127,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
     const res = await app.request('/api/teleconsultation/network-resilience/simulate', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${therapistToken}`,
+        'Authorization': `Bearer ${adminToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -146,7 +146,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
 
     // Verifica que gravou tanto NETWORK_RESILIENCE_SIMULATED quanto CLINICAL_CONTINGENCY_TRIGGERED no WORM
     const auditRes = await app.request('/api/audit', {
-      headers: { 'Authorization': `Bearer ${therapistToken}` }
+      headers: { 'Authorization': `Bearer ${adminToken}` }
     });
     const auditData = await auditRes.json();
     const contingencyLog = auditData.logs.find(
@@ -188,18 +188,18 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
     // Executa duas simulações
     await app.request('/api/teleconsultation/network-resilience/simulate', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${therapistToken}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: NetworkProfileType.FIBRA_ESTAVEL })
     });
     await app.request('/api/teleconsultation/network-resilience/simulate', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${therapistToken}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: NetworkProfileType.MOBILE_4G_CONGESTED })
     });
 
     // Consulta histórico
     const historyRes = await app.request('/api/teleconsultation/network-resilience/history?limit=10', {
-      headers: { 'Authorization': `Bearer ${therapistToken}` }
+      headers: { 'Authorization': `Bearer ${adminToken}` }
     });
     expect(historyRes.status).toBe(200);
     const historyData = await historyRes.json();
@@ -210,7 +210,7 @@ describe('Network Resilience Simulation & Clinical Intelligibility Assessment (R
 
     // Consulta métricas isoladas
     const metricsRes = await app.request('/api/teleconsultation/network-resilience/metrics', {
-      headers: { 'Authorization': `Bearer ${therapistToken}` }
+      headers: { 'Authorization': `Bearer ${adminToken}` }
     });
     expect(metricsRes.status).toBe(200);
     const metricsData = await metricsRes.json();

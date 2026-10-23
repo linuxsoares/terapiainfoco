@@ -79,7 +79,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         documentId: 'doc-laudo-forense-001',
@@ -109,7 +109,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         documentId: 'doc-atestado-002',
@@ -159,7 +159,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         documentId: 'doc-relatorio-003',
@@ -178,7 +178,7 @@ describe('Zero-Knowledge Proofs for Digital Signatures & Clinical Documents (RFC
 
     // Consulta métricas
     const metricsRes = await app.request('/api/security/zkp/metrics', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     expect(metricsRes.status).toBe(200);
     const metricsData = await metricsRes.json();

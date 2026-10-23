@@ -1,4 +1,5 @@
-import { AppointmentStatus } from '@terapiainfoco/shared';
+import { AppointmentStatus, UserRole } from '@terapiainfoco/shared';
+import { authService } from '../src/services/authService';
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
@@ -10,7 +11,7 @@ import {
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 
-import { upsertPatient, upsertAppointment } from './helpers/db';
+import { upsertPatient, upsertAppointment, listUsers } from './helpers/db';
 describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18 & CFP 006/2019)', () => {
   let authToken: string;
   let samplePatientId: string;
@@ -189,10 +190,15 @@ describe('Granular Patient Consent & Smart Revocation API (LGPD Art. 7/8/9/11/18
   });
 
   it('GET /api/consent/overview deve retornar métricas globais e histórico para auditoria DPO', async () => {
-    const res = await app.request(`/api/consent/overview?patientId=${samplePatientId}`, {
+    const overviewUrl = `/api/consent/overview?patientId=${samplePatientId}`;
+    // Painel agregado da plataforma: o psicólogo é negado, o Admin/DPO consulta
+    expect((await app.request(overviewUrl, { headers: { Authorization: `Bearer ${authToken}` } })).status).toBe(403);
+    const admin = (await listUsers()).find((u) => u.role === UserRole.ADMIN)!;
+    const { accessToken: adminToken } = await authService.issueTokens(admin, '127.0.0.1');
+    const res = await app.request(overviewUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${authToken}`
+        Authorization: `Bearer ${adminToken}`
       }
     });
 

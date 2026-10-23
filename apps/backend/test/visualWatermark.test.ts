@@ -1,19 +1,37 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { app } from '../src/index';
+import { authService } from '../src/services/authService';
+import { listUsers } from './helpers/db';
 import {
   WatermarkPatternType,
   WatermarkExtractionConfidence,
   VisualWatermarkTarget,
-  WatermarkEmbeddingStrength
+  WatermarkEmbeddingStrength,
+  UserRole
 } from '@terapiainfoco/shared';
 
 describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/visual-watermark)', () => {
   let createdSeedId: string;
   let testSealToken: string;
+  let headers: Record<string, string>;
+
+  beforeAll(async () => {
+    const admin = (await listUsers()).find((u) => u.role === UserRole.ADMIN)!;
+    const { accessToken } = await authService.issueTokens(admin, '127.0.0.1');
+    headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` };
+  });
+
+  it('exige sessão de Admin/DPO em todas as rotas', async () => {
+    expect((await app.request('/api/visual-watermark/overview')).status).toBe(401);
+    const psychologist = (await listUsers()).find((u) => u.role === UserRole.PSICOLOGO_TITULAR)!;
+    const { accessToken } = await authService.issueTokens(psychologist, '127.0.0.1');
+    expect((await app.request('/api/visual-watermark/overview', { headers: { Authorization: `Bearer ${accessToken}` } })).status).toBe(403);
+  });
 
   it('GET /api/visual-watermark/overview - deve retornar visão consolidada com métricas, sementes e incidentes', async () => {
     const res = await app.request('/api/visual-watermark/overview', {
-      method: 'GET'
+      method: 'GET',
+      headers
     });
 
     expect(res.status).toBe(200);
@@ -30,7 +48,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/create-seed - deve validar parâmetros obrigatórios', async () => {
     const res = await app.request('/api/visual-watermark/create-seed', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({})
     });
 
@@ -43,7 +61,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/create-seed - deve criar nova semente de marca d\'água com sucesso', async () => {
     const res = await app.request('/api/visual-watermark/create-seed', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         therapistCrp: '06/998877',
         patientId: 'patient_integration_uuid_555',
@@ -68,7 +86,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/embed - deve validar payload obrigatório', async () => {
     const res = await app.request('/api/visual-watermark/embed', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({})
     });
 
@@ -81,7 +99,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/embed - deve injetar marca d\'água com métricas de PSNR/SSIM e selo WORM', async () => {
     const res = await app.request('/api/visual-watermark/embed', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         seedId: createdSeedId,
         width: 64,
@@ -104,7 +122,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/extract-leak - deve validar payload obrigatório', async () => {
     const res = await app.request('/api/visual-watermark/extract-leak', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({})
     });
 
@@ -120,7 +138,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
 
     const res = await app.request('/api/visual-watermark/extract-leak', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         suspectFrameData: sampleBytes,
         target: VisualWatermarkTarget.WEBRTC_VIDEO_STREAM
@@ -139,7 +157,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/simulate-screen-leak - deve simular ataque de recorte com teste de resiliência', async () => {
     const res = await app.request('/api/visual-watermark/simulate-screen-leak', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         seedId: createdSeedId,
         cropPercentage: 20,
@@ -160,7 +178,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/update-strength - deve atualizar a intensidade operacional de marcação', async () => {
     const res = await app.request('/api/visual-watermark/update-strength', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         strength: WatermarkEmbeddingStrength.AGGRESSIVE_ROBUST
       })
@@ -175,7 +193,7 @@ describe('Visual Watermark & Screen Exfiltration Tracer API Integration (/api/vi
   it('POST /api/visual-watermark/verify-seal - deve validar autenticidade WORM de selo probatório visual', async () => {
     const res = await app.request('/api/visual-watermark/verify-seal', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         sealToken: testSealToken
       })

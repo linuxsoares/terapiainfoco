@@ -10,7 +10,8 @@ import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 export const securePurgeRoutes = new Hono();
 
 const service = SecurePurgeService.getInstance();
-const requireClinicalOrAdmin = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
  * GET /api/purge/candidates
@@ -20,7 +21,7 @@ const requireClinicalOrAdmin = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRol
 securePurgeRoutes.get(
   '/candidates',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const candidates = await service.getCandidates();
@@ -49,7 +50,7 @@ securePurgeRoutes.get(
 securePurgeRoutes.post(
   '/execute',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const dto = await c.req.json<ExecuteDataPurgeDTO>();
@@ -138,7 +139,7 @@ securePurgeRoutes.post('/verify', async (c) => {
 securePurgeRoutes.get(
   '/overview',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const overview = await service.getOverview();
@@ -166,7 +167,7 @@ securePurgeRoutes.get(
 securePurgeRoutes.get(
   '/certificate/:certificateId',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const certificateId = c.req.param('certificateId');
