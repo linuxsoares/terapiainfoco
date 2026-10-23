@@ -273,6 +273,11 @@ export default function App() {
     (module): module is Exclude<AppModule, 'security'> => module !== 'security'
   );
   const currentTab: AppModule = canViewModule(currentUser.role, activeTab) ? activeTab : defaultModule(currentUser.role);
+  // Para o consultório a auditoria é o histórico de acessos da equipe; a trilha completa é do DPO
+  const navItem = (module: Exclude<AppModule, 'security'>) =>
+    module === 'audit' && currentUser.role !== UserRole.ADMIN
+      ? { ...NAV_ITEMS.audit, label: 'Histórico de Acessos', shortLabel: 'Acessos' }
+      : NAV_ITEMS[module];
 
   // Se estiver na Vitrine Pública Sem Login, exibe a página completa de apresentação da ferramenta
   if (restoringSession) {
@@ -504,7 +509,7 @@ export default function App() {
               {[...navModules, 'security' as const].map((module) => {
                 const item = module === 'security'
                   ? { label: 'Segurança & 2FA', icon: KeyRound, iconClass: 'text-emerald-600 dark:text-emerald-400' }
-                  : NAV_ITEMS[module];
+                  : navItem(module);
                 const Icon = item.icon;
                 return (
                   <button
@@ -532,7 +537,7 @@ export default function App() {
             </div>
 
             {navModules.map((module) => {
-              const { label, icon: Icon, iconClass } = NAV_ITEMS[module];
+              const { label, icon: Icon, iconClass } = navItem(module);
               return (
                 <button
                   key={module}
@@ -670,7 +675,7 @@ export default function App() {
         {/* Mobile Bottom Navigation Bar */}
         <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg">
           {navModules.slice(0, 3).map((module) => {
-            const { shortLabel, icon: Icon } = NAV_ITEMS[module];
+            const { shortLabel, icon: Icon } = navItem(module);
             return (
               <button
                 key={module}

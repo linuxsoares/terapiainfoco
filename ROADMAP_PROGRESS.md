@@ -2409,6 +2409,7 @@ terapiainfoco/
 | `fix/admin-no-clinical-analytics` | Admin/DPO sem acesso a métricas clínicas e trechos de SOAP (`/api/analytics`), conforme RFC §4.5 | [PR #170](https://github.com/linuxsoares/terapiainfoco/pull/170) | Merged |
 | `fix/teleconsultation-room-roles` | Sala de teleconsulta e sinalização WebRTC restritas a paciente, psicólogo e supervisor (`TELECONSULTATION_ROLES`) | [PR #171](https://github.com/linuxsoares/terapiainfoco/pull/171) | Merged |
 | `fix/platform-routes-admin-only` | Ferramentas de operação da plataforma (WAF, ZKP, DLP, cartório, expurgo, marca d’água etc.) restritas ao Admin/DPO | [PR #172](https://github.com/linuxsoares/terapiainfoco/pull/172) | Merged |
+| `feat/practice-access-history` | Auditoria do psicólogo vira "Histórico de Acessos" do consultório; verificação da cadeia sem dados de outros consultórios | [PR #173](https://github.com/linuxsoares/terapiainfoco/pull/173) | Merged |
 
 ---
 

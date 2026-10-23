@@ -88,7 +88,7 @@ describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opç�
 
     // 3. Validação via endpoint /api/audit/verify-chain
     const verifyRes = await app.request('/api/audit/verify-chain', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
     expect(verifyRes.status).toBe(200);
@@ -144,6 +144,32 @@ describe('Auditoria Externa, Hash-Chain WORM & Relatório DPO/CFP (RFC-001 Opç�
     expect(result.isValid).toBe(false);
     expect(result.tamperedAtIndex).toBe(targetIndex);
     expect(result.message).toContain('Adulteração detectada');
+  });
+
+  it('psicólogo verifica a cadeia sem ver contagem, hashes ou blocos de outros consultórios', async () => {
+    AuditService.log({
+      actorId: 'ator-de-outro-consultorio',
+      resourceType: AuditResourceType.SECURITY,
+      resourceId: 'sec-externo',
+      action: AuditAction.AUTH_LOGIN,
+      ipAddress: '10.0.0.1'
+    });
+    const headers = { Authorization: `Bearer ${therapistToken}` };
+    const scoped = await (await app.request('/api/audit/verify-chain', { headers })).json();
+    const practiceLogs = await (await app.request('/api/audit', { headers })).json();
+
+    expect(scoped.isValid).toBe(true);
+    expect(scoped.totalEntries).toBe(practiceLogs.count);
+    expect(scoped.totalEntries).toBeLessThan(db.auditLogs.length);
+    expect(scoped.latestHash).not.toBe(db.auditLogs[db.auditLogs.length - 1].hash);
+
+    // Adulteração fora do consultório: o psicólogo sabe que a cadeia falhou, sem índice nem ID
+    const lastIndex = db.auditLogs.length - 1;
+    (db.auditLogs as any)[lastIndex] = { ...db.auditLogs[lastIndex], ipAddress: '6.6.6.6' };
+    const tampered = await (await app.request('/api/audit/verify-chain', { headers })).json();
+    expect(tampered.isValid).toBe(false);
+    expect(tampered.tamperedAtIndex).toBeNull();
+    expect(tampered.tamperedLogId).toBeNull();
   });
 
   it('deve gerar relatório formal de conformidade para DPO e CFP com Checksum SHA-256 canônico', async () => {

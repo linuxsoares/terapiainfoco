@@ -143,6 +143,28 @@ export class AuditService {
   }
 
   /**
+   * Resultado da verificação visto por um consultório: a integridade é da cadeia inteira,
+   * mas contagem, hash e o bloco adulterado só aparecem quando pertencem ao consultório.
+   */
+  static async verifyChainIntegrityForPractice(therapistId: string): Promise<ChainIntegrityResult> {
+    const result = this.verifyChainIntegrity();
+    const practiceLogs = await this.getFilteredLogs({ therapistId });
+    const tamperedInPractice = !!result.tamperedLogId && practiceLogs.some(l => l.id === result.tamperedLogId);
+    return {
+      isValid: result.isValid,
+      totalEntries: practiceLogs.length,
+      genesisHash: result.genesisHash,
+      latestHash: practiceLogs[practiceLogs.length - 1]?.hash ?? result.genesisHash,
+      tamperedAtIndex: null,
+      tamperedLogId: tamperedInPractice ? result.tamperedLogId : null,
+      message: result.isValid
+        ? `Trilha de auditoria 100% íntegra: ${practiceLogs.length} registros do consultório conferem na cadeia SHA-256.`
+        : 'Adulteração detectada na trilha de auditoria. Acione o DPO da plataforma para a perícia.',
+      verifiedAt: result.verifiedAt
+    };
+  }
+
+  /**
    * Validador Criptográfico da Cadeia WORM (Cryptographic Hash-Chain Verification)
    * Detecta qualquer modificação retroativa, exclusão ou inserção indevida na trilha
    */

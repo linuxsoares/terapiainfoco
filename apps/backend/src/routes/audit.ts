@@ -105,8 +105,12 @@ auditRoute.get('/', adminOrTherapist, async (c) => {
 });
 
 // 2. Validação Criptográfica da Hash-Chain WORM (Tamper-Evident Ledger)
-auditRoute.get('/verify-chain', adminOrTherapist, (c) => {
-  const result = AuditService.verifyChainIntegrity();
+auditRoute.get('/verify-chain', adminOrTherapist, async (c) => {
+  // O psicólogo confere a integridade sem ver contagem, hashes ou IDs de outros consultórios
+  const therapistId = practiceScope(c);
+  const result = therapistId
+    ? await AuditService.verifyChainIntegrityForPractice(therapistId)
+    : AuditService.verifyChainIntegrity();
   return c.json(result, 200);
 });
 

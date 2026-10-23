@@ -302,10 +302,12 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            Trilha de Auditoria Externa (Hash-Chain WORM) & DPO/CFP
+            {isDpo ? 'Trilha de Auditoria Externa (Hash-Chain WORM) & DPO/CFP' : 'Histórico de Acessos do Consultório'}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Ledger criptográfico inviolável encadeado por SHA-256 para atendimento à LGPD (Art. 37/38/50) e Resoluções CFP.
+            {isDpo
+              ? 'Ledger criptográfico inviolável encadeado por SHA-256 para atendimento à LGPD (Art. 37/38/50) e Resoluções CFP.'
+              : 'Quem da sua equipe acessou pacientes, prontuários e documentos do consultório. Use para responder a pedidos do titular (LGPD Art. 18) e acompanhar a equipe.'}
           </p>
         </div>
 
@@ -318,7 +320,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
             title="Recalcula e confere todos os hashes SHA-256 da cadeia WORM"
           >
             <Lock className={`w-3.5 h-3.5 ${verifyingChain ? 'animate-spin' : ''}`} />
-            {verifyingChain ? 'Verificando...' : 'Verificar Cadeia SHA-256'}
+            {verifyingChain ? 'Verificando...' : isDpo ? 'Verificar Cadeia SHA-256' : 'Verificar Integridade'}
           </button>
 
           <button
@@ -328,17 +330,17 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
             title="Download da trilha de auditoria em CSV forense"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            {exporting === 'csv' ? 'Gerando...' : 'CSV Forense'}
+            {exporting === 'csv' ? 'Gerando...' : isDpo ? 'CSV Forense' : 'Exportar CSV'}
           </button>
 
           <button
             onClick={handleExportJson}
             disabled={exporting === 'json'}
             className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 shadow-sm dark:shadow-none transition-colors cursor-pointer disabled:opacity-50"
-            title="Download do relatório de conformidade formal para DPO e CFP"
+            title={isDpo ? 'Download do relatório de conformidade formal para DPO e CFP' : 'Download do relatório de acessos do consultório'}
           >
             <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            {exporting === 'json' ? 'Gerando...' : 'Relatório DPO (JSON)'}
+            {exporting === 'json' ? 'Gerando...' : isDpo ? 'Relatório DPO (JSON)' : 'Relatório (JSON)'}
           </button>
 
           <button
@@ -369,7 +371,8 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
         </div>
       )}
 
-      {/* Seletor de Abas */}
+      {/* Seletor de Abas: o consultório tem só o histórico de acessos */}
+      {isDpo && (
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-2">
         {isDpo && (
         <button
@@ -417,6 +420,7 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
         </button>
         )}
       </div>
+      )}
 
       {/* Aba 1: Governança Executiva & Compliance Package (RFC-001 §4.4, §5.2) */}
       {activeTab === 'governance_package' && (
@@ -895,9 +899,12 @@ export function AuditModule({ isDpo }: AuditModuleProps) {
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                {chainStatus.isValid 
-                  ? `Todos os ${chainStatus.totalEntries} blocos criptográficos encadeados conferem sequencialmente com o bloco gênesis.`
-                  : `Falha de integridade criptográfica no bloco #${chainStatus.tamperedAtIndex}. Log ID: ${chainStatus.tamperedLogId}`}
+                {/* Fora do DPO a mensagem vem do backend, já restrita ao consultório */}
+                {!isDpo
+                  ? chainStatus.message
+                  : chainStatus.isValid
+                    ? `Todos os ${chainStatus.totalEntries} blocos criptográficos encadeados conferem sequencialmente com o bloco gênesis.`
+                    : `Falha de integridade criptográfica no bloco #${chainStatus.tamperedAtIndex}. Log ID: ${chainStatus.tamperedLogId}`}
               </p>
             </div>
           </div>
