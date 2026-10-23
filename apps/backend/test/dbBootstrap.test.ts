@@ -82,6 +82,23 @@ describe('Bootstrap do banco de dados', () => {
     }
   });
 
+  it('migra schema legado do supabase_full_schema.sql (FKs inline nomeadas *_fkey)', async () => {
+    const pg = new PGlite();
+    const legacy = fs.readFileSync(path.join(migrationsFolder, 'supabase_full_schema.sql'), 'utf-8')
+      .replace(/CREATE EXTENSION[^;]*;/g, '');
+    await pg.exec(legacy);
+    const db = drizzle(pg);
+    const run = () => runMigrations(() => migrate(db, { migrationsFolder }), (s) => pg.exec(s), migrationsFolder);
+
+    await run();
+    expect(await journalCount(pg)).toBe(migrationFiles.length);
+    const type = await pg.query<{ data_type: string }>(
+      `SELECT data_type FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = 'patient_id'`
+    );
+    expect(type.rows[0].data_type).toBe('text');
+    await pg.close();
+  });
+
   it('propaga erros de migração que não sejam de objeto já existente', async () => {
     const failing = () => Promise.reject(new Error('permission denied for schema public'));
     await expect(runMigrations(failing, async () => [], migrationsFolder)).rejects.toThrow('permission denied');

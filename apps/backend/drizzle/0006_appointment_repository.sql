@@ -1,3 +1,15 @@
+-- Remove FKs de/para "appointments" independentemente do nome: bancos criados pelo supabase_full_schema.sql
+-- têm FKs inline nomeadas pelo Postgres (*_fkey), que os DROP CONSTRAINT abaixo não alcançam
+-- e impedem a troca de tipo uuid → text (42804).
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT conrelid::regclass AS tbl, conname FROM pg_constraint
+    WHERE contype = 'f' AND (conrelid = '"appointments"'::regclass OR confrelid = '"appointments"'::regclass)
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I', r.tbl, r.conname);
+  END LOOP;
+END $$;--> statement-breakpoint
 ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "appointments_therapist_id_therapists_id_fk";
 --> statement-breakpoint
 ALTER TABLE "clinical_records" DROP CONSTRAINT IF EXISTS "clinical_records_appointment_id_appointments_id_fk";
