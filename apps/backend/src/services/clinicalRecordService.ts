@@ -16,60 +16,68 @@ import { AuditService } from './auditService';
 import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
 export class ClinicalRecordService {
   /**
-   * Cria ou atualiza rascunho de evolução SOAP (Human-in-the-Loop)
-   * As notas privadas são segregadas das notas formais (§3.4)
+   * Cria ou atualiza o rascunho de evolução SOAP da consulta (Human-in-the-Loop).
+   * Cada consulta tem um único prontuário: salvar de novo atualiza o rascunho, e o número
+   * da sessão é atribuído uma vez, na criação. As notas privadas são segregadas (§3.4).
    */
   static async saveDraft(params: {
     appointmentId: string;
     patientId: string;
     therapistId: string;
-    sessionNumber: number;
     soap: SoapNote;
     privateNotes?: string;
     context: { actorId: string; ipAddress: string; userAgent?: string };
   }): Promise<DecryptedClinicalRecord> {
-    // Verifica se já existe e se está assinado (imutabilidade)
-    if (await ClinicalRecordRepository.count({ appointmentId: params.appointmentId, signed: true }) > 0) {
+    const existing = (await ClinicalRecordRepository.list({ appointmentId: params.appointmentId }))[0];
+    if (existing?.isSigned) {
       throw new Error(
         'Registro clínico já assinado e imutável (CFP nº 001/2009). Correções devem ser averbadas por termo de retificação.'
       );
     }
 
-    const id = randomUUID();
-    const stored: StoredClinicalRecord = {
-      id,
-      appointmentId: params.appointmentId,
-      patientId: params.patientId,
-      therapistId: params.therapistId,
-      sessionNumber: params.sessionNumber,
+    const encrypted = {
       encryptedSoapSubjective: encryptField(params.soap.subjective),
       encryptedSoapObjective: encryptField(params.soap.objective),
       encryptedSoapAssessment: encryptField(params.soap.assessment),
       encryptedSoapPlan: encryptField(params.soap.plan),
-      encryptedPrivateNotes: params.privateNotes ? encryptField(params.privateNotes) : undefined,
-      isSigned: false,
-      signedAt: null,
-      signatureHash: null,
-      createdAt: new Date()
+      encryptedPrivateNotes: params.privateNotes ? encryptField(params.privateNotes) : undefined
     };
 
-    await ClinicalRecordRepository.create(stored);
+    let stored: StoredClinicalRecord;
+    if (existing) {
+      stored = { ...existing, ...encrypted };
+      await ClinicalRecordRepository.save(stored);
+    } else {
+      stored = {
+        id: randomUUID(),
+        appointmentId: params.appointmentId,
+        patientId: params.patientId,
+        therapistId: params.therapistId,
+        sessionNumber: await ClinicalRecordRepository.count({ patientIds: [params.patientId], therapistId: params.therapistId }) + 1,
+        ...encrypted,
+        isSigned: false,
+        signedAt: null,
+        signatureHash: null,
+        createdAt: new Date()
+      };
+      await ClinicalRecordRepository.create(stored);
+    }
 
     AuditService.log({
       actorId: params.context.actorId,
       resourceType: AuditResourceType.CLINICAL_RECORD,
-      resourceId: id,
-      action: AuditAction.CREATE,
+      resourceId: stored.id,
+      action: existing ? AuditAction.UPDATE : AuditAction.CREATE,
       ipAddress: params.context.ipAddress,
       userAgent: params.context.userAgent
     });
 
     return {
-      id,
-      appointmentId: params.appointmentId,
-      patientId: params.patientId,
-      therapistId: params.therapistId,
-      sessionNumber: params.sessionNumber,
+      id: stored.id,
+      appointmentId: stored.appointmentId,
+      patientId: stored.patientId,
+      therapistId: stored.therapistId,
+      sessionNumber: stored.sessionNumber,
       soap: params.soap,
       privateNotes: params.privateNotes,
       isSigned: false,
@@ -150,6 +158,15 @@ export class ClinicalRecordService {
       signatureHash,
       createdAt: record.createdAt
     };
+  }
+
+  /** Prontuário da consulta (decifrado e auditado), ou null se ainda não houver */
+  static async getRecordByAppointment(
+    appointmentId: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): Promise<DecryptedClinicalRecord | null> {
+    const record = (await ClinicalRecordRepository.list({ appointmentId }))[0];
+    return record ? this.getRecordById(record.id, context) : null;
   }
 
   /**
