@@ -59,6 +59,16 @@ export const MODULE_ACCESS: Record<AppModule, readonly UserRole[]> = {
   ]
 };
 
+/**
+ * Participantes da sala de teleconsulta. A recepção agenda, mas não entra na sessão
+ * nem recebe a sinalização WebRTC (RFC-001 §4.5).
+ */
+export const TELECONSULTATION_ROLES: UserRole[] = [
+  UserRole.PACIENTE,
+  UserRole.PSICOLOGO_TITULAR,
+  UserRole.SUPERVISOR_CLINICO
+];
+
 export function canViewModule(role: UserRole, module: AppModule): boolean {
   return MODULE_ACCESS[module].includes(role);
 }

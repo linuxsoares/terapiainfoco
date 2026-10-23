@@ -11,6 +11,7 @@ import {
   type LiveTranscriptStatusResponse,
   type LiveTranscriptResponse,
   TeleconsultationParticipantRole,
+  TELECONSULTATION_ROLES,
   UserRole
 } from '@terapiainfoco/shared';
 import { TeleconsultationService } from '../services/teleconsultationService';
@@ -18,6 +19,9 @@ import { config } from '../config';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
 import { CLINICAL_ROLES, requireAppointmentAccess, requireBodyOwnership } from '../middlewares/accessPolicy';
 import { LiveTranscriptionService, LiveTranscriptionError } from '../services/liveTranscriptionService';
+
+// Só participantes da sessão: a recepção não entra na sala nem lê a sinalização WebRTC
+const roomParticipant = requireRole(TELECONSULTATION_ROLES);
 
 export const teleconsultationRoutes = new Hono();
 
@@ -49,7 +53,7 @@ teleconsultationRoutes.post('/knock', authMiddleware(), requireRole([UserRole.PA
  * GET /api/teleconsultation/ice-servers
  * Servidores STUN/TURN configurados para a conexão WebRTC
  */
-teleconsultationRoutes.get('/ice-servers', authMiddleware(), (c) => {
+teleconsultationRoutes.get('/ice-servers', authMiddleware(), roomParticipant, (c) => {
   const { stunUrls, turnUrls, turnUsername, turnCredential } = config.webrtc;
   const iceServers: IceServersResponse['iceServers'] = [];
   if (stunUrls.length > 0) iceServers.push({ urls: stunUrls });
@@ -61,7 +65,7 @@ teleconsultationRoutes.get('/ice-servers', authMiddleware(), (c) => {
  * GET /api/teleconsultation/room/:appointmentId
  * Obtém estado atual da sala de teleconsulta e fila de espera
  */
-teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
+teleconsultationRoutes.get('/room/:appointmentId', authMiddleware(), roomParticipant, requireAppointmentAccess('appointmentId'), async (c) => {
   try {
     const appointmentId = c.req.param('appointmentId');
     const user = c.get('user');
@@ -133,7 +137,7 @@ teleconsultationRoutes.post('/admit', authMiddleware(), requireRole([UserRole.PS
  * POST /api/teleconsultation/hardware-sync
  * Sincroniza estado real dos dispositivos de hardware (Câmera, Microfone e Tela)
  */
-teleconsultationRoutes.post('/hardware-sync', authMiddleware(), requireBodyOwnership(), async (c) => {
+teleconsultationRoutes.post('/hardware-sync', authMiddleware(), roomParticipant, requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<SyncMediaHardwareDTO>();
     if (!body.appointmentId) {
@@ -175,7 +179,7 @@ teleconsultationRoutes.post('/hardware-sync', authMiddleware(), requireBodyOwner
  * POST /api/teleconsultation/signal
  * Envia sinal WebRTC (JOIN, OFFER, ANSWER, ICE_CANDIDATE, BYE) para a outra parte
  */
-teleconsultationRoutes.post('/signal', authMiddleware(), requireBodyOwnership(), async (c) => {
+teleconsultationRoutes.post('/signal', authMiddleware(), roomParticipant, requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<SendWebRtcSignalDTO>();
     if (!body.appointmentId || !body.signalType) {
@@ -200,7 +204,7 @@ teleconsultationRoutes.post('/signal', authMiddleware(), requireBodyOwnership(),
  * GET /api/teleconsultation/signal/:appointmentId?after=<cursor>
  * Polling: sinais da outra parte desde o cursor e situação da sala de espera
  */
-teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), (c) => {
+teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), roomParticipant, requireAppointmentAccess('appointmentId'), (c) => {
   const result = TeleconsultationService.poll({
     appointmentId: c.req.param('appointmentId') ?? '',
     user: c.get('user'),
@@ -213,7 +217,7 @@ teleconsultationRoutes.get('/signal/:appointmentId', authMiddleware(), requireAp
  * GET /api/teleconsultation/transcription/status/:appointmentId
  * Indica se a sessão pode ser transcrita (consentimento vigente e STT configurado)
  */
-teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddleware(), requireAppointmentAccess('appointmentId'), async (c) => {
+teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddleware(), roomParticipant, requireAppointmentAccess('appointmentId'), async (c) => {
   return c.json(await LiveTranscriptionService.status(c.req.param('appointmentId') ?? '') satisfies LiveTranscriptStatusResponse);
 });
 
@@ -221,7 +225,7 @@ teleconsultationRoutes.get('/transcription/status/:appointmentId', authMiddlewar
  * POST /api/teleconsultation/transcription/chunk
  * Trecho do microfone do participante: transcrito pelo STT e descartado (nunca gravado)
  */
-teleconsultationRoutes.post('/transcription/chunk', authMiddleware(), requireBodyOwnership(), async (c) => {
+teleconsultationRoutes.post('/transcription/chunk', authMiddleware(), roomParticipant, requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<LiveTranscriptChunkDTO>();
     const utterance = await LiveTranscriptionService.transcribeChunk(body, c.get('user'), {
@@ -269,7 +273,7 @@ teleconsultationRoutes.get('/transcription/:appointmentId', authMiddleware(), re
  * POST /api/teleconsultation/quality
  * Atualiza telemetria de conexão WebRTC e calcula MOS
  */
-teleconsultationRoutes.post('/quality', authMiddleware(), requireBodyOwnership(), async (c) => {
+teleconsultationRoutes.post('/quality', authMiddleware(), roomParticipant, requireBodyOwnership(), async (c) => {
   try {
     const body = await c.req.json<UpdateCallQualityDTO>();
     if (!body.appointmentId || body.rttMs === undefined || body.jitterMs === undefined || body.packetLoss === undefined) {

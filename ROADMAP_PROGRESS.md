@@ -2407,6 +2407,7 @@ terapiainfoco/
 | `feat/clinical-record-repository-sql` | Prontuários SOAP em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #168](https://github.com/linuxsoares/terapiainfoco/pull/168) | Merged |
 | `fix/migrations-legacy-fkey-names` | Migrações 0004–0007 removem FKs legadas `*_fkey` (supabase_full_schema.sql) antes da troca uuid → text | [PR #169](https://github.com/linuxsoares/terapiainfoco/pull/169) | Merged |
 | `fix/admin-no-clinical-analytics` | Admin/DPO sem acesso a métricas clínicas e trechos de SOAP (`/api/analytics`), conforme RFC §4.5 | [PR #170](https://github.com/linuxsoares/terapiainfoco/pull/170) | Merged |
+| `fix/teleconsultation-room-roles` | Sala de teleconsulta e sinalização WebRTC restritas a paciente, psicólogo e supervisor (`TELECONSULTATION_ROLES`) | [PR #171](https://github.com/linuxsoares/terapiainfoco/pull/171) | Merged |
 
 ---
 
