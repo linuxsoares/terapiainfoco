@@ -2410,6 +2410,7 @@ terapiainfoco/
 | `fix/teleconsultation-room-roles` | Sala de teleconsulta e sinalização WebRTC restritas a paciente, psicólogo e supervisor (`TELECONSULTATION_ROLES`) | [PR #171](https://github.com/linuxsoares/terapiainfoco/pull/171) | Merged |
 | `fix/platform-routes-admin-only` | Ferramentas de operação da plataforma (WAF, ZKP, DLP, cartório, expurgo, marca d’água etc.) restritas ao Admin/DPO | [PR #172](https://github.com/linuxsoares/terapiainfoco/pull/172) | Merged |
 | `feat/practice-access-history` | Auditoria do psicólogo vira "Histórico de Acessos" do consultório; verificação da cadeia sem dados de outros consultórios | [PR #173](https://github.com/linuxsoares/terapiainfoco/pull/173) | Merged |
+| `test/access-matrix` | Teste permanente da matriz de acesso: todas as rotas GET × perfis, invariantes clínicas e snapshot versionado | [PR #174](https://github.com/linuxsoares/terapiainfoco/pull/174) | Merged |
 
 ---
 
