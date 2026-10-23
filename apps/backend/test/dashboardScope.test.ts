@@ -54,6 +54,11 @@ describe('Dashboard do psicólogo usa o próprio consultório', () => {
     })).body.appointment;
     expect(appointment?.id).toBeDefined();
 
+    // A síntese por IA exige aceite próprio, além do TCLE de transcrição
+    expect((await post('/api/consent/grant', headers, {
+      patientId: patient.id, scopes: [{ scope: 'AI_CLINICAL_SYNTHESIS', granted: true }]
+    })).status).toBe(200);
+
     const ingest = await post('/api/transcription/ingest', headers, {
       appointmentId: appointment.id,
       patientId: patient.id,

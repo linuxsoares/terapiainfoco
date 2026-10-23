@@ -75,7 +75,7 @@ describe('PatientRepository (ADR-004 fase 2)', () => {
     expect(reloaded.cpfBindex).toBeUndefined();
   });
 
-  it('ledger de consentimento segue o TCLE do cadastro, sem presumir aceite', async () => {
+  it('ledger: TCLE do cadastro vale só para a transcrição; cada finalidade exige aceite próprio', async () => {
     const refused = await PatientRepository.create(patient({ consentTranscriptionSigned: false }));
     const signed = await PatientRepository.create(patient({ consentTranscriptionSigned: true, consentSignedAt: new Date() }));
     const consent = ConsentService.getInstance();
@@ -83,7 +83,13 @@ describe('PatientRepository (ADR-004 fase 2)', () => {
     const refusedLedger = await consent.getPatientLedger(refused.id);
     expect(refusedLedger.preferences[ConsentScope.AI_CLINICAL_SYNTHESIS].status).toBe(ConsentStatus.REFUSED);
     expect((await consent.enforceScope(refused.id, ConsentScope.AI_CLINICAL_SYNTHESIS)).permitted).toBe(false);
-    expect((await consent.getPatientLedger(signed.id)).preferences[ConsentScope.AI_CLINICAL_SYNTHESIS].status).toBe(ConsentStatus.GRANTED);
+    // O TCLE do cadastro vale só para a transcrição; as demais finalidades exigem aceite próprio
+    const signedLedger = await consent.getPatientLedger(signed.id);
+    expect(signedLedger.preferences[ConsentScope.TELECONSULTATION_AUDIO_RECORDING].status).toBe(ConsentStatus.GRANTED);
+    for (const scope of [ConsentScope.AI_CLINICAL_SYNTHESIS, ConsentScope.ANONYMIZED_RESEARCH, ConsentScope.INTERPROFESSIONAL_SHARING, ConsentScope.COMMUNICATION_REMINDERS]) {
+      expect(signedLedger.preferences[scope].status).toBe(ConsentStatus.REFUSED);
+    }
+    expect(signedLedger.receiptsHistory).toHaveLength(1);
     // Paciente inexistente não tem consentimento algum
     expect((await consent.enforceScope('paciente-inexistente', ConsentScope.ANONYMIZED_RESEARCH)).permitted).toBe(false);
   });

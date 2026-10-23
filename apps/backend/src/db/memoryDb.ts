@@ -1,4 +1,5 @@
 import type {
+  PatientConsentLedger,
   Therapist,
   StoredPsychologicalDocument,
   StoredSessionTranscription,
@@ -69,6 +70,8 @@ export class MemoryDatabase {
   /** Transcrição das teleconsultas (texto cifrado; o áudio nunca é armazenado) */
   public liveTranscripts: TrackedMap<string, StoredLiveTranscript> = new TrackedMap();
   public leads: TrackedMap<string, StoredLead> = new TrackedMap();
+  /** Ledger LGPD de consentimentos por paciente (preferências por escopo e recibos) */
+  public consentLedgers: TrackedMap<string, PatientConsentLedger> = new TrackedMap();
   public compliancePackages: TrackedMap<string, ExecutiveCompliancePackage> = new TrackedMap();
 
 
@@ -119,6 +122,7 @@ export class MemoryDatabase {
     this.dpiaReports.clear();
     this.liveTranscripts.clear();
     this.leads.clear();
+    this.consentLedgers.clear();
     this.compliancePackages.clear();
     this.seedDefaultTherapist();
   }
@@ -134,7 +138,8 @@ export const MAP_COLLECTIONS = [
   'psychometricAssessments', 'consolidatedReports', 'clinicalReferrals', 'receipts', 'feeContracts',
   'teleconsultationRooms', 'transcriptionSessions', 'aiSoapDrafts', 'batchClosingManifests',
   'therapeuticExercises', 'diagnosticReports', 'psychiatricReferrals', 'patientAccessCodes',
-  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState', 'liveTranscripts', 'leads', 'compliancePackages'
+  'passkeys', 'webauthnChallenges', 'dpiaReports', 'kmsState', 'liveTranscripts', 'leads', 'compliancePackages',
+  'consentLedgers'
 ] as const satisfies readonly (keyof MemoryDatabase)[];
 
 /** Persistência durável do cache de domínio no PostgreSQL (ADR-004) */

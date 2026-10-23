@@ -86,13 +86,9 @@ export function PatientsModule({ role }: PatientsModuleProps) {
 
   // Form de cadastro
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [formData, setFormData] = useState<CreatePatientDTO>({
-    name: 'Mariana Silva de Oliveira',
-    email: 'mariana.silva@email.com',
-    phone: '11987654321',
-    cpf: '123.456.789-00',
-    consentTranscriptionSigned: true
-  });
+  // Cadastro vazio e sem consentimento presumido: o TCLE é marcado só com o aceite do paciente
+  const EMPTY_PATIENT_FORM: CreatePatientDTO = { name: '', email: '', phone: '', cpf: '', consentTranscriptionSigned: false };
+  const [formData, setFormData] = useState<CreatePatientDTO>(EMPTY_PATIENT_FORM);
   const [createLoading, setCreateLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -475,6 +471,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
       setStatusMessage(`Paciente ${newPatient.name} cadastrado com sucesso! PII cifrado no banco.`);
       setSearchResult(newPatient);
       setShowCreateModal(false);
+      setFormData(EMPTY_PATIENT_FORM);
     } catch (err: any) {
       setStatusMessage(`Erro: ${err.message}`);
     } finally {
@@ -1966,7 +1963,7 @@ export function PatientsModule({ role }: PatientsModuleProps) {
                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                             }`}
                           >
-                            {pref?.status || 'NÃO CONFIGURADO'}
+                            {isGranted ? 'CONCEDIDO' : isRevoked ? 'REVOGADO' : 'NÃO CONCEDIDO'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
