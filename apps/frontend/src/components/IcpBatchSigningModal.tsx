@@ -27,7 +27,7 @@ import { api } from '../services/api';
 interface IcpBatchSigningModalProps {
   isOpen: boolean;
   onClose: () => void;
-  therapistName?: string;
+  therapistName: string;
   therapistCrp?: string;
   onBatchSigned?: (manifest: IcpBatchClosingManifest) => void;
 }
@@ -35,8 +35,8 @@ interface IcpBatchSigningModalProps {
 export const IcpBatchSigningModal: React.FC<IcpBatchSigningModalProps> = ({
   isOpen,
   onClose,
-  therapistName = 'Dra. Beatriz Santos',
-  therapistCrp = '06/142980',
+  therapistName,
+  therapistCrp = '—',
   onBatchSigned
 }) => {
   const [activeTab, setActiveTab] = useState<'sign' | 'history' | 'verify'>('sign');

@@ -29,11 +29,18 @@ import type { PatientSearchItem } from '@terapiainfoco/shared';
 import { api } from '../services/api';
 import { TeleconsultationRoom } from './TeleconsultationRoom';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
+import { RECORDABLE_STATUSES } from './SoapModule';
 
 /** A sala pode ser iniciada a partir de 15 minutos antes do horário (mesma regra do backend) */
 const SESSION_EARLY_START_MS = 15 * 60 * 1000;
 
-export function AgendaModule({ role }: { role: UserRole }) {
+interface AgendaModuleProps {
+  role: UserRole;
+  /** Abre a Evolução SOAP já na consulta escolhida */
+  onOpenSoap?: (appointmentId: string) => void;
+}
+
+export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
   // Iniciar e concluir sessão são atos clínicos: a recepção só confirma, reagenda e cancela
   const isClinician = role === UserRole.PSICOLOGO_TITULAR || role === UserRole.SUPERVISOR_CLINICO;
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
@@ -429,14 +436,16 @@ export function AgendaModule({ role }: { role: UserRole }) {
                         <span>Sala de Teleconsulta</span>
                       </button>
 
+                      {onOpenSoap && RECORDABLE_STATUSES.includes(app.status) && (
                       <button
-                        onClick={() => setSelectedAiSoapApp(app)}
+                        onClick={() => onOpenSoap(app.id)}
                         className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                        title="Transcrição Assistida por IA, Diarização & Síntese SOAP em Tempo Real"
+                        title="Abrir o prontuário SOAP desta consulta"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>SOAP IA</span>
+                        <span>Registrar evolução</span>
                       </button>
+                      )}
                       </>
                     )}
 
@@ -961,7 +970,7 @@ export function AgendaModule({ role }: { role: UserRole }) {
           isOpen={!!selectedAiSoapApp}
           appointmentId={selectedAiSoapApp.id}
           patientId={selectedAiSoapApp.patientId}
-          patientName="Mariana Silva de Oliveira"
+          patientName={selectedAiSoapApp.patientName ?? 'Paciente'}
           onClose={() => setSelectedAiSoapApp(null)}
           onEhrRecordSaved={() => {
             setSelectedAiSoapApp(null);
