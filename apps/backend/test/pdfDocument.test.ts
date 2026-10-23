@@ -158,7 +158,7 @@ describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção 
     expect(publicData.valid).toBe(true);
     expect(publicData.document.icpSignature).toBeDefined();
     expect(publicData.document.icpSignature.certificate.issuer).toContain('ICP-Brasil');
-    expect(publicData.document.therapistName).toBe('Dra. Vanessa Andrade');
+    expect(publicData.document.therapistName).toBe('Dra. Beatriz Santos'); // titular do consultório do documento
 
     // PDF gerado pós-assinatura deve ser renderizado com êxito
     const pdfRes = await app.request(`/api/documents/${doc.id}/pdf`, {

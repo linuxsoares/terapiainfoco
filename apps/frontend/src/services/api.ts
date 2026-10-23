@@ -866,10 +866,11 @@ export const api = {
     return res.appointments;
   },
 
-  async createAppointment(dto: CreateAppointmentDTO, therapistId = '00000000-0000-0000-0000-000000000001'): Promise<DecryptedAppointment> {
+  /** Agenda no consultório do usuário logado (o backend usa o consultório da sessão) */
+  async createAppointment(dto: CreateAppointmentDTO): Promise<DecryptedAppointment> {
     const res = await request<{ success: boolean; appointment: DecryptedAppointment }>('/appointments', {
       method: 'POST',
-      body: JSON.stringify({ ...dto, therapistId })
+      body: JSON.stringify(dto)
     });
     return res.appointment;
   },

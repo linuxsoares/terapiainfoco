@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import QRCode from 'qrcode';
+import { practiceProfessional } from './practiceProfessional';
 import type { DecryptedPsychologicalDocument, DecryptedPatient, Therapist } from '@terapiainfoco/shared';
 
 export interface GeneratePdfOptions {
@@ -57,17 +58,20 @@ export class PdfGeneratorService {
     const {
       document: doc,
       patient,
-      therapistName = 'Dra. Vanessa Andrade',
-      therapistCrp = '06/142980',
-      therapistRegion = 'SP',
       baseUrl = 'https://terapiainfoco.com.br'
     } = options;
+    // Sem identificação explícita, assina o(a) titular do consultório do documento
+    const professional = options.therapistName ? null : await practiceProfessional(doc.therapistId);
+    const therapistName = options.therapistName ?? professional!.name;
+    const therapistCrp = options.therapistCrp ?? professional?.crp ?? '';
+    const therapistRegion = options.therapistRegion ?? professional?.crpRegion ?? '';
+    const crpLabel = therapistCrp ? `CRP ${therapistCrp}${therapistRegion ? `/${therapistRegion}` : ''}` : 'CRP não informado';
 
     const pdfDoc = await PDFDocument.create();
 
     // Metadados do PDF
     pdfDoc.setTitle(`${doc.title} - ${patient?.name || 'Documento Psicológico'}`);
-    pdfDoc.setAuthor(`${therapistName} (CRP ${therapistCrp})`);
+    pdfDoc.setAuthor(`${therapistName} (${crpLabel})`);
     pdfDoc.setSubject(doc.title);
     pdfDoc.setCreator('TerapiaInFoco - Plataforma Clínica RFC-001');
     pdfDoc.setProducer('TerapiaInFoco PDF Engine v1.0 (CFP nº 006/2019)');
@@ -128,7 +132,7 @@ export class PdfGeneratorService {
       color: mutedSlate
     });
 
-    page.drawText(`${therapistName} • CRP ${therapistCrp}/${therapistRegion}`, {
+    page.drawText(`${therapistName} • ${crpLabel}`, {
       x: margin + 18,
       y: currentY - 48,
       size: 8.5,
@@ -202,7 +206,7 @@ export class PdfGeneratorService {
     }
 
     currentY -= 12;
-    page.drawText(`Psicóloga(o) Responsável: ${therapistName} — CRP ${therapistCrp}/${therapistRegion}`, {
+    page.drawText(`Psicóloga(o) Responsável: ${therapistName} — ${crpLabel}`, {
       x: margin,
       y: currentY,
       size: 8.5,
@@ -293,7 +297,7 @@ export class PdfGeneratorService {
     });
 
     currentY -= 11;
-    const signCrpText = `Psicóloga Clínica • CRP ${therapistCrp}/${therapistRegion}`;
+    const signCrpText = `Psicóloga(o) • ${crpLabel}`;
     const signCrpWidth = fontRegular.widthOfTextAtSize(signCrpText, 8.5);
     page.drawText(signCrpText, {
       x: (width - signCrpWidth) / 2,

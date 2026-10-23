@@ -292,7 +292,7 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     expect(publicValidateRes.status).toBe(200);
     const validation = await publicValidateRes.json();
     expect(validation.valid).toBe(true);
-    expect(validation.document.therapistName).toBe('Dra. Vanessa Andrade');
+    expect(validation.document.therapistName).toBe('Dra. Beatriz Santos'); // titular do consultório do documento
     expect(validation.document.therapistCrp).toBe('06/142980');
     expect(validation.document.type).toBe('ATESTADO');
     // Verifica preservação de privacidade LGPD (apenas iniciais)

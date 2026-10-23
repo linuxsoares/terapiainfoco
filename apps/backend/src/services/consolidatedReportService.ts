@@ -16,6 +16,7 @@ import {
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
+import { practiceProfessional, formatCrp } from './practiceProfessional';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -43,11 +44,10 @@ export class ConsolidatedReportService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const therapist = db.therapists.get(therapistId);
     const user = await UserRepository.findById(context.actorId);
-    const autorNome = user ? user.name : 'Psicólogo Clínico Responsável';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const autorCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
+    const professional = await practiceProfessional(therapistId);
+    const autorNome = user?.name ?? professional.name;
+    const autorCrp = formatCrp(user?.crp || professional.crp);
 
     // 1. Identificação
     const identificacao: ConsolidatedReportIdentification = {
@@ -221,12 +221,12 @@ export class ConsolidatedReportService {
   /**
    * Assina digitalmente o relatório consolidado com credencial e hash de integridade
    */
-  static signReport(params: {
+  static async signReport(params: {
     reportId: string;
     therapistId: string;
     signatureToken?: string;
     context: { actorId: string; ipAddress: string; userAgent?: string };
-  }): ConsolidatedClinicalReport {
+  }): Promise<ConsolidatedClinicalReport> {
     const { reportId, therapistId, signatureToken, context } = params;
 
     const stored = db.consolidatedReports.get(reportId);
@@ -234,8 +234,7 @@ export class ConsolidatedReportService {
       throw new Error(`Laudo/Relatório com ID ${reportId} não encontrado.`);
     }
 
-    const therapist = db.therapists.get(therapistId);
-    const crp = therapist?.crp || 'CRP 06/142980';
+    const crp = formatCrp((await practiceProfessional(therapistId)).crp);
 
     stored.status = 'SIGNED';
     stored.signedByCrp = crp;

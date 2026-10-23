@@ -2423,6 +2423,7 @@ terapiainfoco/
 | `feat/finance-session-payments` | Valor e pagamento por sessão, contas a receber e módulo Financeiro (V0 item 3, parte 1) | [PR #185](https://github.com/linuxsoares/terapiainfoco/pull/185) | Merged |
 | `fix/db-url-log-leak` | Log da conexão com o banco sem credenciais (senha com "@" vazava) | [PR #186](https://github.com/linuxsoares/terapiainfoco/pull/186) | Merged |
 | `feat/finance-receita-saude` | Relatório para o Receita Saúde e comprovante sem dados fixos (V0 item 3, parte 2) | [PR #187](https://github.com/linuxsoares/terapiainfoco/pull/187) | Merged |
+| `fix/remove-fixed-identities` | Identidade real do consultório em documentos, mensagens e cadastro (V0 item 4, parte 1) | [PR #188](https://github.com/linuxsoares/terapiainfoco/pull/188) | Merged |
 
 ---
 
@@ -2443,6 +2444,9 @@ terapiainfoco/
    - [ ] CPF do psicólogo no perfil (para o comprovante); o Receita Saúde não precisa, pois a emissão é feita na conta gov.br do próprio profissional.
    - [ ] Valor por paciente (preço social) aplicado automaticamente nos próximos agendamentos.
 4. [ ] **Honestidade do que é simulado:** a assinatura "ICP-Brasil" e o carimbo do tempo usam chave efêmera e TSA simulado; não apresentá-los como ICP-Brasil enquanto não houver provedor real. Esconder ou remover os módulos de segurança apenas demonstrativos do painel Admin (43 serviços com partes simuladas).
+   - [x] **Identidades fixas (PR #188):** documentos (PDF e validação pública), lembrete manual, grade de horários, encaminhamentos, laudos, portabilidade e assinatura em lote usam o(a) titular do consultório (`practiceProfessional`), nunca "Dra. Vanessa Andrade"/"Dra. Beatriz Santos"/CRP `06/142980`; cadastro sem CPF, telefone, CRP e bio fictícios pré-preenchidos; horários livres exigem `therapistId`; portal sem consultório padrão. Teste de varredura impede a volta desses dados fora da demonstração.
+   - [ ] ICP-Brasil/TSA: rotular como simulação (ou ocultar) enquanto não houver provedor real.
+   - [ ] Painel Admin: ocultar os módulos de segurança apenas demonstrativos.
 5. [ ] **Pendências da fundação:** consentimento separado por escopo no TCLE, login social real (ou botão oculto) e backup cobrindo todas as coleções (itens detalhados abaixo).
 
 **Fica para o V1:** cobrança online (Pix/cartão), NFS-e, sincronização com Google/Outlook Calendar, ICP-Brasil real via provedor em nuvem, PWA, assinatura do SaaS (planos e cobrança do psicólogo) e operação com várias réplicas.

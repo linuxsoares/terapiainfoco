@@ -10,6 +10,7 @@ import { db } from '../db/memoryDb';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
+import { practiceProfessional } from './practiceProfessional';
 
 export class DocumentService {
   /**
@@ -234,14 +235,15 @@ export class DocumentService {
       // Ignora erro de lookup
     }
 
+    const professional = await practiceProfessional(matchedDoc.therapistId);
     return {
       valid: true,
       document: {
         id: matchedDoc.id,
         type: matchedDoc.type,
         title: matchedDoc.title,
-        therapistName: 'Dra. Vanessa Andrade',
-        therapistCrp: '06/142980',
+        therapistName: professional.name,
+        therapistCrp: professional.crp,
         patientInitials,
         issuedAt: matchedDoc.signedAt ? new Date(matchedDoc.signedAt).toLocaleString('pt-BR') : '',
         signaturePadesHash: matchedDoc.signaturePadesHash || '',

@@ -26,8 +26,9 @@ export const appointmentsRoute = new Hono();
 
 // Consultar grade de horários disponíveis (público / landing page)
 appointmentsRoute.get('/available-slots', async (c) => {
-  const therapistId = c.req.query('therapistId') || 'therapist-001';
+  const therapistId = c.req.query('therapistId');
   const date = c.req.query('date');
+  if (!therapistId) return c.json({ success: false, error: 'Informe o psicólogo (therapistId).' }, 400);
 
   try {
     const slotsResponse = await AppointmentService.getAvailableSlots(therapistId, date);
