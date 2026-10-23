@@ -2422,6 +2422,7 @@ terapiainfoco/
 | `feat/appointment-reminders` | Lembrete por e-mail 48h antes com confirmar/cancelar pelo link (V0 item 2) | [PR #184](https://github.com/linuxsoares/terapiainfoco/pull/184) | Merged |
 | `feat/finance-session-payments` | Valor e pagamento por sessão, contas a receber e módulo Financeiro (V0 item 3, parte 1) | [PR #185](https://github.com/linuxsoares/terapiainfoco/pull/185) | Merged |
 | `fix/db-url-log-leak` | Log da conexão com o banco sem credenciais (senha com "@" vazava) | [PR #186](https://github.com/linuxsoares/terapiainfoco/pull/186) | Merged |
+| `feat/finance-receita-saude` | Relatório para o Receita Saúde e comprovante sem dados fixos (V0 item 3, parte 2) | [PR #187](https://github.com/linuxsoares/terapiainfoco/pull/187) | Merged |
 
 ---
 
