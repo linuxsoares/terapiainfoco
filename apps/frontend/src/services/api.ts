@@ -1164,6 +1164,21 @@ export const api = {
     return res.message;
   },
 
+  /** Confirma o e-mail com o token do link enviado no cadastro */
+  async verifyEmail(token: string): Promise<SafeUser> {
+    const res = await request<{ success: boolean; user: SafeUser }>('/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    });
+    return res.user;
+  },
+
+  /** Reenvia o link de confirmação para o e-mail da conta logada */
+  async resendEmailVerification(): Promise<string> {
+    const res = await request<{ success: boolean; message: string }>('/auth/email/resend', { method: 'POST' });
+    return res.message;
+  },
+
   /** Nova senha com o token do link do e-mail (uso único) */
   async resetPassword(token: string, newPassword: string): Promise<string> {
     const res = await request<{ success: boolean; message: string }>('/auth/password/reset', {

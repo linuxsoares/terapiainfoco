@@ -48,6 +48,7 @@ authRoute.post('/register', async (c) => {
 
     const ip = c.req.header('x-forwarded-for') || '127.0.0.1';
     const user = await authService.register(body, ip);
+    await authService.sendEmailVerification(user.id);
 
     return c.json({ success: true, user }, 201);
   } catch (err: any) {
@@ -238,6 +239,32 @@ authRoute.post('/password/reset', authRateLimiter, async (c) => {
   } catch (err: any) {
     return c.json({ success: false, error: err.message || 'Não foi possível redefinir a senha.' }, 400);
   }
+});
+
+/**
+ * POST /api/auth/email/verify
+ * Confirma o e-mail com o token do link enviado no cadastro
+ */
+authRoute.post('/email/verify', authRateLimiter, async (c) => {
+  const body = await c.req.json<{ token?: string }>().catch(() => null);
+  if (!body?.token) {
+    return c.json({ success: false, error: 'Informe o token de confirmação.' }, 400);
+  }
+  try {
+    const user = await authService.verifyEmail(body.token, c.req.header('x-forwarded-for') || '127.0.0.1');
+    return c.json({ success: true, user, message: 'E-mail confirmado.' }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Não foi possível confirmar o e-mail.' }, 400);
+  }
+});
+
+/**
+ * POST /api/auth/email/resend
+ * Reenvia o link de confirmação para o e-mail da conta logada
+ */
+authRoute.post('/email/resend', authRateLimiter, authMiddleware({ strict: true }), async (c) => {
+  await authService.sendEmailVerification(c.get('user').id);
+  return c.json({ success: true, message: 'Se o e-mail ainda não foi confirmado, enviamos um novo link.' }, 202);
 });
 
 /**

@@ -2417,6 +2417,7 @@ terapiainfoco/
 | `feat/logo-home` | Logo do topo leva à tela inicial de cada perfil | [PR #179](https://github.com/linuxsoares/terapiainfoco/pull/179) | Merged |
 | `docs/roadmap-v0-definition` | Redefine o marco V0 (psicólogo PF do primeiro contato ao recibo) e corrige o "100% concluído" | [PR #180](https://github.com/linuxsoares/terapiainfoco/pull/180) | Merged |
 | `feat/email-password-reset` | Recuperação de senha por e-mail: provedor Resend, link de uso único (auth_tokens) e telas no frontend | [PR #181](https://github.com/linuxsoares/terapiainfoco/pull/181) | Merged |
+| `feat/email-verification` | Confirmação de e-mail no cadastro: link de 48 h, reenvio e aviso no painel | [PR #182](https://github.com/linuxsoares/terapiainfoco/pull/182) | Merged |
 
 ---
 

@@ -26,7 +26,7 @@ import { UserRole, SocialAuthProvider, AuditAction, AuditResourceType } from '@t
 import { auditService } from './auditService';
 import { AuthTokenRepository } from '../repositories/authTokenRepository';
 import { sendEmailSafely } from './email/emailSender';
-import { passwordResetEmail } from './email/templates';
+import { emailVerificationEmail, passwordResetEmail } from './email/templates';
 
 function maskCpfForProfile(cpf?: string): string | undefined {
   if (!cpf) return undefined;
@@ -42,6 +42,8 @@ const SELF_SERVICE_ROLES: UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TI
 
 /** Validade do link de recuperação de senha */
 const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+/** Validade do link de confirmação de e-mail */
+const EMAIL_VERIFICATION_TTL_MS = 48 * 60 * 60 * 1000;
 
 /** Hash do token enviado por e-mail: só ele é persistido */
 function hashToken(token: string): string {
@@ -87,7 +89,8 @@ export class AuthService {
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       mustChangePassword: user.mustChangePassword ?? false,
-      disabled: !!user.disabledAt
+      disabled: !!user.disabledAt,
+      emailVerified: !!user.emailVerifiedAt
     };
   }
 
@@ -520,6 +523,55 @@ export class AuthService {
       ipAddress,
       userAgent: 'Password reset via e-mail link; previous sessions revoked'
     });
+  }
+
+  /**
+   * Envia o link de confirmação do e-mail (48 h, uso único) e invalida os anteriores.
+   * Conta já confirmada não recebe nada.
+   */
+  public async sendEmailVerification(userId: string): Promise<void> {
+    const user = await UserRepository.findById(userId);
+    if (!user || user.emailVerifiedAt) return;
+
+    await AuthTokenRepository.invalidatePending(user.id, 'EMAIL_VERIFICATION');
+    const token = randomBytes(32).toString('base64url');
+    await AuthTokenRepository.create({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      purpose: 'EMAIL_VERIFICATION',
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+      usedAt: null,
+      createdAt: new Date()
+    });
+
+    const link = `${config.publicAppUrl}/?verificar-email=${encodeURIComponent(token)}`;
+    await sendEmailSafely({ to: user.email, ...emailVerificationEmail(user.name, link) });
+  }
+
+  /** Confirma o e-mail com o token do link (uso único) */
+  public async verifyEmail(token: string, ipAddress: string = '127.0.0.1'): Promise<SafeUser> {
+    const stored = token ? await AuthTokenRepository.findByHash(hashToken(token)) : null;
+    if (!stored || stored.purpose !== 'EMAIL_VERIFICATION' || stored.usedAt || stored.expiresAt.getTime() < Date.now()) {
+      throw new Error('Link de confirmação inválido ou expirado. Peça um novo no painel.');
+    }
+    const user = await UserRepository.findById(stored.userId);
+    if (!user || !(await AuthTokenRepository.markUsed(stored.id))) {
+      throw new Error('Link de confirmação inválido ou expirado. Peça um novo no painel.');
+    }
+
+    user.emailVerifiedAt = new Date();
+    await UserRepository.save(user);
+
+    await auditService.logAccess({
+      actorId: user.id,
+      resourceType: AuditResourceType.USER,
+      resourceId: user.id,
+      action: AuditAction.AUTH_EMAIL_VERIFIED,
+      ipAddress,
+      userAgent: 'E-mail confirmed via link'
+    });
+    return this.toSafeUser(user);
   }
 
   /**

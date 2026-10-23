@@ -47,6 +47,7 @@ import { TeleconsultationRoom } from './components/TeleconsultationRoom';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { PasswordResetScreen } from './components/PasswordResetScreen';
+import { EmailVerificationBanner, FlashNoticeToast, type FlashNotice } from './components/EmailVerificationNotice';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PatientPortalModal } from './components/PatientPortalModal';
 import { PortabilityVaultModal } from './components/PortabilityVaultModal';
@@ -150,6 +151,7 @@ export default function App() {
   const [restoringSession, setRestoringSession] = useState<boolean>(() => hasStoredSession());
   // Link de recuperação de senha enviado por e-mail (?redefinir-senha=<token>)
   const [passwordResetToken, setPasswordResetToken] = useState<string | null>(() => urlParam('redefinir-senha'));
+  const [flashNotice, setFlashNotice] = useState<FlashNotice | null>(null);
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
@@ -231,6 +233,27 @@ export default function App() {
     const lastTab = readLastTab();
     setActiveTab(lastTab && canViewModule(user.role, lastTab) ? lastTab : defaultModule(user.role));
   };
+
+  // Link de confirmação de e-mail (?verificar-email=<token>): confirma e tira o token da URL
+  useEffect(() => {
+    const token = urlParam('verificar-email');
+    if (!token) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('verificar-email');
+    window.history.replaceState(null, '', url.toString());
+    api.verifyEmail(token)
+      .then((verified) => {
+        setCurrentUser((prev) => (prev.id === verified.id ? { ...prev, emailVerified: true } : prev));
+        // A sessão pode ter sido restaurada antes da confirmação: recarrega o usuário logado
+        if (hasStoredSession()) {
+          api.getMe()
+            .then((me) => setCurrentUser((prev) => (prev.id === me.id ? me : prev)))
+            .catch(() => undefined);
+        }
+        setFlashNotice({ type: 'success', text: 'E-mail confirmado. Obrigado!' });
+      })
+      .catch((err: any) => setFlashNotice({ type: 'error', text: err.message || 'Não foi possível confirmar o e-mail.' }));
+  }, []);
 
   // Lembra a tela aberta para voltar a ela depois de um refresh
   useEffect(() => {
@@ -329,6 +352,7 @@ export default function App() {
           onAuthenticated={handleAuthenticated}
           onQuickDemoLogin={quickDemoLogin}
         />
+        <FlashNoticeToast notice={flashNotice} onClose={() => setFlashNotice(null)} />
       </PrivacyProvider>
     );
   }
@@ -610,6 +634,8 @@ export default function App() {
           {/* Workspace Body */}
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-20 md:pb-8 overflow-y-auto overflow-x-hidden">
             <div className="max-w-5xl mx-auto">
+              {currentUser.emailVerified === false && <EmailVerificationBanner email={currentUser.email} />}
+              <FlashNoticeToast notice={flashNotice} onClose={() => setFlashNotice(null)} />
               <>
                   {currentTab === 'portal' && (
                     <PatientHomeModule

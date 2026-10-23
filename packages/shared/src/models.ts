@@ -510,6 +510,8 @@ export interface User {
   passwordHash: string;
   /** Tokens emitidos antes da última troca de senha deixam de valer */
   passwordChangedAt?: Date | string;
+  /** E-mail confirmado pelo link enviado no cadastro */
+  emailVerifiedAt?: Date | string;
   twoFactorEnabled: boolean;
   twoFactorSecret?: string;
   twoFactorBackupCodes?: string[];
@@ -551,6 +553,8 @@ export interface SafeUser {
   /** Senha inicial ou reemitida pelo Admin: precisa ser trocada antes de usar o sistema */
   mustChangePassword?: boolean;
   disabled?: boolean;
+  /** E-mail confirmado: sem isso o painel pede a confirmação */
+  emailVerified?: boolean;
 }
 
 /**
