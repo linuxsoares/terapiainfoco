@@ -210,6 +210,8 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   passwordHash: text('password_hash').notNull(),
   passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+  /** E-mail confirmado pelo link enviado no cadastro */
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   mustChangePassword: boolean('must_change_password').notNull().default(false),
   twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   twoFactorSecret: text('two_factor_secret'),

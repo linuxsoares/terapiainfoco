@@ -64,6 +64,13 @@
       "when": 1792774625991,
       "tag": "0008_auth_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792775032860,
+      "tag": "0009_email_verified",
+      "breakpoints": true
     }
   ]
 }

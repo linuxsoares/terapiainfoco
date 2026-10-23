@@ -31,6 +31,7 @@ export function buildDemoUsers(): User[] {
       socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'GOV_BR' as any],
       passwordHash: demoPasswordHash,
       twoFactorEnabled: false,
+      emailVerifiedAt: now,
       createdAt: now
     },
     // 2. Supervisor Clínico (Acesso de Supervisão/Estágio)
@@ -46,6 +47,7 @@ export function buildDemoUsers(): User[] {
       socialProviders: ['EMAIL_PASSWORD' as any],
       passwordHash: demoPasswordHash,
       twoFactorEnabled: false,
+      emailVerifiedAt: now,
       createdAt: now
     },
     // 3. Recepção / Secretária (Acesso estrito à Agenda e Contato, sem prontuários)
@@ -58,6 +60,7 @@ export function buildDemoUsers(): User[] {
       socialProviders: ['EMAIL_PASSWORD' as any],
       passwordHash: demoPasswordHash,
       twoFactorEnabled: false,
+      emailVerifiedAt: now,
       createdAt: now
     },
     // 4. Administrador de TI / Segurança & DPO
@@ -72,6 +75,7 @@ export function buildDemoUsers(): User[] {
       socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'PASSKEY_FIDO2' as any],
       passwordHash: demoPasswordHash,
       twoFactorEnabled: false,
+      emailVerifiedAt: now,
       createdAt: now
     },
     // 5. Paciente Titular (Portal do Paciente, Exercícios TCC/ACT/DBT, Recibos & Cofre .enc LGPD Art. 18)
@@ -89,6 +93,7 @@ export function buildDemoUsers(): User[] {
       socialProviders: ['EMAIL_PASSWORD' as any, 'GOOGLE' as any, 'APPLE' as any],
       passwordHash: demoPasswordHash,
       twoFactorEnabled: false,
+      emailVerifiedAt: now,
       createdAt: now
     }
   ];

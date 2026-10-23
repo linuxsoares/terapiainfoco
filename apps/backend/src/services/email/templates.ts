@@ -34,3 +34,19 @@ export function passwordResetEmail(name: string, link: string): EmailContent {
     )
   };
 }
+
+export function emailVerificationEmail(name: string, link: string): EmailContent {
+  const first = name.split(' ')[0] || name;
+  return {
+    subject: 'Confirme seu e-mail no TerapiaInFoco',
+    text: `Olá, ${first}.\n\nConfirme o e-mail da sua conta pelo link abaixo (válido por 48 horas):\n${link}\n\nSe você não criou uma conta no TerapiaInFoco, ignore este e-mail.`,
+    html: layout(
+      [
+        `Olá, ${escapeHtml(first)}.`,
+        'Confirme o e-mail da sua conta para receber avisos de agendamento e recuperar a senha quando precisar. O link vale por 48 horas.',
+        'Se você não criou uma conta no TerapiaInFoco, ignore este e-mail.'
+      ],
+      { label: 'Confirmar e-mail', href: link }
+    )
+  };
+}
