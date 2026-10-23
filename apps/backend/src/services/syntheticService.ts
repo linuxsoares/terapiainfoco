@@ -22,11 +22,11 @@ import {
   maskCPF,
   maskEmail,
   maskPhone,
-  maskDiagnosticHypothesis
+  maskDiagnosticHypothesis,
+  sanitizePii
 } from '@terapiainfoco/crypto';
 import { AppointmentService } from './appointmentService';
 import { PatientService } from './patientService';
-import { AiSoapService } from './aiSoapService';
 import { ClinicalRecordService } from './clinicalRecordService';
 import { DocumentService } from './documentService';
 import { IcpBrasilService } from './icpBrasilService';
@@ -255,36 +255,41 @@ export class SyntheticService {
         ];
 
         requireProbeBooking(createdAppointmentId);
-        const proposal = await AiSoapService.generateSoapProposal({
-          appointmentId: createdAppointmentId,
-          utterances: dummyUtterances,
-          context: PROBE_CONTEXT
-        });
-
-        if (!proposal.humanReviewRequired) {
-          throw new Error('A trava de Human-in-the-Loop deve ser compulsória (CFP nº 001/2009).');
+        // Sanitização pré-LLM: nenhum identificador pode sobrar no texto (o probe não chama o provedor de IA)
+        const sanitized = dummyUtterances.map((u) => sanitizePii(u.text, { patientName: 'Paciente Sintético' }));
+        const sanitizedEntitiesCount = sanitized.reduce((total, r) => total + r.replacedCount, 0);
+        if (sanitizedEntitiesCount === 0 || sanitized.some((r) => /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(r.sanitizedText))) {
+          throw new Error('Sanitização LGPD Art. 11 não removeu os identificadores da transcrição.');
         }
 
-        // Salva rascunho SOAP
+        // Rascunho SOAP sem assinatura: a assinatura exige revisão humana (CFP nº 001/2009)
         const draft = await ClinicalRecordService.saveDraft({
           appointmentId: createdAppointmentId,
           patientId: testPatientId,
           therapistId: SYNTHETIC_PROBE_THERAPIST_ID,
-          soap: proposal.soap,
+          soap: {
+            subjective: sanitized[0].sanitizedText,
+            objective: 'Registro sintético de monitoramento.',
+            assessment: 'Registro sintético de monitoramento.',
+            plan: sanitized[1].sanitizedText
+          },
           privateNotes: 'Notas confidenciais segregadas sob sigilo ético (RFC §3.4)',
           context: PROBE_CONTEXT
         });
+        if (draft.isSigned) {
+          throw new Error('A trava de Human-in-the-Loop deve ser compulsória (CFP nº 001/2009).');
+        }
 
         steps.push({
           id: 'step_ai_transcription_soap',
-          name: 'Transcrição, Sanitização LGPD Art. 11 & Geração SOAP com IA',
-          description: 'Substituição determinística de PIIs por tokens e geração dos 4 eixos SOAP com Human-in-the-Loop.',
+          name: 'Transcrição, Sanitização LGPD Art. 11 & Rascunho SOAP',
+          description: 'Substituição determinística de PIIs por tokens e rascunho SOAP sem assinatura (Human-in-the-Loop).',
           status: 'passed',
           durationMs: Math.max(1, Date.now() - p4Start),
           details: {
             clinicalRecordId: draft.id,
-            sanitizedEntitiesCount: proposal.sanitizationSummary.totalEntitiesSanitized,
-            humanReviewRequired: proposal.humanReviewRequired,
+            sanitizedEntitiesCount,
+            humanReviewRequired: true,
             quadrantsGenerated: ['S', 'O', 'A', 'P']
           }
         });

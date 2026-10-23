@@ -50,11 +50,12 @@ aiTranscriptionRouter.post('/ingest', async (c) => {
       message: 'Transcrição diarizada e rascunho SOAP sintetizado com sucesso (RFC-001 §3.3).'
     }, 201);
   } catch (error: any) {
-    const isConsentError = error.message?.includes('Consentimento');
+    const message: string = error.message ?? '';
+    const status = message.includes('Consentimento') ? 403 : message.startsWith('Consulta não encontrada') ? 404 : 500;
     return c.json({
       success: false,
-      message: error.message || 'Erro ao processar transcrição assistida por IA.'
-    }, isConsentError ? 403 : 500);
+      message: message || 'Erro ao processar transcrição assistida por IA.'
+    }, status);
   }
 });
 

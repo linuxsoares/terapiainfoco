@@ -2413,6 +2413,7 @@ terapiainfoco/
 | `test/access-matrix` | Teste permanente da matriz de acesso: todas as rotas GET × perfis, invariantes clínicas e snapshot versionado | [PR #174](https://github.com/linuxsoares/terapiainfoco/pull/174) | Merged |
 | `fix/soap-draft-per-appointment` | Prontuário único por consulta: rascunho atualizado no lugar, paciente/sessão derivados da consulta e rota por consulta | [PR #176](https://github.com/linuxsoares/terapiainfoco/pull/176) | Merged |
 | `feat/soap-linked-to-appointment` | Evolução SOAP vinculada à consulta real: seletor, prontuário real, transcrição da teleconsulta e minuta pelo pipeline de IA | [PR #177](https://github.com/linuxsoares/terapiainfoco/pull/177) | Merged |
+| `refactor/remove-legacy-soap-demo` | Remove transcrição fictícia e SOAP fixo; pipeline real exige consentimento AI_CLINICAL_SYNTHESIS e paciente da consulta | [PR #178](https://github.com/linuxsoares/terapiainfoco/pull/178) | Merged |
 
 ---
 

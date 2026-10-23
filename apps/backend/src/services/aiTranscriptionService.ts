@@ -5,7 +5,8 @@ import {
   AiSoapDraftStatus,
   ConversationalSentiment,
   AuditAction,
-  AuditResourceType
+  AuditResourceType,
+  ConsentScope
 } from '@terapiainfoco/shared';
 import type {
   DiarizedUtterance,
@@ -25,6 +26,8 @@ import { ClinicalRecordService } from './clinicalRecordService';
 import { AuditService } from './auditService';
 
 import { PatientRepository } from '../repositories/patientRepository';
+import { AppointmentRepository } from '../repositories/appointmentRepository';
+import { ConsentService } from './consentService';
 /**
  * -------------------------------------------------------------------------------------------------
  * SERVIÇO DE TRANSCRIÇÃO ASSISTIDA POR IA, DIARIZAÇÃO & SÍNTESE SOAP EM TEMPO REAL (RFC-001 §3.3)
@@ -54,7 +57,19 @@ export class AiTranscriptionService {
       throw new Error('Consentimento do paciente (TCLE) é obrigatório por lei para processamento de áudio/transcrição.');
     }
 
-    const patient = await PatientRepository.findById(dto.patientId);
+    // O paciente é o da consulta: um patientId de outra consulta do consultório é recusado
+    const appointment = await AppointmentRepository.findById(dto.appointmentId);
+    if (!appointment || appointment.patientId !== dto.patientId) {
+      throw new Error('Consulta não encontrada para este paciente.');
+    }
+
+    // Consentimento granular vigente para síntese por IA (LGPD Art. 11, I e Art. 8º §5º)
+    const consent = await ConsentService.getInstance().enforceScope(appointment.patientId, ConsentScope.AI_CLINICAL_SYNTHESIS, { actorId });
+    if (!consent.permitted) {
+      throw new Error(`Consentimento para síntese por IA ausente ou revogado: ${consent.reason}`);
+    }
+
+    const patient = await PatientRepository.findById(appointment.patientId);
     const patientName = patient ? decryptField(patient.encryptedName) : 'Paciente';
 
     // 2. Extração ou Construção de Enunciados Diarizados
