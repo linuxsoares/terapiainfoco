@@ -2412,6 +2412,7 @@ terapiainfoco/
 | `feat/practice-access-history` | Auditoria do psicólogo vira "Histórico de Acessos" do consultório; verificação da cadeia sem dados de outros consultórios | [PR #173](https://github.com/linuxsoares/terapiainfoco/pull/173) | Merged |
 | `test/access-matrix` | Teste permanente da matriz de acesso: todas as rotas GET × perfis, invariantes clínicas e snapshot versionado | [PR #174](https://github.com/linuxsoares/terapiainfoco/pull/174) | Merged |
 | `fix/soap-draft-per-appointment` | Prontuário único por consulta: rascunho atualizado no lugar, paciente/sessão derivados da consulta e rota por consulta | [PR #176](https://github.com/linuxsoares/terapiainfoco/pull/176) | Merged |
+| `feat/soap-linked-to-appointment` | Evolução SOAP vinculada à consulta real: seletor, prontuário real, transcrição da teleconsulta e minuta pelo pipeline de IA | [PR #177](https://github.com/linuxsoares/terapiainfoco/pull/177) | Merged |
 
 ---
 
