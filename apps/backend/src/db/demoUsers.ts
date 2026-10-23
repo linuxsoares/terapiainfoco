@@ -1,6 +1,7 @@
 import { AppointmentStatus, UserRole, type StoredAppointment, type StoredPatient, type User } from '@terapiainfoco/shared';
 import type { AppDb } from './index';
 import { UserRepository } from '../repositories/userRepository';
+import { ConsentService } from '../services/consentService';
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { encryptField } from '../services/cryptoContext';
@@ -126,6 +127,8 @@ export function buildDemoPatient(): StoredPatient {
 /** Cria a paciente de demonstração se ainda não existir */
 export async function seedDemoPatient(connection?: AppDb): Promise<void> {
   await PatientRepository.insertMissing([buildDemoPatient()], connection);
+  // A demonstração mostra a jornada completa (inclusive síntese por IA): finalidades já aceitas
+  ConsentService.getInstance().seedDemoLedger(DEMO_PATIENT_ID, 'Mariana Silva de Oliveira');
 }
 
 /** Consulta de demonstração (sessão de uma hora que acabou de terminar) */

@@ -381,7 +381,20 @@ describe('TerapiaInFoco Backend API (RFC-001 Integration)', () => {
     });
     expect(mismatchRes.status).toBe(404);
 
-    // 4. Transcrição diarizada → minuta SOAP pelo sintetizador (RFC §3.3)
+    // 4. TCLE de transcrição não autoriza a síntese por IA: exige aceite do escopo próprio
+    const ingestBody = JSON.stringify({ appointmentId, patientId, consentConfirmed: true, rawTranscriptText: 'PACIENTE: Oi.' });
+    const withoutAiConsent = await staffRequest('/api/transcription/ingest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ingestBody
+    });
+    expect(withoutAiConsent.status).toBe(403);
+    const grantRes = await staffRequest('/api/consent/grant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patientId, scopes: [{ scope: 'AI_CLINICAL_SYNTHESIS', granted: true }] })
+    });
+    expect(grantRes.status).toBe(200);
+
+    // 5. Transcrição diarizada → minuta SOAP pelo sintetizador (RFC §3.3)
     const ingestRes = await staffRequest('/api/transcription/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

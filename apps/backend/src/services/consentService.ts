@@ -29,16 +29,13 @@ import {
 import { PatientRepository } from '../repositories/patientRepository';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
+import { db } from '../db/memoryDb';
 
 export class ConsentService {
   private static instance: ConsentService;
 
-  private ledgers: Map<string, PatientConsentLedger> = new Map();
-  private receiptsById: Map<string, ConsentReceipt> = new Map();
-  private receiptsByToken: Map<string, ConsentReceipt> = new Map();
-  private allReceipts: ConsentReceipt[] = [];
-
-  private totalRevocationsCount = 0;
+  // Ledgers persistidos no entity_store (db.consentLedgers): sobrevivem a deploys, valem para
+  // todas as instâncias e entram no backup. Os recibos ficam no histórico de cada ledger.
   private totalEnforcementBlocksCount = 0;
   private currentTermVersion = 'v2.1 (LGPD/CFP-2026)';
 
@@ -55,21 +52,73 @@ export class ConsentService {
    * Descarta o ledger e os recibos de um paciente sintético (monitor), apagado junto com o registro
    */
   public discardPatientLedger(patientId: string): void {
-    this.ledgers.delete(patientId);
-    for (const receipt of this.allReceipts.filter((r) => r.patientId === patientId)) {
-      this.receiptsById.delete(receipt.receiptId);
-      this.receiptsByToken.delete(receipt.verificationToken);
+    db.consentLedgers.delete(patientId);
+  }
+
+  /** Recibo canônico (hash + token público) de uma decisão do titular sobre um escopo */
+  private issueReceipt(params: {
+    patientId: string;
+    scope: ConsentScope;
+    status: ConsentStatus;
+    termVersion: string;
+    timestamp: string;
+    ipAddress: string;
+    userAgent?: string;
+    revocationReason?: string;
+  }): ConsentReceipt {
+    const receiptId = randomUUID();
+    const action = params.status === ConsentStatus.GRANTED ? ('GRANT' as const) : ('REVOKE' as const);
+    const legalBasis = getDefaultLegalBasisForScope(params.scope);
+    const receiptHash = calculateConsentReceiptHash({ receiptId, action, legalBasis, ...params });
+    const verificationToken = encodeConsentToken({
+      receiptId,
+      patientId: params.patientId,
+      scope: params.scope,
+      action,
+      receiptHash,
+      timestamp: params.timestamp
+    });
+    return { receiptId, action, legalBasis, receiptHash, verificationToken, ...params };
+  }
+
+  /**
+   * Paciente de demonstração (DEMO_MODE e testes): ledger com todas as finalidades aceitas,
+   * criado sem consultar o banco (roda durante a inicialização). Não altera ledger existente.
+   */
+  public seedDemoLedger(patientId: string, patientName: string): void {
+    if (db.consentLedgers.has(patientId)) return;
+    const timestamp = new Date().toISOString();
+    const preferences = {} as Record<ConsentScope, PatientConsentScopePreference>;
+    const receipts: ConsentReceipt[] = [];
+    for (const scope of Object.values(ConsentScope)) {
+      const receipt = this.issueReceipt({
+        patientId, scope, status: ConsentStatus.GRANTED, termVersion: this.currentTermVersion,
+        timestamp, ipAddress: '127.0.0.1', userAgent: 'Termo de demonstração'
+      });
+      receipts.push(receipt);
+      preferences[scope] = {
+        scope, status: ConsentStatus.GRANTED, grantedAt: timestamp, termVersion: receipt.termVersion,
+        receiptHash: receipt.receiptHash, legalBasis: receipt.legalBasis, ipAddress: receipt.ipAddress, userAgent: receipt.userAgent
+      };
     }
-    this.allReceipts = this.allReceipts.filter((r) => r.patientId !== patientId);
+    db.consentLedgers.set(patientId, { patientId, patientName, preferences, receiptsHistory: receipts, lastUpdatedAt: timestamp });
+  }
+
+  /** Todos os recibos, do mais recente ao mais antigo */
+  private allReceipts(): ConsentReceipt[] {
+    return [...db.consentLedgers.values()]
+      .flatMap((ledger) => ledger.receiptsHistory)
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   }
 
   /**
    * Obtém ou inicializa sob demanda o prontuário de consentimentos do paciente.
-   * Na inicialização, todos os escopos seguem o TCLE de transcrição do cadastro
-   * (`consentTranscriptionSigned`): concedidos se assinado, recusados se não, ou se o paciente não existir.
+   * O TCLE do cadastro (`consentTranscriptionSigned`) vale só para a transcrição da teleconsulta;
+   * as demais finalidades (síntese por IA, pesquisa, compartilhamento, lembretes) nascem não
+   * concedidas e exigem aceite próprio (LGPD Art. 8º, §4º: consentimento para finalidade determinada).
    */
   public async getPatientLedger(patientId: string): Promise<PatientConsentLedger> {
-    const cached = this.ledgers.get(patientId);
+    const cached = db.consentLedgers.get(patientId);
     if (cached) return cached;
 
     const patient = await PatientRepository.findById(patientId);
@@ -82,64 +131,37 @@ export class ConsentService {
       }
     }
 
-    const initialStatus = patient?.consentTranscriptionSigned ? ConsentStatus.GRANTED : ConsentStatus.REFUSED;
-    const action = initialStatus === ConsentStatus.GRANTED ? ('GRANT' as const) : ('REVOKE' as const);
+    const transcriptionStatus = patient?.consentTranscriptionSigned ? ConsentStatus.GRANTED : ConsentStatus.REFUSED;
     const initialTimestamp = patient?.consentSignedAt
       ? new Date(patient.consentSignedAt).toISOString()
       : new Date().toISOString();
     const userAgent = 'Termo de Admissão';
-    const preferences: Record<ConsentScope, PatientConsentScopePreference> = {} as any;
+    const preferences = {} as Record<ConsentScope, PatientConsentScopePreference>;
     const receipts: ConsentReceipt[] = [];
 
     for (const scope of Object.values(ConsentScope)) {
       const legalBasis = getDefaultLegalBasisForScope(scope);
-      const receiptId = randomUUID();
-      const receiptHash = calculateConsentReceiptHash({
-        receiptId,
+      if (scope !== ConsentScope.TELECONSULTATION_AUDIO_RECORDING) {
+        // Finalidade ainda não decidida pelo titular: sem recibo, tratamento bloqueado
+        preferences[scope] = { scope, status: ConsentStatus.REFUSED, termVersion: this.currentTermVersion, receiptHash: '', legalBasis };
+        continue;
+      }
+
+      const receipt = this.issueReceipt({
         patientId,
         scope,
-        action,
-        status: initialStatus,
+        status: transcriptionStatus,
         termVersion: this.currentTermVersion,
-        legalBasis,
         timestamp: initialTimestamp,
         ipAddress: '127.0.0.1',
         userAgent
       });
-
-      const verificationToken = encodeConsentToken({
-        receiptId,
-        patientId,
-        scope,
-        action,
-        receiptHash,
-        timestamp: initialTimestamp
-      });
-
-      const receipt: ConsentReceipt = {
-        receiptId,
-        patientId,
-        scope,
-        action,
-        status: initialStatus,
-        termVersion: this.currentTermVersion,
-        legalBasis,
-        receiptHash,
-        verificationToken,
-        timestamp: initialTimestamp,
-        ipAddress: '127.0.0.1',
-        userAgent
-      };
-
-      this.receiptsById.set(receiptId, receipt);
-      this.receiptsByToken.set(verificationToken, receipt);
-      this.allReceipts.unshift(receipt);
-      receipts.unshift(receipt);
-
+      const receiptHash = receipt.receiptHash;
+      receipts.push(receipt);
       preferences[scope] = {
         scope,
-        status: initialStatus,
-        grantedAt: initialStatus === ConsentStatus.GRANTED ? initialTimestamp : undefined,
+        status: transcriptionStatus,
+        grantedAt: transcriptionStatus === ConsentStatus.GRANTED ? initialTimestamp : undefined,
         termVersion: this.currentTermVersion,
         receiptHash,
         legalBasis,
@@ -149,7 +171,7 @@ export class ConsentService {
     }
 
     // Requisições concorrentes podem ter inicializado o mesmo ledger durante a consulta ao banco
-    const concurrent = this.ledgers.get(patientId);
+    const concurrent = db.consentLedgers.get(patientId);
     if (concurrent) return concurrent;
     const ledger: PatientConsentLedger = {
       patientId,
@@ -158,7 +180,7 @@ export class ConsentService {
       receiptsHistory: receipts,
       lastUpdatedAt: initialTimestamp
     };
-    this.ledgers.set(patientId, ledger);
+    db.consentLedgers.set(patientId, ledger);
     return ledger;
   }
 
@@ -175,58 +197,20 @@ export class ConsentService {
     const newReceipts: ConsentReceipt[] = [];
 
     for (const item of dto.scopes) {
-      const legalBasis = getDefaultLegalBasisForScope(item.scope);
-      const action = item.granted ? ('GRANT' as const) : ('REVOKE' as const);
       const status = item.granted ? ConsentStatus.GRANTED : ConsentStatus.REVOKED;
-      const receiptId = randomUUID();
-
-      const receiptHash = calculateConsentReceiptHash({
-        receiptId,
+      const receipt = this.issueReceipt({
         patientId: dto.patientId,
         scope: item.scope,
-        action,
         status,
         termVersion,
-        legalBasis,
         timestamp: now,
         revocationReason: item.revocationReason,
         ipAddress: context.ipAddress,
         userAgent: context.userAgent
       });
+      const { receiptId, receiptHash, legalBasis } = receipt;
 
-      const verificationToken = encodeConsentToken({
-        receiptId,
-        patientId: dto.patientId,
-        scope: item.scope,
-        action,
-        receiptHash,
-        timestamp: now
-      });
-
-      const receipt: ConsentReceipt = {
-        receiptId,
-        patientId: dto.patientId,
-        scope: item.scope,
-        action,
-        status,
-        termVersion,
-        legalBasis,
-        receiptHash,
-        verificationToken,
-        timestamp: now,
-        revocationReason: item.revocationReason,
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
-      };
-
-      this.receiptsById.set(receiptId, receipt);
-      this.receiptsByToken.set(verificationToken, receipt);
-      this.allReceipts.unshift(receipt);
       newReceipts.push(receipt);
-
-      if (!item.granted) {
-        this.totalRevocationsCount++;
-      }
 
       // Atualiza a preferência no ledger
       ledger.preferences[item.scope] = {
@@ -255,7 +239,7 @@ export class ConsentService {
 
     ledger.receiptsHistory.unshift(...newReceipts);
     ledger.lastUpdatedAt = now;
-    this.ledgers.set(dto.patientId, ledger);
+    db.consentLedgers.set(dto.patientId, ledger);
 
     // Se o consentimento para gravação de teleconsulta tiver sido alterado, sincroniza com paciente
     const audioScope = dto.scopes.find(s => s.scope === ConsentScope.TELECONSULTATION_AUDIO_RECORDING);
@@ -344,11 +328,7 @@ export class ConsentService {
   ): Promise<ConsentReceiptResponse> {
     try {
       const decoded = decodeConsentToken(token);
-      let receipt = this.receiptsByToken.get(token);
-
-      if (!receipt) {
-        receipt = this.receiptsById.get(decoded.receiptId);
-      }
+      const receipt = this.allReceipts().find((r) => r.verificationToken === token || r.receiptId === decoded.receiptId);
 
       if (!receipt) {
         return {
@@ -409,7 +389,9 @@ export class ConsentService {
     recentReceipts: ConsentReceipt[];
     patientLedger?: PatientConsentLedger;
   }> {
-    const totalPatients = this.ledgers.size;
+    const ledgers = [...db.consentLedgers.values()];
+    const receipts = this.allReceipts();
+    const totalPatients = ledgers.length;
     const activeConsentsByScope: Record<ConsentScope, number> = {
       [ConsentScope.TELECONSULTATION_AUDIO_RECORDING]: 0,
       [ConsentScope.AI_CLINICAL_SYNTHESIS]: 0,
@@ -418,7 +400,7 @@ export class ConsentService {
       [ConsentScope.COMMUNICATION_REMINDERS]: 0
     };
 
-    for (const ledger of this.ledgers.values()) {
+    for (const ledger of ledgers) {
       for (const scope of Object.values(ConsentScope)) {
         if (ledger.preferences[scope]?.status === ConsentStatus.GRANTED) {
           activeConsentsByScope[scope]++;
@@ -433,11 +415,11 @@ export class ConsentService {
     const overview: ConsentLedgerOverview = {
       totalPatientsWithConsent: totalPatients,
       activeConsentsByScope,
-      revocationsCount: this.totalRevocationsCount,
+      revocationsCount: receipts.filter((r) => r.action === 'REVOKE' && r.userAgent !== 'Termo de Admissão').length,
       blockedProcessingsCount: this.totalEnforcementBlocksCount,
       complianceRatePercent,
       termVersionActive: this.currentTermVersion,
-      lastRevocationAt: this.allReceipts.find(r => r.action === 'REVOKE')?.timestamp
+      lastRevocationAt: receipts.find(r => r.action === 'REVOKE')?.timestamp
     };
 
     let patientLedger: PatientConsentLedger | undefined;
@@ -447,7 +429,7 @@ export class ConsentService {
 
     return {
       overview,
-      recentReceipts: this.allReceipts.slice(0, 15),
+      recentReceipts: receipts.slice(0, 15),
       patientLedger
     };
   }
