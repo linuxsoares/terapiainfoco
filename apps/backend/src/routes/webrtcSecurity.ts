@@ -18,14 +18,15 @@ export const webrtcSecurityRoute = new Hono();
 
 // Autenticação e RBAC: Psicólogos titulares e Administradores (CFP 011/2018 & LGPD Art. 46)
 webrtcSecurityRoute.use('*', authMiddleware());
-const requireClinician = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 const webrtcService = WebRtcSecurityService.getInstance();
 
 /**
  * 1. Iniciar Auditoria de Sessão WebRTC com Fingerprint do Terapeuta
  */
-webrtcSecurityRoute.post('/session/initiate', requireClinician, async (c) => {
+webrtcSecurityRoute.post('/session/initiate', requireAdmin, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent') || 'Unknown';
@@ -69,7 +70,7 @@ webrtcSecurityRoute.post('/session/initiate', requireClinician, async (c) => {
 /**
  * 2. Validar Fingerprint do Paciente e Gerar Safety Numbers (Anti-MitM)
  */
-webrtcSecurityRoute.post('/session/verify-fingerprint', requireClinician, async (c) => {
+webrtcSecurityRoute.post('/session/verify-fingerprint', requireAdmin, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent') || 'Unknown';
@@ -118,7 +119,7 @@ webrtcSecurityRoute.post('/session/verify-fingerprint', requireClinician, async 
 /**
  * 3. Telemetria e Métricas de Qualidade Criptográfica (Jitter, Packet Loss, Bytes Cifrados)
  */
-webrtcSecurityRoute.post('/session/metrics', requireClinician, async (c) => {
+webrtcSecurityRoute.post('/session/metrics', requireAdmin, async (c) => {
   const body = await c.req.json<RecordWebRtcMetricsDTO>().catch(() => null);
 
   if (!body || !body.sessionId || typeof body.jitterMs !== 'number') {
@@ -160,7 +161,7 @@ webrtcSecurityRoute.post('/session/metrics', requireClinician, async (c) => {
 /**
  * 4. Encerrar Sessão e Gerar Selo WORM Probatório
  */
-webrtcSecurityRoute.post('/session/terminate', requireClinician, async (c) => {
+webrtcSecurityRoute.post('/session/terminate', requireAdmin, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent') || 'Unknown';
@@ -201,7 +202,7 @@ webrtcSecurityRoute.post('/session/terminate', requireClinician, async (c) => {
 /**
  * 5. Listar Sessões Auditadas
  */
-webrtcSecurityRoute.get('/sessions', requireClinician, (c) => {
+webrtcSecurityRoute.get('/sessions', requireAdmin, (c) => {
   const sessions = webrtcService.listSessions();
   const response: WebRtcSessionListResponse = {
     success: true,
@@ -215,7 +216,7 @@ webrtcSecurityRoute.get('/sessions', requireClinician, (c) => {
 /**
  * 6. Obter Detalhes de uma Sessão Auditada
  */
-webrtcSecurityRoute.get('/session/:sessionId', requireClinician, (c) => {
+webrtcSecurityRoute.get('/session/:sessionId', requireAdmin, (c) => {
   const sessionId = c.req.param('sessionId');
   const session = webrtcService.getSession(sessionId);
 

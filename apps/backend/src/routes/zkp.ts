@@ -13,12 +13,13 @@ import { ZkpService } from '../services/zkpService';
 export const zkpRoute = new Hono();
 
 const service = ZkpService.getInstance();
-const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
  * 1. Gerar Prova de Conhecimento Zero para Documento/Prontuário Assinado
  */
-zkpRoute.post('/generate', authMiddleware({ strict: true }), requireStaff, async (c) => {
+zkpRoute.post('/generate', authMiddleware({ strict: true }), requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<GenerateZkpProofDTO>();
@@ -96,7 +97,7 @@ zkpRoute.post('/verify', async (c) => {
 /**
  * 3. Listar Provas ZKP Emitidas
  */
-zkpRoute.get('/proofs', authMiddleware({ strict: true }), requireStaff, (c) => {
+zkpRoute.get('/proofs', authMiddleware({ strict: true }), requireAdmin, (c) => {
   const proofs = service.listProofs();
   const metrics = service.getMetrics();
 
@@ -112,7 +113,7 @@ zkpRoute.get('/proofs', authMiddleware({ strict: true }), requireStaff, (c) => {
 /**
  * 4. Obter Métricas do Subsistema ZKP
  */
-zkpRoute.get('/metrics', authMiddleware({ strict: true }), requireStaff, (c) => {
+zkpRoute.get('/metrics', authMiddleware({ strict: true }), requireAdmin, (c) => {
   const metrics = service.getMetrics();
   return c.json({ success: true, metrics }, 200);
 });

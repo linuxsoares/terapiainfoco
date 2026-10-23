@@ -11,8 +11,7 @@ import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 export const dlpRoutes = new Hono();
 
 const service = DlpService.getInstance();
-const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA, UserRole.ADMIN]);
-const requireClinicalOrAdmin = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
 const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
@@ -23,7 +22,7 @@ const requireAdmin = requireRoles([UserRole.ADMIN]);
 dlpRoutes.post(
   '/evaluate',
   authMiddleware({ strict: true }),
-  requireStaff,
+  requireAdmin,
   async (c) => {
     try {
       const dto = await c.req.json<EvaluateClipboardDlpDTO>();
@@ -73,7 +72,7 @@ dlpRoutes.post(
 dlpRoutes.post(
   '/inspect',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const dto = await c.req.json<InspectClipboardDlpDTO>();
@@ -121,6 +120,7 @@ dlpRoutes.post(
 dlpRoutes.get(
   '/overview',
   authMiddleware({ strict: true }),
+  requireAdmin,
   async (c) => {
     try {
       const overview = service.getOverview();

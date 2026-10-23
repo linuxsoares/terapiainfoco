@@ -59,12 +59,12 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
     secretaryToken = secretaryData.accessToken;
   });
 
-  it('deve permitir que psicólogo inicie a auditoria de sessão WebRTC com fingerprint DTLS', async () => {
+  it('deve permitir que o admin inicie a auditoria de sessão WebRTC com fingerprint DTLS', async () => {
     const res = await app.request('/api/teleconsultation/webrtc/session/initiate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         patientId: 'patient-456',
@@ -112,7 +112,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         patientId: 'patient-456',
@@ -127,7 +127,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId,
@@ -156,7 +156,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         patientId: 'patient-456',
@@ -169,7 +169,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: session.sessionId,
@@ -194,7 +194,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         patientId: 'patient-456',
@@ -207,7 +207,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: session.sessionId,
@@ -250,7 +250,7 @@ describe('WebRTC Security & DTLS Fingerprint Audit (RFC-001 §3.2, §4.4, §5.2 
 
     const targetSessionId = listBody.sessions[0].sessionId;
     const detailRes = await app.request(`/api/teleconsultation/webrtc/session/${targetSessionId}`, {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     expect(detailRes.status).toBe(200);
     const detailBody = await detailRes.json();

@@ -14,13 +14,12 @@ export const wafRoute = new Hono();
 
 // Autenticação obrigatória
 wafRoute.use('*', authMiddleware());
-const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
 const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
  * 1. Panorama Geral do WAF (Métricas e Incidentes Recentes)
  */
-wafRoute.get('/overview', requireStaff, (c) => {
+wafRoute.get('/overview', requireAdmin, (c) => {
   const metrics = wafService.getMetrics();
   const recentIncidents = wafService.getRecentIncidents(50);
 
@@ -36,7 +35,7 @@ wafRoute.get('/overview', requireStaff, (c) => {
 /**
  * 2. Inspecionar Manualmente um Payload Clínico ou Query String
  */
-wafRoute.post('/inspect', requireStaff, async (c) => {
+wafRoute.post('/inspect', requireAdmin, async (c) => {
   const body = await c.req.json<InspectPayloadDTO>().catch(() => null);
 
   if (!body || body.payload === undefined) {

@@ -73,7 +73,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-01',
@@ -108,7 +108,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-02',
@@ -122,7 +122,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-02',
@@ -145,7 +145,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-03',
@@ -166,7 +166,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-03',
@@ -188,7 +188,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-03',
@@ -216,7 +216,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-04',
@@ -229,7 +229,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-04',
@@ -249,7 +249,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${therapistToken}`
+        Authorization: `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         sessionId: 'sess-recovery-test-05',
@@ -258,7 +258,7 @@ describe('Clinical Session Disconnection & Automatic Reconnection API (RFC-001 Â
     });
 
     const metricsRes = await app.request('/api/teleconsultation/session-recovery/metrics', {
-      headers: { Authorization: `Bearer ${therapistToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
     expect(metricsRes.status).toBe(200);
     const metricsData = await metricsRes.json();

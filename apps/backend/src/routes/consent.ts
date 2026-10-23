@@ -14,7 +14,8 @@ export const consentRoutes = new Hono();
 const service = ConsentService.getInstance();
 const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA, UserRole.ADMIN]);
 const requireConsentOwnership = requireBodyOwnership({ allowDpo: true });
-const requireClinicalStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Painel agregado do ledger de consentimento: só o Admin/DPO
+const requireClinicalStaff = requireRoles([UserRole.ADMIN]);
 
 /**
  * POST /api/consent/grant

@@ -13,14 +13,15 @@ export const networkResilienceRoute = new Hono();
 
 // Autenticação obrigatória estrita
 networkResilienceRoute.use('*', authMiddleware({ strict: true }));
-const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 const service = NetworkResilienceService.getInstance();
 
 /**
  * 1. Presets Padronizados de Simulação de Rede Clínica
  */
-networkResilienceRoute.get('/presets', requireStaff, (c) => {
+networkResilienceRoute.get('/presets', requireAdmin, (c) => {
   const presets = service.getPresets();
   const response: NetworkSimulationPresetsResponse = {
     success: true,
@@ -32,7 +33,7 @@ networkResilienceRoute.get('/presets', requireStaff, (c) => {
 /**
  * 2. Executar Simulação de Resiliência de Rede & Degradação sob Demanda
  */
-networkResilienceRoute.post('/simulate', requireStaff, async (c) => {
+networkResilienceRoute.post('/simulate', requireAdmin, async (c) => {
   const user = c.get('user');
   const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
   const userAgent = c.req.header('user-agent') || 'Unknown';
@@ -59,7 +60,7 @@ networkResilienceRoute.post('/simulate', requireStaff, async (c) => {
 /**
  * 3. Histórico de Simulações e Métricas Agregadas
  */
-networkResilienceRoute.get('/history', requireStaff, (c) => {
+networkResilienceRoute.get('/history', requireAdmin, (c) => {
   const limitParam = c.req.query('limit');
   const limit = limitParam ? parseInt(limitParam, 10) : 20;
 
@@ -78,7 +79,7 @@ networkResilienceRoute.get('/history', requireStaff, (c) => {
 /**
  * 4. Métricas Consolidadas de Resiliência
  */
-networkResilienceRoute.get('/metrics', requireStaff, (c) => {
+networkResilienceRoute.get('/metrics', requireAdmin, (c) => {
   const metrics = service.getMetrics();
   return c.json({
     success: true,

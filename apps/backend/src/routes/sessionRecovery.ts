@@ -19,14 +19,15 @@ export const sessionRecoveryRoute = new Hono();
 sessionRecoveryRoute.use('*', authMiddleware({ strict: true }));
 
 // Acesso concedido a psicólogos e administradores
-const requireStaff = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 const service = SessionRecoveryService.getInstance();
 
 /**
  * 1. Iniciar monitoramento de resiliência e estado da sessão clínica
  */
-sessionRecoveryRoute.post('/start', requireStaff, async (c) => {
+sessionRecoveryRoute.post('/start', requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<StartSessionMonitoringDTO>();
@@ -61,7 +62,7 @@ sessionRecoveryRoute.post('/start', requireStaff, async (c) => {
 /**
  * 2. Enviar batimento cardíaco (Heartbeat) periódico da sessão
  */
-sessionRecoveryRoute.post('/heartbeat', requireStaff, async (c) => {
+sessionRecoveryRoute.post('/heartbeat', requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<SessionHeartbeatDTO>();
@@ -85,7 +86,7 @@ sessionRecoveryRoute.post('/heartbeat', requireStaff, async (c) => {
 /**
  * 3. Notificar ou simular desconexão abrupta da teleconsulta
  */
-sessionRecoveryRoute.post('/disconnect', requireStaff, async (c) => {
+sessionRecoveryRoute.post('/disconnect', requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<TriggerSessionDisconnectionDTO>();
@@ -122,7 +123,7 @@ sessionRecoveryRoute.post('/disconnect', requireStaff, async (c) => {
 /**
  * 4. Tentar reconexão com token HMAC e restaurar snapshot
  */
-sessionRecoveryRoute.post('/reconnect', requireStaff, async (c) => {
+sessionRecoveryRoute.post('/reconnect', requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<AttemptSessionReconnectDTO>();
@@ -159,7 +160,7 @@ sessionRecoveryRoute.post('/reconnect', requireStaff, async (c) => {
 /**
  * 5. Concluir a sessão normalmente
  */
-sessionRecoveryRoute.post('/complete', requireStaff, async (c) => {
+sessionRecoveryRoute.post('/complete', requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const body = await c.req.json<CompleteClinicalSessionDTO>();
@@ -183,7 +184,7 @@ sessionRecoveryRoute.post('/complete', requireStaff, async (c) => {
 /**
  * 6. Listar sessões monitoradas e métricas globais
  */
-sessionRecoveryRoute.get('/sessions', requireStaff, (c) => {
+sessionRecoveryRoute.get('/sessions', requireAdmin, (c) => {
   const sessions = service.listSessions();
   const metrics = service.getMetrics();
 
@@ -199,7 +200,7 @@ sessionRecoveryRoute.get('/sessions', requireStaff, (c) => {
 /**
  * 7. Obter sessão específica
  */
-sessionRecoveryRoute.get('/sessions/:id', requireStaff, (c) => {
+sessionRecoveryRoute.get('/sessions/:id', requireAdmin, (c) => {
   const sessionId = c.req.param('id');
   const session = service.getSession(sessionId);
 
@@ -213,7 +214,7 @@ sessionRecoveryRoute.get('/sessions/:id', requireStaff, (c) => {
 /**
  * 8. Obter métricas de recuperação
  */
-sessionRecoveryRoute.get('/metrics', requireStaff, (c) => {
+sessionRecoveryRoute.get('/metrics', requireAdmin, (c) => {
   const metrics = service.getMetrics();
   return c.json({ success: true, metrics }, 200);
 });

@@ -11,7 +11,8 @@ import { authMiddleware, requireRoles } from '../middlewares/authMiddleware';
 export const clinicalNotaryRoutes = new Hono();
 
 const service = ClinicalNotaryService.getInstance();
-const requireClinicalOrAdmin = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN]);
+// Ferramenta de operação da plataforma: só o Admin/DPO (RFC-001 §4.5)
+const requireAdmin = requireRoles([UserRole.ADMIN]);
 
 /**
  * POST /api/notary/seal
@@ -21,7 +22,7 @@ const requireClinicalOrAdmin = requireRoles([UserRole.PSICOLOGO_TITULAR, UserRol
 clinicalNotaryRoutes.post(
   '/seal',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const dto = await c.req.json<SealClinicalRecordDTO>();
@@ -111,7 +112,7 @@ clinicalNotaryRoutes.post('/verify', async (c) => {
 clinicalNotaryRoutes.get(
   '/patient/:patientId',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const patientId = c.req.param('patientId');
@@ -144,7 +145,7 @@ clinicalNotaryRoutes.get(
 clinicalNotaryRoutes.post(
   '/certificate',
   authMiddleware({ strict: true }),
-  requireClinicalOrAdmin,
+  requireAdmin,
   async (c) => {
     try {
       const dto = await c.req.json<IssueNotaryCertificateDTO>();
@@ -191,6 +192,7 @@ clinicalNotaryRoutes.post(
 clinicalNotaryRoutes.get(
   '/overview',
   authMiddleware({ strict: true }),
+  requireAdmin,
   async (c) => {
     try {
       const overview = service.getOverview();

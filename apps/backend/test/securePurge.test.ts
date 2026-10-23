@@ -28,7 +28,7 @@ describe('Expurgamento Criptográfico e Descarte Seguro de Dados API (LGPD Art. 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'psicologo@terapiainfoco.com.br',
+        email: 'admin@terapiainfoco.com.br',
         password: 'Senha@123456'
       })
     });
