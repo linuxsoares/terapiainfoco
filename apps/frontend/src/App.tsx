@@ -351,18 +351,30 @@ export default function App() {
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-base sm:text-lg shadow-lg shadow-teal-500/20 shrink-0">
-              Ψ
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-bold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">TerapiaInFoco</span>
-                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
-                  {isPatient ? 'Portal do Paciente' : currentUser.role === UserRole.ADMIN ? 'Painel DPO / Admin' : 'Painel Clínico'}
+            {/* Logo: volta à tela inicial do perfil */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab(defaultModule(currentUser.role));
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-2 sm:gap-3 text-left rounded-xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
+              aria-label="Ir para a tela inicial"
+              title="Tela inicial"
+            >
+              <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-base sm:text-lg shadow-lg shadow-teal-500/20 shrink-0">
+                Ψ
+              </span>
+              <span className="block">
+                <span className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="font-bold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">TerapiaInFoco</span>
+                  <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
+                    {isPatient ? 'Portal do Paciente' : currentUser.role === UserRole.ADMIN ? 'Painel DPO / Admin' : 'Painel Clínico'}
+                  </span>
                 </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">Gestão clínica e teleconsulta</p>
-            </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">Gestão clínica e teleconsulta</span>
+              </span>
+            </button>
           </div>
 
           {/* Controles do Topo: tema, anti-shoulder surfing e menu da conta (perfil, vitrine, sair) */}
