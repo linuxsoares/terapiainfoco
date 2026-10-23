@@ -413,6 +413,17 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
                             Série #{app.sequenceNumber || 1} ({app.recurrenceFrequency || 'WEEKLY'})
                           </span>
                         )}
+                        {app.patientConfirmedAt && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            Presença confirmada
+                          </span>
+                        )}
+                        {!app.patientConfirmedAt && app.reminderStatus === 'SENT' && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/30">
+                            Lembrete enviado
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">

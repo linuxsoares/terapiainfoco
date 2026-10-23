@@ -47,6 +47,7 @@ import { TeleconsultationRoom } from './components/TeleconsultationRoom';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { PasswordResetScreen } from './components/PasswordResetScreen';
+import { AppointmentLinkScreen } from './components/AppointmentLinkScreen';
 import { EmailVerificationBanner, FlashNoticeToast, type FlashNotice } from './components/EmailVerificationNotice';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PatientPortalModal } from './components/PatientPortalModal';
@@ -151,6 +152,8 @@ export default function App() {
   const [restoringSession, setRestoringSession] = useState<boolean>(() => hasStoredSession());
   // Link de recuperação de senha enviado por e-mail (?redefinir-senha=<token>)
   const [passwordResetToken, setPasswordResetToken] = useState<string | null>(() => urlParam('redefinir-senha'));
+  // Link do lembrete de consulta (?consulta=<token>): confirmar presença ou cancelar, sem login
+  const [appointmentLinkToken, setAppointmentLinkToken] = useState<string | null>(() => urlParam('consulta'));
   const [flashNotice, setFlashNotice] = useState<FlashNotice | null>(null);
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
@@ -234,6 +237,14 @@ export default function App() {
     setActiveTab(lastTab && canViewModule(user.role, lastTab) ? lastTab : defaultModule(user.role));
   };
 
+  // O token do lembrete fica só no estado: sai da URL (histórico e eventual compartilhamento da tela)
+  useEffect(() => {
+    if (!urlParam('consulta')) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('consulta');
+    window.history.replaceState(null, '', url.toString());
+  }, []);
+
   // Link de confirmação de e-mail (?verificar-email=<token>): confirma e tira o token da URL
   useEffect(() => {
     const token = urlParam('verificar-email');
@@ -308,6 +319,10 @@ export default function App() {
       : NAV_ITEMS[module];
 
   // Se estiver na Vitrine Pública Sem Login, exibe a página completa de apresentação da ferramenta
+  if (appointmentLinkToken) {
+    return <AppointmentLinkScreen token={appointmentLinkToken} onDone={() => setAppointmentLinkToken(null)} />;
+  }
+
   if (passwordResetToken) {
     return (
       <PasswordResetScreen

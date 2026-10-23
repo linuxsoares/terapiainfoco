@@ -84,6 +84,8 @@ export const appointments = pgTable('appointments', {
   /** Lembretes de teleconsulta (RFC-001 §3.1) */
   reminderStatus: varchar('reminder_status', { length: 20 }),
   lastReminderSentAt: timestamp('last_reminder_sent_at', { withTimezone: true }),
+  /** Paciente confirmou presença pelo link do lembrete */
+  patientConfirmedAt: timestamp('patient_confirmed_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [

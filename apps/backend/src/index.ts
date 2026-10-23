@@ -81,6 +81,7 @@ import { wafMiddleware } from './middlewares/wafMiddleware';
 import { getDb } from './db';
 import { BackupService } from './services/backupService';
 import { persistence } from './db/memoryDb';
+import { startAppointmentReminderScheduler } from './services/appointmentReminderService';
 import { persistenceMiddleware } from './middlewares/persistenceMiddleware';
 
 export const app = new Hono();
@@ -274,6 +275,9 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     void persistence.detach().finally(() => process.exit(0));
   });
 }
+
+// Lembretes de consulta por e-mail (48h antes, com confirmar/cancelar)
+if (process.env.NODE_ENV !== 'test') startAppointmentReminderScheduler();
 
 console.log(`🚀 TerapiaInFoco Backend rodando na porta ${config.port}`);
 

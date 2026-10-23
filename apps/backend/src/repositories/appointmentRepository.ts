@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, inArray, lt, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, lt, lte, notInArray, sql, type SQL } from 'drizzle-orm';
 import { getDb, schema, type AppDb } from '../db';
 import {
   AppointmentStatus,
@@ -36,6 +36,7 @@ function toAppointment(row: AppointmentRow): StoredAppointment {
     recurrenceFrequency: (row.recurrenceFrequency as RecurrenceFrequency | null) ?? undefined,
     reminderStatus: (row.reminderStatus as ReminderDeliveryStatus | null) ?? undefined,
     lastReminderSentAt: row.lastReminderSentAt ?? undefined,
+    patientConfirmedAt: row.patientConfirmedAt ?? undefined,
     createdAt: row.createdAt
   };
 }
@@ -54,6 +55,7 @@ function toRow(appointment: StoredAppointment): AppointmentInsert {
     recurrenceFrequency: appointment.recurrenceFrequency ?? null,
     reminderStatus: appointment.reminderStatus ?? null,
     lastReminderSentAt: toDate(appointment.lastReminderSentAt),
+    patientConfirmedAt: toDate(appointment.patientConfirmedAt),
     createdAt: toDate(appointment.createdAt) ?? new Date()
   };
 }
@@ -94,6 +96,30 @@ export const AppointmentRepository = {
       lt(schema.appointments.scheduledStart, to),
       gt(schema.appointments.scheduledEnd, from)
     ));
+    return rows.map(toAppointment);
+  },
+
+  /**
+   * Reserva, de forma atômica, as consultas confirmadas que entram na janela do lembrete
+   * (início em até `leadMs`) e ainda não o receberam para o horário atual. Consultas marcadas
+   * já dentro da janela ficam de fora: o e-mail de agendamento acabou de chegar.
+   * O UPDATE ... RETURNING garante um único envio mesmo com várias instâncias.
+   */
+  async claimDueReminders(now: Date, leadMs: number): Promise<StoredAppointment[]> {
+    const windowEnd = new Date(now.getTime() + leadMs);
+    const leadSeconds = Math.round(leadMs / 1000);
+    const t = schema.appointments;
+    const db: any = await getDb();
+    const rows: AppointmentRow[] = await db.update(t)
+      .set({ reminderStatus: 'SENT', lastReminderSentAt: now })
+      .where(and(
+        eq(t.status, AppointmentStatus.CONFIRMADA),
+        gt(t.scheduledStart, now),
+        lte(t.scheduledStart, windowEnd),
+        sql`${t.createdAt} < ${t.scheduledStart} - make_interval(secs => ${leadSeconds})`,
+        sql`(${t.lastReminderSentAt} is null or ${t.lastReminderSentAt} < ${t.scheduledStart} - make_interval(secs => ${leadSeconds}))`
+      ))
+      .returning();
     return rows.map(toAppointment);
   },
 
