@@ -20,7 +20,7 @@ describe('ClinicalRecordRepository (ADR-004 fase 2)', () => {
   it('rascunho e assinatura gravam no banco com o SOAP cifrado', async () => {
     const draft = await ClinicalRecordService.saveDraft({
       appointmentId: 'consulta-1', patientId: 'paciente-1', therapistId: 'consultorio-a',
-      sessionNumber: 1, soap, privateNotes: 'Nota privada', context
+      soap, privateNotes: 'Nota privada', context
     });
     const stored = (await ClinicalRecordRepository.findById(draft.id))!;
     expect(stored.isSigned).toBe(false);
@@ -36,11 +36,11 @@ describe('ClinicalRecordRepository (ADR-004 fase 2)', () => {
 
   it('consulta com prontuário assinado não aceita novo rascunho (CFP nº 001/2009)', async () => {
     const draft = await ClinicalRecordService.saveDraft({
-      appointmentId: 'consulta-2', patientId: 'paciente-1', therapistId: 'consultorio-a', sessionNumber: 1, soap, context
+      appointmentId: 'consulta-2', patientId: 'paciente-1', therapistId: 'consultorio-a', soap, context
     });
     await ClinicalRecordService.signRecord({ recordId: draft.id, confirmedHumanReview: true, context });
     await expect(ClinicalRecordService.saveDraft({
-      appointmentId: 'consulta-2', patientId: 'paciente-1', therapistId: 'consultorio-a', sessionNumber: 1, soap, context
+      appointmentId: 'consulta-2', patientId: 'paciente-1', therapistId: 'consultorio-a', soap, context
     })).rejects.toThrow('já assinado e imutável');
     expect(await ClinicalRecordRepository.count({ appointmentId: 'consulta-2' })).toBe(1);
   });

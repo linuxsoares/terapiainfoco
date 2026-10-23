@@ -270,7 +270,6 @@ export class SyntheticService {
           appointmentId: createdAppointmentId,
           patientId: testPatientId,
           therapistId: SYNTHETIC_PROBE_THERAPIST_ID,
-          sessionNumber: 1,
           soap: proposal.soap,
           privateNotes: 'Notas confidenciais segregadas sob sigilo ético (RFC §3.4)',
           context: PROBE_CONTEXT
