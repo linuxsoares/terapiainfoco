@@ -705,6 +705,7 @@ export default function App() {
                       currentUser={currentUser}
                       onUserUpdated={setCurrentUser}
                       onSwitchRole={quickDemoLogin}
+                      demoMode={demoMode}
                     />
                   )}
                   {currentTab === 'backups' && (
