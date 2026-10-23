@@ -20,6 +20,38 @@ import { backupObjectKey, createBackupObjectStorage, type BackupObjectStorage } 
 
 import { AppointmentRepository } from '../repositories/appointmentRepository';
 import { ClinicalRecordRepository } from '../repositories/clinicalRecordRepository';
+import { getDb, schema } from '../db';
+import { MAP_COLLECTIONS } from '../db/memoryDb';
+
+/** v2: todas as tabelas e coleções (v1 cobria só 8) */
+const BACKUP_FORMAT_VERSION = '2.0';
+
+/**
+ * Fora do backup: desafios WebAuthn e salas de teleconsulta (efêmeros) e o estado do KMS
+ * (restaurar uma versão antiga de chaves poderia impedir a leitura de dados cifrados depois).
+ * Tokens de e-mail (`auth_tokens`) também ficam de fora: vencem em minutos ou horas.
+ */
+const BACKUP_EXCLUDED_COLLECTIONS: ReadonlySet<string> = new Set(['webauthnChallenges', 'teleconsultationRooms', 'kmsState']);
+export const BACKUP_COLLECTIONS = MAP_COLLECTIONS.filter((name) => !BACKUP_EXCLUDED_COLLECTIONS.has(name));
+
+async function dumpTherapistProfiles(): Promise<Record<string, unknown>[]> {
+  const conn: any = await getDb();
+  const rows: Record<string, unknown>[] = await conn.select().from(schema.therapistProfiles);
+  // searchVector é coluna gerada pelo banco
+  return rows.map(({ searchVector: _searchVector, ...row }) => row);
+}
+
+async function restoreTherapistProfiles(rows: Record<string, any>[]): Promise<void> {
+  const conn: any = await getDb();
+  await conn.delete(schema.therapistProfiles);
+  if (rows.length === 0) return;
+  await conn.insert(schema.therapistProfiles).values(rows.map((row) => ({
+    ...row,
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
+    crpVerifiedAt: row.crpVerifiedAt ? new Date(row.crpVerifiedAt) : null
+  })));
+}
 interface StoredBackupSnapshot {
   metadata: BackupSnapshotMetadata;
   envelope: EnvelopeEncryptedData;
@@ -128,51 +160,44 @@ export class BackupService {
     ipAddress: string;
     userAgent?: string;
   }): Promise<CreateBackupResponse> {
-    // 1. Extração de todas as tabelas e coleções relacionais
-    const therapists = Array.from(db.therapists.values());
-    const patients = await PatientRepository.list();
-    const appointments = await AppointmentRepository.list();
-    const clinicalRecords = await ClinicalRecordRepository.list();
-    const documents = Array.from(db.documents.values());
-    const sessionTranscriptions = Array.from(db.sessionTranscriptions.values());
-    const users = await UserRepository.list();
+    // 1. Tabelas SQL, coleções do cache de domínio (entity_store) e trilha de auditoria
+    const sqlTables = {
+      users: await UserRepository.list(),
+      patients: await PatientRepository.list(),
+      appointments: await AppointmentRepository.list(),
+      clinicalRecords: await ClinicalRecordRepository.list(),
+      therapistProfiles: await dumpTherapistProfiles()
+    };
+    const collections: Record<string, [string, unknown][]> = {};
+    for (const name of BACKUP_COLLECTIONS) {
+      collections[name] = [...(db[name] as Map<string, unknown>).entries()];
+    }
     const auditLogs = [...db.auditLogs];
 
+    const byCollection: Record<string, number> = {
+      ...Object.fromEntries(Object.entries(sqlTables).map(([name, rows]) => [name, rows.length])),
+      ...Object.fromEntries(Object.entries(collections).map(([name, entries]) => [name, entries.length])),
+      auditLogs: auditLogs.length
+    };
     const entitiesCount: BackupEntitiesSummary = {
-      therapists: therapists.length,
-      patients: patients.length,
-      appointments: appointments.length,
-      clinicalRecords: clinicalRecords.length,
-      documents: documents.length,
-      sessionTranscriptions: sessionTranscriptions.length,
-      users: users.length,
+      therapists: collections.therapists.length,
+      patients: sqlTables.patients.length,
+      appointments: sqlTables.appointments.length,
+      clinicalRecords: sqlTables.clinicalRecords.length,
+      documents: collections.documents.length,
+      sessionTranscriptions: collections.sessionTranscriptions.length,
+      users: sqlTables.users.length,
       auditLogs: auditLogs.length,
-      totalEntities:
-        therapists.length +
-        patients.length +
-        appointments.length +
-        clinicalRecords.length +
-        documents.length +
-        sessionTranscriptions.length +
-        users.length +
-        auditLogs.length
+      byCollection,
+      totalEntities: Object.values(byCollection).reduce((sum, n) => sum + n, 0)
     };
 
-    // 2. Dump estruturado canônico
+    // 2. Dump estruturado canônico (v2: todas as coleções)
     const rawDump = {
-      version: '1.0',
+      version: BACKUP_FORMAT_VERSION,
       exportedAt: new Date().toISOString(),
       databaseVersion: 'drizzle-pglite-rfc001-v1',
-      data: {
-        therapists,
-        patients,
-        appointments,
-        clinicalRecords,
-        documents,
-        sessionTranscriptions,
-        users,
-        auditLogs
-      }
+      data: { ...sqlTables, collections, auditLogs }
     };
 
     const dumpJson = JSON.stringify(rawDump);
@@ -324,12 +349,7 @@ export class BackupService {
       throw new Error('Dump corrompido ou incompatível.');
     }
 
-    // 2. Restabelecimento completo do banco de dados em memória / produção
-    db.therapists.clear();
-    for (const t of dump.data.therapists || []) {
-      db.therapists.set(t.id, t);
-    }
-
+    // 2. Restabelecimento das tabelas SQL
     await PatientRepository.deleteAll();
     await PatientRepository.upsertMany(dump.data.patients || []);
 
@@ -339,18 +359,27 @@ export class BackupService {
     await ClinicalRecordRepository.deleteAll();
     await ClinicalRecordRepository.upsertMany(dump.data.clinicalRecords || []);
 
-    db.documents.clear();
-    for (const d of dump.data.documents || []) {
-      db.documents.set(d.id, d);
-    }
-
-    db.sessionTranscriptions.clear();
-    for (const s of dump.data.sessionTranscriptions || []) {
-      db.sessionTranscriptions.set(s.id, s);
-    }
-
     await UserRepository.deleteAll();
     await UserRepository.upsertMany(dump.data.users || []);
+
+    // Snapshots v1 não tinham perfis públicos: nesse caso os atuais são mantidos
+    if (Array.isArray(dump.data.therapistProfiles)) {
+      await restoreTherapistProfiles(dump.data.therapistProfiles);
+    }
+
+    // 3. Coleções do cache de domínio: v2 traz todas; v1 só terapeutas, documentos e transcrições
+    const collections: Record<string, [string, unknown][]> = dump.data.collections ?? {
+      therapists: (dump.data.therapists || []).map((t: { id: string }) => [t.id, t]),
+      documents: (dump.data.documents || []).map((d: { id: string }) => [d.id, d]),
+      sessionTranscriptions: (dump.data.sessionTranscriptions || []).map((t: { id: string }) => [t.id, t])
+    };
+    for (const name of BACKUP_COLLECTIONS) {
+      const entries = collections[name];
+      if (!entries) continue;
+      const target = db[name] as Map<string, unknown>;
+      target.clear();
+      for (const [key, value] of entries) target.set(key, value);
+    }
 
     db.auditLogs = [...(dump.data.auditLogs || [])];
 

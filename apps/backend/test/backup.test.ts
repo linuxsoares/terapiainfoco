@@ -286,4 +286,35 @@ describe('Backup Criptografado & Disaster Recovery com KMS (RFC-001 Opção G)',
     });
     expect(unauthRes.status).toBe(401);
   });
+
+  it('cobre todas as coleções do cache de domínio e os perfis públicos, exceto o estado efêmero e o KMS', async () => {
+    const { getDb, schema } = await import('../src/db');
+    const { BACKUP_COLLECTIONS } = await import('../src/services/backupService');
+    expect(BACKUP_COLLECTIONS).toEqual(expect.arrayContaining(['receipts', 'therapeuticGoals', 'leads', 'feeContracts', 'reminders']));
+    for (const excluded of ['kmsState', 'webauthnChallenges', 'teleconsultationRooms']) {
+      expect(BACKUP_COLLECTIONS).not.toContain(excluded);
+    }
+
+    db.leads.set('lead-backup', { id: 'lead-backup', name: 'Lead do backup' } as any);
+    db.therapeuticGoals.set('goal-backup', { id: 'goal-backup', title: 'Meta do backup' } as any);
+    const conn: any = await getDb();
+    const profilesBefore = await conn.select().from(schema.therapistProfiles);
+    expect(profilesBefore.length).toBeGreaterThan(0);
+
+    const { backup } = await (await app.request('/api/backups', { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` } })).json();
+    expect(backup.entitiesCount.byCollection.leads).toBeGreaterThanOrEqual(1);
+    expect(backup.entitiesCount.byCollection.therapistProfiles).toBe(profilesBefore.length);
+
+    // Desastre: coleções e perfis apagados
+    db.leads.clear();
+    db.therapeuticGoals.clear();
+    await conn.delete(schema.therapistProfiles);
+
+    const restoreRes = await app.request(`/api/backups/${backup.id}/restore`, { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` } });
+    expect(restoreRes.status).toBe(200);
+    expect((db.leads.get('lead-backup') as any)?.name).toBe('Lead do backup');
+    expect((db.therapeuticGoals.get('goal-backup') as any)?.title).toBe('Meta do backup');
+    const profilesAfter = await conn.select().from(schema.therapistProfiles);
+    expect(profilesAfter.map((p: any) => p.slug).sort()).toEqual(profilesBefore.map((p: any) => p.slug).sort());
+  });
 });
