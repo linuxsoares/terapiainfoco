@@ -50,3 +50,40 @@ export function emailVerificationEmail(name: string, link: string): EmailContent
     )
   };
 }
+
+export interface ScheduledSession {
+  /** Data e hora já formatadas no fuso do consultório */
+  when: string;
+  roomLink: string;
+}
+
+/** Até quantas sessões de uma série aparecem listadas no e-mail */
+const MAX_LISTED_SESSIONS = 12;
+
+export function appointmentScheduledEmail(patientName: string, therapistName: string, sessions: ScheduledSession[]): EmailContent {
+  const first = patientName.split(' ')[0] || patientName;
+  const listed = sessions.slice(0, MAX_LISTED_SESSIONS);
+  const remaining = sessions.length - listed.length;
+  const isSeries = sessions.length > 1;
+  const intro = isSeries
+    ? `Suas ${sessions.length} sessões com ${therapistName} foram agendadas:`
+    : `Sua sessão com ${therapistName} foi agendada para ${sessions[0].when}.`;
+  const closing = 'A sessão é por teleconsulta: entre pelo link no horário marcado, com o login da sua conta. Para remarcar ou cancelar, fale com seu psicólogo.';
+
+  const textLines = isSeries
+    ? listed.map((s) => `- ${s.when}: ${s.roomLink}`).concat(remaining > 0 ? [`- e mais ${remaining} sessões`] : [])
+    : [`Link da sala: ${sessions[0].roomLink}`];
+
+  const htmlList = isSeries
+    ? `<ul style="margin:0;padding-left:20px">${listed.map((s) => `<li style="margin-bottom:6px">${escapeHtml(s.when)} · <a href="${escapeHtml(s.roomLink)}">entrar na sala</a></li>`).join('')}${remaining > 0 ? `<li>e mais ${remaining} sessões</li>` : ''}</ul>`
+    : '';
+
+  return {
+    subject: isSeries ? `Sessões agendadas com ${therapistName}` : `Sessão agendada com ${therapistName}`,
+    text: `Olá, ${first}.\n\n${intro}\n${textLines.join('\n')}\n\n${closing}`,
+    html: layout(
+      [`Olá, ${escapeHtml(first)}.`, escapeHtml(intro), ...(htmlList ? [htmlList] : []), escapeHtml(closing)],
+      isSeries ? undefined : { label: 'Entrar na sala no horário', href: sessions[0].roomLink }
+    )
+  };
+}

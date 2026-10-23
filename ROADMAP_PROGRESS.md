@@ -2428,7 +2428,7 @@ terapiainfoco/
 #### 🎯 Marco V0 — Definição
 **Um(a) psicólogo(a) pessoa física atende sozinho(a), com pacientes reais, do primeiro contato ao recibo.** Bloqueadores, em ordem:
 
-1. [ ] **E-mail transacional:** provedor de e-mail configurável, recuperação de senha por link de uso único, verificação de e-mail no cadastro e confirmação de agendamento ao paciente.
+1. [x] **E-mail transacional (PRs #181–#183):** provedor configurável (Resend; `log` fora de produção), recuperação de senha por link de uso único, confirmação de e-mail no cadastro e aviso de agendamento ao paciente. **Em produção exige `RESEND_API_KEY` e `EMAIL_FROM` com domínio verificado.**
 2. [ ] **Lembretes de verdade:** envio automático por e-mail (WhatsApp por provedor oficial em seguida); hoje só se gera um link `wa.me` e o lembrete é marcado como enviado. O paciente confirma ou cancela pelo link.
 3. [ ] **Financeiro mínimo:** valor por sessão, marcar como pago, contas a receber e relatório mensal com os campos do Receita Saúde (CPF do pagador e do beneficiário, valor, data, descrição) para o lançamento pelo psicólogo PF; NFS-e fica para PJ no V1.
 4. [ ] **Honestidade do que é simulado:** a assinatura "ICP-Brasil" e o carimbo do tempo usam chave efêmera e TSA simulado; não apresentá-los como ICP-Brasil enquanto não houver provedor real. Esconder ou remover os módulos de segurança apenas demonstrativos do painel Admin (43 serviços com partes simuladas).
