@@ -54,7 +54,7 @@ import { PrivacyProvider } from './contexts/PrivacyContext';
 import { PrivacyBanner, PrivacyToggleButton } from './components/PrivacyBanner';
 import { api, hasStoredSession } from './services/api';
 import type { SafeUser, AppModule } from '@terapiainfoco/shared';
-import { UserRole, APP_MODULES, canViewModule, defaultModule, visibleModules } from '@terapiainfoco/shared';
+import { UserRole, APP_MODULES, TELECONSULTATION_ROLES, canViewModule, defaultModule, visibleModules } from '@terapiainfoco/shared';
 
 const DEMO_USERS: Record<UserRole, { email: string; name: string; crp?: string; patientId?: string; roleName: string }> = {
   [UserRole.PSICOLOGO_TITULAR]: {
@@ -119,7 +119,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: 'Administrador(a)'
 };
 
-const ROOM_ROLES: readonly UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO];
 
 /** Itens de navegação; a visibilidade por perfil vem de MODULE_ACCESS (@terapiainfoco/shared) */
 const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLabel: string; icon: LucideIcon; iconClass: string }> = {
@@ -627,7 +626,7 @@ export default function App() {
         </div>
 
         {/* Só paciente e quem atende entram na sala; recepção e admin não têm papel na chamada */}
-        {roomAppointmentId && ROOM_ROLES.includes(currentUser.role) && (
+        {roomAppointmentId && TELECONSULTATION_ROLES.includes(currentUser.role) && (
           <TeleconsultationRoom
             appointmentId={roomAppointmentId}
             role={currentUser.role === UserRole.PACIENTE ? 'PATIENT' : 'THERAPIST'}

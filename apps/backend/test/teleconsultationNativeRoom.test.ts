@@ -270,6 +270,18 @@ describe('Evolução de Produto RFC-001: Teleconsulta Nativa WebRTC & Sala de Es
       expect((await post('/knock', await headersFor(PSICOLOGA_ID), { appointmentId })).status).toBe(403);
     });
 
+    it('recepção do consultório não entra na sala nem lê a sinalização WebRTC', async () => {
+      const RECEPCAO_ID = '00000000-0000-0000-0000-000000000003';
+      const headers = await headersFor(RECEPCAO_ID);
+      const base = '/api/teleconsultation/session';
+      for (const path of ['/ice-servers', `/room/${appointmentId}`, `/signal/${appointmentId}`, `/transcription/status/${appointmentId}`]) {
+        expect({ path, status: (await app.request(base + path, { headers })).status }).toEqual({ path, status: 403 });
+      }
+      for (const path of ['/signal', '/hardware-sync', '/transcription/chunk', '/quality']) {
+        expect({ path, status: (await post(path, headers, { appointmentId })).status }).toEqual({ path, status: 403 });
+      }
+    });
+
     it('servidores ICE vêm da configuração do ambiente', async () => {
       const res = await app.request('/api/teleconsultation/session/ice-servers', { headers: await headersFor(PATIENT_USER_ID) });
       const body = await res.json() as any;
