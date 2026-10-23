@@ -25,6 +25,10 @@ export function toDecryptedAppointment(app: StoredAppointment): DecryptedAppoint
     reminderStatus: app.reminderStatus,
     lastReminderSentAt: app.lastReminderSentAt,
     patientConfirmedAt: app.patientConfirmedAt,
+    feeCents: app.feeCents,
+    paymentStatus: app.paymentStatus,
+    paidAt: app.paidAt,
+    paymentMethod: app.paymentMethod,
     createdAt: app.createdAt,
     roomUrl: teleconsultationRoomUrl(app.id)
   };

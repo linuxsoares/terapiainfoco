@@ -11,6 +11,7 @@ export const APP_MODULES = [
   'patients',
   'soap',
   'documents',
+  'finance',
   'publicProfile',
   'audit',
   'crpVerification',
@@ -38,6 +39,8 @@ export const MODULE_ACCESS: Record<AppModule, readonly UserRole[]> = {
   patients: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO, UserRole.RECEPCAO_SECRETARIA],
   soap: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
   documents: [UserRole.PSICOLOGO_TITULAR, UserRole.SUPERVISOR_CLINICO],
+  // Valores, pagamentos e relatório para o Receita Saúde (sem conteúdo clínico)
+  finance: [UserRole.PSICOLOGO_TITULAR, UserRole.RECEPCAO_SECRETARIA],
   // Perfil exibido na busca de psicólogos
   publicProfile: [UserRole.PSICOLOGO_TITULAR],
   audit: [UserRole.PSICOLOGO_TITULAR, UserRole.ADMIN],
@@ -68,6 +71,9 @@ export const TELECONSULTATION_ROLES: UserRole[] = [
   UserRole.PSICOLOGO_TITULAR,
   UserRole.SUPERVISOR_CLINICO
 ];
+
+/** Quem registra pagamentos e vê o financeiro do consultório */
+export const FINANCE_ROLES: UserRole[] = [...MODULE_ACCESS.finance];
 
 export function canViewModule(role: UserRole, module: AppModule): boolean {
   return MODULE_ACCESS[module].includes(role);

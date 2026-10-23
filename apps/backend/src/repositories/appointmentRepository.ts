@@ -2,6 +2,8 @@ import { and, asc, count, eq, gt, inArray, lt, lte, notInArray, sql, type SQL } 
 import { getDb, schema, type AppDb } from '../db';
 import {
   AppointmentStatus,
+  SessionPaymentStatus,
+  type PaymentMethod,
   type RecurrenceFrequency,
   type ReminderDeliveryStatus,
   type StoredAppointment
@@ -37,6 +39,11 @@ function toAppointment(row: AppointmentRow): StoredAppointment {
     reminderStatus: (row.reminderStatus as ReminderDeliveryStatus | null) ?? undefined,
     lastReminderSentAt: row.lastReminderSentAt ?? undefined,
     patientConfirmedAt: row.patientConfirmedAt ?? undefined,
+    feeCents: row.feeCents ?? undefined,
+    paymentStatus: row.paymentStatus as SessionPaymentStatus,
+    paidAt: row.paidAt ?? undefined,
+    paymentMethod: (row.paymentMethod as PaymentMethod | null) ?? undefined,
+    encryptedPayer: row.encryptedPayer ?? undefined,
     createdAt: row.createdAt
   };
 }
@@ -56,6 +63,11 @@ function toRow(appointment: StoredAppointment): AppointmentInsert {
     reminderStatus: appointment.reminderStatus ?? null,
     lastReminderSentAt: toDate(appointment.lastReminderSentAt),
     patientConfirmedAt: toDate(appointment.patientConfirmedAt),
+    feeCents: appointment.feeCents ?? null,
+    paymentStatus: appointment.paymentStatus ?? SessionPaymentStatus.PENDING,
+    paidAt: appointment.paidAt ?? null,
+    paymentMethod: appointment.paymentMethod ?? null,
+    encryptedPayer: appointment.encryptedPayer ?? null,
     createdAt: toDate(appointment.createdAt) ?? new Date()
   };
 }

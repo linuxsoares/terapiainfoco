@@ -5,6 +5,7 @@ import {
   ReminderChannel,
   ReminderTiming,
   ReminderDeliveryStatus,
+  SessionPaymentStatus,
   ClinicalMarkerCategory,
   ClinicalMarkerRelevance,
   GoalStatus,
@@ -166,11 +167,27 @@ export interface Appointment {
   lastReminderSentAt?: Date | string;
   /** Paciente confirmou presença pelo link do lembrete por e-mail */
   patientConfirmedAt?: Date | string;
+
+  // Financeiro da sessão: valor definido no agendamento e baixa do pagamento
+  feeCents?: number;
+  paymentStatus?: SessionPaymentStatus;
+  /** Data do pagamento (YYYY-MM-DD) */
+  paidAt?: string;
+  paymentMethod?: PaymentMethod;
   
   createdAt: Date | string;
 }
 
-export type StoredAppointment = Appointment;
+/** Quem pagou a sessão, quando não é o próprio paciente (ex.: responsável legal) */
+export interface SessionPayer {
+  name: string;
+  cpf: string;
+}
+
+export interface StoredAppointment extends Appointment {
+  /** Pagador cifrado (FLE); ausente quando o próprio paciente pagou */
+  encryptedPayer?: EncryptedPayload;
+}
 
 export interface DecryptedAppointment extends Appointment {
   /** Link da sala de teleconsulta própria da plataforma (acesso exige login e posse da consulta) */

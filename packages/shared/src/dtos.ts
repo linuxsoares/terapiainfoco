@@ -10,7 +10,9 @@ import {
   ClinicalMarkerCategory,
   ClinicalMarkerRelevance,
   GoalStatus,
-  PsychometricScaleType
+  PsychometricScaleType,
+  SessionPaymentStatus,
+  PaymentMethod
 } from './enums';
 import type { 
   SoapNote, 
@@ -20,7 +22,8 @@ import type {
   IcpSignatureData, 
   DecryptedAppointment,
   PsychometricAssessment,
-  LeadStatus
+  LeadStatus,
+  SessionPayer
 } from './models';
 import type { EnvelopeEncryptedData } from './crypto';
 
@@ -135,6 +138,8 @@ export interface CreateAppointmentDTO {
   scheduledEnd: string;   // ISO string
   bufferMinutes?: number;
   recurrence?: AppointmentRecurrenceConfig;
+  /** Valor da sessão em centavos; padrão: valor do consultório */
+  feeCents?: number;
 }
 
 /**
@@ -5078,4 +5083,46 @@ export interface AppointmentLinkView {
   canCancel: boolean;
   /** Último momento para cancelar online (política de antecedência mínima) */
   cancelDeadline: string;
+}
+
+/** Baixa (ou estorno/isenção) do pagamento de uma sessão */
+export interface RegisterSessionPaymentDTO {
+  status: SessionPaymentStatus;
+  /** Valor da sessão em centavos (permite ajustar o valor combinado) */
+  feeCents?: number;
+  /** YYYY-MM-DD; padrão: hoje */
+  paidAt?: string;
+  method?: PaymentMethod;
+  /** Quem pagou, se não foi o paciente; null volta para o próprio paciente */
+  payer?: SessionPayer | null;
+}
+
+/** Sessão no financeiro do consultório */
+export interface FinanceSessionItem {
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  scheduledStart: string;
+  appointmentStatus: AppointmentStatus;
+  feeCents: number | null;
+  paymentStatus: SessionPaymentStatus;
+  paidAt?: string;
+  paymentMethod?: PaymentMethod;
+  /** Nome de quem pagou, quando não foi o paciente */
+  payerName?: string;
+}
+
+export interface FinanceSummaryResponse {
+  /** YYYY-MM */
+  month: string;
+  /** Sessões realizadas (ou faltas) sem pagamento, de qualquer mês */
+  receivable: FinanceSessionItem[];
+  /** Pagamentos recebidos no mês */
+  paid: FinanceSessionItem[];
+  totals: {
+    receivableCents: number;
+    paidCents: number;
+    /** Sessões a receber sem valor definido */
+    receivableWithoutFee: number;
+  };
 }

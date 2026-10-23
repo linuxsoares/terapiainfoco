@@ -4,6 +4,7 @@ import {
   Users, 
   Sparkles, 
   FileText,
+  Wallet,
   ShieldCheck, 
   Activity,
   KeyRound,
@@ -48,6 +49,7 @@ import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
 import { PasswordResetScreen } from './components/PasswordResetScreen';
 import { AppointmentLinkScreen } from './components/AppointmentLinkScreen';
+import { FinanceModule } from './components/FinanceModule';
 import { EmailVerificationBanner, FlashNoticeToast, type FlashNotice } from './components/EmailVerificationNotice';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PatientPortalModal } from './components/PatientPortalModal';
@@ -132,6 +134,7 @@ const NAV_ITEMS: Record<Exclude<AppModule, 'security'>, { label: string; shortLa
   patients: { label: 'Pacientes', shortLabel: 'Pacientes', icon: Users, iconClass: 'text-sky-600 dark:text-sky-400' },
   soap: { label: 'Evolução SOAP & IA', shortLabel: 'SOAP', icon: Sparkles, iconClass: 'text-purple-600 dark:text-purple-400' },
   documents: { label: 'Documentos & Recibos', shortLabel: 'Documentos', icon: FileText, iconClass: 'text-teal-600 dark:text-teal-400' },
+  finance: { label: 'Financeiro', shortLabel: 'Financeiro', icon: Wallet, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   publicProfile: { label: 'Meu Perfil Público', shortLabel: 'Perfil Público', icon: Globe, iconClass: 'text-teal-600 dark:text-teal-400' },
   audit: { label: 'Auditoria', shortLabel: 'Auditoria', icon: Activity, iconClass: 'text-emerald-600 dark:text-emerald-400' },
   crpVerification: { label: 'Verificação de CRP', shortLabel: 'CRP', icon: BadgeCheck, iconClass: 'text-emerald-600 dark:text-emerald-400' },
@@ -695,6 +698,7 @@ export default function App() {
                   {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}
                   {currentTab === 'soap' && <SoapModule appointmentId={soapAppointmentId} onAppointmentChange={setSoapAppointmentId} signer={{ name: currentUser.name, crp: currentUser.crp }} />}
                   {currentTab === 'documents' && <DocumentsModule />}
+                  {currentTab === 'finance' && <FinanceModule />}
                   {currentTab === 'audit' && <AuditModule isDpo={currentUser.role === UserRole.ADMIN} />}
                   {currentTab === 'security' && (
                     <SecurityModule

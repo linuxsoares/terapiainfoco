@@ -4,6 +4,7 @@ import {
   AuditAction, 
   AuditResourceType,
   RecurrenceFrequency,
+  SessionPaymentStatus,
   UserRole,
   type CreateAppointmentDTO, 
   type StoredAppointment, 
@@ -50,6 +51,9 @@ export class AppointmentService {
     const start = new Date(dto.scheduledStart);
     const end = new Date(dto.scheduledEnd);
     const bufferMin = dto.bufferMinutes ?? config.defaultBufferMinutes;
+    if (dto.feeCents !== undefined && (!Number.isInteger(dto.feeCents) || dto.feeCents < 0 || dto.feeCents > 1_000_000)) {
+      throw new Error('Valor da sessão inválido.');
+    }
 
     // Validação de conflito de horário e buffer de respiro
     await this.validateScheduleConflicts(therapistId, start, end, bufferMin);
@@ -62,6 +66,8 @@ export class AppointmentService {
       scheduledStart: start,
       scheduledEnd: end,
       status: AppointmentStatus.CONFIRMADA,
+      feeCents: dto.feeCents ?? await this.practiceSessionFee(therapistId),
+      paymentStatus: SessionPaymentStatus.PENDING,
       createdAt: new Date()
     };
 
@@ -77,6 +83,14 @@ export class AppointmentService {
     });
 
     return toDecryptedAppointment(storedAppointment);
+  }
+
+  /** Valor padrão da sessão: o do perfil público ou, sem perfil, o da conta do psicólogo titular */
+  static async practiceSessionFee(therapistId: string): Promise<number | undefined> {
+    const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
+    if (profile?.sessionFeeCents) return profile.sessionFeeCents;
+    const [titular] = await UserRepository.list({ therapistId, roles: [UserRole.PSICOLOGO_TITULAR] });
+    return titular?.sessionFeeCents ?? undefined;
   }
 
   /**

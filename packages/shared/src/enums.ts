@@ -176,6 +176,15 @@ export enum PaymentMethod {
 }
 
 /**
+ * Situação financeira de uma sessão (financeiro mínimo do V0): a receber, paga ou isenta
+ */
+export enum SessionPaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  WAIVED = 'WAIVED'
+}
+
+/**
  * Status do Pagamento de Honorários
  */
 export enum PaymentStatus {

@@ -17,6 +17,8 @@ import {
   type UpdateAppointmentStatusDTO,
   type PatientBookingDTO,
   type AppointmentLinkView,
+  type RegisterSessionPaymentDTO,
+  FINANCE_ROLES,
   UserRole
 } from '@terapiainfoco/shared';
 
@@ -124,6 +126,22 @@ appointmentsRoute.post('/', async (c) => {
   }
 });
 
+// Pagamento da sessão: baixa, volta para a receber ou isenção (psicólogo titular e recepção)
+appointmentsRoute.patch('/:id/payment', requireRoles(FINANCE_ROLES), requireAppointmentAccess(), async (c) => {
+  const body = await c.req.json<RegisterSessionPaymentDTO>().catch(() => null);
+  if (!body) return c.json({ success: false, error: 'Corpo da requisição inválido.' }, 400);
+  try {
+    const appointment = await SessionPaymentService.register(c.req.param('id'), body, {
+      actorId: c.get('userId'),
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
+    return c.json({ success: true, appointment });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
 // Atualizar status da sessão (SOLICITADA -> CONFIRMADA -> EM_ANDAMENTO -> CONCLUIDA)
 appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => {
   const id = c.req.param('id');
@@ -145,6 +163,7 @@ appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => 
 });
 
 import { ReminderService } from '../services/reminderService';
+import { SessionPaymentService } from '../services/sessionPaymentService';
 import { ReminderChannel } from '@terapiainfoco/shared';
 
 import { notifyAppointmentsScheduled } from '../services/appointmentNotificationService';
