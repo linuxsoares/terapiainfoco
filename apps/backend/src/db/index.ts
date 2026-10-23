@@ -33,6 +33,16 @@ export function getDb(): Promise<AppDb> {
   return _initPromise;
 }
 
+/**
+ * Host, porta e banco para o log, sem usuário nem senha. A senha pode conter "@" ou ":" sem
+ * escape (o driver aceita), então o destino é o que vem depois do último "@".
+ */
+export function describeDatabaseUrl(url: string): string {
+  const withoutScheme = url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const beforeQuery = withoutScheme.split('?')[0];
+  return beforeQuery.slice(beforeQuery.lastIndexOf('@') + 1);
+}
+
 async function initDatabase(): Promise<AppDb> {
   const databaseUrl =
     process.env.DATABASE_URL ||
@@ -45,8 +55,7 @@ async function initDatabase(): Promise<AppDb> {
 
   if (databaseUrl) {
     const isSupabase = databaseUrl.includes('supabase.co') || databaseUrl.includes('pooler.supabase.com');
-    const sanitizedUrl = databaseUrl.replace(/:([^:@]+)@/, ':****@');
-    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL (${sanitizedUrl})...`);
+    console.log(`🔌 Conectando ao PostgreSQL via DATABASE_URL (${describeDatabaseUrl(databaseUrl)})...`);
     const ssl = isSupabase || databaseUrl.includes('sslmode=require') ? 'require' : undefined;
     const client = postgres(databaseUrl, {
       max: 10,
