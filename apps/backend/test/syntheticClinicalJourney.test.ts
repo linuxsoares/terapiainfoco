@@ -110,7 +110,7 @@ describe('Monitoramento Sintético, Testes E2E & Validação da Jornada Clínica
       expect(stepDoc).toBeDefined();
       expect(stepDoc?.status).toBe('passed');
       expect(stepDoc?.details?.zeroKnowledgeValid).toBe(true);
-      expect(stepDoc?.details?.icpIssuer).toContain('ICP-Brasil');
+      expect(stepDoc?.details?.signatureIssuer).toContain('sem certificado ICP-Brasil');
 
       // 7. Passo: Integridade da Hash-Chain WORM
       const stepWorm = result.steps.find(s => s.id === 'step_worm_integrity');

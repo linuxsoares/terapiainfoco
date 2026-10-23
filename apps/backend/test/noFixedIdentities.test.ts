@@ -9,14 +9,13 @@ const FIXED_IDENTITY = /Vanessa Andrade|Beatriz Santos|06\/142980|123\.456\.789-
 /**
  * Únicos arquivos que podem conter esses dados: contas e perfil da demonstração (DEMO_MODE),
  * o texto de PII da sondagem sintética (testa a sanitização) e os módulos simulados ainda
- * pendentes do item 4 do V0 (ICP-Brasil e serviços de segurança demonstrativos).
+ * pendentes do item 4 do V0 (serviços de segurança demonstrativos).
  */
 const ALLOWED = new Set([
   'db/demoUsers.ts',
   'db/memoryDb.ts',
   'repositories/therapistProfileRepository.ts',
   'services/syntheticService.ts',
-  'services/icpBrasilService.ts',
   'services/clinicalNotaryService.ts',
   'services/courtOrderThresholdService.ts'
 ]);

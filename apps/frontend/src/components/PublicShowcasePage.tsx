@@ -73,7 +73,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       role: UserRole.PSICOLOGO_TITULAR,
       badge: 'Profissional da Psicologia • CRP & e-Psi',
       title: 'Para Psicólogos(as) Clínicos(as) & Neuropsicólogos',
-      subtitle: 'Automação ética do consultório, teleconsulta própria sem gravação, síntese SOAP assistida por IA e fé pública ICP-Brasil.',
+      subtitle: 'Automação ética do consultório, teleconsulta própria sem gravação, síntese SOAP assistida por IA e documentos com validação pública por QR Code.',
       description:
         'Gerencie toda a jornada clínica sem abrir mão do sigilo profissional (Art. 9º do Código de Ética do Psicólogo). Seus prontuários são cifrados com uma chave DEK exclusiva sua (Envelope Encryption KMS).',
       demoLabel: 'Entrar como Psicóloga (Dra. Beatriz Santos)',
@@ -100,7 +100,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
           norm: 'CFP nº 001/2009'
         },
         {
-          title: 'Documentos CFP nº 006/2019, Encaminhamento Psiquiátrico & ICP-Brasil em Lote',
+          title: 'Documentos CFP nº 006/2019, Encaminhamento Psiquiátrico & Validação Pública',
           desc: 'Laudos periciais nas 5 seções canônicas, validação cruzada de 18 psicofármacos (alerta de Síndrome Serotoninérgica) e fechamento em lote via Árvore de Merkle.',
           norm: 'MP 2.200-2/2001'
         },
@@ -154,7 +154,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
       demoName: 'Administrador do Sistema • CDPO/BR',
       features: [
         {
-          title: 'Dashboard Executivo Multi-Normativo (LGPD, CFP, ICP-Brasil, SOC2/ISO 27001)',
+          title: 'Dashboard Executivo Multi-Normativo (LGPD, CFP, SOC2/ISO 27001)',
           desc: 'Emissão de pacotes forenses de conformidade, Relatório de Impacto à Proteção de Dados (RIPD/DPIA Art. 38) e assinatura formal DPO Sign-Off.',
           norm: 'LGPD Art. 38/50 & ISO/IEC 27701'
         },
@@ -261,8 +261,8 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
     {
       num: '11',
       category: 'CLINICAL',
-      title: 'Assinatura ICP-Brasil em Lote (Merkle Tree)',
-      desc: 'Fechamento de ciclos de prontuário com certificado A1/A3/Nuvem PSC e Carimbo do Tempo TSA ITI.',
+      title: 'Assinatura ICP-Brasil (em breve)',
+      desc: 'Integração com certificado A1/A3/nuvem e carimbo do tempo prevista; hoje os documentos têm assinatura eletrônica da plataforma.',
       badge: 'DOC-ICP-11',
       icon: Award
     },
@@ -410,7 +410,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
               <Award className="w-3.5 h-3.5" />
-              ICP-Brasil PAdES & Carimbo do Tempo TSA
+              Validação pública por QR Code
             </span>
           </div>
 
@@ -509,7 +509,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
                       {showcase?.totalClinicalModules ?? 18}
                     </p>
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Módulos Clínicos</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Agenda, WebRTC, IA SOAP, CFP, ICP</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Agenda, WebRTC, IA SOAP, CFP</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
                     <p className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">
@@ -723,7 +723,7 @@ export const PublicShowcasePage: React.FC<PublicShowcasePageProps> = ({
             Respaldo Normativo, Ético & Criptográfico
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
-            Conformidade Nativa com CFP, LGPD, ICP-Brasil e NIST
+            Conformidade Nativa com CFP, LGPD e NIST
           </h2>
         </div>
 

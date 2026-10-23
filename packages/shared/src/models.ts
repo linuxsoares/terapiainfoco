@@ -463,9 +463,16 @@ export interface IcpCertificateInfo {
   validTo: string;
   cpf: string;
   crp?: string;
-  certificateType: 'A1' | 'A3';
+  /** NONE: assinatura eletrônica da plataforma, sem certificado digital */
+  certificateType: 'A1' | 'A3' | 'NONE';
   complianceIcpBrasil: boolean;
 }
+
+/**
+ * Emissor registrado nas assinaturas feitas pela própria plataforma. Enquanto não houver
+ * integração com um provedor ICP-Brasil, nenhuma assinatura é apresentada como qualificada.
+ */
+export const PLATFORM_SIGNATURE_ISSUER = 'TerapiaInFoco — assinatura eletrônica da plataforma (sem certificado ICP-Brasil)';
 
 export interface IcpSignatureData {
   certificate: IcpCertificateInfo;

@@ -4,7 +4,8 @@ import {
   IcpSignatureStandard,
   BatchClosingStatus,
   AuditAction,
-  AuditResourceType
+  AuditResourceType,
+  PLATFORM_SIGNATURE_ISSUER
 } from '@terapiainfoco/shared';
 import type {
   BatchSignableItem,
@@ -146,8 +147,7 @@ export class IcpBatchSigningService {
     }
 
     if (selectedItems.length === 0) {
-      // Cria itens simulados se o banco estiver vazio para fins de demonstração
-      selectedItems = this.createMockSignableItems(therapistId);
+      throw new Error('Nenhum registro pendente de assinatura neste consultório.');
     }
 
     const merkleRootHash = this.computeMerkleRoot(selectedItems);
@@ -160,9 +160,9 @@ export class IcpBatchSigningService {
       therapistName,
       therapistCrp,
       certificateType: IcpCertificateType.A1_FILE,
-      certificateSubjectDn: `CN=${therapistName.toUpperCase()}:12345678900, OU=Certificado PF A1, O=ICP-Brasil`,
+      certificateSubjectDn: `CN=${therapistName}${therapistCrp ? `, CRP ${therapistCrp}` : ''}`,
       certificateSerialNumberHex: crypto.randomBytes(8).toString('hex').toUpperCase(),
-      certificateIssuer: 'AC SOLUTI Multipla v5 / AC Raiz ICP-Brasil v10',
+      certificateIssuer: PLATFORM_SIGNATURE_ISSUER,
       signatureStandard: IcpSignatureStandard.PADES_T,
       merkleRootHash,
       items: selectedItems,
@@ -207,7 +207,7 @@ export class IcpBatchSigningService {
     }
 
     if (itemsToSign.length === 0) {
-      itemsToSign = this.createMockSignableItems(therapistId);
+      throw new Error('Selecione ao menos um registro pendente de assinatura.');
     }
 
     // Validação de Credencial do Certificado
@@ -252,9 +252,9 @@ export class IcpBatchSigningService {
       therapistName,
       therapistCrp,
       certificateType: dto.certificateType,
-      certificateSubjectDn: dto.certificateSubjectDn || `CN=${therapistName.toUpperCase()}:12345678900, OU=Certificado PF ${dto.certificateType === IcpCertificateType.A3_HARDWARE_TOKEN ? 'A3' : 'A1'}, O=ICP-Brasil`,
+      certificateSubjectDn: `CN=${therapistName}${therapistCrp ? `, CRP ${therapistCrp}` : ''}`,
       certificateSerialNumberHex: crypto.randomBytes(8).toString('hex').toUpperCase(),
-      certificateIssuer: 'AC SOLUTI Multipla v5 / AC Raiz ICP-Brasil v10',
+      certificateIssuer: PLATFORM_SIGNATURE_ISSUER,
       signatureStandard: IcpSignatureStandard.PADES_T,
       merkleRootHash,
       items: itemsToSign,
@@ -344,7 +344,7 @@ export class IcpBatchSigningService {
     return {
       valid: true,
       manifest,
-      details: 'Lote de prontuários selado com Certificado Digital ICP-Brasil (PAdES) e Carimbo do Tempo TSA com 100% de autenticidade jurídica.'
+      details: 'Lote íntegro: a Merkle Root confere com os registros selados. Assinatura eletrônica da plataforma, sem certificado ICP-Brasil nem carimbo do tempo de ACT.'
     };
   }
 
@@ -392,12 +392,11 @@ export class IcpBatchSigningService {
   }
 
   /**
-   * Emite token de Carimbo do Tempo TSA simulado com política ICP-Brasil (DOC-ICP-11)
+   * Registro de horário do servidor para o lote (não é carimbo do tempo de ACT ICP-Brasil)
    */
   private issueTsaTimestampToken(merkleRoot: string, timestampIso: string): string {
     const tsaPayload = {
-      policyOid: '2.16.76.1.4.1', // Política ACT ICP-Brasil
-      authority: 'CN=Autoridade de Carimbo do Tempo ICP-Brasil - Observatório Nacional',
+      authority: 'Relógio do servidor TerapiaInFoco (sem carimbo do tempo ICP-Brasil)',
       imprintSha256: merkleRoot,
       genTimeZulu: timestampIso,
       serialNumber: crypto.randomBytes(6).toString('hex').toUpperCase(),
@@ -414,43 +413,6 @@ export class IcpBatchSigningService {
     const parts = fullName.trim().split(' ').filter(p => p.length > 0);
     if (parts.length === 0) return 'P.';
     return parts.map(p => `${p[0].toUpperCase()}.`).join(' ');
-  }
-
-  /**
-   * Cria itens simulados quando o banco de teste estiver vazio
-   */
-  private createMockSignableItems(therapistId: string): BatchSignableItem[] {
-    return [
-      {
-        id: crypto.randomUUID(),
-        type: 'SOAP_RECORD',
-        patientId: '00000000-0000-0000-0000-000000000001',
-        patientNameMasked: 'M. S. O.',
-        title: 'Evolução SOAP — Sessão #1 (Transtorno de Ansiedade)',
-        itemCanonicalSha256: crypto.createHash('sha256').update('SOAP_1_CANONICAL').digest('hex'),
-        itemDate: new Date(Date.now() - 86400000 * 7).toISOString(),
-        sessionNumber: 1
-      },
-      {
-        id: crypto.randomUUID(),
-        type: 'SOAP_RECORD',
-        patientId: '00000000-0000-0000-0000-000000000001',
-        patientNameMasked: 'M. S. O.',
-        title: 'Evolução SOAP — Sessão #2 (Regulação Afetiva)',
-        itemCanonicalSha256: crypto.createHash('sha256').update('SOAP_2_CANONICAL').digest('hex'),
-        itemDate: new Date(Date.now() - 86400000 * 2).toISOString(),
-        sessionNumber: 2
-      },
-      {
-        id: crypto.randomUUID(),
-        type: 'PSYCHOLOGICAL_DOCUMENT',
-        patientId: '00000000-0000-0000-0000-000000000001',
-        patientNameMasked: 'M. S. O.',
-        title: 'Documento CFP: DECLARACAO de Comparecimento',
-        itemCanonicalSha256: crypto.createHash('sha256').update('DOC_DECL_CANONICAL').digest('hex'),
-        itemDate: new Date().toISOString()
-      }
-    ];
   }
 
   /**

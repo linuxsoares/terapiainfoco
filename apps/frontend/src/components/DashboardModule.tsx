@@ -220,7 +220,7 @@ export function DashboardModule() {
                   {clinicalOverview.totalDocuments}
                 </span>
                 <span className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold">
-                  {clinicalOverview.icpSignedDocuments} com ICP-Brasil
+                  {clinicalOverview.icpSignedDocuments} assinados
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">

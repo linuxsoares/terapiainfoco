@@ -122,7 +122,7 @@ export const COMPLIANCE_PILLARS = [
   {
     title: 'Resolução CFP nº 006/2019',
     subtitle: 'Documentos Psicológicos',
-    description: 'Emissão parametrizada de Atestados, Declarações, Relatórios e Laudos com estrutura formal obrigatória, assinatura ICP-Brasil e validação pública via QR Code.',
+    description: 'Emissão parametrizada de Atestados, Declarações, Relatórios e Laudos com estrutura formal obrigatória, assinatura eletrônica e validação pública via QR Code.',
     icon: 'FileText'
   },
   {
@@ -196,10 +196,10 @@ export const RFC_MODULES = [
     id: 'modulo-5',
     badge: 'Módulo 5 • RFC-001 §3.5',
     title: 'Emissão de Laudos & Validação Pública QR Code',
-    description: 'Crie documentos oficiais conforme a Resolução CFP nº 006/2019 com assinatura digital ICP-Brasil e token público para terceiros validarem autenticidade.',
+    description: 'Crie documentos oficiais conforme a Resolução CFP nº 006/2019 com assinatura eletrônica e token público para terceiros validarem autenticidade.',
     highlights: [
       'Templates estruturados: Declaração, Atestado, Relatório e Laudo Psicológico',
-      'Assinatura digital PAdES / ICP-Brasil compatível com Lei nº 14.063/2020',
+      'Assinatura eletrônica (certificado ICP-Brasil em breve)',
       'Geração em PDF/A para preservação e integridade a longo prazo',
       'QR Code com verificação pública de integridade sem expor o prontuário sigiloso'
     ],
@@ -254,7 +254,7 @@ export const DOCUMENT_TEMPLATES = [
       patient: 'Mariana Silva de Oliveira — CPF ***.482.918-**',
       body: 'Atesto, para os devidos fins de saúde ocupacional, que a paciente supra-identificada encontra-se em acompanhamento psicológico clínico sob meus cuidados profissionais desde 12/03/2026. A paciente apresenta sintomatologia compatível com sobrecarga adaptativa ocupacional, sendo recomendada a redução temporária de viagens a trabalho e concessão de 3 (três) dias de repouso para restauração psicossomática e continuidade das intervenções de manejo do estresse.',
       date: 'São Paulo, 26 de Setembro de 2026',
-      signature: 'Documento assinado digitalmente com Certificado ICP-Brasil (PAdES) • Token de Autenticidade: 8b22-c0a1-94d9'
+      signature: 'Documento assinado eletronicamente • Token de Autenticidade: 8b22-c0a1-94d9'
     }
   },
   {
@@ -270,7 +270,7 @@ export const DOCUMENT_TEMPLATES = [
       patient: 'Mariana Silva de Oliveira — CPF ***.482.918-**',
       body: 'Declaro, a pedido da parte interessada, que a sra. Mariana Silva de Oliveira compareceu à sessão de telepsicologia no dia 26/09/2026, no intervalo compreendido entre 14:00 e 14:50 horas, para atendimento clínico individualizado.',
       date: 'São Paulo, 26 de Setembro de 2026',
-      signature: 'Documento assinado digitalmente com Certificado ICP-Brasil (PAdES) • Token de Autenticidade: 4df1-e89a-77bc'
+      signature: 'Documento assinado eletronicamente • Token de Autenticidade: 4df1-e89a-77bc'
     }
   },
   {
@@ -286,7 +286,7 @@ export const DOCUMENT_TEMPLATES = [
       patient: 'Mariana Silva de Oliveira — CPF ***.482.918-**',
       body: '1. IDENTIFICAÇÃO DO PROCESSO: Avaliação de acompanhamento em psicoterapia breve. 2. DESCRIÇÃO DA DEMANDA: Queixa de episódios de taquicardia situacional e pensamentos intrusivos em reuniões corporativas. 3. PROCEDIMENTO: Realizadas 8 sessões estruturadas baseadas na TCC, com treino de respiração e diário de pensamentos. 4. ANÁLISE: Observou-se recuperação significativa da estabilidade emocional e remissão dos sintomas de despersonalização. 5. CONCLUSÃO: Encaminhamento satisfatório com alta parcial prevista para mais 4 sessões.',
       date: 'São Paulo, 26 de Setembro de 2026',
-      signature: 'Documento assinado digitalmente com Certificado ICP-Brasil (PAdES) • Token de Autenticidade: 91fa-22bb-65de'
+      signature: 'Documento assinado eletronicamente • Token de Autenticidade: 91fa-22bb-65de'
     }
   }
 ];
@@ -374,7 +374,7 @@ export const FAQS = [
   {
     category: 'Prontuário & Documentos',
     question: 'Os documentos emitidos (atestados, declarações e laudos) são aceitos legalmente?',
-    answer: 'Sim. Todos os documentos seguem rigorosamente a estrutura prevista na Resolução CFP nº 006/2019 e possuem suporte a assinatura digital ICP-Brasil (PAdES) e assinatura avançada (Lei nº 14.063/2020). Cada documento gerado acompanha um QR Code criptográfico que permite a empresas, escolas ou juízos validarem a autenticidade e integridade do atestado sem expor os dados sigilosos do prontuário.'
+    answer: 'Sim. Todos os documentos seguem rigorosamente a estrutura prevista na Resolução CFP nº 006/2019 e saem com assinatura eletrônica da plataforma; quem precisar de assinatura com certificado digital pode baixar o PDF e assiná-lo com o próprio certificado ICP-Brasil ou no assinador do gov.br. Cada documento gerado acompanha um QR Code criptográfico que permite a empresas, escolas ou juízos validarem a autenticidade e integridade do atestado sem expor os dados sigilosos do prontuário.'
   }
 ];
 
@@ -412,7 +412,7 @@ export const PRICING_PLANS = [
       'Transcrição & Diarização com IA ilimitada',
       'Geração avançada SOAP com comparação de sessões',
       'Emissão de Atestados, Laudos e Declarações (CFP 006/2019)',
-      'Assinatura digital ICP-Brasil integrada com QR Code',
+      'Assinatura eletrônica com validação por QR Code',
       'Cofre de guarda legal de 5 anos & Quarentena LGPD',
       'Blind Indexing & Trilha de Auditoria WORM',
       'Suporte VIP via WhatsApp dedicado'

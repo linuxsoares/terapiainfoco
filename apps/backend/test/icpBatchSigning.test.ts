@@ -6,8 +6,7 @@ import {
   IcpCertificateType,
   IcpSignatureStandard,
   BatchClosingStatus,
-  AuditAction
-} from '@terapiainfoco/shared';
+  AuditAction, PLATFORM_SIGNATURE_ISSUER } from '@terapiainfoco/shared';
 import { encryptField } from '../src/services/cryptoContext';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { resetDb, upsertClinicalRecord } from './helpers/db';
@@ -152,7 +151,7 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
     expect(manifest.padesSignatureBase64).toBeDefined();
     expect(manifest.tsaTimestampToken).toBeDefined();
     expect(manifest.publicValidationToken).toContain('icp_batch_v1_');
-    expect(manifest.certificateIssuer).toContain('ICP-Brasil');
+    expect(manifest.certificateIssuer).toBe(PLATFORM_SIGNATURE_ISSUER);
 
     // Valida trava de imutabilidade nos registros do prontuário
     const rec1 = await ClinicalRecordRepository.findById('00000000-0000-0000-0000-000000000091');
@@ -190,7 +189,7 @@ describe('Módulo de Assinatura Avançada ICP-Brasil em Lote & Fechamento de Cic
     expect(verifyBody.success).toBe(true);
     expect(verifyBody.valid).toBe(true);
     expect(verifyBody.manifest.merkleRootHash).toBe(signBody.manifest.merkleRootHash);
-    expect(verifyBody.details).toContain('ICP-Brasil');
+    expect(verifyBody.details).toContain('sem certificado ICP-Brasil');
   });
 
   it('deve rejeitar validação de token malformado ou inexistente', async () => {

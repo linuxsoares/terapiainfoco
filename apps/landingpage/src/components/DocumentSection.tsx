@@ -29,7 +29,7 @@ export const DocumentSection: React.FC = () => {
           </h2>
 
           <p className="text-slate-600 text-base sm:text-lg">
-            Emita documentos psicológicos estruturados com rigor técnico-científico, assinatura digital ICP-Brasil e validação pública via QR Code.
+            Emita documentos psicológicos estruturados com rigor técnico-científico, assinatura eletrônica e validação pública via QR Code.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export const DocumentSection: React.FC = () => {
                 <div className="flex items-start gap-2.5 text-xs text-slate-700">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Assinatura ICP-Brasil:</strong> Certificado digital qualificado padrão PAdES (Lei nº 14.063/2020).
+                    <strong>Assinatura eletrônica:</strong> registra quem assinou, quando e o hash do documento. Assinatura com certificado ICP-Brasil em breve.
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-slate-700">
@@ -161,7 +161,7 @@ export const DocumentSection: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Award className="w-4 h-4 text-purple-600" />
                     <span className="font-bold text-slate-900 text-[11px]">
-                      Assinatura Digital ICP-Brasil (PAdES)
+                      Assinatura eletrônica
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
@@ -172,7 +172,7 @@ export const DocumentSection: React.FC = () => {
                   {activeDoc.previewContent.signature}
                 </p>
                 <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-[10px] text-slate-400">
-                  <span className="font-mono">Carimbo do Tempo ICP-Brasil</span>
+                  <span className="font-mono">Data e hora do servidor</span>
                   <span className="text-teal-700 font-semibold flex items-center gap-1">
                     <QrCode className="w-3.5 h-3.5" />
                     Validável publicamente

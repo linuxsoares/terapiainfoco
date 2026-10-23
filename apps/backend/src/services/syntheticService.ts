@@ -368,16 +368,7 @@ export class SyntheticService {
         });
 
         const prep = await IcpBrasilService.prepareSignature(docDraft.id);
-        const mockCert = IcpBrasilService.generateMockIcpCertificate();
-
-        const signed = await IcpBrasilService.signWithIcp(
-          docDraft.id,
-          {
-            signatureBase64: 'U1lOVEhFVElDLVNJR05BVFVSRS1QQURFQw==',
-            certificate: mockCert
-          },
-          PROBE_CONTEXT
-        );
+        const signed = await IcpBrasilService.signWithIcp(docDraft.id, {}, PROBE_CONTEXT);
 
         const validation = await DocumentService.validatePublicToken(docDraft.validationToken);
         if (!validation.valid) {
@@ -386,7 +377,7 @@ export class SyntheticService {
 
         steps.push({
           id: 'step_cfp_document_icp',
-          name: 'Documento Oficial CFP nº 006/2019 & Assinatura Digital ICP-Brasil',
+          name: 'Documento CFP nº 006/2019 & assinatura eletrônica da plataforma',
           description: 'Elaboração documental em papel timbrado, selo criptográfico e validação pública Zero-Knowledge.',
           status: 'passed',
           durationMs: Math.max(1, Date.now() - p6Start),
@@ -394,14 +385,14 @@ export class SyntheticService {
             documentId: signed.id,
             validationToken: signed.validationToken,
             sha256Digest: prep.sha256Digest,
-            icpIssuer: mockCert.issuer,
+            signatureIssuer: signed.icpSignature?.certificate.issuer,
             zeroKnowledgeValid: validation.valid
           }
         });
       } catch (err: any) {
         steps.push({
           id: 'step_cfp_document_icp',
-          name: 'Documento Oficial CFP nº 006/2019 & Assinatura Digital ICP-Brasil',
+          name: 'Documento CFP nº 006/2019 & assinatura eletrônica da plataforma',
           description: 'Elaboração documental e assinatura digital ICP-Brasil.',
           status: 'failed',
           durationMs: Math.max(1, Date.now() - p6Start),

@@ -2,8 +2,7 @@ import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
-import { IcpBrasilService } from '../src/services/icpBrasilService';
-import { DocumentType, UserRole } from '@terapiainfoco/shared';
+import { DocumentType, UserRole, PLATFORM_SIGNATURE_ISSUER } from '@terapiainfoco/shared';
 import { resetDb } from './helpers/db';
 
 describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção D - RFC-001 & CFP nº 006/2019)', () => {
@@ -120,138 +119,62 @@ describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção 
     expect(body.validationUrl).toContain(doc.validationToken);
   });
 
-  it('deve assinar documento com Certificado Digital ICP-Brasil e carimbo do tempo TSA RFC 3161', async () => {
-    const { doc } = await createTestPatientAndDocument(DocumentType.ATESTADO);
-
-    // Certificado A1 mock credenciado na AC Soluti / ICP-Brasil
-    const mockCert = IcpBrasilService.generateMockIcpCertificate('Dra. Vanessa Andrade', '06/142980');
-
-    const signRes = await app.request(`/api/documents/${doc.id}/sign-icp`, {
+  const sign = (docId: string, body: unknown = {}) =>
+    app.request(`/api/documents/${docId}/sign-icp`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        signatureBase64: 'MEYCIQCc9d1k2L4k7z5...mock-signature-der-base64...',
-        certificate: mockCert
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify(body)
     });
 
+  it('assina com a assinatura eletrônica da plataforma, sem se apresentar como ICP-Brasil', async () => {
+    const { doc } = await createTestPatientAndDocument(DocumentType.ATESTADO);
+
+    const signRes = await sign(doc.id);
     expect(signRes.status).toBe(200);
-    const signData = await signRes.json();
-    expect(signData.success).toBe(true);
-
-    const signedDoc = signData.document;
+    const signedDoc = (await signRes.json()).document;
     expect(signedDoc.isSigned).toBe(true);
-    expect(signedDoc.signaturePadesHash).toBeDefined();
-    expect(signedDoc.icpSignature).toBeDefined();
-    expect(signedDoc.icpSignature.certificate.complianceIcpBrasil).toBe(true);
-    expect(signedDoc.icpSignature.certificate.issuer).toContain('ICP-Brasil');
-    expect(signedDoc.icpSignature.timestampToken).toContain('TSA-ICP-BRASIL');
-    expect(signedDoc.icpSignature.padesSubFilter).toBe('ETSI.CAdES.detached');
+    expect(signedDoc.signaturePadesHash).toHaveLength(64);
+    expect(signedDoc.icpSignature.certificate).toMatchObject({
+      issuer: PLATFORM_SIGNATURE_ISSUER,
+      certificateType: 'NONE',
+      complianceIcpBrasil: false,
+      cpf: ''
+    });
+    expect(signedDoc.icpSignature.timestampToken).toStartWith('PLATAFORMA-');
 
-    // Validação Pública via QR Code Zero-Knowledge deve retornar metadados ICP-Brasil
-    const publicValRes = await app.request(`/api/documents/validate/${doc.validationToken}`);
-    expect(publicValRes.status).toBe(200);
-    const publicData = await publicValRes.json();
+    // Validação pública mostra a mesma natureza da assinatura
+    const publicData = await (await app.request(`/api/documents/validate/${doc.validationToken}`)).json();
     expect(publicData.valid).toBe(true);
-    expect(publicData.document.icpSignature).toBeDefined();
-    expect(publicData.document.icpSignature.certificate.issuer).toContain('ICP-Brasil');
+    expect(publicData.document.icpSignature.certificate.issuer).toBe(PLATFORM_SIGNATURE_ISSUER);
     expect(publicData.document.therapistName).toBe('Dra. Beatriz Santos'); // titular do consultório do documento
 
-    // PDF gerado pós-assinatura deve ser renderizado com êxito
-    const pdfRes = await app.request(`/api/documents/${doc.id}/pdf`, {
-      headers: { Authorization: `Bearer ${authToken}` }
-    });
+    const pdfRes = await app.request(`/api/documents/${doc.id}/pdf`, { headers: { Authorization: `Bearer ${authToken}` } });
     expect(pdfRes.status).toBe(200);
-    const pdfBuffer = await pdfRes.arrayBuffer();
-    expect(pdfBuffer.byteLength).toBeGreaterThan(1500);
+    expect((await pdfRes.arrayBuffer()).byteLength).toBeGreaterThan(1500);
   });
 
-  it('deve rejeitar assinatura com certificado não credenciado na ICP-Brasil', async () => {
+  it('ignora certificado "ICP-Brasil" enviado pelo navegador', async () => {
     const { doc } = await createTestPatientAndDocument(DocumentType.ATESTADO);
-
-    const invalidCert = {
-      ...IcpBrasilService.generateMockIcpCertificate(),
-      complianceIcpBrasil: false
-    };
-
-    const signRes = await app.request(`/api/documents/${doc.id}/sign-icp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        signatureBase64: 'mock-sig-base64',
-        certificate: invalidCert
-      })
-    });
-
-    expect(signRes.status).toBe(400);
-    const body = await signRes.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toContain('ICP-Brasil');
-  });
-
-  it('deve rejeitar certificado expirado', async () => {
-    const { doc } = await createTestPatientAndDocument(DocumentType.ATESTADO);
-
-    const expiredCert = {
-      ...IcpBrasilService.generateMockIcpCertificate(),
+    const forged = {
+      subject: 'Fulano:00000000000',
+      issuer: 'AC Soluti Multipla v5 (ICP-Brasil)',
+      serialNumber: 'ABC',
       validFrom: '2020-01-01T00:00:00.000Z',
-      validTo: '2021-01-01T00:00:00.000Z'
+      validTo: '2099-01-01T00:00:00.000Z',
+      cpf: '000.000.000-00',
+      certificateType: 'A1',
+      complianceIcpBrasil: true
     };
-
-    const signRes = await app.request(`/api/documents/${doc.id}/sign-icp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        signatureBase64: 'mock-sig-base64',
-        certificate: expiredCert
-      })
-    });
-
-    expect(signRes.status).toBe(400);
-    const body = await signRes.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toContain('expirado');
+    const signedDoc = (await (await sign(doc.id, { certificate: forged, signatureBase64: 'x' })).json()).document;
+    expect(signedDoc.icpSignature.certificate.complianceIcpBrasil).toBe(false);
+    expect(signedDoc.icpSignature.certificate.issuer).toBe(PLATFORM_SIGNATURE_ISSUER);
+    expect(signedDoc.icpSignature.certificate.subject).not.toContain('Fulano');
   });
 
-  it('deve garantir imutabilidade: rejeitar tentativa de re-assinar documento com ICP-Brasil', async () => {
+  it('deve garantir imutabilidade: rejeitar tentativa de re-assinar documento', async () => {
     const { doc } = await createTestPatientAndDocument(DocumentType.DECLARACAO);
-    const cert = IcpBrasilService.generateMockIcpCertificate();
-
-    // Primeira assinatura
-    const firstSign = await app.request(`/api/documents/${doc.id}/sign-icp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        signatureBase64: 'mock-sig-base64',
-        certificate: cert
-      })
-    });
-    expect(firstSign.status).toBe(200);
-
-    // Segunda assinatura deve falhar por imutabilidade ética
-    const secondSign = await app.request(`/api/documents/${doc.id}/sign-icp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        signatureBase64: 'mock-sig-base64',
-        certificate: cert
-      })
-    });
+    expect((await sign(doc.id)).status).toBe(200);
+    const secondSign = await sign(doc.id);
     expect(secondSign.status).toBe(400);
     const body = await secondSign.json();
     expect(body.success).toBe(false);
@@ -272,10 +195,7 @@ describe('Geração Server-Side de PDF & Assinatura Digital ICP-Brasil (Opção 
     const unauthorizedSign = await app.request(`/api/documents/${doc.id}/sign-icp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        signatureBase64: 'sig',
-        certificate: IcpBrasilService.generateMockIcpCertificate()
-      })
+      body: JSON.stringify({})
     });
     expect(unauthorizedSign.status).toBe(401);
   });
