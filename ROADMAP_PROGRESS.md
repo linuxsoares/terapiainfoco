@@ -2405,6 +2405,7 @@ terapiainfoco/
 | `feat/patient-repository-sql` | Pacientes em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #166](https://github.com/linuxsoares/terapiainfoco/pull/166) | Merged |
 | `feat/appointment-repository-sql` | Consultas em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #167](https://github.com/linuxsoares/terapiainfoco/pull/167) | Merged |
 | `feat/clinical-record-repository-sql` | Prontuários SOAP em repositório SQL assíncrono (ADR-004 fase 2), fora do cache em memória | [PR #168](https://github.com/linuxsoares/terapiainfoco/pull/168) | Merged |
+| `fix/migrations-legacy-fkey-names` | Migrações 0004–0007 removem FKs legadas `*_fkey` (supabase_full_schema.sql) antes da troca uuid → text | [PR #169](https://github.com/linuxsoares/terapiainfoco/pull/169) | Merged |
 
 ---
 
