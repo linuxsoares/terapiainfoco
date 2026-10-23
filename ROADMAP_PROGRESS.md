@@ -2427,6 +2427,7 @@ terapiainfoco/
 | `fix/icp-simulation-honesty` | Assinatura eletrônica da plataforma no lugar do ICP-Brasil simulado (V0 item 4, parte 2) | [PR #189](https://github.com/linuxsoares/terapiainfoco/pull/189) | Merged |
 | `fix/admin-security-lab-demo-only` | Laboratório de segurança do Admin só em DEMO_MODE (V0 item 4, parte 3) | [PR #190](https://github.com/linuxsoares/terapiainfoco/pull/190) | Merged |
 | `feat/passkey-login` | Login com passkey real e login social rotulado como demonstração (V0 item 5) | [PR #191](https://github.com/linuxsoares/terapiainfoco/pull/191) | Merged |
+| `fix/backup-full-coverage` | Snapshot de backup com todas as tabelas e coleções (V0 item 5) | [PR #192](https://github.com/linuxsoares/terapiainfoco/pull/192) | Merged |
 
 ---
 
