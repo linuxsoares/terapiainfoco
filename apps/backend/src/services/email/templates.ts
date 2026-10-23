@@ -87,3 +87,33 @@ export function appointmentScheduledEmail(patientName: string, therapistName: st
     )
   };
 }
+
+export function appointmentReminderEmail(patientName: string, therapistName: string, when: string, manageLink: string, roomLink: string): EmailContent {
+  const first = patientName.split(' ')[0] || patientName;
+  const intro = `Lembrete: sua sessão com ${therapistName} é ${when}.`;
+  const ask = 'Confirme sua presença ou, se não puder comparecer, cancele pelo link abaixo (o cancelamento online vale até 24 horas antes).';
+  const room = 'No horário, entre na sala de teleconsulta com o login da sua conta.';
+  return {
+    subject: `Lembrete: sessão com ${therapistName}`,
+    text: `Olá, ${first}.\n\n${intro}\n\n${ask}\n${manageLink}\n\n${room}\n${roomLink}`,
+    html: layout(
+      [
+        `Olá, ${escapeHtml(first)}.`,
+        escapeHtml(intro),
+        escapeHtml(ask),
+        `${escapeHtml(room)} <a href="${escapeHtml(roomLink)}">Entrar na sala</a>.`
+      ],
+      { label: 'Confirmar ou cancelar', href: manageLink }
+    )
+  };
+}
+
+export function appointmentCanceledByPatientEmail(therapistName: string, patientName: string, when: string): EmailContent {
+  const first = therapistName.split(' ')[0] || therapistName;
+  const message = `${patientName} cancelou a sessão de ${when} pelo link do lembrete. O horário voltou a ficar livre na agenda.`;
+  return {
+    subject: `Sessão cancelada por ${patientName}`,
+    text: `Olá, ${first}.\n\n${message}`,
+    html: layout([`Olá, ${escapeHtml(first)}.`, escapeHtml(message)])
+  };
+}

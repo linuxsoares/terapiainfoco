@@ -24,6 +24,7 @@ export function toDecryptedAppointment(app: StoredAppointment): DecryptedAppoint
     recurrenceFrequency: app.recurrenceFrequency,
     reminderStatus: app.reminderStatus,
     lastReminderSentAt: app.lastReminderSentAt,
+    patientConfirmedAt: app.patientConfirmedAt,
     createdAt: app.createdAt,
     roomUrl: teleconsultationRoomUrl(app.id)
   };

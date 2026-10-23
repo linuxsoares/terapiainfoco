@@ -632,7 +632,8 @@ import type {
   PsychiatricReferralListResponse,
   PsychopharmaceuticalCatalogResponse,
   Psychopharmaceutical,
-  PsychiatricReferralGuide
+  PsychiatricReferralGuide,
+  AppointmentLinkView
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1177,6 +1178,15 @@ export const api = {
   async resendEmailVerification(): Promise<string> {
     const res = await request<{ success: boolean; message: string }>('/auth/email/resend', { method: 'POST' });
     return res.message;
+  },
+
+  /** Sessão do link do lembrete por e-mail (sem login); `action` confirma presença ou cancela */
+  async appointmentLink(token: string, action?: 'confirm' | 'cancel'): Promise<AppointmentLinkView> {
+    const res = await request<{ success: boolean; appointment: AppointmentLinkView }>(`/appointments/link${action ? `/${action}` : ''}`, {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    });
+    return res.appointment;
   },
 
   /** Nova senha com o token do link do e-mail (uso único) */

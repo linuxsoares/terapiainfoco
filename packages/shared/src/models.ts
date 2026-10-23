@@ -164,6 +164,8 @@ export interface Appointment {
   // Lembretes & Notificações de Teleconsulta (RFC-001 §3.1)
   reminderStatus?: ReminderDeliveryStatus;
   lastReminderSentAt?: Date | string;
+  /** Paciente confirmou presença pelo link do lembrete por e-mail */
+  patientConfirmedAt?: Date | string;
   
   createdAt: Date | string;
 }

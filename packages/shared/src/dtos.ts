@@ -5067,9 +5067,15 @@ export interface VerifyWebSocketSealResponse {
   details: string;
 }
 
-
-
-
-
-
-
+/** Sessão vista pelo link do lembrete por e-mail (confirmar presença ou cancelar, sem login) */
+export interface AppointmentLinkView {
+  therapistName: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  status: AppointmentStatus;
+  patientConfirmed: boolean;
+  canConfirm: boolean;
+  canCancel: boolean;
+  /** Último momento para cancelar online (política de antecedência mínima) */
+  cancelDeadline: string;
+}

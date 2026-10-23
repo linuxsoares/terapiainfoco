@@ -9,7 +9,7 @@ import { appointmentScheduledEmail } from './email/templates';
 
 const CLINIC_TIME_ZONE = 'America/Sao_Paulo';
 
-function formatSessionTime(date: Date | string): string {
+export function formatSessionTime(date: Date | string): string {
   const text = new Date(date).toLocaleString('pt-BR', {
     timeZone: CLINIC_TIME_ZONE,
     weekday: 'long',
@@ -22,7 +22,7 @@ function formatSessionTime(date: Date | string): string {
   return `${text} (horário de Brasília)`;
 }
 
-function decryptOrNull(payload: Parameters<typeof decryptField>[0] | undefined): string | null {
+export function decryptOrNull(payload: Parameters<typeof decryptField>[0] | undefined): string | null {
   if (!payload) return null;
   try {
     return decryptField(payload).trim() || null;

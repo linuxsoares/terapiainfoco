@@ -1,7 +1,13 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { AppointmentService } from '../services/appointmentService';
 import { AuditService } from '../services/auditService';
-import { publicBookingRateLimiter } from '../middlewares/rateLimiter';
+import { publicBookingRateLimiter, validationRateLimiter } from '../middlewares/rateLimiter';
+import {
+  AppointmentLinkError,
+  cancelAppointmentByLink,
+  confirmAppointmentByLink,
+  getAppointmentLinkView
+} from '../services/appointmentReminderService';
 import { authMiddleware, requireRoles, PRACTICE_STAFF_ROLES } from '../middlewares/authMiddleware';
 import { canAccessPatient, requireAppointmentAccess } from '../middlewares/accessPolicy';
 import { 
@@ -10,6 +16,7 @@ import {
   type CreateAppointmentDTO, 
   type UpdateAppointmentStatusDTO,
   type PatientBookingDTO,
+  type AppointmentLinkView,
   UserRole
 } from '@terapiainfoco/shared';
 
@@ -58,6 +65,32 @@ appointmentsRoute.get('/patient/therapists', authMiddleware(), requireRoles([Use
   const therapists = await AppointmentService.getPatientUserTherapists(c.get('userId'));
   return c.json({ success: true, therapists });
 });
+
+// Link do lembrete por e-mail: o paciente vê a sessão e confirma presença ou cancela, sem login.
+// Tudo por POST com o token no corpo: não vai para o log de URLs, e leitores de e-mail que
+// pré-carregam links não cancelam sessões.
+async function respondToLink(c: Context, action: (token: string) => Promise<AppointmentLinkView>) {
+  const body = await c.req.json<{ token?: unknown }>().catch(() => ({} as { token?: unknown }));
+  if (typeof body.token !== 'string' || !body.token) {
+    return c.json({ success: false, error: 'Link inválido ou expirado.' }, 404);
+  }
+  try {
+    return c.json({ success: true, appointment: await action(body.token) });
+  } catch (err: any) {
+    if (err instanceof AppointmentLinkError) return c.json({ success: false, error: err.message }, err.status);
+    return c.json({ success: false, error: err.message }, 400);
+  }
+}
+
+appointmentsRoute.post('/link', validationRateLimiter, (c) => respondToLink(c, (token) => getAppointmentLinkView(token)));
+
+appointmentsRoute.post('/link/confirm', validationRateLimiter, (c) => respondToLink(c, (token) => confirmAppointmentByLink(token)));
+
+appointmentsRoute.post('/link/cancel', validationRateLimiter, (c) =>
+  respondToLink(c, (token) => cancelAppointmentByLink(token, {
+    ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+    userAgent: c.req.header('user-agent')
+  })));
 
 // Demais rotas da agenda exigem sessão autenticada da equipe do consultório.
 // Registrado após as rotas públicas acima: o Hono executa na ordem de registro.
