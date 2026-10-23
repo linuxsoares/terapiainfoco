@@ -29,6 +29,7 @@ export function toDecryptedAppointment(app: StoredAppointment): DecryptedAppoint
     paymentStatus: app.paymentStatus,
     paidAt: app.paidAt,
     paymentMethod: app.paymentMethod,
+    receitaSaudeIssuedAt: app.receitaSaudeIssuedAt,
     createdAt: app.createdAt,
     roomUrl: teleconsultationRoomUrl(app.id)
   };

@@ -44,6 +44,7 @@ function toAppointment(row: AppointmentRow): StoredAppointment {
     paidAt: row.paidAt ?? undefined,
     paymentMethod: (row.paymentMethod as PaymentMethod | null) ?? undefined,
     encryptedPayer: row.encryptedPayer ?? undefined,
+    receitaSaudeIssuedAt: row.receitaSaudeIssuedAt ?? undefined,
     createdAt: row.createdAt
   };
 }
@@ -68,6 +69,7 @@ function toRow(appointment: StoredAppointment): AppointmentInsert {
     paidAt: appointment.paidAt ?? null,
     paymentMethod: appointment.paymentMethod ?? null,
     encryptedPayer: appointment.encryptedPayer ?? null,
+    receitaSaudeIssuedAt: toDate(appointment.receitaSaudeIssuedAt),
     createdAt: toDate(appointment.createdAt) ?? new Date()
   };
 }

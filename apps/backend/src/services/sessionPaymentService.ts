@@ -9,6 +9,8 @@ import {
   type DecryptedAppointment,
   type FinanceSessionItem,
   type FinanceSummaryResponse,
+  type ReceitaSaudeItem,
+  type ReceitaSaudeReportResponse,
   type RegisterSessionPaymentDTO,
   type SessionPayer,
   type StoredAppointment
@@ -100,6 +102,7 @@ export const SessionPaymentService = {
       appointment.paidAt = undefined;
       appointment.paymentMethod = undefined;
       appointment.encryptedPayer = undefined;
+      appointment.receitaSaudeIssuedAt = undefined;
     }
     appointment.paymentStatus = dto.status;
 
@@ -113,6 +116,90 @@ export const SessionPaymentService = {
       userAgent: context.userAgent
     });
     return toDecryptedAppointment(saved);
+  },
+
+  /** Marca (ou desmarca) que o recibo da sessão paga foi lançado no Receita Saúde */
+  async markReceitaSaude(
+    appointmentId: string,
+    issued: boolean,
+    context: { actorId: string; ipAddress: string; userAgent?: string },
+    now = new Date()
+  ): Promise<DecryptedAppointment> {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new SessionPaymentError('Consulta não encontrada.');
+    if (issued && appointment.paymentStatus !== SessionPaymentStatus.PAID) {
+      throw new SessionPaymentError('Só sessões pagas têm recibo no Receita Saúde.');
+    }
+    appointment.receitaSaudeIssuedAt = issued ? now : undefined;
+    const saved = await AppointmentRepository.save(appointment);
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.APPOINTMENT,
+      resourceId: appointmentId,
+      action: AuditAction.UPDATE,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+    return toDecryptedAppointment(saved);
+  },
+
+  /**
+   * Relatório do mês com os campos do recibo do Receita Saúde: pagador (o paciente, salvo
+   * indicação), beneficiário (o paciente), valor, data e descrição. Traz CPFs decifrados,
+   * por isso cada consulta fica registrada na auditoria.
+   */
+  async receitaSaudeReport(
+    therapistId: string,
+    month: string,
+    context: { actorId: string; ipAddress: string; userAgent?: string }
+  ): Promise<ReceitaSaudeReportResponse> {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new SessionPaymentError('Mês inválido (use AAAA-MM).');
+
+    const patients = new Map<string, { name: string; cpf: string | null }>();
+    for (const patient of await PatientRepository.list({ therapistId })) {
+      const cpf = decryptOrNull(patient.encryptedCpf);
+      patients.set(patient.id, {
+        name: decryptOrNull(patient.encryptedName) ?? 'Paciente',
+        cpf: cpf && isValidCpf(cpf) ? formatCpf(cpf) : null
+      });
+    }
+
+    const paid = (await AppointmentRepository.list({ therapistId }))
+      .filter((a) => a.paymentStatus === SessionPaymentStatus.PAID && a.paidAt?.startsWith(month) && a.feeCents)
+      .sort((x, y) => (x.paidAt ?? '').localeCompare(y.paidAt ?? ''));
+
+    const items: ReceitaSaudeItem[] = paid.map((a) => {
+      const patient = patients.get(a.patientId) ?? { name: 'Paciente', cpf: null };
+      const payer = decryptPayer(a);
+      const sessionDay = new Date(a.scheduledStart).toLocaleDateString('pt-BR', { timeZone: CLINIC_TIME_ZONE });
+      return {
+        appointmentId: a.id,
+        paidAt: a.paidAt!,
+        amountCents: a.feeCents!,
+        payerName: payer?.name ?? patient.name,
+        payerCpf: payer?.cpf ?? patient.cpf,
+        beneficiaryName: patient.name,
+        beneficiaryCpf: patient.cpf,
+        description: `Atendimento psicológico (psicoterapia), sessão de ${sessionDay}`,
+        issued: !!a.receitaSaudeIssuedAt
+      };
+    });
+
+    AuditService.log({
+      actorId: context.actorId,
+      resourceType: AuditResourceType.APPOINTMENT,
+      resourceId: `receita-saude:${therapistId}:${month}`,
+      action: AuditAction.GENERATE_REPORT,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    return {
+      month,
+      items,
+      totalCents: items.reduce((sum, item) => sum + item.amountCents, 0),
+      missingCpf: items.filter((item) => !item.payerCpf || !item.beneficiaryCpf).length
+    };
   },
 
   /** Contas a receber (todas) e pagamentos recebidos no mês (YYYY-MM) do consultório */

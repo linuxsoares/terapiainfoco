@@ -5126,3 +5126,27 @@ export interface FinanceSummaryResponse {
     receivableWithoutFee: number;
   };
 }
+
+/** Linha do relatório mensal com os campos do recibo do Receita Saúde */
+export interface ReceitaSaudeItem {
+  appointmentId: string;
+  /** Data do pagamento (YYYY-MM-DD) */
+  paidAt: string;
+  amountCents: number;
+  payerName: string;
+  payerCpf: string | null;
+  beneficiaryName: string;
+  beneficiaryCpf: string | null;
+  description: string;
+  issued: boolean;
+}
+
+export interface ReceitaSaudeReportResponse {
+  /** YYYY-MM */
+  month: string;
+  items: ReceitaSaudeItem[];
+  /** Total recebido no mês (base do Carnê-Leão) */
+  totalCents: number;
+  /** Pagamentos sem CPF do pagador ou do paciente: completar antes de lançar */
+  missingCpf: number;
+}

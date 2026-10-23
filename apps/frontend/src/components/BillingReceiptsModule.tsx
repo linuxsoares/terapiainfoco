@@ -273,10 +273,10 @@ export function BillingReceiptsModule({
             <span>Faturamento Clínico & Honorários</span>
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-            Recibos de Honorários & Termos de Serviços
+            Comprovantes de Pagamento & Termos de Serviços
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Emissão probatória para Reembolso de Convênio e DMED/IRPF de {patientName}, com validação anônima e selo WORM.
+            Comprovantes de {patientName} para reembolso de convênio, com validação pública. Para dedução no Imposto de Renda, o recibo é o emitido no Receita Saúde (Financeiro → Receita Saúde).
           </p>
         </div>
 
@@ -423,7 +423,7 @@ export function BillingReceiptsModule({
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Recibo Oficial: {selectedReceipt.receiptNumber}
+                    Comprovante: {selectedReceipt.receiptNumber}
                   </span>
                   {selectedReceipt.paymentStatus === PaymentStatus.CANCELLED ? (
                     <span className="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-0.5 rounded-full border border-rose-200">
@@ -466,11 +466,11 @@ export function BillingReceiptsModule({
                       {selectedReceipt.therapistName}
                     </h3>
                     <p className="text-xs text-teal-600 dark:text-teal-400 font-semibold">
-                      Psicóloga Clínica • {selectedReceipt.therapistCrp}
+                      Psicólogo(a) • {selectedReceipt.therapistCrp}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      CPF: {selectedReceipt.therapistCpfOrCnpj} • Livro Caixa / Carnê-Leão
-                    </p>
+                    {selectedReceipt.therapistCpfOrCnpj && (
+                      <p className="text-[11px] text-slate-500 mt-0.5">CPF: {selectedReceipt.therapistCpfOrCnpj}</p>
+                    )}
                   </div>
 
                   <div className="sm:text-right">
@@ -675,7 +675,7 @@ export function BillingReceiptsModule({
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 cursor-pointer"
                   >
                     <option value={ReceiptPurpose.CONVENIO_REIMBURSO}>Reembolso Convênio / Operadora</option>
-                    <option value={ReceiptPurpose.IRPF_CARNE_LEAO}>Declaração IRPF / Carnê-Leão / DMED</option>
+                    <option value={ReceiptPurpose.IRPF_CARNE_LEAO}>Controle pessoal (o recibo do IR é o do Receita Saúde)</option>
                     <option value={ReceiptPurpose.SIMPLES_QUITACAO}>Comprovante de Quitação Simples</option>
                   </select>
                 </div>

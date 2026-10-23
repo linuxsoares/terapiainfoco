@@ -635,7 +635,8 @@ import type {
   PsychiatricReferralGuide,
   AppointmentLinkView,
   RegisterSessionPaymentDTO,
-  FinanceSummaryResponse
+  FinanceSummaryResponse,
+  ReceitaSaudeReportResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1195,6 +1196,17 @@ export const api = {
   async getFinanceSummary(month: string): Promise<FinanceSummaryResponse> {
     const { success: _success, ...summary } = await request<FinanceSummaryResponse & { success: boolean }>(`/finance/summary?month=${month}`);
     return summary;
+  },
+
+  /** Pagamentos do mês com os campos do recibo do Receita Saúde */
+  async getReceitaSaudeReport(month: string): Promise<ReceitaSaudeReportResponse> {
+    const { success: _success, ...report } = await request<ReceitaSaudeReportResponse & { success: boolean }>(`/finance/receita-saude?month=${month}`);
+    return report;
+  },
+
+  /** Marca que o recibo da sessão foi lançado no Receita Saúde */
+  async markReceitaSaudeIssued(appointmentId: string, issued: boolean): Promise<void> {
+    await request(`/appointments/${appointmentId}/receita-saude`, { method: 'PATCH', body: JSON.stringify({ issued }) });
   },
 
   /** Sessão do link do lembrete por e-mail (sem login); `action` confirma presença ou cancela */

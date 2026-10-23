@@ -13,7 +13,8 @@ import {
   PaymentMethod,
   PaymentStatus,
   AuditAction,
-  AuditResourceType
+  AuditResourceType,
+  UserRole
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
@@ -24,6 +25,16 @@ function formatBrl(cents: number): string {
   const parts = (cents / 100).toFixed(2).split('.');
   const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `R$ ${intPart},${parts[1]}`;
+}
+
+/** Psicólogo titular do consultório (quem presta o serviço), mesmo quando a recepção emite */
+async function practiceProfessional(therapistId: string): Promise<{ therapistName: string; therapistCrp: string }> {
+  const [titular] = await UserRepository.list({ therapistId, roles: [UserRole.PSICOLOGO_TITULAR] });
+  const rawCrp = titular?.crp || db.therapists.get(therapistId)?.crp || '';
+  return {
+    therapistName: titular?.name ?? 'Psicólogo(a) responsável',
+    therapistCrp: !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`
+  };
 }
 
 export class BillingReceiptService {
@@ -101,12 +112,9 @@ export class BillingReceiptService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const therapist = db.therapists.get(therapistId);
-    const user = await UserRepository.findById(context.actorId);
-    const therapistName = user ? user.name : 'Dra. Vanessa Andrade';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
-    const therapistCpfOrCnpj = '123.456.789-00'; // CPF profissional para Carnê-Leão
+    const { therapistName, therapistCrp } = await practiceProfessional(therapistId);
+    // CPF do profissional ainda não é cadastrado: o recibo fiscal (dedução no IR) é o do Receita Saúde
+    const therapistCpfOrCnpj = '';
 
     const year = new Date().getFullYear();
     const count = db.receipts.size + 1;
@@ -364,11 +372,7 @@ export class BillingReceiptService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const therapist = db.therapists.get(therapistId);
-    const user = await UserRepository.findById(context.actorId);
-    const therapistName = user ? user.name : 'Dra. Vanessa Andrade';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
+    const { therapistName, therapistCrp } = await practiceProfessional(therapistId);
 
     const id = randomUUID();
     const sessionPriceFormatted = formatBrl(dto.sessionPriceCents);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wallet, CheckCircle2, AlertCircle, CircleDollarSign, HelpCircle } from 'lucide-react';
 import { AppointmentStatus, type FinanceSessionItem, type FinanceSummaryResponse } from '@terapiainfoco/shared';
 import { api } from '../services/api';
+import { ReceitaSaudePanel } from './ReceitaSaudePanel';
 import { SessionPaymentModal, PAYMENT_METHOD_LABELS, formatBrl, type PayableSession } from './SessionPaymentModal';
 
 const currentMonth = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
@@ -16,6 +17,7 @@ export function FinanceModule() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [paying, setPaying] = useState<PayableSession | null>(null);
+  const [tab, setTab] = useState<'receivable' | 'receitaSaude'>('receivable');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,11 +60,29 @@ export function FinanceModule() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Sessões a receber e pagamentos recebidos. Faltas sem aviso entram como cobráveis; isente quando não for cobrar.</p>
         </div>
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-          Mês dos recebimentos
+          Mês dos pagamentos
           <input type="month" value={month} max={currentMonth()} onChange={(e) => e.target.value && setMonth(e.target.value)} className="block mt-1 px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white" />
         </label>
       </div>
 
+      <div className="flex gap-2" role="tablist">
+        {([['receivable', 'Contas a receber'], ['receitaSaude', 'Receita Saúde']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`px-3 py-1.5 rounded-xl text-sm font-semibold border cursor-pointer ${tab === key
+              ? 'bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+              : 'text-slate-600 border-slate-200 hover:bg-slate-100 dark:text-slate-400 dark:border-slate-800 dark:hover:bg-slate-800/50'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'receitaSaude' ? <ReceitaSaudePanel month={month} /> : (
+      <>
       {notice && (
         <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2" role="status">
           <CheckCircle2 className="w-4 h-4 shrink-0" /> {notice}
@@ -171,6 +191,9 @@ export function FinanceModule() {
             </div>
           )}
         </section>
+      )}
+
+      </>
       )}
 
       {paying && (

@@ -142,6 +142,22 @@ appointmentsRoute.patch('/:id/payment', requireRoles(FINANCE_ROLES), requireAppo
   }
 });
 
+// Marca que o recibo da sessão foi lançado no Receita Saúde (controle do psicólogo)
+appointmentsRoute.patch('/:id/receita-saude', requireRoles(FINANCE_ROLES), requireAppointmentAccess(), async (c) => {
+  const body = await c.req.json<{ issued?: unknown }>().catch(() => null);
+  if (!body || typeof body.issued !== 'boolean') return c.json({ success: false, error: 'Informe issued (true/false).' }, 400);
+  try {
+    const appointment = await SessionPaymentService.markReceitaSaude(c.req.param('id'), body.issued, {
+      actorId: c.get('userId'),
+      ipAddress: c.req.header('x-forwarded-for') || '127.0.0.1',
+      userAgent: c.req.header('user-agent')
+    });
+    return c.json({ success: true, appointment });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
 // Atualizar status da sessão (SOLICITADA -> CONFIRMADA -> EM_ANDAMENTO -> CONCLUIDA)
 appointmentsRoute.patch('/:id/status', requireAppointmentAccess(), async (c) => {
   const id = c.req.param('id');
