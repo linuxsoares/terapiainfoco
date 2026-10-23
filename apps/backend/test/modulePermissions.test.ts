@@ -63,8 +63,7 @@ describe('Menus dinâmicos por perfil (MODULE_ACCESS)', () => {
         const { status } = await app.request(endpoint, { headers });
         if (canViewModule(role, module)) {
           expect({ module, status, denied: status === 401 || status === 403 }).toEqual({ module, status, denied: false });
-        } else if (module !== 'dashboard') {
-          // O backend ainda libera métricas agregadas ao Admin; demais módulos ocultos devem ser negados
+        } else {
           expect({ module, denied: status === 403 || status === 404 }).toEqual({ module, denied: true });
         }
       }

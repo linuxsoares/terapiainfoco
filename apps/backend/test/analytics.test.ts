@@ -3,7 +3,8 @@ import { app } from '../src/index';
 import { db } from '../src/db/memoryDb';
 import { globalRateLimitStore } from '../src/middlewares/rateLimiter';
 import { AppointmentStatus, DocumentType, UserRole } from '@terapiainfoco/shared';
-import { resetDb } from './helpers/db';
+import { resetDb, listUsers } from './helpers/db';
+import { authService } from '../src/services/authService';
 
 describe('Analytics, Métricas Clínicas & Observabilidade (Opção E - RFC-001)', () => {
   let psychologistToken = '';
@@ -266,6 +267,17 @@ describe('Analytics, Métricas Clínicas & Observabilidade (Opção E - RFC-001)
       headers: { Authorization: `Bearer ${secretaryToken}` }
     });
     expect(patientRes.status).toBe(403);
+  });
+
+  it('Admin/DPO não acessa métricas clínicas nem trechos de SOAP (RFC-001 §4.5)', async () => {
+    const { patientId } = await seedClinicalData();
+    const admin = (await listUsers()).find((u) => u.role === UserRole.ADMIN)!;
+    const { accessToken } = await authService.issueTokens(admin, '127.0.0.1');
+    const headers = { Authorization: `Bearer ${accessToken}` };
+
+    expect((await app.request('/api/analytics/clinical-overview', { headers })).status).toBe(403);
+    expect((await app.request('/api/analytics/clinical-overview?therapistId=therapist-001', { headers })).status).toBe(403);
+    expect((await app.request(`/api/analytics/patient/${patientId}`, { headers })).status).toBe(403);
   });
 
   it('deve bloquear requisições sem token de autenticação (401 Unauthorized)', async () => {
