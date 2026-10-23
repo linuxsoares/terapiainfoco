@@ -2425,6 +2425,7 @@ terapiainfoco/
 | `feat/finance-receita-saude` | Relatório para o Receita Saúde e comprovante sem dados fixos (V0 item 3, parte 2) | [PR #187](https://github.com/linuxsoares/terapiainfoco/pull/187) | Merged |
 | `fix/remove-fixed-identities` | Identidade real do consultório em documentos, mensagens e cadastro (V0 item 4, parte 1) | [PR #188](https://github.com/linuxsoares/terapiainfoco/pull/188) | Merged |
 | `fix/icp-simulation-honesty` | Assinatura eletrônica da plataforma no lugar do ICP-Brasil simulado (V0 item 4, parte 2) | [PR #189](https://github.com/linuxsoares/terapiainfoco/pull/189) | Merged |
+| `fix/admin-security-lab-demo-only` | Laboratório de segurança do Admin só em DEMO_MODE (V0 item 4, parte 3) | [PR #190](https://github.com/linuxsoares/terapiainfoco/pull/190) | Merged |
 
 ---
 
