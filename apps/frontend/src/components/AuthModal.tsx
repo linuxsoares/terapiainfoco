@@ -108,6 +108,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  /** Passkey cadastrada em Segurança da conta (WebAuthn); o e-mail, se preenchido, restringe as credenciais */
+  const handlePasskeyLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.authenticatePasskeyWithBrowser(loginEmail.trim() || undefined);
+      if (res.user) {
+        onAuthenticated(res.user, 'Login com passkey realizado com sucesso.');
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível entrar com a passkey.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleTraditionalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -259,7 +276,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {mode === 'login' ? 'Entrar no TerapiaInFoco' : 'Criar Novo Perfil na Plataforma'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Autenticação Segura JWT • Login Social OAuth 2.0 / Gov.br • 2FA & Passkeys FIDO2
+                E-mail e senha, 2FA e passkeys
               </p>
             </div>
           </div>
@@ -388,9 +405,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Botões de Login Social / Criação Social Rápida */}
           <div className="space-y-2">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              2. {mode === 'login' ? 'Entrar com Login Social ou Biometria:' : 'Criar Perfil Rápido com Login Social (1-Clique):'}
+              2. {mode === 'login' ? 'Entrar com Login Social (demonstração):' : 'Criar Perfil Rápido com Login Social (demonstração):'}
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 disabled={loading}
@@ -417,15 +434,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Apple ID</span>
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => handleSocialAuth(SocialAuthProvider.PASSKEY_FIDO2)}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-teal-500/10 hover:bg-teal-500/20 text-teal-800 dark:text-teal-300 border border-teal-500/30 transition-all"
-              >
-                <Fingerprint className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Passkey FIDO2</span>
               </button>
             </div>
           </div>
@@ -533,6 +541,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-500 hover:to-emerald-500 shadow-md transition-all"
               >
                 {loading ? 'Autenticando...' : `Entrar como ${selectedRole === UserRole.PACIENTE ? 'Paciente' : selectedRole === UserRole.ADMIN ? 'Admin / DPO' : 'Psicólogo(a)'}`}
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={loading}
+                className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-800 dark:text-teal-300 border border-teal-500/30 transition-all cursor-pointer disabled:opacity-60"
+              >
+                <Fingerprint className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                Entrar com passkey (biometria do dispositivo)
               </button>
 
               {/* Atalhos Demo 1-Clique */}
