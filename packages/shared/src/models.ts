@@ -174,6 +174,8 @@ export interface Appointment {
   /** Data do pagamento (YYYY-MM-DD) */
   paidAt?: string;
   paymentMethod?: PaymentMethod;
+  /** Recibo lançado no Receita Saúde (marcado pelo psicólogo) */
+  receitaSaudeIssuedAt?: Date | string;
   
   createdAt: Date | string;
 }

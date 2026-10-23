@@ -94,6 +94,8 @@ export const appointments = pgTable('appointments', {
   paymentMethod: varchar('payment_method', { length: 20 }),
   /** Quem pagou, se não foi o paciente (FLE) */
   encryptedPayer: jsonb('encrypted_payer').$type<EncryptedPayload>(),
+  /** Recibo lançado pelo psicólogo no Receita Saúde */
+  receitaSaudeIssuedAt: timestamp('receita_saude_issued_at', { withTimezone: true }),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [

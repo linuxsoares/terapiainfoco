@@ -1,0 +1,1 @@
+ALTER TABLE "appointments" ADD COLUMN "receita_saude_issued_at" timestamp with time zone;
