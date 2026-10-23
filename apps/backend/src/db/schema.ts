@@ -87,6 +87,14 @@ export const appointments = pgTable('appointments', {
   /** Paciente confirmou presença pelo link do lembrete */
   patientConfirmedAt: timestamp('patient_confirmed_at', { withTimezone: true }),
 
+  /** Financeiro da sessão: valor do agendamento e baixa do pagamento */
+  feeCents: integer('fee_cents'),
+  paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('PENDING'),
+  paidAt: varchar('paid_at', { length: 10 }),
+  paymentMethod: varchar('payment_method', { length: 20 }),
+  /** Quem pagou, se não foi o paciente (FLE) */
+  encryptedPayer: jsonb('encrypted_payer').$type<EncryptedPayload>(),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
   index('idx_appointments_schedule').on(table.therapistId, table.scheduledStart),

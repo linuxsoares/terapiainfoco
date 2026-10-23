@@ -82,6 +82,7 @@ import { getDb } from './db';
 import { BackupService } from './services/backupService';
 import { persistence } from './db/memoryDb';
 import { startAppointmentReminderScheduler } from './services/appointmentReminderService';
+import { financeRouter } from './routes/finance';
 import { persistenceMiddleware } from './middlewares/persistenceMiddleware';
 
 export const app = new Hono();
@@ -256,6 +257,7 @@ app.route('/api/psychometrics', psychometricsRouter);
 app.route('/api/reports/consolidated', consolidatedReportsRouter);
 app.route('/api/referrals', clinicalReferralsRouter);
 app.route('/api/billing', billingReceiptsRouter);
+app.route('/api/finance', financeRouter);
 app.route('/api/teleconsultation/session', teleconsultationRoutes);
 app.route('/api/transcription', aiTranscriptionRouter);
 app.route('/api/icp-batch', icpBatchSigningRouter);

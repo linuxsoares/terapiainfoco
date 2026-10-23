@@ -14,7 +14,9 @@ import {
   Send,
   MessageSquare,
   Sparkles,
-  Search
+  Search,
+  UserX,
+  Wallet
 } from 'lucide-react';
 import { 
   AppointmentStatus, 
@@ -22,6 +24,8 @@ import {
   ReminderChannel,
   ReminderTiming,
   UserRole,
+  SessionPaymentStatus,
+  FINANCE_ROLES,
   type DecryptedAppointment,
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
@@ -30,6 +34,9 @@ import { api } from '../services/api';
 import { TeleconsultationRoom } from './TeleconsultationRoom';
 import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 import { RECORDABLE_STATUSES } from './SoapModule';
+import { SessionPaymentModal, formatBrl } from './SessionPaymentModal';
+
+const CANCELED = [AppointmentStatus.CANCELADA_PELO_PACIENTE, AppointmentStatus.CANCELADA_PELO_TERAPEUTA];
 
 /** A sala pode ser iniciada a partir de 15 minutos antes do horário (mesma regra do backend) */
 const SESSION_EARLY_START_MS = 15 * 60 * 1000;
@@ -43,6 +50,9 @@ interface AgendaModuleProps {
 export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
   // Iniciar e concluir sessão são atos clínicos: a recepção só confirma, reagenda e cancela
   const isClinician = role === UserRole.PSICOLOGO_TITULAR || role === UserRole.SUPERVISOR_CLINICO;
+  // Pagamentos: psicólogo titular e recepção (mesmos perfis do módulo Financeiro)
+  const canHandlePayments = FINANCE_ROLES.includes(role);
+  const [payingApp, setPayingApp] = useState<DecryptedAppointment | null>(null);
   const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -419,6 +429,16 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
                             Presença confirmada
                           </span>
                         )}
+                        {app.paymentStatus === SessionPaymentStatus.PAID && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                            Pago{app.feeCents ? ` · ${formatBrl(app.feeCents)}` : ''}
+                          </span>
+                        )}
+                        {app.paymentStatus === SessionPaymentStatus.WAIVED && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/30">
+                            Isenta
+                          </span>
+                        )}
                         {!app.patientConfirmedAt && app.reminderStatus === 'SENT' && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/30">
                             Lembrete enviado
@@ -488,6 +508,26 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
                           <CheckCircle2 className="w-3.5 h-3.5" /> Concluir
                         </button>
                       </>
+                    )}
+
+                    {isClinician && app.status === AppointmentStatus.CONFIRMADA && Date.now() >= new Date(app.scheduledStart).getTime() && (
+                      <button
+                        onClick={() => handleStatusChange(app.id, AppointmentStatus.NAO_COMPARECEU)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 dark:bg-slate-800 dark:hover:bg-amber-950 dark:hover:text-amber-300 dark:text-slate-400 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="O paciente não compareceu: a sessão entra nas contas a receber (isente no pagamento se não for cobrar)"
+                      >
+                        <UserX className="w-3.5 h-3.5" /> Registrar falta
+                      </button>
+                    )}
+
+                    {canHandlePayments && !CANCELED.includes(app.status) && (
+                      <button
+                        onClick={() => setPayingApp(app)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Registrar, desfazer ou isentar o pagamento desta sessão"
+                      >
+                        <Wallet className="w-3.5 h-3.5" /> Pagamento
+                      </button>
                     )}
 
                     {app.seriesId && 
@@ -986,6 +1026,19 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
           onEhrRecordSaved={() => {
             setSelectedAiSoapApp(null);
             setSuccessMsg('Prontuário Oficial do Paciente (EHR) selado com sucesso na trilha WORM com respaldo da IA!');
+          }}
+        />
+      )}
+
+      {payingApp && (
+        <SessionPaymentModal
+          session={payingApp}
+          onClose={() => setPayingApp(null)}
+          onSaved={(message) => {
+            setPayingApp(null);
+            setSuccessMsg(message);
+            setTimeout(() => setSuccessMsg(null), 4500);
+            void fetchAppointments();
           }}
         />
       )}

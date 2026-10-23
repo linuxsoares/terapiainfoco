@@ -633,7 +633,9 @@ import type {
   PsychopharmaceuticalCatalogResponse,
   Psychopharmaceutical,
   PsychiatricReferralGuide,
-  AppointmentLinkView
+  AppointmentLinkView,
+  RegisterSessionPaymentDTO,
+  FinanceSummaryResponse
 } from '@terapiainfoco/shared';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim().replace(/\/+$/, '');
@@ -1178,6 +1180,21 @@ export const api = {
   async resendEmailVerification(): Promise<string> {
     const res = await request<{ success: boolean; message: string }>('/auth/email/resend', { method: 'POST' });
     return res.message;
+  },
+
+  /** Baixa, estorno ou isenção do pagamento de uma sessão */
+  async registerSessionPayment(appointmentId: string, dto: RegisterSessionPaymentDTO): Promise<DecryptedAppointment> {
+    const res = await request<{ success: boolean; appointment: DecryptedAppointment }>(`/appointments/${appointmentId}/payment`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto)
+    });
+    return res.appointment;
+  },
+
+  /** Contas a receber e pagamentos do mês (YYYY-MM) do consultório */
+  async getFinanceSummary(month: string): Promise<FinanceSummaryResponse> {
+    const { success: _success, ...summary } = await request<FinanceSummaryResponse & { success: boolean }>(`/finance/summary?month=${month}`);
+    return summary;
   },
 
   /** Sessão do link do lembrete por e-mail (sem login); `action` confirma presença ou cancela */

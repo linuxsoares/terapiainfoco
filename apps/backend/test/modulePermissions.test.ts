@@ -15,6 +15,7 @@ const MODULE_ENDPOINTS: Partial<Record<AppModule, string>> = {
   patients: '/api/patients/search/cpf?cpf=000.000.000-00',
   soap: `/api/clinical-markers/appointment/${DEMO_APPOINTMENT_ID}`,
   documents: '/api/documents',
+  finance: '/api/finance/summary',
   audit: '/api/audit',
   backups: '/api/backups',
   publicProfile: '/api/therapists/me/profile',
@@ -47,7 +48,7 @@ describe('Menus dinâmicos por perfil (MODULE_ACCESS)', () => {
 
   it('cada perfil tem uma tela inicial visível e não vê módulos fora da matriz', () => {
     expect(visibleModules(UserRole.PACIENTE)).toEqual(['portal', 'directory', 'security']);
-    expect(visibleModules(UserRole.RECEPCAO_SECRETARIA)).toEqual(['agenda', 'patients', 'security']);
+    expect(visibleModules(UserRole.RECEPCAO_SECRETARIA)).toEqual(['agenda', 'patients', 'finance', 'security']);
     expect(visibleModules(UserRole.ADMIN)).toEqual(['audit', 'crpVerification', 'team', 'leads', 'backups', 'observability', 'security']);
     for (const role of ROLES) {
       expect(canViewModule(role, defaultModule(role))).toBe(true);

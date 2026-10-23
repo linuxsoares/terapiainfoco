@@ -2420,6 +2420,7 @@ terapiainfoco/
 | `feat/email-verification` | Confirmação de e-mail no cadastro: link de 48 h, reenvio e aviso no painel | [PR #182](https://github.com/linuxsoares/terapiainfoco/pull/182) | Merged |
 | `feat/email-appointment-confirmation` | E-mail de agendamento ao paciente (avulsa, série e portal); fecha o item 1 do V0 | [PR #183](https://github.com/linuxsoares/terapiainfoco/pull/183) | Merged |
 | `feat/appointment-reminders` | Lembrete por e-mail 48h antes com confirmar/cancelar pelo link (V0 item 2) | [PR #184](https://github.com/linuxsoares/terapiainfoco/pull/184) | Merged |
+| `feat/finance-session-payments` | Valor e pagamento por sessão, contas a receber e módulo Financeiro (V0 item 3, parte 1) | [PR #185](https://github.com/linuxsoares/terapiainfoco/pull/185) | Merged |
 
 ---
 
@@ -2434,7 +2435,10 @@ terapiainfoco/
 2. [x] **Lembretes de verdade (PR #184):** varredura a cada 10 minutos envia e-mail 48h antes de cada consulta confirmada (reserva atômica no banco: um envio por horário, mesmo com várias instâncias; consulta marcada dentro da janela só recebe o aviso de agendamento). O link assinado (HMAC, vale até o fim da sessão, sem login) abre a tela "Sua sessão": confirmar presença (selo na Agenda) ou cancelar até 24h antes, com aviso ao psicólogo por e-mail. Token só no corpo de POST (fora do log de URLs e de pré-carregamento de links).
    - [ ] WhatsApp por provedor oficial (Meta Cloud API) como segundo canal; o botão manual `wa.me` continua.
    - [ ] Lembrete curto 2h antes com o link da sala (opcional, por consultório).
-3. [ ] **Financeiro mínimo:** valor por sessão, marcar como pago, contas a receber e relatório mensal com os campos do Receita Saúde (CPF do pagador e do beneficiário, valor, data, descrição) para o lançamento pelo psicólogo PF; NFS-e fica para PJ no V1.
+3. [ ] **Financeiro mínimo:** valor por sessão, marcar como pago, contas a receber e relatório mensal com os campos do Receita Saúde (CPF do pagador e do beneficiário, valor, data, descrição) para o lançamento pelo psicólogo PF; NFS-e fica para PJ no V1. Regras: cobrança por sessão; sessão realizada e falta sem aviso são cobráveis (isentar sessão a sessão); cancelada não é cobrada.
+   - [x] **Valor e pagamento por sessão (PR #185):** a consulta guarda o valor no agendamento (perfil público ou conta do titular; ajustável). Baixa com data (não futura), forma e pagador quando não é o paciente (nome + CPF validado, cifrado com FLE); desfazer e isentar. Módulo **Financeiro** (titular e recepção): contas a receber por paciente, recebidos no mês e sessões sem valor. Agenda: botões "Pagamento" e "Registrar falta", selos Pago/Isenta.
+   - [ ] **Relatório para o Receita Saúde:** CPF real do psicólogo no perfil, lista mensal com os campos do recibo (copiar e CSV), marca "lançado no Receita Saúde" e total do mês para o Carnê-Leão; o recibo interno vira "comprovante de pagamento" (hoje usa CPF e nome fixos).
+   - [ ] Valor por paciente (preço social) aplicado automaticamente nos próximos agendamentos.
 4. [ ] **Honestidade do que é simulado:** a assinatura "ICP-Brasil" e o carimbo do tempo usam chave efêmera e TSA simulado; não apresentá-los como ICP-Brasil enquanto não houver provedor real. Esconder ou remover os módulos de segurança apenas demonstrativos do painel Admin (43 serviços com partes simuladas).
 5. [ ] **Pendências da fundação:** consentimento separado por escopo no TCLE, login social real (ou botão oculto) e backup cobrindo todas as coleções (itens detalhados abaixo).
 
