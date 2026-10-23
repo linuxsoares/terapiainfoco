@@ -2415,12 +2415,27 @@ terapiainfoco/
 | `feat/soap-linked-to-appointment` | Evolução SOAP vinculada à consulta real: seletor, prontuário real, transcrição da teleconsulta e minuta pelo pipeline de IA | [PR #177](https://github.com/linuxsoares/terapiainfoco/pull/177) | Merged |
 | `refactor/remove-legacy-soap-demo` | Remove transcrição fictícia e SOAP fixo; pipeline real exige consentimento AI_CLINICAL_SYNTHESIS e paciente da consulta | [PR #178](https://github.com/linuxsoares/terapiainfoco/pull/178) | Merged |
 | `feat/logo-home` | Logo do topo leva à tela inicial de cada perfil | [PR #179](https://github.com/linuxsoares/terapiainfoco/pull/179) | Merged |
+| `docs/roadmap-v0-definition` | Redefine o marco V0 (psicólogo PF do primeiro contato ao recibo) e corrige o "100% concluído" | [PR #180](https://github.com/linuxsoares/terapiainfoco/pull/180) | Merged |
 
 ---
 
-## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários — Marco V0 100% Concluído & Evolução V1)
+## 🚀 O Que Precisamos Fazer (Próximos Passos Prioritários — Marco V0 em Andamento & Evolução V1)
 
-Com o **Marco V0 100% Concluído + Experiência de Entrada, Perfis & Teleconsulta Real WebRTC V1** — contemplando a Vitrine Pública Sem Login, Login e Criação de Perfil Com/Sem Login Social (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`), Captura Real de Câmera e Microfone na Teleconsulta WebRTC P2P, todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.386 testes automatizados (0 falhas em 142 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
+> **Revisão de 23/10/2026:** o marco V0 estava registrado como "100% concluído", mas a auditoria de perfis × acessos (PRs #170–#175) e da Evolução SOAP (PRs #176–#178) encontrou fluxos de demonstração no lugar de funcionalidades reais (SOAP e transcrição fictícios, IA com texto fixo), e a comparação com plataformas do mercado (Sinappsy, PsicoManager, Menta, Zenklub, PsicoClin) mostrou lacunas no dia a dia do consultório. O texto abaixo da seção V0 descreve o que foi construído até então.
+
+#### 🎯 Marco V0 — Definição
+**Um(a) psicólogo(a) pessoa física atende sozinho(a), com pacientes reais, do primeiro contato ao recibo.** Bloqueadores, em ordem:
+
+1. [ ] **E-mail transacional:** provedor de e-mail configurável, recuperação de senha por link de uso único, verificação de e-mail no cadastro e confirmação de agendamento ao paciente.
+2. [ ] **Lembretes de verdade:** envio automático por e-mail (WhatsApp por provedor oficial em seguida); hoje só se gera um link `wa.me` e o lembrete é marcado como enviado. O paciente confirma ou cancela pelo link.
+3. [ ] **Financeiro mínimo:** valor por sessão, marcar como pago, contas a receber e relatório mensal com os campos do Receita Saúde (CPF do pagador e do beneficiário, valor, data, descrição) para o lançamento pelo psicólogo PF; NFS-e fica para PJ no V1.
+4. [ ] **Honestidade do que é simulado:** a assinatura "ICP-Brasil" e o carimbo do tempo usam chave efêmera e TSA simulado; não apresentá-los como ICP-Brasil enquanto não houver provedor real. Esconder ou remover os módulos de segurança apenas demonstrativos do painel Admin (43 serviços com partes simuladas).
+5. [ ] **Pendências da fundação:** consentimento separado por escopo no TCLE, login social real (ou botão oculto) e backup cobrindo todas as coleções (itens detalhados abaixo).
+
+**Fica para o V1:** cobrança online (Pix/cartão), NFS-e, sincronização com Google/Outlook Calendar, ICP-Brasil real via provedor em nuvem, PWA, assinatura do SaaS (planos e cobrança do psicólogo) e operação com várias réplicas.
+
+#### 📦 Construído até a revisão de 23/10/2026
+Com a **Experiência de Entrada, Perfis & Teleconsulta Real WebRTC V1** — contemplando a Vitrine Pública Sem Login, Login e Criação de Perfil Com/Sem Login Social (`PACIENTE`, `PSICOLOGO_TITULAR`, `ADMIN`), Captura Real de Câmera e Microfone na Teleconsulta WebRTC P2P, todos os 18 módulos clínicos da especificação **RFC-001** e todas as 74 camadas de **Governança, Hardening Criptográfico & Proteção em Tempo Real**, respaldados por **1.386 testes automatizados (0 falhas em 142 arquivos)** — o estado atual e os próximos passos rumo ao **Marco V1** são:
 
 #### 🧱 Fundação de Produção V1 (Prioridade Máxima — Persistência Real, Perfis & Busca)
 > Diagnóstico de 19/10/2026: o `memoryDb` (RAM) ainda é a fonte de verdade; só usuários, pacientes e agendamentos são copiados para o PostgreSQL (em fire-and-forget) e as chaves FLE/KMS eram aleatórias a cada boot. Nenhum novo módulo de segurança deve entrar antes desta fundação.
