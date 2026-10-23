@@ -25,6 +25,7 @@ import {
 } from '@terapiainfoco/crypto';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
+import { practiceProfessional } from './practiceProfessional';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 
@@ -79,9 +80,8 @@ export class PortabilityVaultService {
       name = '[DADOS EM QUARENTENA LGPD]';
     }
 
-    const therapist = db.therapists.get(storedPatient.therapistId);
-    let therapistName = 'Dra. Beatriz Santos';
-    therapistName = (await UserRepository.findPracticeOwner(storedPatient.therapistId))?.name ?? therapistName;
+    const professional = await practiceProfessional(storedPatient.therapistId);
+    const therapistName = professional.name;
 
     // 1. Dados Cadastrais & TCLE
     const patientDemographics = {
@@ -294,10 +294,10 @@ export class PortabilityVaultService {
           'Este arquivo .enc contém a integralidade do prontuário clínico do titular, cifrado com chave derivada exclusivamente da sua senha pessoal (Argon2id + AES-256-GCM).'
       },
       therapist: {
-        id: therapist?.id || 'therapist-001',
+        id: storedPatient.therapistId,
         name: therapistName,
-        crp: therapist?.crp || '06/142980',
-        crpRegion: therapist?.crpRegion || 'SP'
+        crp: professional.crp,
+        crpRegion: professional.crpRegion
       },
       patientDemographics,
       anamnesisRecords,

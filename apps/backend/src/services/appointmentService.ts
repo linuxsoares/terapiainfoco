@@ -20,6 +20,7 @@ import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
+import { practiceProfessional, formatCrp } from './practiceProfessional';
 import { config } from '../config';
 import { teleconsultationRoomUrl, toDecryptedAppointment } from './teleconsultationRoom';
 import { TherapistProfileRepository } from '../repositories/therapistProfileRepository';
@@ -83,6 +84,15 @@ export class AppointmentService {
     });
 
     return toDecryptedAppointment(storedAppointment);
+  }
+
+  /** "Nome (CRP ...)" do perfil público ou do titular, para a grade de horários */
+  private static async slotsTherapistLabel(therapistId: string): Promise<string> {
+    const profile = await TherapistProfileRepository.findByTherapistId(therapistId);
+    const professional = await practiceProfessional(therapistId);
+    const name = profile?.displayName || professional.name;
+    const crp = formatCrp(profile?.crp || professional.crp);
+    return crp ? `${name} (${crp})` : name;
   }
 
   /** Valor padrão da sessão: o do perfil público ou, sem perfil, o da conta do psicólogo titular */
@@ -232,7 +242,7 @@ export class AppointmentService {
 
     return {
       therapistId,
-      therapistName: 'Dra. Vanessa Andrade (CRP 06/142980)',
+      therapistName: await this.slotsTherapistLabel(therapistId),
       date: dateFormatted,
       bufferMinutes,
       slots

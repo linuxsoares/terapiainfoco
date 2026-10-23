@@ -13,6 +13,7 @@ import {
 } from '@terapiainfoco/shared';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
+import { practiceProfessional, formatCrp } from './practiceProfessional';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -34,11 +35,10 @@ export class ClinicalReferralService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const therapist = db.therapists.get(therapistId);
     const user = await UserRepository.findById(context.actorId);
-    const therapistName = user ? user.name : 'Psicólogo Clínico';
-    const rawCrp = therapist?.crp || (user as any)?.crp || '06/142980';
-    const therapistCrp = rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`;
+    const professional = await practiceProfessional(therapistId);
+    const therapistName = user?.name ?? professional.name;
+    const therapistCrp = formatCrp(user?.crp || professional.crp);
 
     // Coleta do sumário psicométrico mais recente caso solicitado
     let psychometricSummary: ClinicalReferralPsychometricSummary | undefined = undefined;

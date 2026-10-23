@@ -14,6 +14,7 @@ import { db } from '../db/memoryDb';
 import { teleconsultationRoomUrl } from './teleconsultationRoom';
 import { decryptField, encryptField } from './cryptoContext';
 import { AuditService } from './auditService';
+import { practiceProfessional, formatCrp } from './practiceProfessional';
 
 import { PatientRepository } from '../repositories/patientRepository';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
@@ -47,6 +48,13 @@ export class ReminderService {
     return `55${digits}`;
   }
 
+  /** "Nome (CRP ...)" do titular do consultório para a mensagem */
+  private static async therapistLabel(therapistId: string): Promise<string> {
+    const professional = await practiceProfessional(therapistId);
+    const crp = formatCrp(professional.crp);
+    return crp ? `${professional.name} (${crp})` : professional.name;
+  }
+
   /**
    * Gera a mensagem do lembrete de teleconsulta conforme normas do CFP (Res. CFP nº 011/2018)
    */
@@ -59,7 +67,7 @@ export class ReminderService {
     customNote?: string;
   }): string {
     const { dateFormatted, timeFormatted } = this.formatDateTime(params.scheduledStart);
-    const therapistName = params.therapistName || 'Dra. Vanessa Andrade (Psicóloga Clínica - CRP 06/142980)';
+    const therapistName = params.therapistName || 'seu(sua) psicólogo(a)';
 
     if (params.channel === ReminderChannel.EMAIL) {
       return [
@@ -134,6 +142,7 @@ export class ReminderService {
 
     const renderedMessage = this.renderReminderMessage({
       patientName,
+      therapistName: await this.therapistLabel(appt.therapistId),
       scheduledStart: appt.scheduledStart,
       roomUrl,
       channel
@@ -178,6 +187,7 @@ export class ReminderService {
     const timing = dto.timing || ReminderTiming.IMMEDIATE;
     const renderedMessage = this.renderReminderMessage({
       patientName,
+      therapistName: await this.therapistLabel(appt.therapistId),
       scheduledStart: appt.scheduledStart,
       roomUrl,
       channel: dto.channel,

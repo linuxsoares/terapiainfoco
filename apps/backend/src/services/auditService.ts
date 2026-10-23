@@ -371,7 +371,7 @@ export class AuditService {
       controller: {
         clinicName: 'TerapiaInFoco Clínica Psicológica',
         dpoEmail: 'dpo@terapiainfoco.com.br',
-        technicalResponsibleCrp: '06/142980'
+        technicalResponsibleCrp: 'Não se aplica (relatório da plataforma)'
       },
       chainIntegrity,
       summary: {

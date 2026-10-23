@@ -79,8 +79,8 @@ icpBatchSigningRouter.post('/prepare', async (c) => {
     const manifest = await icpBatchSigningService.prepareBatchManifest(
       dto,
       user.therapistId || user.id,
-      user.name || 'Dra. Beatriz Santos',
-      user.crp || '06/142980'
+      user.name,
+      user.crp || ''
     );
 
     return c.json({
@@ -108,8 +108,8 @@ icpBatchSigningRouter.post('/sign', async (c) => {
     const result = await icpBatchSigningService.signBatchWithIcp(
       dto,
       user.therapistId || user.id,
-      user.name || 'Dra. Beatriz Santos',
-      user.crp || '06/142980'
+      user.name,
+      user.crp || ''
     );
 
     return c.json({

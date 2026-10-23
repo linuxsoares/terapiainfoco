@@ -57,20 +57,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regPhone, setRegPhone] = useState('(11) 99876-5432');
+  const [regPhone, setRegPhone] = useState('');
   // Psicólogo
-  const [regCrp, setRegCrp] = useState('06/184210');
+  const [regCrp, setRegCrp] = useState('');
   const [regCrpRegion, setRegCrpRegion] = useState('SP');
-  const [regSpecialty, setRegSpecialty] = useState('Terapia Cognitivo-Comportamental (TCC)');
-  const [regSessionFee, setRegSessionFee] = useState('250');
-  const [regBio] = useState('Psicólogo(a) Clínico(a) com atuação em saúde mental e telepsicologia ética (CFP nº 011/2018).');
+  const [regSpecialty, setRegSpecialty] = useState('');
+  const [regSessionFee, setRegSessionFee] = useState('');
   // Paciente
-  const [regCpf, setRegCpf] = useState('123.456.789-00');
-  const [regEmergencyName, setRegEmergencyName] = useState('Contato Familiar (Rede de Apoio)');
-  const [regEmergencyPhone, setRegEmergencyPhone] = useState('(11) 98888-7777');
+  const [regCpf, setRegCpf] = useState('');
+  const [regEmergencyName, setRegEmergencyName] = useState('');
+  const [regEmergencyPhone, setRegEmergencyPhone] = useState('');
   // Admin / DPO
-  const [regDepartment, setRegDepartment] = useState('Segurança da Informação & Governança LGPD');
-  const [regDpoCert, setRegDpoCert] = useState('CDPO/BR • ISO/IEC 27701');
+  const [regDepartment, setRegDepartment] = useState('');
+  const [regDpoCert, setRegDpoCert] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,17 +156,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         email: regEmail,
         password: regPassword,
         role: selectedRole,
-        phone: regPhone,
+        phone: regPhone || undefined,
         crp: selectedRole === UserRole.PSICOLOGO_TITULAR ? regCrp : undefined,
         crpRegion: selectedRole === UserRole.PSICOLOGO_TITULAR ? regCrpRegion : undefined,
-        specialty: selectedRole === UserRole.PSICOLOGO_TITULAR ? regSpecialty : undefined,
-        bio: selectedRole === UserRole.PSICOLOGO_TITULAR ? regBio : undefined,
-        sessionFeeCents: selectedRole === UserRole.PSICOLOGO_TITULAR ? Math.round(Number(regSessionFee || 250) * 100) : undefined,
-        cpf: selectedRole === UserRole.PACIENTE ? regCpf : undefined,
-        emergencyContactName: selectedRole === UserRole.PACIENTE ? regEmergencyName : undefined,
-        emergencyContactPhone: selectedRole === UserRole.PACIENTE ? regEmergencyPhone : undefined,
-        department: selectedRole === UserRole.ADMIN ? regDepartment : undefined,
-        dpoCertification: selectedRole === UserRole.ADMIN ? regDpoCert : undefined,
+        specialty: selectedRole === UserRole.PSICOLOGO_TITULAR ? regSpecialty || undefined : undefined,
+        sessionFeeCents: selectedRole === UserRole.PSICOLOGO_TITULAR && Number(regSessionFee) > 0 ? Math.round(Number(regSessionFee) * 100) : undefined,
+        cpf: selectedRole === UserRole.PACIENTE ? regCpf || undefined : undefined,
+        emergencyContactName: selectedRole === UserRole.PACIENTE ? regEmergencyName || undefined : undefined,
+        emergencyContactPhone: selectedRole === UserRole.PACIENTE ? regEmergencyPhone || undefined : undefined,
+        department: selectedRole === UserRole.ADMIN ? regDepartment || undefined : undefined,
+        dpoCertification: selectedRole === UserRole.ADMIN ? regDpoCert || undefined : undefined,
         socialProvider: SocialAuthProvider.EMAIL_PASSWORD
       });
 
@@ -224,12 +222,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         email: emailToUse,
         name: nameToUse,
         role: targetRole,
-        phone: regPhone,
+        phone: regPhone || undefined,
         crp: targetRole === UserRole.PSICOLOGO_TITULAR ? regCrp : undefined,
         crpRegion: targetRole === UserRole.PSICOLOGO_TITULAR ? regCrpRegion : undefined,
-        specialty: targetRole === UserRole.PSICOLOGO_TITULAR ? regSpecialty : undefined,
-        cpf: targetRole === UserRole.PACIENTE ? regCpf : undefined,
-        department: targetRole === UserRole.ADMIN ? regDepartment : undefined,
+        specialty: targetRole === UserRole.PSICOLOGO_TITULAR ? regSpecialty || undefined : undefined,
+        cpf: targetRole === UserRole.PACIENTE ? regCpf || undefined : undefined,
+        department: targetRole === UserRole.ADMIN ? regDepartment || undefined : undefined,
         dpoCertification: targetRole === UserRole.ADMIN ? regDpoCert : undefined
       });
 
@@ -726,6 +724,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <input
                         type="number"
                         value={regSessionFee}
+                        placeholder="Ex.: 250"
                         onChange={e => setRegSessionFee(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
@@ -738,6 +737,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="text"
                       value={regSpecialty}
+                        placeholder="Ex.: Terapia Cognitivo-Comportamental"
                       onChange={e => setRegSpecialty(e.target.value)}
                       className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     />
@@ -771,6 +771,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <input
                         type="text"
                         value={regEmergencyName}
+                        placeholder="Nome de alguém da sua rede de apoio"
                         onChange={e => setRegEmergencyName(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
@@ -782,6 +783,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <input
                         type="text"
                         value={regEmergencyPhone}
+                        placeholder="(00) 00000-0000"
                         onChange={e => setRegEmergencyPhone(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
@@ -804,6 +806,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <input
                         type="text"
                         value={regDepartment}
+                        placeholder="Ex.: Governança LGPD"
                         onChange={e => setRegDepartment(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
@@ -815,6 +818,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <input
                         type="text"
                         value={regDpoCert}
+                        placeholder="Ex.: CDPO/BR"
                         onChange={e => setRegDpoCert(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />

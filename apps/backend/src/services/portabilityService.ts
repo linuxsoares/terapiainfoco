@@ -12,7 +12,7 @@ import {
 } from '@terapiainfoco/shared';
 import { encryptPackageWithPassphrase } from '@terapiainfoco/crypto';
 import { db } from '../db/memoryDb';
-import { UserRepository } from '../repositories/userRepository';
+import { practiceProfessional } from './practiceProfessional';
 import { decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
@@ -54,9 +54,8 @@ export class PortabilityService {
     }
 
     // 2. Terapeuta titular
-    const therapist = db.therapists.get(storedPatient.therapistId);
-    let therapistName = 'Dr. Psicólogo Titular Responsável';
-    therapistName = (await UserRepository.findPracticeOwner(storedPatient.therapistId))?.name ?? therapistName;
+    const professional = await practiceProfessional(storedPatient.therapistId);
+    const therapistName = professional.name;
 
     // 3. Consultas e sessões
     const patientAppointments = (await AppointmentRepository.list({ patientIds: [params.patientId] }))
@@ -169,10 +168,10 @@ export class PortabilityService {
         confidentialityNotice: 'Os dados disponibilizados neste prontuário possuem natureza estritamente confidencial nos termos do Art. 9º do Código de Ética Profissional do Psicólogo. O titular ou o novo profissional recebedor assume o dever legal e ético de sigilo sobre as informações recebidas.'
       },
       therapist: {
-        id: therapist?.id || 'therapist-001',
+        id: storedPatient.therapistId,
         name: therapistName,
-        crp: therapist?.crp || '06/142980',
-        crpRegion: therapist?.crpRegion || 'SP'
+        crp: professional.crp,
+        crpRegion: professional.crpRegion
       },
       patient: {
         id: storedPatient.id,

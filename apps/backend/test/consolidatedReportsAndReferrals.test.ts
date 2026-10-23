@@ -183,7 +183,7 @@ describe('Evolução de Produto RFC-001: Laudo Pericial Consolidado (CFP nº 006
 
       expect(report.status).toBe('DRAFT');
 
-      const signed = ConsolidatedReportService.signReport({
+      const signed = await ConsolidatedReportService.signReport({
         reportId: report.id,
         therapistId,
         context: mockContext

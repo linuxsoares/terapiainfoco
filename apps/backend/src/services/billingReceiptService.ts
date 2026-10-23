@@ -21,6 +21,7 @@ import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
 import { AuditService } from './auditService';
 import { PatientService } from './patientService';
+import { practiceProfessional, formatCrp } from './practiceProfessional';
 function formatBrl(cents: number): string {
   const parts = (cents / 100).toFixed(2).split('.');
   const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -28,13 +29,9 @@ function formatBrl(cents: number): string {
 }
 
 /** Psicólogo titular do consultório (quem presta o serviço), mesmo quando a recepção emite */
-async function practiceProfessional(therapistId: string): Promise<{ therapistName: string; therapistCrp: string }> {
-  const [titular] = await UserRepository.list({ therapistId, roles: [UserRole.PSICOLOGO_TITULAR] });
-  const rawCrp = titular?.crp || db.therapists.get(therapistId)?.crp || '';
-  return {
-    therapistName: titular?.name ?? 'Psicólogo(a) responsável',
-    therapistCrp: !rawCrp || rawCrp.startsWith('CRP') ? rawCrp : `CRP ${rawCrp}`
-  };
+async function receiptProfessional(therapistId: string): Promise<{ therapistName: string; therapistCrp: string }> {
+  const professional = await practiceProfessional(therapistId);
+  return { therapistName: professional.name, therapistCrp: formatCrp(professional.crp) };
 }
 
 export class BillingReceiptService {
@@ -112,7 +109,7 @@ export class BillingReceiptService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const { therapistName, therapistCrp } = await practiceProfessional(therapistId);
+    const { therapistName, therapistCrp } = await receiptProfessional(therapistId);
     // CPF do profissional ainda não é cadastrado: o recibo fiscal (dedução no IR) é o do Receita Saúde
     const therapistCpfOrCnpj = '';
 
@@ -372,7 +369,7 @@ export class BillingReceiptService {
       throw new Error(`Paciente com ID ${dto.patientId} não encontrado.`);
     }
 
-    const { therapistName, therapistCrp } = await practiceProfessional(therapistId);
+    const { therapistName, therapistCrp } = await receiptProfessional(therapistId);
 
     const id = randomUUID();
     const sessionPriceFormatted = formatBrl(dto.sessionPriceCents);

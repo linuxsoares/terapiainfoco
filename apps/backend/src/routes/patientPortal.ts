@@ -217,7 +217,8 @@ patientPortalRouter.post(
       }
 
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
-      const therapistId = user.therapistId || 'therapist-001';
+      const therapistId = user.therapistId;
+      if (!therapistId) return c.json({ success: false, message: 'Conta sem consultório vinculado.' }, 403);
 
       const exercise = await PatientPortalService.assignExercise({
         therapistId,
@@ -283,7 +284,8 @@ patientPortalRouter.post(
       }
 
       const ipAddress = c.req.header('x-forwarded-for') || '127.0.0.1';
-      const therapistId = user.therapistId || 'therapist-001';
+      const therapistId = user.therapistId;
+      if (!therapistId) return c.json({ success: false, message: 'Conta sem consultório vinculado.' }, 403);
 
       const updated = await PatientPortalService.reviewExercise({
         therapistId,

@@ -63,7 +63,7 @@ consolidatedReportsRouter.post('/sign', async (c) => {
     }
 
     const therapistId = user.therapistId!;
-    const report = ConsolidatedReportService.signReport({
+    const report = await ConsolidatedReportService.signReport({
       reportId: body.reportId,
       therapistId,
       signatureToken: body.signatureToken,
