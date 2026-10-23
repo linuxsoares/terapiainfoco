@@ -2420,6 +2420,7 @@ terapiainfoco/
 | `feat/email-verification` | Confirmação de e-mail no cadastro: link de 48 h, reenvio e aviso no painel | [PR #182](https://github.com/linuxsoares/terapiainfoco/pull/182) | Merged |
 | `feat/email-appointment-confirmation` | E-mail de agendamento ao paciente (avulsa, série e portal); fecha o item 1 do V0 | [PR #183](https://github.com/linuxsoares/terapiainfoco/pull/183) | Merged |
 | `feat/appointment-reminders` | Lembrete por e-mail 48h antes com confirmar/cancelar pelo link (V0 item 2) | [PR #184](https://github.com/linuxsoares/terapiainfoco/pull/184) | Merged |
+| `feat/finance-session-payments` | Valor e pagamento por sessão, contas a receber e módulo Financeiro (V0 item 3, parte 1) | [PR #185](https://github.com/linuxsoares/terapiainfoco/pull/185) | Merged |
 
 ---
 
