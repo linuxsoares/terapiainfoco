@@ -9,14 +9,9 @@ import {
   Eye, 
   EyeOff, 
   Headphones, 
-  FileAudio, 
-  Shield, 
   Clock, 
-  UserCheck, 
   ChevronDown, 
   ChevronUp, 
-  RefreshCw, 
-  Sparkle, 
   Loader2,
   Scale,
   BookmarkPlus,
@@ -28,39 +23,63 @@ import {
 
 import type { 
   SoapNote, 
-  TranscriptUtterance,
   ClinicalRecordRectification,
   RectifiedQuadrant,
   ClinicalSessionMarker
 } from '@terapiainfoco/shared';
-import { AuditResourceType, ClinicalMarkerCategory, ClinicalMarkerRelevance } from '@terapiainfoco/shared';
+import { AppointmentStatus, AuditResourceType, ClinicalMarkerCategory, ClinicalMarkerRelevance, TranscriptionSpeaker } from '@terapiainfoco/shared';
+import type { DecryptedAppointment, LiveTranscriptUtterance } from '@terapiainfoco/shared';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { api } from '../services/api';
 import { IcpBatchSigningModal } from './IcpBatchSigningModal';
+import { AiTranscriptionSoapModal } from './AiTranscriptionSoapModal';
 
-export function SoapModule() {
+const EMPTY_SOAP: SoapNote = { subjective: '', objective: '', assessment: '', plan: '' };
+
+/** Consultas em que a evolução pode ser registrada: confirmadas, em andamento ou concluídas */
+export const RECORDABLE_STATUSES: readonly AppointmentStatus[] = [
+  AppointmentStatus.CONFIRMADA,
+  AppointmentStatus.EM_ANDAMENTO,
+  AppointmentStatus.CONCLUIDA
+];
+
+function formatSessionDate(iso: string | Date): string {
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatTranscriptTime(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+}
+
+interface SoapModuleProps {
+  /** Consulta aberta a partir da Agenda; sem ela, o psicólogo escolhe na lista */
+  appointmentId?: string | null;
+  onAppointmentChange?: (appointmentId: string | null) => void;
+  /** Psicólogo(a) logado(a), que assina os prontuários */
+  signer: { name: string; crp?: string };
+}
+
+export function SoapModule({ appointmentId: initialAppointmentId = null, onAppointmentChange, signer }: SoapModuleProps) {
   const [recordId, setRecordId] = useState<string | null>(null);
   const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
-  
-  // Transcrição & Pipeline de Áudio
-  const [hasLoadedAudio, setHasLoadedAudio] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [utterances, setUtterances] = useState<TranscriptUtterance[]>([]);
-  const [sanitizedUtterances, setSanitizedUtterances] = useState<TranscriptUtterance[]>([]);
-  const [showSanitizedView, setShowSanitizedView] = useState(false);
-  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(true);
-  const [sanitizationStats, setSanitizationStats] = useState<{ total: number; entities: Array<{ type: string; placeholder: string; count: number }> } | null>(null);
-  const [aiGeneratedSuccess, setAiGeneratedSuccess] = useState(false);
+
+  // Consulta da evolução: o prontuário é sempre de uma consulta do consultório
+  const [appointments, setAppointments] = useState<DecryptedAppointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialAppointmentId);
+  const [recordLoading, setRecordLoading] = useState(false);
+  const [sessionNumber, setSessionNumber] = useState<number | null>(null);
+
+  // Transcrição feita durante a teleconsulta (sem gravação) e minuta pelo pipeline de IA
+  const [liveTranscript, setLiveTranscript] = useState<LiveTranscriptUtterance[]>([]);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
 
   // Eixos SOAP
-  const [soap, setSoap] = useState<SoapNote>({
-    subjective: 'Paciente relata melhora na modulação de crises de ansiedade após uso da respiração diafragmática durante situação corporativa. Identificou pensamentos automáticos disfuncionais ("vão perceber que não dou conta") e aplicou com êxito a reestruturação cognitiva. Insônia inicial apresentou redução estimada de 40%.',
-    objective: 'Apresenta-se orientada globalmente, afeto congruente com o relato, discurso fluente e com boa capacidade reflexiva e insight. Postura corporal relaxada ao longo da videoconferência, com bom engajamento nas intervenções.',
-    assessment: 'Evolução favorável do quadro de Ansiedade com aumento consistente da autoeficácia e adesão às técnicas comportamentais e cognitivas da TCC. Boa resposta na redução da resposta simpática em contexto ocupacional.',
-    plan: '1. Manter registro no diário de pensamentos disfuncionais (RPD). 2. Implementar higiene do sono estruturada. 3. Próxima sessão focará na flexibilização de crenças intermediárias sobre perfeccionismo.'
-  });
-  const [privateNotes, setPrivateNotes] = useState('A paciente demonstra necessidade de validação de figuras de autoridade. Explorar na próxima sessão as experiências infantis com exigências paternas.');
+  const [soap, setSoap] = useState<SoapNote>(EMPTY_SOAP);
+  const [privateNotes, setPrivateNotes] = useState('');
   const [showPrivateNotes, setShowPrivateNotes] = useState(false);
 
   // Human-in-the-Loop & Assinatura
@@ -84,8 +103,9 @@ export function SoapModule() {
   const [rectifyError, setRectifyError] = useState<string | null>(null);
   const [isRectificationsExpanded, setIsRectificationsExpanded] = useState(true);
 
-  const appointmentId = '00000000-0000-0000-0000-000000000010';
-  const patientId = '00000000-0000-0000-0000-000000000002';
+  const selectedAppointment = appointments.find((a) => a.id === selectedAppointmentId) ?? null;
+  const appointmentId = selectedAppointment?.id ?? '';
+  const patientName = selectedAppointment?.patientName ?? 'Paciente';
 
   // Marcadores Clínicos em Tempo Real (RFC-001 §3.3)
   const [markers, setMarkers] = useState<ClinicalSessionMarker[]>([]);
@@ -99,18 +119,66 @@ export function SoapModule() {
 
   // Carrega marcadores ao montar
   useEffect(() => {
-    async function loadMarkers() {
-      try {
-        const list = await api.getAppointmentMarkers(appointmentId);
-        if (list && list.length > 0) {
-          setMarkers(list);
-        }
-      } catch {
-        // Inicialização resiliente
-      }
-    }
-    loadMarkers();
+    setMarkers([]);
+    if (!appointmentId) return;
+    api.getAppointmentMarkers(appointmentId)
+      .then((list) => setMarkers(list ?? []))
+      .catch(() => setMarkers([]));
   }, [appointmentId]);
+
+  // Consultas do consultório, mais recentes primeiro
+  useEffect(() => {
+    api.getAppointments()
+      .then((list) => setAppointments(
+        list
+          .filter((a) => RECORDABLE_STATUSES.includes(a.status))
+          .sort((a, b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime())
+      ))
+      .catch((err: any) => setError(err.message || 'Falha ao carregar as consultas do consultório.'))
+      .finally(() => setAppointmentsLoading(false));
+  }, []);
+
+  // Consulta aberta pela Agenda
+  useEffect(() => {
+    if (initialAppointmentId) setSelectedAppointmentId(initialAppointmentId);
+  }, [initialAppointmentId]);
+
+  // Prontuário e transcrição da consulta escolhida
+  useEffect(() => {
+    if (!selectedAppointmentId) return;
+    loadRecord(selectedAppointmentId);
+    setLiveTranscript([]);
+    api.getLiveTranscript(selectedAppointmentId)
+      .then(setLiveTranscript)
+      .catch(() => setLiveTranscript([]));
+  }, [selectedAppointmentId]);
+
+  const loadRecord = async (id: string) => {
+    setRecordLoading(true);
+    setError(null);
+    setConfirmedReview(false);
+    setRectifications([]);
+    try {
+      const record = await api.getClinicalRecordByAppointment(id);
+      setRecordId(record?.id ?? null);
+      setSessionNumber(record?.sessionNumber ?? null);
+      setSoap(record?.soap ?? EMPTY_SOAP);
+      setPrivateNotes(record?.privateNotes ?? '');
+      setIsSigned(!!record?.isSigned);
+      setSignatureHash(record?.signatureHash ?? null);
+      setSignedAt(record?.signedAt ? new Date(record.signedAt).toLocaleString('pt-BR') : null);
+      if (record?.isSigned) loadRectifications(record.id);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao carregar o prontuário da consulta.');
+    } finally {
+      setRecordLoading(false);
+    }
+  };
+
+  const handleSelectAppointment = (id: string | null) => {
+    setSelectedAppointmentId(id);
+    onAppointmentChange?.(id);
+  };
 
   const handleAddMarker = async () => {
     if (!markerNote.trim()) return;
@@ -207,86 +275,17 @@ export function SoapModule() {
     }
   };
 
-  // Carrega ou inicializa a transcrição da sessão
-  const handleLoadSessionAudio = async () => {
-    try {
-      setAudioLoading(true);
-      setError(null);
-      const res = await api.uploadAudio({
-        appointmentId,
-        audioFileName: 'teleconsulta-sessao-08.m4a',
-        durationSeconds: 3120 // 52 min
-      });
-      setUtterances(res.utterances);
-      setHasLoadedAudio(true);
-      setSuccessMsg('Áudio da teleconsulta carregado e diarizado com sucesso!');
-      setTimeout(() => setSuccessMsg(null), 3500);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao carregar áudio da sessão');
-    } finally {
-      setAudioLoading(false);
-    }
-  };
-
-  // Pipeline de IA Assistiva (RFC §3.3)
-  const handleGenerateWithAi = async () => {
-    try {
-      setAiGenerating(true);
-      setError(null);
-
-      // Garante que o áudio/transcrição esteja provisionado antes de chamar a IA
-      if (!hasLoadedAudio) {
-        const transRes = await api.uploadAudio({
-          appointmentId,
-          audioFileName: 'teleconsulta-sessao-08.m4a',
-          durationSeconds: 3120
-        });
-        setUtterances(transRes.utterances);
-        setHasLoadedAudio(true);
-      }
-
-      const proposal = await api.generateSoapProposal({
-        appointmentId
-      });
-
-      // Atualiza eixos SOAP com o rascunho assistido
-      setSoap(proposal.soap);
-      if (proposal.privateNotesSuggestion) {
-        setPrivateNotes(proposal.privateNotesSuggestion);
-      }
-      if (proposal.sanitizedUtterances && proposal.sanitizedUtterances.length > 0) {
-        setSanitizedUtterances(proposal.sanitizedUtterances);
-      }
-      if (proposal.sanitizationSummary) {
-        setSanitizationStats({
-          total: proposal.sanitizationSummary.totalEntitiesSanitized,
-          entities: proposal.sanitizationSummary.entitiesDetected
-        });
-      }
-
-      setAiGeneratedSuccess(true);
-      setConfirmedReview(false); // Exige revisão humana compulsória (Human-in-the-Loop)
-      setSuccessMsg('Minuta SOAP sintetizada por IA com base na transcrição sanitizada!');
-      setTimeout(() => setSuccessMsg(null), 5000);
-    } catch (err: any) {
-      setError(err.message || 'Falha na geração assistida por IA');
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
   const handleSaveDraft = async () => {
     try {
       setLoading(true);
       setError(null);
       const record = await api.saveSoapDraft({
         appointmentId,
-        patientId,
-        sessionNumber: 8,
         soap,
         privateNotes
       });
       setRecordId(record.id);
+      setSessionNumber(record.sessionNumber);
       setSuccessMsg('Rascunho de nota SOAP salvo com sucesso na base encriptada.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
@@ -329,8 +328,8 @@ export function SoapModule() {
 
   const handleOpenRectify = () => {
     setRectifyQuadrant('SUBJECTIVE');
-    setRectifyReason('Ajuste complementar pós-sessão referente ao relato do paciente sobre técnicas de respiração.');
-    setRectifyContent('Aditamento ao quadrante Subjetivo: O paciente esclareceu que utilizou a técnica de respiração 4-7-8 em conjunto com a respiração diafragmática, obtendo alívio mais rápido dos sintomas simpáticos corporais.');
+    setRectifyReason('');
+    setRectifyContent('');
     setRectifyConfirmedEthics(false);
     setRectifyError(null);
     setShowRectifyModal(true);
@@ -362,26 +361,6 @@ export function SoapModule() {
     }
   };
 
-  // Renderizador com realce visual dos tokens sanitizados
-  const renderDialogueText = (text: string) => {
-    const tokens = ['[PACIENTE]', '[TERAPEUTA]', '[TELEFONE]', '[EMAIL]', '[CPF]', '[CEP]', '[RG]', '[NOME_TERCEIRO]', '[NOME]'];
-    const parts = text.split(/(\[[A-Z_]+\])/g);
-    
-    return parts.map((part, idx) => {
-      if (tokens.includes(part)) {
-        return (
-          <span 
-            key={idx} 
-            className="inline-block px-1.5 py-0.5 mx-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30"
-          >
-            {part}
-          </span>
-        );
-      }
-      return <span key={idx}>{part}</span>;
-    });
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -389,18 +368,20 @@ export function SoapModule() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            Transcrição, Diarização & SOAP com IA
+            Evolução SOAP da Sessão
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Pipeline integrado de teleconsulta com Sanitização LGPD Art. 11 e Human-in-the-Loop compulsório
+            Registro clínico vinculado à consulta, com minuta opcional por IA a partir da transcrição e revisão humana obrigatória
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-800 dark:text-purple-300 text-xs font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-            Sessão 08 • Mariana Silva (Teleconsulta)
-          </div>
+          {selectedAppointment && (
+            <div className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-800 dark:text-purple-300 text-xs font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              {sessionNumber ? `Sessão ${String(sessionNumber).padStart(2, '0')}` : 'Nova evolução'} • {patientName}
+            </div>
+          )}
 
           <button
             onClick={() => setShowBatchModal(true)}
@@ -434,6 +415,46 @@ export function SoapModule() {
         </div>
       )}
 
+      {/* Consulta da evolução */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+        <label htmlFor="soap-appointment" className="text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+          Consulta
+        </label>
+        <select
+          id="soap-appointment"
+          value={selectedAppointmentId ?? ''}
+          onChange={(e) => handleSelectAppointment(e.target.value || null)}
+          disabled={appointmentsLoading}
+          className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+        >
+          <option value="">{appointmentsLoading ? 'Carregando consultas...' : 'Selecione a consulta'}</option>
+          {appointments.map((a) => (
+            <option key={a.id} value={a.id}>
+              {formatSessionDate(a.scheduledStart)} • {a.patientName ?? 'Paciente'}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {!selectedAppointment ? (
+        <div className="p-10 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-2">
+          <FileSignature className="w-8 h-8 mx-auto text-slate-400" />
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {!appointmentsLoading && appointments.length === 0 ? 'Nenhuma consulta para registrar' : 'Escolha a consulta da evolução'}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            {!appointmentsLoading && appointments.length === 0
+              ? 'A evolução é registrada em consultas confirmadas, em andamento ou concluídas.'
+              : 'Selecione acima ou use "Registrar evolução" na Agenda. Cada consulta tem um único prontuário.'}
+          </p>
+        </div>
+      ) : recordLoading ? (
+        <div className="p-10 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Carregando prontuário da consulta...
+        </div>
+      ) : (
+      <>
       {/* Selo Imutável se assinado & Averbação de Termos de Retificação (CFP 001/2009) */}
       {isSigned && signatureHash && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-950/40 dark:to-slate-900 border border-emerald-500/30 shadow-sm dark:shadow-none space-y-4">
@@ -444,7 +465,7 @@ export function SoapModule() {
                 Certificado de Imutabilidade Documental (Resolução CFP nº 001/2009)
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300">
-                Assinado digitalmente por <strong className="text-slate-900 dark:text-white">Dra. Vanessa Andrade (CRP 06/142980)</strong> em {signedAt}.
+                Assinado digitalmente pelo(a) psicólogo(a) responsável em {signedAt}.
               </p>
             </div>
 
@@ -535,202 +556,74 @@ export function SoapModule() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* CARD: PIPELINE DE TRANSCRIÇÃO & DIARIZAÇÃO (RFC §3.3) */}
-      {/* ========================================================= */}
+      {/* Transcrição da teleconsulta (sem gravação) e minuta SOAP por IA (RFC §3.3) */}
       <div className="rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        {/* Topo do Card de Transcrição */}
-        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
               <Headphones className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Transcrição Diarizada da Teleconsulta (sem gravação)
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
-                  <UserCheck className="w-3 h-3" />
-                  TCLE Assinado
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                  AES-256 Criptografado
-                </span>
-              </div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Transcrição da Teleconsulta
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Canais de fala separados (Terapeuta vs. Paciente) com carimbos de tempo e sanitização LGPD Art. 11
+                {liveTranscript.length > 0
+                  ? `${liveTranscript.length} falas transcritas durante a sessão, com consentimento do paciente.`
+                  : 'Sem transcrição para esta consulta. Ela é feita durante a teleconsulta, quando o paciente consente.'}
               </p>
             </div>
           </div>
 
-          {/* Botões de Ação do Pipeline */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-            {!hasLoadedAudio ? (
-              <button
-                onClick={handleLoadSessionAudio}
-                disabled={audioLoading || aiGenerating}
-                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {audioLoading ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileAudio className="w-3.5 h-3.5 text-purple-500" />
-                )}
-                Carregar Áudio da Teleconsulta (52 min)
-              </button>
-            ) : (
-              <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-medium flex items-center justify-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                52:00 min • 8 falas
-              </span>
-            )}
-
             <button
-              onClick={handleGenerateWithAi}
-              disabled={aiGenerating || isSigned}
+              onClick={() => setShowAiModal(true)}
+              disabled={isSigned}
               className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              title={isSigned ? 'Prontuário já assinado' : 'Gerar e revisar a minuta SOAP a partir da transcrição'}
             >
-              {aiGenerating ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Processando IA & SOAP...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Gerar Rascunho SOAP com IA
-                </>
-              )}
+              <Sparkles className="w-3.5 h-3.5" />
+              Minuta SOAP com IA
             </button>
 
-            <button
-              onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer self-center"
-              title={isTranscriptExpanded ? 'Recolher transcrição' : 'Expandir transcrição'}
-            >
-              {isTranscriptExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+            {liveTranscript.length > 0 && (
+              <button
+                onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer self-center"
+                title={isTranscriptExpanded ? 'Recolher transcrição' : 'Expandir transcrição'}
+              >
+                {isTranscriptExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Corpo Expansível da Transcrição */}
-        {isTranscriptExpanded && (
-          <div className="p-5 space-y-4">
-            {/* Barra de Alternância: Diarização Original vs. Visão Sanitizada LGPD */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  Modo de Exibição da Transcrição:
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowSanitizedView(false)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    !showSanitizedView
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+        {isTranscriptExpanded && liveTranscript.length > 0 && (
+          <div className="px-5 pb-5 space-y-3 max-h-80 overflow-y-auto">
+            {liveTranscript.map((u) => {
+              const isTherapist = u.speaker === TranscriptionSpeaker.THERAPIST;
+              return (
+                <div
+                  key={u.id}
+                  className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
+                    isTherapist
+                      ? 'bg-purple-50/60 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-800/40 ml-0 sm:ml-4'
+                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 mr-0 sm:mr-4'
                   }`}
                 >
-                  Diarização Original
-                </button>
-                <button
-                  onClick={() => setShowSanitizedView(true)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    showSanitizedView
-                      ? 'bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30'
-                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                  }`}
-                >
-                  <Lock className="w-3 h-3 text-amber-500" />
-                  Sanitização LGPD Art. 11
-                </button>
-              </div>
-            </div>
-
-            {/* Banner de Estatísticas da Sanitização LGPD (se disponível) */}
-            {sanitizationStats && showSanitizedView && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span>
-                    <strong>Sanitização Pré-LLM Concluída:</strong> {sanitizationStats.total} identificadores substituídos por pseudônimos genéricos antes do processamento.
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {sanitizationStats.entities.map((e, idx) => (
-                    <span 
-                      key={idx} 
-                      className="px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/60 font-mono text-[10px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-500/20"
-                    >
-                      {e.placeholder} ({e.count}x)
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className={`font-semibold ${isTherapist ? 'text-purple-900 dark:text-purple-300' : 'text-slate-900 dark:text-white'}`}>
+                      {isTherapist ? 'Terapeuta' : patientName}
                     </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Linha do Tempo Diarizada das Falas */}
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {(showSanitizedView && sanitizedUtterances.length > 0 ? sanitizedUtterances : (utterances.length > 0 ? utterances : [
-                {
-                  speaker: 'TERAPEUTA' as any,
-                  time: '00:00:15',
-                  text: 'Boa tarde, Mariana. Como você está hoje e como foi a sua semana desde a nossa última sessão?'
-                },
-                {
-                  speaker: 'PACIENTE' as any,
-                  time: '00:00:32',
-                  text: 'Boa tarde, Dra. Vanessa. Tive uma semana bem desafiadora no trabalho. Tive uma reunião muito tensa com meu chefe Roberto e senti aquele aperto forte no peito, mas consegui usar a técnica de respiração diafragmática que combinamos.'
-                },
-                {
-                  speaker: 'TERAPEUTA' as any,
-                  time: '00:01:10',
-                  text: 'Que excelente avanço, Mariana! E o que passou pela sua mente no momento em que você sentiu a tensão corporal?'
-                },
-                {
-                  speaker: 'PACIENTE' as any,
-                  time: '00:01:45',
-                  text: 'O pensamento automático que veio foi: "Eles vão perceber que eu não dou conta e vou falhar". Mas aí eu peguei meu caderno, fiz o Registro de Pensamentos Disfuncionais (RPD) e procurei as evidências objetivas.'
-                }
-              ])).map((u, index) => {
-                const isTherapist = u.speaker === 'TERAPEUTA';
-                return (
-                  <div
-                    key={index}
-                    className={`p-3.5 rounded-xl border text-xs leading-relaxed transition-all ${
-                      isTherapist
-                        ? 'bg-purple-50/60 dark:bg-purple-950/20 border-purple-200/70 dark:border-purple-800/40 ml-0 sm:ml-4'
-                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 mr-0 sm:mr-4'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-1.5 font-semibold">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            isTherapist ? 'bg-purple-600 dark:bg-purple-400' : 'bg-emerald-600 dark:bg-emerald-400'
-                          }`}
-                        />
-                        <span className={isTherapist ? 'text-purple-900 dark:text-purple-300' : 'text-slate-900 dark:text-white'}>
-                          {isTherapist ? 'Dra. Vanessa Andrade (Terapeuta)' : 'Mariana Silva (Paciente)'}
-                        </span>
-                      </div>
-                      <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {u.time}
-                      </span>
-                    </div>
-
-                    <div className="text-slate-700 dark:text-slate-300">
-                      {showSanitizedView ? renderDialogueText(u.text) : u.text}
-                    </div>
+                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatTranscriptTime(u.startTimeMs)}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="text-slate-700 dark:text-slate-300">{u.text}</div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -932,21 +825,6 @@ export function SoapModule() {
           </div>
         )}
       </div>
-
-      {/* Alerta de Minuta Gerada por IA com Human-in-the-Loop Obrigatório */}
-      {aiGeneratedSuccess && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/30 flex items-start gap-3">
-          <Sparkle className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-purple-900 dark:text-purple-200">
-              Minuta Clínica Assistida por IA Gerada com Sucesso
-            </h4>
-            <p className="text-purple-800/90 dark:text-purple-300/90 leading-relaxed">
-              Os 4 quadrantes SOAP foram pré-preenchidos a partir da transcrição sanitizada. O princípio <strong>Human-in-the-Loop</strong> é legalmente obrigatório pelo CFP: revise o texto abaixo, faça os ajustes clínicos pertinentes e confirme antes de assinar.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Campos SOAP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1273,6 +1151,26 @@ export function SoapModule() {
         </div>
       )}
 
+      </>
+      )}
+
+      {/* Minuta SOAP pelo pipeline de IA: o prontuário salvo lá é recarregado aqui */}
+      {showAiModal && selectedAppointment && (
+        <AiTranscriptionSoapModal
+          isOpen={showAiModal}
+          appointmentId={selectedAppointment.id}
+          patientId={selectedAppointment.patientId}
+          patientName={patientName}
+          onClose={() => setShowAiModal(false)}
+          onEhrRecordSaved={() => {
+            setShowAiModal(false);
+            loadRecord(selectedAppointment.id);
+            setSuccessMsg('Evolução revisada a partir da minuta de IA e assinada no prontuário.');
+            setTimeout(() => setSuccessMsg(null), 5000);
+          }}
+        />
+      )}
+
       {/* Modal de Averbação de Termo de Retificação (CFP nº 001/2009 & RFC §3.4) */}
       {showRectifyModal && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
@@ -1410,8 +1308,8 @@ export function SoapModule() {
       <IcpBatchSigningModal
         isOpen={showBatchModal}
         onClose={() => setShowBatchModal(false)}
-        therapistName="Dra. Beatriz Santos"
-        therapistCrp="06/142980"
+        therapistName={signer.name}
+        therapistCrp={signer.crp}
         onBatchSigned={(manifest) => {
           setSuccessMsg(`Lote #${manifest.id.substring(0, 8)} assinado com Certificado ICP-Brasil com sucesso! ${manifest.totalItemsCount} registros selados na trilha WORM.`);
         }}

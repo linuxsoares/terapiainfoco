@@ -935,12 +935,8 @@ export const api = {
   },
 
   // 3. Prontuários & SOAP (RFC §3.3, §3.4)
-  async saveSoapDraft(data: UpdateSoapNoteDTO & {
-    appointmentId: string;
-    patientId: string;
-    sessionNumber: number;
-    therapistId?: string;
-  }): Promise<DecryptedClinicalRecord> {
+  /** Paciente e número da sessão vêm da consulta, no backend */
+  async saveSoapDraft(data: UpdateSoapNoteDTO & { appointmentId: string }): Promise<DecryptedClinicalRecord> {
     const res = await request<{ success: boolean; record: DecryptedClinicalRecord }>('/clinical-records/draft', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -953,6 +949,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ recordId, confirmedHumanReview })
     });
+    return res.record;
+  },
+
+  /** Prontuário da consulta, ou null se a evolução ainda não foi registrada */
+  async getClinicalRecordByAppointment(appointmentId: string): Promise<DecryptedClinicalRecord | null> {
+    const res = await request<{ success: boolean; record: DecryptedClinicalRecord | null }>(`/clinical-records/appointment/${encodeURIComponent(appointmentId)}`);
     return res.record;
   },
 

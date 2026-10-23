@@ -143,6 +143,8 @@ const NAV_ITEM_IDLE = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 da
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<AppModule>('dashboard');
+  // Consulta aberta na Evolução SOAP (a partir da Agenda ou escolhida na própria tela)
+  const [soapAppointmentId, setSoapAppointmentId] = useState<string | null>(null);
   // Sessão salva (ou link de sala) é verificada antes de decidir entre vitrine e painel
   const [restoringSession, setRestoringSession] = useState<boolean>(() => hasStoredSession());
 
@@ -609,9 +611,17 @@ export default function App() {
                   {currentTab === 'team' && <TeamModule />}
                   {currentTab === 'leads' && <LeadsModule />}
                   {currentTab === 'dashboard' && <DashboardModule />}
-                  {currentTab === 'agenda' && <AgendaModule role={currentUser.role} />}
+                  {currentTab === 'agenda' && (
+                    <AgendaModule
+                      role={currentUser.role}
+                      onOpenSoap={(appointmentId) => {
+                        setSoapAppointmentId(appointmentId);
+                        setActiveTab('soap');
+                      }}
+                    />
+                  )}
                   {currentTab === 'patients' && <PatientsModule role={currentUser.role} />}
-                  {currentTab === 'soap' && <SoapModule />}
+                  {currentTab === 'soap' && <SoapModule appointmentId={soapAppointmentId} onAppointmentChange={setSoapAppointmentId} signer={{ name: currentUser.name, crp: currentUser.crp }} />}
                   {currentTab === 'documents' && <DocumentsModule />}
                   {currentTab === 'audit' && <AuditModule isDpo={currentUser.role === UserRole.ADMIN} />}
                   {currentTab === 'security' && (
