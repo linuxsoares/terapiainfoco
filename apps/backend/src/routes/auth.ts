@@ -211,6 +211,36 @@ authRoute.post('/password', authRateLimiter, authMiddleware({ strict: true }), a
 });
 
 /**
+ * POST /api/auth/password/forgot
+ * Envia o link de redefinição. A resposta é sempre a mesma, exista ou não a conta.
+ */
+authRoute.post('/password/forgot', authRateLimiter, async (c) => {
+  const body = await c.req.json<{ email?: string }>().catch(() => null);
+  if (!body?.email) {
+    return c.json({ success: false, error: 'Informe o e-mail da conta.' }, 400);
+  }
+  await authService.requestPasswordReset(body.email, c.req.header('x-forwarded-for') || '127.0.0.1');
+  return c.json({ success: true, message: 'Se houver uma conta com este e-mail, enviamos um link para redefinir a senha.' }, 202);
+});
+
+/**
+ * POST /api/auth/password/reset
+ * Define a nova senha com o token do e-mail (uso único) e encerra as sessões abertas
+ */
+authRoute.post('/password/reset', authRateLimiter, async (c) => {
+  const body = await c.req.json<{ token?: string; newPassword?: string }>().catch(() => null);
+  if (!body?.token || !body?.newPassword) {
+    return c.json({ success: false, error: 'Informe o token e a nova senha.' }, 400);
+  }
+  try {
+    await authService.resetPassword(body.token, body.newPassword, c.req.header('x-forwarded-for') || '127.0.0.1');
+    return c.json({ success: true, message: 'Senha redefinida. Entre com a nova senha.' }, 200);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || 'Não foi possível redefinir a senha.' }, 400);
+  }
+});
+
+/**
  * POST /api/auth/2fa/setup
  * Gera segredo e URI otpauth para ativação no Google Authenticator
  */

@@ -1,4 +1,5 @@
 import { sign, verify } from 'hono/jwt';
+import { createHash, randomBytes } from 'node:crypto';
 import { db } from '../db/memoryDb';
 import { UserRepository } from '../repositories/userRepository';
 import { config } from '../config';
@@ -23,6 +24,9 @@ import type {
 } from '@terapiainfoco/shared';
 import { UserRole, SocialAuthProvider, AuditAction, AuditResourceType } from '@terapiainfoco/shared';
 import { auditService } from './auditService';
+import { AuthTokenRepository } from '../repositories/authTokenRepository';
+import { sendEmailSafely } from './email/emailSender';
+import { passwordResetEmail } from './email/templates';
 
 function maskCpfForProfile(cpf?: string): string | undefined {
   if (!cpf) return undefined;
@@ -35,6 +39,14 @@ function maskCpfForProfile(cpf?: string): string | undefined {
 
 /** Perfis que podem ser criados pelo cadastro público (e-mail/senha ou login social) */
 const SELF_SERVICE_ROLES: UserRole[] = [UserRole.PACIENTE, UserRole.PSICOLOGO_TITULAR];
+
+/** Validade do link de recuperação de senha */
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+
+/** Hash do token enviado por e-mail: só ele é persistido */
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 /** Token emitido antes da última troca de senha (iat em segundos) */
 function issuedBeforePasswordChange(user: User, issuedAt: number | undefined): boolean {
@@ -442,6 +454,72 @@ export class AuthService {
     });
 
     return await this.issueTokens(user, ipAddress);
+  }
+
+  /**
+   * Pedido de recuperação de senha. Responde igual exista ou não a conta (sem enumeração de
+   * e-mails): quando existe, envia um link de uso único válido por 30 minutos e invalida os anteriores.
+   */
+  public async requestPasswordReset(email: string, ipAddress: string = '127.0.0.1'): Promise<void> {
+    const user = email ? await UserRepository.findByEmail(email.trim()) : null;
+    if (!user) return;
+
+    await AuthTokenRepository.invalidatePending(user.id, 'PASSWORD_RESET');
+    const token = randomBytes(32).toString('base64url');
+    await AuthTokenRepository.create({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      purpose: 'PASSWORD_RESET',
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+      usedAt: null,
+      createdAt: new Date()
+    });
+
+    const link = `${config.publicAppUrl}/?redefinir-senha=${encodeURIComponent(token)}`;
+    await sendEmailSafely({ to: user.email, ...passwordResetEmail(user.name, link) });
+
+    await auditService.logAccess({
+      actorId: user.id,
+      resourceType: AuditResourceType.SECURITY,
+      resourceId: user.id,
+      action: AuditAction.AUTH_PASSWORD_RESET_REQUESTED,
+      ipAddress,
+      userAgent: 'Password reset link requested'
+    });
+  }
+
+  /**
+   * Redefine a senha com o token do e-mail: uso único, dentro da validade. Encerra todas as
+   * sessões abertas (tokens emitidos antes da troca); o usuário entra de novo com a senha nova.
+   */
+  public async resetPassword(token: string, newPassword: string, ipAddress: string = '127.0.0.1'): Promise<void> {
+    const stored = token ? await AuthTokenRepository.findByHash(hashToken(token)) : null;
+    if (!stored || stored.purpose !== 'PASSWORD_RESET' || stored.usedAt || stored.expiresAt.getTime() < Date.now()) {
+      throw new Error('Link de redefinição inválido ou expirado. Peça um novo.');
+    }
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('A nova senha deve conter no mínimo 8 caracteres.');
+    }
+    const user = await UserRepository.findById(stored.userId);
+    if (!user || !(await AuthTokenRepository.markUsed(stored.id))) {
+      throw new Error('Link de redefinição inválido ou expirado. Peça um novo.');
+    }
+
+    user.passwordHash = await Bun.password.hash(newPassword);
+    user.mustChangePassword = false;
+    // Arredonda para o próximo segundo (iat dos JWT): nenhum token emitido até a troca sobrevive
+    user.passwordChangedAt = new Date(Math.ceil((Date.now() + 1) / 1000) * 1000);
+    await UserRepository.save(user);
+
+    await auditService.logAccess({
+      actorId: user.id,
+      resourceType: AuditResourceType.SECURITY,
+      resourceId: user.id,
+      action: AuditAction.AUTH_PASSWORD_RESET,
+      ipAddress,
+      userAgent: 'Password reset via e-mail link; previous sessions revoked'
+    });
   }
 
   /**

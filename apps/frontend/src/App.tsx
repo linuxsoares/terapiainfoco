@@ -46,6 +46,7 @@ import { BookingPanel } from './components/BookingPanel';
 import { TeleconsultationRoom } from './components/TeleconsultationRoom';
 import { PublicShowcasePage } from './components/PublicShowcasePage';
 import { AuthModal } from './components/AuthModal';
+import { PasswordResetScreen } from './components/PasswordResetScreen';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PatientPortalModal } from './components/PatientPortalModal';
 import { PortabilityVaultModal } from './components/PortabilityVaultModal';
@@ -147,6 +148,8 @@ export default function App() {
   const [soapAppointmentId, setSoapAppointmentId] = useState<string | null>(null);
   // Sessão salva (ou link de sala) é verificada antes de decidir entre vitrine e painel
   const [restoringSession, setRestoringSession] = useState<boolean>(() => hasStoredSession());
+  // Link de recuperação de senha enviado por e-mail (?redefinir-senha=<token>)
+  const [passwordResetToken, setPasswordResetToken] = useState<string | null>(() => urlParam('redefinir-senha'));
 
   // Controle de exibição da Vitrine Pública (Sem Login) vs. Workspace Autenticado
   const [showPublicShowcase, setShowPublicShowcase] = useState<boolean>(true);
@@ -282,6 +285,22 @@ export default function App() {
       : NAV_ITEMS[module];
 
   // Se estiver na Vitrine Pública Sem Login, exibe a página completa de apresentação da ferramenta
+  if (passwordResetToken) {
+    return (
+      <PasswordResetScreen
+        token={passwordResetToken}
+        onDone={() => {
+          // O token sai da URL (histórico e eventual compartilhamento da tela)
+          const url = new URL(window.location.href);
+          url.searchParams.delete('redefinir-senha');
+          window.history.replaceState(null, '', url.toString());
+          setPasswordResetToken(null);
+          handleOpenAuth('login');
+        }}
+      />
+    );
+  }
+
   if (restoringSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 text-sm" role="status">

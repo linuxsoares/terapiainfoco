@@ -5,6 +5,7 @@ import { UserRepository } from '../../src/repositories/userRepository';
 import { PatientRepository } from '../../src/repositories/patientRepository';
 import { AppointmentRepository } from '../../src/repositories/appointmentRepository';
 import { ClinicalRecordRepository } from '../../src/repositories/clinicalRecordRepository';
+import { AuthTokenRepository } from '../../src/repositories/authTokenRepository';
 
 /**
  * Estado inicial de cada teste: cache em memória limpo e tabelas SQL dos domínios
@@ -16,6 +17,7 @@ export async function resetDb(): Promise<void> {
   await AppointmentRepository.deleteAll();
   await PatientRepository.deleteAll();
   await UserRepository.deleteAll();
+  await AuthTokenRepository.deleteAll();
   await seedDemoUsers();
 }
 

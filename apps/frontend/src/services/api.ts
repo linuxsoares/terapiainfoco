@@ -1155,6 +1155,24 @@ export const api = {
     });
   },
 
+  /** Pede o link de redefinição; a resposta é a mesma exista ou não a conta */
+  async requestPasswordReset(email: string): Promise<string> {
+    const res = await request<{ success: boolean; message: string }>('/auth/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+    return res.message;
+  },
+
+  /** Nova senha com o token do link do e-mail (uso único) */
+  async resetPassword(token: string, newPassword: string): Promise<string> {
+    const res = await request<{ success: boolean; message: string }>('/auth/password/reset', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword })
+    });
+    return res.message;
+  },
+
   /** Troca a própria senha; guarda os tokens novos (os anteriores deixam de valer) */
   async changePassword(currentPassword: string, newPassword: string): Promise<SafeUser | undefined> {
     const res = await request<LoginResponse>('/auth/password', {
