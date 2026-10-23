@@ -2415,6 +2415,7 @@ terapiainfoco/
 | `feat/soap-linked-to-appointment` | Evolução SOAP vinculada à consulta real: seletor, prontuário real, transcrição da teleconsulta e minuta pelo pipeline de IA | [PR #177](https://github.com/linuxsoares/terapiainfoco/pull/177) | Merged |
 | `refactor/remove-legacy-soap-demo` | Remove transcrição fictícia e SOAP fixo; pipeline real exige consentimento AI_CLINICAL_SYNTHESIS e paciente da consulta | [PR #178](https://github.com/linuxsoares/terapiainfoco/pull/178) | Merged |
 | `feat/logo-home` | Logo do topo leva à tela inicial de cada perfil | [PR #179](https://github.com/linuxsoares/terapiainfoco/pull/179) | Merged |
+| `docs/roadmap-v0-definition` | Redefine o marco V0 (psicólogo PF do primeiro contato ao recibo) e corrige o "100% concluído" | [PR #180](https://github.com/linuxsoares/terapiainfoco/pull/180) | Merged |
 
 ---
 
