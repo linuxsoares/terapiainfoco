@@ -2429,6 +2429,7 @@ terapiainfoco/
 | `feat/passkey-login` | Login com passkey real e login social rotulado como demonstração (V0 item 5) | [PR #191](https://github.com/linuxsoares/terapiainfoco/pull/191) | Merged |
 | `fix/backup-full-coverage` | Snapshot de backup com todas as tabelas e coleções (V0 item 5) | [PR #192](https://github.com/linuxsoares/terapiainfoco/pull/192) | Merged |
 | `feat/consent-per-scope` | Aceite por finalidade e ledger LGPD persistido (V0 item 5) | [PR #193](https://github.com/linuxsoares/terapiainfoco/pull/193) | Merged |
+| `feat/agenda-filters` | Agenda: filtro por status e ordenação na grade de atendimento | [PR #194](https://github.com/linuxsoares/terapiainfoco/pull/194) | Merged |
 
 ---
 
