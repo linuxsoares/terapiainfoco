@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -26,6 +26,11 @@ import {
   UserRole,
   SessionPaymentStatus,
   FINANCE_ROLES,
+  AGENDA_PERIODS,
+  AGENDA_STATUS_GROUPS,
+  AGENDA_PAGE_SIZE,
+  type AgendaPeriod,
+  type AgendaOrder,
   type DecryptedAppointment,
   type StoredAppointmentReminder
 } from '@terapiainfoco/shared';
@@ -38,16 +43,6 @@ import { SessionPaymentModal, formatBrl } from './SessionPaymentModal';
 
 const CANCELED = [AppointmentStatus.CANCELADA_PELO_PACIENTE, AppointmentStatus.CANCELADA_PELO_TERAPEUTA];
 
-/** Filtros da grade: as duas formas de cancelamento ficam juntas */
-const STATUS_FILTERS: { key: string; label: string; statuses: AppointmentStatus[] }[] = [
-  { key: 'SOLICITADA', label: 'Solicitadas', statuses: [AppointmentStatus.SOLICITADA] },
-  { key: 'CONFIRMADA', label: 'Confirmadas', statuses: [AppointmentStatus.CONFIRMADA] },
-  { key: 'EM_ANDAMENTO', label: 'Em andamento', statuses: [AppointmentStatus.EM_ANDAMENTO] },
-  { key: 'CONCLUIDA', label: 'Concluídas', statuses: [AppointmentStatus.CONCLUIDA] },
-  { key: 'NAO_COMPARECEU', label: 'Faltas', statuses: [AppointmentStatus.NAO_COMPARECEU] },
-  { key: 'REAGENDADA', label: 'Reagendadas', statuses: [AppointmentStatus.REAGENDADA] },
-  { key: 'CANCELADA', label: 'Canceladas', statuses: CANCELED }
-];
 
 /** A sala pode ser iniciada a partir de 15 minutos antes do horário (mesma regra do backend) */
 const SESSION_EARLY_START_MS = 15 * 60 * 1000;
@@ -98,38 +93,53 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
   const [selectedAppointmentForReminder, setSelectedAppointmentForReminder] = useState<DecryptedAppointment | null>(null);
   const [reminderChannel, setReminderChannel] = useState<ReminderChannel>(ReminderChannel.WHATSAPP);
   const [reminderTiming, setReminderTiming] = useState<ReminderTiming>(ReminderTiming.HOURS_24_BEFORE);
-  const [reminderRecipientPhone, setReminderRecipientPhone] = useState('11987654321');
-  const [reminderRecipientEmail, setReminderRecipientEmail] = useState('mariana.silva@email.com');
+  const [reminderRecipientPhone, setReminderRecipientPhone] = useState('');
+  const [reminderRecipientEmail, setReminderRecipientEmail] = useState('');
   const [reminderPreview, setReminderPreview] = useState<{ message: string; channel: string } | null>(null);
   const [reminderLoading, setReminderLoading] = useState(false);
   const [reminderHistory, setReminderHistory] = useState<StoredAppointmentReminder[]>([]);
 
 
-  // Filtro por status e ordem da grade de atendimento
+  // Grade paginada no servidor: período, status, busca por paciente e ordem
+  const [period, setPeriod] = useState<AgendaPeriod>('next7');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [sortOrder, setSortOrder] = useState<AgendaOrder>('newest');
+  const [nameQuery, setNameQuery] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [total, setTotal] = useState(0);
+  const [periodTotal, setPeriodTotal] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const statusCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const filter of STATUS_FILTERS) {
-      counts.set(filter.key, appointments.filter((a) => filter.statuses.includes(a.status)).length);
-    }
-    return counts;
-  }, [appointments]);
+  // Espera o usuário parar de digitar antes de buscar pelo nome
+  useEffect(() => {
+    const timer = setTimeout(() => setNameSearch(nameQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [nameQuery]);
 
-  const visibleAppointments = useMemo(() => {
-    const selected = STATUS_FILTERS.find((f) => f.key === statusFilter);
-    const filtered = selected ? appointments.filter((a) => selected.statuses.includes(a.status)) : appointments;
-    const direction = sortOrder === 'newest' ? -1 : 1;
-    return [...filtered].sort((a, b) => direction * (new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()));
-  }, [appointments, statusFilter, sortOrder]);
+  const loadAgenda = async (offset: number, limit: number) => {
+    const page = await api.getAgendaPage({
+      period,
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
+      order: sortOrder,
+      q: nameSearch || undefined,
+      limit,
+      offset
+    });
+    setAppointments((current) => (offset === 0 ? page.appointments : [...current, ...page.appointments]));
+    setTotal(page.total);
+    setPeriodTotal(page.periodTotal);
+    setStatusCounts(page.statusCounts);
+    setHasMore(page.hasMore);
+  };
 
-  const fetchAppointments = async () => {
+  /** Recarrega a grade mantendo quantas consultas já estavam na tela (após agendar, pagar, mudar status) */
+  const fetchAppointments = async (keepLoaded = true) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.getAppointments();
-      setAppointments(data);
+      await loadAgenda(0, keepLoaded ? Math.max(AGENDA_PAGE_SIZE, appointments.length) : AGENDA_PAGE_SIZE);
     } catch (err: any) {
       setError(err.message || 'Falha ao carregar agenda');
     } finally {
@@ -137,9 +147,27 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
     }
   };
 
+  const loadMore = async () => {
+    try {
+      setLoadingMore(true);
+      await loadAgenda(appointments.length, AGENDA_PAGE_SIZE);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao carregar mais consultas');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    void fetchAppointments(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, statusFilter, sortOrder, nameSearch]);
+
+  const clearFilters = () => {
+    setStatusFilter('ALL');
+    setNameQuery('');
+    setNameSearch('');
+  };
 
   // Busca com espera curta para não estourar o limite de buscas da rota
   useEffect(() => {
@@ -239,6 +267,8 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
     setSelectedAppointmentForReminder(app);
     setShowReminderModal(true);
     setReminderPreview(null);
+    setReminderRecipientPhone('');
+    setReminderRecipientEmail('');
     try {
       const history = await api.getAppointmentReminders(app.id);
       setReminderHistory(history);
@@ -248,6 +278,9 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
     try {
       const preview = await api.previewAppointmentReminder(app.id, reminderChannel, reminderTiming);
       setReminderPreview(preview);
+      // O envio usa o contato do cadastro do paciente; a tela só o exibe
+      setReminderRecipientPhone(preview.preview?.recipientPhone ?? '');
+      setReminderRecipientEmail(preview.preview?.recipientEmail ?? '');
     } catch {
       // preview pode falhar se não houver conexão, não trava abertura
     }
@@ -337,7 +370,7 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
-            onClick={fetchAppointments}
+            onClick={() => void fetchAppointments()}
             className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shadow-sm dark:shadow-none transition-colors cursor-pointer"
             title="Atualizar grade"
           >
@@ -398,8 +431,8 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{appointments.length}</span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Na Base de Dados</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{periodTotal}</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{AGENDA_PERIODS.find((p) => p.key === period)?.label}</span>
           </div>
         </div>
       </div>
@@ -415,7 +448,7 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
             <select
               id="agenda-sort"
               value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+              onChange={(e) => setSortOrder(e.target.value as AgendaOrder)}
               className="px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
             >
               <option value="newest">Mais recentes primeiro</option>
@@ -424,10 +457,39 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
           </label>
         </div>
 
-        {!loading && appointments.length > 0 && (
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex flex-wrap gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800" role="group" aria-label="Período">
+            {AGENDA_PERIODS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                aria-pressed={period === p.key}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${period === p.key
+                  ? 'bg-white text-teal-800 shadow-sm dark:bg-slate-800 dark:text-teal-300'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative md:ml-auto md:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2" />
+            <input
+              id="agenda-patient-search"
+              type="search"
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              placeholder="Buscar paciente pelo nome"
+              aria-label="Buscar paciente pelo nome"
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            />
+          </div>
+        </div>
+
+        {periodTotal > 0 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por status">
-            {[{ key: 'ALL', label: 'Todas', count: appointments.length },
-              ...STATUS_FILTERS.map((f) => ({ key: f.key, label: f.label, count: statusCounts.get(f.key) ?? 0 })).filter((f) => f.count > 0 || f.key === statusFilter)
+            {[{ key: 'ALL', label: 'Todas', count: periodTotal },
+              ...AGENDA_STATUS_GROUPS.map((g) => ({ key: g.key, label: g.label, count: statusCounts[g.key] ?? 0 })).filter((g) => g.count > 0 || g.key === statusFilter)
             ].map((f) => (
               <button
                 key={f.key}
@@ -445,10 +507,10 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
 
         {loading ? (
           <div className="p-12 text-center text-slate-500 text-sm">Carregando consultas...</div>
-        ) : appointments.length === 0 ? (
+        ) : periodTotal === 0 && !nameSearch ? (
           <div className="p-12 rounded-2xl bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 text-center space-y-3 shadow-sm dark:shadow-none">
             <Calendar className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto" />
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Nenhuma consulta agendada no momento.</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Nenhuma consulta neste período.</p>
             <button
               onClick={openNewAppointmentModal}
               className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
@@ -456,16 +518,16 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
               + Criar primeiro agendamento
             </button>
           </div>
-        ) : visibleAppointments.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <div className="p-8 rounded-2xl bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 text-center text-sm text-slate-500 dark:text-slate-400">
-            Nenhuma consulta com este status.{' '}
-            <button onClick={() => setStatusFilter('ALL')} className="text-teal-600 dark:text-teal-400 hover:underline font-semibold cursor-pointer">
-              Ver todas
+            Nenhuma consulta com estes filtros.{' '}
+            <button onClick={clearFilters} className="text-teal-600 dark:text-teal-400 hover:underline font-semibold cursor-pointer">
+              Limpar filtros
             </button>
           </div>
         ) : (
           <div className="grid gap-3">
-            {visibleAppointments.map((app) => {
+            {appointments.map((app) => {
               return (
                 <div
                   key={app.id}
@@ -626,6 +688,23 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {!loading && appointments.length > 0 && (
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+              Mostrando {appointments.length} de {total}
+            </span>
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 cursor-pointer"
+              >
+                {loadingMore ? 'Carregando...' : `Carregar mais ${Math.min(AGENDA_PAGE_SIZE, total - appointments.length)}`}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -962,26 +1041,26 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
             {reminderChannel === ReminderChannel.WHATSAPP ? (
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Número de WhatsApp do Paciente (E.164 ou DDD + Telefone)
+                  WhatsApp do paciente (do cadastro; para mudar, edite o paciente)
                 </label>
                 <input
                   type="text"
+                  readOnly
                   value={reminderRecipientPhone}
-                  onChange={(e) => setReminderRecipientPhone(e.target.value)}
-                  placeholder="Ex: 11987654321 ou +5511987654321"
+                  placeholder="Sem telefone no cadastro"
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono"
                 />
               </div>
             ) : (
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  E-mail do Paciente
+                  E-mail do paciente (do cadastro; para mudar, edite o paciente)
                 </label>
                 <input
                   type="email"
+                  readOnly
                   value={reminderRecipientEmail}
-                  onChange={(e) => setReminderRecipientEmail(e.target.value)}
-                  placeholder="paciente@exemplo.com"
+                  placeholder="Sem e-mail no cadastro"
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-teal-500 font-mono"
                 />
               </div>

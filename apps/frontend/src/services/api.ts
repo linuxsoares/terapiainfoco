@@ -635,6 +635,8 @@ import type {
   PsychiatricReferralGuide,
   AppointmentLinkView,
   RegisterSessionPaymentDTO,
+  AgendaQuery,
+  AgendaPageResponse,
   FinanceSummaryResponse,
   ReceitaSaudeReportResponse
 } from '@terapiainfoco/shared';
@@ -864,6 +866,16 @@ export const api = {
   async getAppointments(): Promise<DecryptedAppointment[]> {
     const res = await request<{ success: boolean; appointments: DecryptedAppointment[] }>('/appointments/mine');
     return res.appointments;
+  },
+
+  /** Página da grade de atendimento (período, status, busca por paciente e ordem no servidor) */
+  async getAgendaPage(query: AgendaQuery): Promise<AgendaPageResponse> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params.set(key, String(value));
+    }
+    const { success: _success, ...page } = await request<AgendaPageResponse & { success: boolean }>(`/appointments/agenda?${params}`);
+    return page;
   },
 
   /** Agenda no consultório do usuário logado (o backend usa o consultório da sessão) */

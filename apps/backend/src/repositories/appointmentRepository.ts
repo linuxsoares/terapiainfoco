@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, inArray, lt, lte, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, notInArray, sql, type SQL } from 'drizzle-orm';
 import { getDb, schema, type AppDb } from '../db';
 import {
   AppointmentStatus,
@@ -99,6 +99,43 @@ export const AppointmentRepository = {
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(asc(schema.appointments.scheduledStart));
     return rows.map(toAppointment);
+  },
+
+  /**
+   * Página da grade do consultório: período [from, to), status e pacientes opcionais.
+   * Devolve também o total filtrado e a contagem por status (sem o filtro de status).
+   */
+  async listPage(filter: {
+    therapistId: string;
+    from?: Date;
+    to?: Date;
+    statuses?: string[];
+    patientIds?: string[];
+    order: 'newest' | 'oldest';
+    limit: number;
+    offset: number;
+  }): Promise<{ items: StoredAppointment[]; total: number; countsByStatus: Record<string, number> }> {
+    const t = schema.appointments;
+    if (filter.patientIds && filter.patientIds.length === 0) return { items: [], total: 0, countsByStatus: {} };
+    const base: SQL[] = [eq(t.therapistId, filter.therapistId)];
+    if (filter.from) base.push(gte(t.scheduledStart, filter.from));
+    if (filter.to) base.push(lt(t.scheduledStart, filter.to));
+    if (filter.patientIds) base.push(inArray(t.patientId, filter.patientIds));
+    const withStatus = filter.statuses?.length ? [...base, inArray(t.status, filter.statuses)] : base;
+
+    const db: any = await getDb();
+    const [rows, totalRows, statusRows] = await Promise.all([
+      db.select().from(t).where(and(...withStatus))
+        .orderBy(filter.order === 'newest' ? desc(t.scheduledStart) : asc(t.scheduledStart))
+        .limit(filter.limit).offset(filter.offset),
+      db.select({ total: count() }).from(t).where(and(...withStatus)),
+      db.select({ status: t.status, total: count() }).from(t).where(and(...base)).groupBy(t.status)
+    ]);
+    return {
+      items: (rows as AppointmentRow[]).map(toAppointment),
+      total: Number(totalRows[0]?.total ?? 0),
+      countsByStatus: Object.fromEntries((statusRows as { status: string; total: number }[]).map((r) => [r.status, Number(r.total)]))
+    };
   },
 
   /** Consultas não canceladas do consultório que se sobrepõem ao intervalo [from, to) */

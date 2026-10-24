@@ -5,3 +5,4 @@ export * from './dtos';
 export * from './permissions';
 export * from './therapists';
 export * from './cpf';
+export * from './agenda';

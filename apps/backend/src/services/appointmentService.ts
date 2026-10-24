@@ -14,7 +14,14 @@ import {
   type PatientBookingDTO,
   type PatientAppointmentView,
   type TherapistPublicProfile,
-  type CreateRecurrentAppointmentsResponse
+  type CreateRecurrentAppointmentsResponse,
+  type AgendaQuery,
+  type AgendaPageResponse,
+  type AgendaPeriod,
+  type AgendaOrder,
+  AGENDA_PERIODS,
+  AGENDA_STATUS_GROUPS,
+  AGENDA_PAGE_SIZE
 } from '@terapiainfoco/shared';
 import { UserRepository } from '../repositories/userRepository';
 import { encryptField, decryptField } from './cryptoContext';
@@ -35,6 +42,38 @@ function utcOffsetMinutes(offset: string): number {
   if (!match) return 0;
   const minutes = Number(match[2]) * 60 + Number(match[3]);
   return match[1] === '-' ? -minutes : minutes;
+}
+
+/** Minúsculas e sem acentos, para a busca por nome */
+function normalizeSearch(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/** Início do dia (00:00) em Brasília; o Brasil não tem horário de verão desde 2019 */
+function brasiliaDayStart(ymd: string): Date {
+  return new Date(`${ymd}T00:00:00-03:00`);
+}
+
+/** Intervalo [from, to) de cada período da grade, com dias contados no fuso de Brasília */
+export function agendaPeriodRange(period: AgendaPeriod, now: Date): { from?: Date; to?: Date } {
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const startOfToday = brasiliaDayStart(today);
+  const DAY = 86_400_000;
+  switch (period) {
+    case 'today':
+      return { from: startOfToday, to: new Date(startOfToday.getTime() + DAY) };
+    case 'next7':
+      return { from: startOfToday, to: new Date(startOfToday.getTime() + 7 * DAY) };
+    case 'month': {
+      const [year, month] = today.split('-').map(Number);
+      const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      return { from: brasiliaDayStart(`${today.slice(0, 7)}-01`), to: brasiliaDayStart(next) };
+    }
+    case 'past':
+      return { to: startOfToday };
+    default:
+      return {};
+  }
 }
 
 /** Antecedência máxima para iniciar a sessão (sala aberta antes do horário) */
@@ -195,6 +234,51 @@ export class AppointmentService {
       ...toDecryptedAppointment(app),
       patientName: patientNames.get(app.patientId) ?? 'Paciente Cadastrado'
     }));
+  }
+
+  /**
+   * Grade de atendimento paginada: período (dias de Brasília), grupo de status, busca pelo nome
+   * do paciente e ordem. A busca acontece aqui porque os nomes ficam cifrados no banco.
+   */
+  static async getAgendaPage(therapistId: string, query: AgendaQuery, now: Date = new Date()): Promise<AgendaPageResponse> {
+    const period: AgendaPeriod = AGENDA_PERIODS.some((p) => p.key === query.period) ? query.period! : 'next7';
+    const order: AgendaOrder = query.order === 'oldest' ? 'oldest' : 'newest';
+    const limit = Math.min(100, Math.max(1, Math.floor(Number(query.limit) || AGENDA_PAGE_SIZE)));
+    const offset = Math.max(0, Math.floor(Number(query.offset) || 0));
+    const group = AGENDA_STATUS_GROUPS.find((g) => g.key === query.status);
+
+    const patientNames = new Map<string, string>();
+    for (const patient of await PatientRepository.list({ therapistId })) {
+      try {
+        patientNames.set(patient.id, decryptField(patient.encryptedName));
+      } catch {
+        patientNames.set(patient.id, 'Paciente Cadastrado');
+      }
+    }
+    const search = normalizeSearch(query.q ?? '');
+    const patientIds = search
+      ? [...patientNames].filter(([, name]) => normalizeSearch(name).includes(search)).map(([id]) => id)
+      : undefined;
+
+    const { from, to } = agendaPeriodRange(period, now);
+    const page = await AppointmentRepository.listPage({
+      therapistId, from, to, statuses: group?.statuses, patientIds, order, limit, offset
+    });
+
+    const statusCounts = Object.fromEntries(AGENDA_STATUS_GROUPS.map((g) => [
+      g.key,
+      g.statuses.reduce((sum, status) => sum + (page.countsByStatus[status] ?? 0), 0)
+    ]));
+    return {
+      appointments: page.items.map((app) => ({
+        ...toDecryptedAppointment(app),
+        patientName: patientNames.get(app.patientId) ?? 'Paciente Cadastrado'
+      })),
+      total: page.total,
+      statusCounts,
+      periodTotal: Object.values(page.countsByStatus).reduce((sum, n) => sum + n, 0),
+      hasMore: offset + page.items.length < page.total
+    };
   }
 
   /**

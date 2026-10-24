@@ -2458,6 +2458,7 @@ terapiainfoco/
 
 **Melhorias pós-V0:**
 - [x] **Agenda: filtro e ordenação da grade (PR #194):** filtro por status (Solicitadas, Confirmadas, Em andamento, Concluídas, Faltas, Reagendadas, Canceladas, com contagem) e ordem "mais recentes primeiro" (padrão) ou "mais antigas primeiro".
+- [x] **Agenda paginada no servidor (PR #195):** `GET /api/appointments/agenda` com período (Hoje, Próximos 7 dias — padrão —, Este mês, Anteriores, Todas, em dias de Brasília), grupo de status, busca pelo nome do paciente (sem acentos; nomes decifrados no servidor), ordem e páginas de 20 com "Carregar mais"; contagens por status vêm do servidor. `/appointments/mine` segue para SOAP e portal. Modal de lembrete manual mostra o contato do cadastro (somente leitura) em vez do telefone/e-mail fictícios da demo.
 
 **Fica para o V1:** cobrança online (Pix/cartão), NFS-e, sincronização com Google/Outlook Calendar, ICP-Brasil real via provedor em nuvem, PWA, assinatura do SaaS (planos e cobrança do psicólogo) e operação com várias réplicas.
 
