@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -37,6 +37,17 @@ import { RECORDABLE_STATUSES } from './SoapModule';
 import { SessionPaymentModal, formatBrl } from './SessionPaymentModal';
 
 const CANCELED = [AppointmentStatus.CANCELADA_PELO_PACIENTE, AppointmentStatus.CANCELADA_PELO_TERAPEUTA];
+
+/** Filtros da grade: as duas formas de cancelamento ficam juntas */
+const STATUS_FILTERS: { key: string; label: string; statuses: AppointmentStatus[] }[] = [
+  { key: 'SOLICITADA', label: 'Solicitadas', statuses: [AppointmentStatus.SOLICITADA] },
+  { key: 'CONFIRMADA', label: 'Confirmadas', statuses: [AppointmentStatus.CONFIRMADA] },
+  { key: 'EM_ANDAMENTO', label: 'Em andamento', statuses: [AppointmentStatus.EM_ANDAMENTO] },
+  { key: 'CONCLUIDA', label: 'Concluídas', statuses: [AppointmentStatus.CONCLUIDA] },
+  { key: 'NAO_COMPARECEU', label: 'Faltas', statuses: [AppointmentStatus.NAO_COMPARECEU] },
+  { key: 'REAGENDADA', label: 'Reagendadas', statuses: [AppointmentStatus.REAGENDADA] },
+  { key: 'CANCELADA', label: 'Canceladas', statuses: CANCELED }
+];
 
 /** A sala pode ser iniciada a partir de 15 minutos antes do horário (mesma regra do backend) */
 const SESSION_EARLY_START_MS = 15 * 60 * 1000;
@@ -93,6 +104,25 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
   const [reminderLoading, setReminderLoading] = useState(false);
   const [reminderHistory, setReminderHistory] = useState<StoredAppointmentReminder[]>([]);
 
+
+  // Filtro por status e ordem da grade de atendimento
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const filter of STATUS_FILTERS) {
+      counts.set(filter.key, appointments.filter((a) => filter.statuses.includes(a.status)).length);
+    }
+    return counts;
+  }, [appointments]);
+
+  const visibleAppointments = useMemo(() => {
+    const selected = STATUS_FILTERS.find((f) => f.key === statusFilter);
+    const filtered = selected ? appointments.filter((a) => selected.statuses.includes(a.status)) : appointments;
+    const direction = sortOrder === 'newest' ? -1 : 1;
+    return [...filtered].sort((a, b) => direction * (new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()));
+  }, [appointments, statusFilter, sortOrder]);
 
   const fetchAppointments = async () => {
     try {
@@ -376,9 +406,42 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
 
       {/* Lista de Consultas */}
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-          Grade de Atendimento
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+            Grade de Atendimento
+          </h2>
+          <label htmlFor="agenda-sort" className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            Ordenar
+            <select
+              id="agenda-sort"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+              className="px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            >
+              <option value="newest">Mais recentes primeiro</option>
+              <option value="oldest">Mais antigas primeiro</option>
+            </select>
+          </label>
+        </div>
+
+        {!loading && appointments.length > 0 && (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por status">
+            {[{ key: 'ALL', label: 'Todas', count: appointments.length },
+              ...STATUS_FILTERS.map((f) => ({ key: f.key, label: f.label, count: statusCounts.get(f.key) ?? 0 })).filter((f) => f.count > 0 || f.key === statusFilter)
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                aria-pressed={statusFilter === f.key}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${statusFilter === f.key
+                  ? 'bg-teal-600 text-white border-teal-600 dark:bg-teal-500 dark:text-slate-950 dark:border-teal-500'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'}`}
+              >
+                {f.label} <span className="tabular-nums opacity-75">{f.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="p-12 text-center text-slate-500 text-sm">Carregando consultas...</div>
@@ -393,9 +456,16 @@ export function AgendaModule({ role, onOpenSoap }: AgendaModuleProps) {
               + Criar primeiro agendamento
             </button>
           </div>
+        ) : visibleAppointments.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 text-center text-sm text-slate-500 dark:text-slate-400">
+            Nenhuma consulta com este status.{' '}
+            <button onClick={() => setStatusFilter('ALL')} className="text-teal-600 dark:text-teal-400 hover:underline font-semibold cursor-pointer">
+              Ver todas
+            </button>
+          </div>
         ) : (
           <div className="grid gap-3">
-            {appointments.map((app) => {
+            {visibleAppointments.map((app) => {
               return (
                 <div
                   key={app.id}
