@@ -17,6 +17,8 @@ import {
   type UpdateAppointmentStatusDTO,
   type PatientBookingDTO,
   type AppointmentLinkView,
+  type AgendaPeriod,
+  type AgendaOrder,
   type RegisterSessionPaymentDTO,
   FINANCE_ROLES,
   UserRole
@@ -186,6 +188,20 @@ import { ReminderChannel } from '@terapiainfoco/shared';
 import { notifyAppointmentsScheduled } from '../services/appointmentNotificationService';
 import { AppointmentRepository } from '../repositories/appointmentRepository';
 // Listar consultas do consultório do usuário autenticado
+// Grade de atendimento paginada (período, status, busca por paciente e ordem)
+appointmentsRoute.get('/agenda', async (c) => {
+  const q = c.req.query();
+  const page = await AppointmentService.getAgendaPage(c.get('user').therapistId!, {
+    period: q.period as AgendaPeriod | undefined,
+    status: q.status,
+    order: q.order as AgendaOrder | undefined,
+    q: q.q,
+    limit: q.limit ? Number(q.limit) : undefined,
+    offset: q.offset ? Number(q.offset) : undefined
+  });
+  return c.json({ success: true, ...page });
+});
+
 appointmentsRoute.get('/mine', async (c) => {
   const appointments = await AppointmentService.getTherapistAppointments(c.get('user').therapistId!);
   return c.json({ success: true, appointments });
