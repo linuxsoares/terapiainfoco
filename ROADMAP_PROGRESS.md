@@ -2429,6 +2429,7 @@ terapiainfoco/
 | `feat/passkey-login` | Login com passkey real e login social rotulado como demonstração (V0 item 5) | [PR #191](https://github.com/linuxsoares/terapiainfoco/pull/191) | Merged |
 | `fix/backup-full-coverage` | Snapshot de backup com todas as tabelas e coleções (V0 item 5) | [PR #192](https://github.com/linuxsoares/terapiainfoco/pull/192) | Merged |
 | `feat/consent-per-scope` | Aceite por finalidade e ledger LGPD persistido (V0 item 5) | [PR #193](https://github.com/linuxsoares/terapiainfoco/pull/193) | Merged |
+| `feat/agenda-filters` | Agenda: filtro por status e ordenação na grade de atendimento | [PR #194](https://github.com/linuxsoares/terapiainfoco/pull/194) | Merged |
 
 ---
 
@@ -2454,6 +2455,9 @@ terapiainfoco/
    - [ ] V1: integração real com provedor ICP-Brasil em nuvem (PSC) e carimbo do tempo de ACT.
    - [x] **Painel Admin (PR #190):** os 30 painéis do laboratório de segurança (simuladores de ataque, ZKP, PQC, WAF, notário, ordem judicial etc.) só aparecem para o Admin com o backend em `DEMO_MODE`; fora dele, um aviso aponta para os controles reais (Auditoria, Backups, Observabilidade). As rotas continuam restritas ao Admin.
 5. [x] **Pendências da fundação (PRs #191–#193):** consentimento separado por escopo no TCLE, login social real (ou botão oculto) e backup cobrindo todas as coleções (itens detalhados abaixo).
+
+**Melhorias pós-V0:**
+- [x] **Agenda: filtro e ordenação da grade (PR #194):** filtro por status (Solicitadas, Confirmadas, Em andamento, Concluídas, Faltas, Reagendadas, Canceladas, com contagem) e ordem "mais recentes primeiro" (padrão) ou "mais antigas primeiro".
 
 **Fica para o V1:** cobrança online (Pix/cartão), NFS-e, sincronização com Google/Outlook Calendar, ICP-Brasil real via provedor em nuvem, PWA, assinatura do SaaS (planos e cobrança do psicólogo) e operação com várias réplicas.
 
